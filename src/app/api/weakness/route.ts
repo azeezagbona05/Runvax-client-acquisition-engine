@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { Business } from '@/types';
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 async function fetchWebsiteHtml(url: string): Promise<string> {
   try {
     const normalized = url.startsWith('http') ? url : `https://${url}`;
@@ -37,6 +35,8 @@ export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });
   }
+
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   if (!business.website) {
     return NextResponse.json({ error: 'Business has no website' }, { status: 400 });

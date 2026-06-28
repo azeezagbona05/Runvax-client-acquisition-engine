@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 export async function POST(req: NextRequest) {
   const { industry, location }: { industry: string; location: string } = await req.json();
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set' }, { status: 500 });
   }
+
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const prompt = `You are a market research expert for web development businesses in Nigeria in 2026.
 

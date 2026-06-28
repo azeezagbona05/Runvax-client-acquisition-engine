@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { Business, ReplyType } from '@/types';
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const REPLY_CONTEXTS: Record<ReplyType, string> = {
   interested: `They said YES or showed clear interest. This is a warm lead. Your job now:
 - Express genuine delight (briefly, not excessively)
@@ -103,6 +101,8 @@ export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });
   }
+
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const replyContext = REPLY_CONTEXTS[replyType] ?? REPLY_CONTEXTS.custom;
 

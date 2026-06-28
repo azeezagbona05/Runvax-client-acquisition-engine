@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { Business } from '@/types';
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 export type OutreachFramework = 'BAB' | 'AIDA' | 'PAS' | 'STORY';
 
 const FRAMEWORK_GUIDES: Record<OutreachFramework, string> = {
@@ -69,6 +67,8 @@ export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });
   }
+
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const frameworkGuide = FRAMEWORK_GUIDES[framework] || FRAMEWORK_GUIDES.PAS;
 

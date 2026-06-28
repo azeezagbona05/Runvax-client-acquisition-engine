@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { Business } from '@/types';
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: 'OPENAI_API_KEY is not set in .env.local' }, { status: 500 });
     }
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const { business }: { business: Business } = await req.json();
     if (!business?.name) {
