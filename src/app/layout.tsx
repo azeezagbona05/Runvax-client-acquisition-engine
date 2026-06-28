@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { ProspectsProvider } from '@/context/ProspectsContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { UpgradeProvider } from '@/context/UpgradeContext';
 import Nav from '@/components/Nav';
 import AuthProvider from '@/components/AuthProvider';
 
@@ -36,8 +37,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <ThemeProvider>
             <ProspectsProvider>
-              <Nav />
-              {children}
+              <UpgradeProvider>
+                <Nav />
+                {children}
+              </UpgradeProvider>
             </ProspectsProvider>
           </ThemeProvider>
         </AuthProvider>

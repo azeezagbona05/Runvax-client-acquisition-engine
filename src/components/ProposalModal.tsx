@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Loader2, RefreshCw, Printer, Copy, Check } from 'lucide-react';
 import { Business } from '@/types';
+import { useHandleAIResponse } from '@/context/UpgradeContext';
 
 interface Props {
   business: Business;
@@ -17,6 +18,7 @@ export default function ProposalModal({ business, onClose }: Props) {
   const [yourPhone, setYourPhone] = useState('');
   const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const handleAIResponse = useHandleAIResponse();
 
   // Pre-fill from saved profile settings
   useEffect(() => {
@@ -39,6 +41,7 @@ export default function ProposalModal({ business, onClose }: Props) {
         body: JSON.stringify({ business, yourName, yourPhone }),
       });
       const json = await res.json();
+      if (handleAIResponse(res, json)) return;
       if (!res.ok) throw new Error(json.error || 'Failed');
       setProposal(json.proposal);
     } catch (e: unknown) {

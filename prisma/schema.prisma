@@ -14,7 +14,10 @@ model User {
   emailVerified  DateTime?
   image          String?
   password       String?
-  plan           String        @default("free")
+  plan                    String        @default("free")
+  paystackCustomerCode    String?
+  paystackSubscriptionCode String?
+  planExpiresAt           DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   accounts       Account[]
@@ -24,6 +27,7 @@ model User {
   dailyLogs      DailyLog[]
   usageRecords   UsageRecord[]
   searchHistory  SearchHistory[]
+  payments       Payment[]
 }
 
 model Account {
@@ -140,6 +144,19 @@ model UsageRecord {
   aiCalls Int    @default(0)
 
   @@unique([userId, date])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reference String   @unique
+  plan      String
+  amount    Int
+  status    String   @default("success")
+  paidAt    DateTime @default(now())
+
+  @@index([userId])
 }
 
 model SearchHistory {

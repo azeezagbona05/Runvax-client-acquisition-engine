@@ -6,6 +6,7 @@ import { Business } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
 import { OutreachFramework } from '@/app/api/outreach/route';
 import { whatsappLink } from '@/lib/phone';
+import { useHandleAIResponse } from '@/context/UpgradeContext';
 
 interface Props {
   business: Business;
@@ -93,6 +94,7 @@ function CopyButton({ text }: { text: string }) {
 
 export default function OutreachModal({ business, onClose }: Props) {
   const { markOutreachSent, incrementToday, updateStage, isSaved, save } = useProspects();
+  const handleAIResponse = useHandleAIResponse();
   const [tab, setTab] = useState<Tab>('whatsapp');
   const [framework, setFramework] = useState<OutreachFramework>('PAS');
   const [loading, setLoading] = useState(false);
@@ -112,6 +114,7 @@ export default function OutreachModal({ business, onClose }: Props) {
         body: JSON.stringify({ business, framework }),
       });
       const json = await res.json();
+      if (handleAIResponse(res, json)) return;
       if (!res.ok) throw new Error(json.error || 'Failed');
       setData(json);
     } catch (e: unknown) {

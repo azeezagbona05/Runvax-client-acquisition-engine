@@ -1,0 +1,52 @@
+'use client';
+
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import UpgradeModal from '@/components/UpgradeModal';
+
+type UpgradeReason = 'ai_limit' | 'prospect_limit' | 'feature';
+
+interface UpgradeContextValue {
+  triggerUpgrade: (reason: UpgradeReason, featureName?: string) => void;
+}
+
+const UpgradeContext = createContext<UpgradeContextValue>({ triggerUpgrade: () => {} });
+
+export function useUpgrade() {
+  return useContext(UpgradeContext);
+}
+
+// Call this helper on any fetch response to auto-show the modal on 402
+export function useHandleAIResponse() {
+  const { triggerUpgrade } = useUpgrade();
+  return useCallback(
+    (res: Response, json: { code?: string; error?: string }) => {
+      if (res.status === 402 || json.code === 'LIMIT_REACHED') {
+        triggerUpgrade('ai_limit');
+        return true; // consumed — caller should return early
+      }
+      return false;
+    },
+    [triggerUpgrade]
+  );
+}
+
+export function UpgradeProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<{ reason: UpgradeReason; featureName?: string } | null>(null);
+
+  const triggerUpgrade = useCallback((reason: UpgradeReason, featureName?: string) => {
+    setState({ reason, featureName });
+  }, []);
+
+  return (
+    <UpgradeContext.Provider value={{ triggerUpgrade }}>
+      {children}
+      {state && (
+        <UpgradeModal
+          reason={state.reason}
+          featureName={state.featureName}
+          onClose={() => setState(null)}
+        />
+      )}
+    </UpgradeContext.Provider>
+  );
+}

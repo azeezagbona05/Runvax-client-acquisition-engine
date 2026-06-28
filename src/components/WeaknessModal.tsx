@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Loader2, RefreshCw, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Business } from '@/types';
+import { useHandleAIResponse } from '@/context/UpgradeContext';
 
 interface Props {
   business: Business;
@@ -26,6 +27,7 @@ function MetricRow({ label, ok }: { label: string; ok: boolean }) {
 }
 
 export default function WeaknessModal({ business, onClose }: Props) {
+  const handleAIResponse = useHandleAIResponse();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<WeaknessData | null>(null);
   const [error, setError] = useState('');
@@ -40,6 +42,7 @@ export default function WeaknessModal({ business, onClose }: Props) {
         body: JSON.stringify({ business }),
       });
       const json = await res.json();
+      if (handleAIResponse(res, json)) return;
       if (!res.ok) throw new Error(json.error || 'Failed');
       setData(json);
     } catch (e: unknown) {

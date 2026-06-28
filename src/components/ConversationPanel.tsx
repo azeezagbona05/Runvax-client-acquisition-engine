@@ -8,6 +8,7 @@ import {
 import { Business, ConversationEntry, ReplyType, ConversationChannel } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
 import { whatsappLink } from '@/lib/phone';
+import { useHandleAIResponse } from '@/context/UpgradeContext';
 
 interface Props {
   business: Business;
@@ -115,6 +116,7 @@ function Bubble({ entry }: { entry: ConversationEntry }) {
 
 export default function ConversationPanel({ business }: Props) {
   const { get, addConversationEntry, updateStage, incrementToday } = useProspects();
+  const handleAIResponse = useHandleAIResponse();
   const prospect = get(business.id);
   const conversations = prospect?.conversations ?? [];
 
@@ -148,6 +150,7 @@ export default function ConversationPanel({ business }: Props) {
         }),
       });
       const json = await res.json();
+      if (handleAIResponse(res, json)) return;
       if (!res.ok) throw new Error(json.error);
       setAiResponse(json.message);
     } catch (e: unknown) {

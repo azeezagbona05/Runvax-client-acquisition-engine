@@ -5,6 +5,7 @@ import {
   X, Loader2, Sparkles, MapPin, ChevronRight,
   Copy, Check, TrendingUp, MessageCircle, Lightbulb,
 } from 'lucide-react';
+import { useHandleAIResponse } from '@/context/UpgradeContext';
 
 const INDUSTRIES = [
   'Restaurants & Eateries', 'Beauty Salons & Spas', 'Barbers & Hair Salons',
@@ -66,6 +67,7 @@ const TIER_STYLES = {
 };
 
 export default function DailyBriefModal({ onStart, onDismiss }: Props) {
+  const handleAIResponse = useHandleAIResponse();
   const [step, setStep] = useState<'pick' | 'loading' | 'results'>('pick');
   const [industry, setIndustry] = useState('');
   const [location, setLocation] = useState('');
@@ -94,6 +96,7 @@ export default function DailyBriefModal({ onStart, onDismiss }: Props) {
         body: JSON.stringify({ industry, location }),
       });
       const data = await res.json();
+      if (handleAIResponse(res, data)) { setStep('pick'); return; }
       if (!res.ok) throw new Error(data.error || 'Failed');
       setBrief(data);
       setStep('results');

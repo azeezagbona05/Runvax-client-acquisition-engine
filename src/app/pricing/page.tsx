@@ -1,8 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Check, Zap, Building2, Sparkles } from 'lucide-react';
+import { Check, Zap, Building2, Sparkles, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 const PLANS = [
   {
@@ -35,7 +37,7 @@ const PLANS = [
     id: 'pro',
     name: 'Pro',
     price: '₦9,999',
-    priceNote: 'per month',
+    priceNote: 'per month · cancel anytime',
     icon: Zap,
     iconClass: 'text-purple-400',
     cardClass: 'border-purple-500/50 ring-1 ring-purple-500/30',
@@ -60,7 +62,7 @@ const PLANS = [
     id: 'agency',
     name: 'Agency',
     price: '₦24,999',
-    priceNote: 'per month',
+    priceNote: 'per month · cancel anytime',
     icon: Building2,
     iconClass: 'text-orange-400',
     cardClass: 'border-orange-500/30',
@@ -79,7 +81,45 @@ const PLANS = [
 
 export default function PricingPage() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const currentPlan = (session?.user as { plan?: string })?.plan ?? 'free';
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('upgraded') === '1') {
+      setFlash({ type: 'success', msg: 'Payment successful — your plan has been upgraded!' });
+    } else if (searchParams.get('error')) {
+      const err = searchParams.get('error');
+      const msgs: Record<string, string> = {
+        payment_failed: 'Payment was not completed. Please try again.',
+        verify_failed: 'Could not verify payment. Contact support if you were charged.',
+        missing_reference: 'Something went wrong. Please try again.',
+      };
+      setFlash({ type: 'error', msg: msgs[err ?? ''] ?? 'Payment error. Please try again.' });
+    }
+  }, [searchParams]);
+
+  const handleUpgrade = async (planId: string) => {
+    if (!session?.user) {
+      window.location.href = '/auth/signin?callbackUrl=/pricing';
+      return;
+    }
+    setLoadingPlan(planId);
+    try {
+      const res = await fetch('/api/payments/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: planId }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? 'Failed to start payment');
+      window.location.href = data.url;
+    } catch (err: unknown) {
+      setFlash({ type: 'error', msg: err instanceof Error ? err.message : 'Payment failed' });
+      setLoadingPlan(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 py-16 px-4">
@@ -87,19 +127,32 @@ export default function PricingPage() {
 
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-black text-white mb-3">
-            Simple, honest pricing
-          </h1>
+          <h1 className="text-4xl font-black text-white mb-3">Simple, honest pricing</h1>
           <p className="text-gray-400 text-lg max-w-xl mx-auto">
             Find leads. Send outreach. Close deals — all from one tool built for Nigerian web developers.
           </p>
         </div>
+
+        {/* Flash message */}
+        {flash && (
+          <div className={`flex items-center gap-3 p-4 rounded-xl mb-8 text-sm font-medium ${
+            flash.type === 'success'
+              ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+              : 'bg-red-500/10 border border-red-500/20 text-red-400'
+          }`}>
+            {flash.type === 'success'
+              ? <CheckCircle className="w-5 h-5 flex-shrink-0" />
+              : <AlertCircle className="w-5 h-5 flex-shrink-0" />}
+            {flash.msg}
+          </div>
+        )}
 
         {/* Plan cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           {PLANS.map((plan) => {
             const Icon = plan.icon;
             const isCurrent = currentPlan === plan.id;
+            const isLoading = loadingPlan === plan.id;
 
             return (
               <div
@@ -135,7 +188,6 @@ export default function PricingPage() {
                   )}
                 </div>
 
-                {/* Features */}
                 <ul className="space-y-2.5 mb-6 flex-1">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm text-gray-300">
@@ -165,16 +217,24 @@ export default function PricingPage() {
                   </Link>
                 ) : (
                   <button
-                    className={`w-full py-2.5 rounded-xl text-sm font-bold transition-colors ${plan.ctaClass}`}
-                    onClick={() => alert('Payment coming soon — contact us to upgrade: softlineazeez123@gmail.com')}
+                    disabled={isLoading || !!loadingPlan}
+                    onClick={() => handleUpgrade(plan.id)}
+                    className={`w-full py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-60 ${plan.ctaClass}`}
                   >
-                    Upgrade to {plan.name}
+                    {isLoading
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</>
+                      : `Upgrade to ${plan.name}`}
                   </button>
                 )}
               </div>
             );
           })}
         </div>
+
+        {/* Secure payment note */}
+        <p className="text-center text-gray-600 text-xs mb-8">
+          Payments secured by Paystack · Cards, Bank Transfer, USSD supported · Cancel anytime
+        </p>
 
         {/* Compare table */}
         <div className="bg-gray-900 border border-white/10 rounded-2xl overflow-hidden mb-10">
@@ -206,7 +266,7 @@ export default function PricingPage() {
                   ['Website weakness analysis', '—', '✓', '✓'],
                   ['Priority support', '—', '—', '✓'],
                 ].map(([feature, free, pro, agency]) => (
-                  <tr key={feature} className="hover:bg-white/2">
+                  <tr key={feature} className="hover:bg-white/[0.02]">
                     <td className="p-4 text-gray-300">{feature}</td>
                     <td className="p-4 text-center text-gray-400">{free}</td>
                     <td className="p-4 text-center text-purple-300 font-medium">{pro}</td>
