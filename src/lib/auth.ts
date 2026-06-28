@@ -40,7 +40,8 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        token.id  = user.id;
+        token.sub = user.id; // ensure sub is always the DB user id
         token.plan = (user as { plan?: string }).plan ?? 'free';
         token.emailVerified = (user as { emailVerified?: Date | null }).emailVerified ?? null;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
@@ -49,7 +50,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string;
+        session.user.id = (token.id ?? token.sub) as string;
         session.user.plan = token.plan as string;
         (session.user as { emailVerified?: Date | null }).emailVerified = token.emailVerified as Date | null;
         (session.user as { isAdmin?: boolean }).isAdmin = token.isAdmin as boolean;
