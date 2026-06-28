@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Zap, Sparkles, Mail } from 'lucide-react';
 
 import SearchForm from '@/components/SearchForm';
@@ -23,6 +24,7 @@ const STAGE_SORT_ORDER: Record<string, number> = {
 const PER_PAGE = 20;
 
 export default function Home() {
+  const router = useRouter();
   const { isSaved, get } = useProspects();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(false);
@@ -96,6 +98,10 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ business: selected }),
       });
+      if (res.status === 401) {
+        router.push('/auth/signup');
+        return;
+      }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Generation failed');
       setGeneratedPrompt(json.prompt);

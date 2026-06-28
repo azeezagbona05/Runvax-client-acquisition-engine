@@ -99,6 +99,9 @@ export default function SearchForm({ onSearch, loading, onBrief }: SearchFormPro
   const [showLocSug, setShowLocSug] = useState(false);
   const [history, setHistory] = useState<SearchHistoryEntry[]>([]);
   const [timeStatus] = useState(getBestTimeStatus());
+  const [industryError, setIndustryError] = useState('');
+  const [locationError, setLocationError] = useState('');
+  const [geoError, setGeoError] = useState('');
 
   const locationRef = useRef<HTMLInputElement>(null);
 
@@ -127,8 +130,10 @@ export default function SearchForm({ onSearch, loading, onBrief }: SearchFormPro
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!industry.trim()) { alert('Please enter an industry or business type.'); return; }
-    if (!location.trim() && !lat) { alert('Please enter a location or use your GPS.'); return; }
+    setIndustryError('');
+    setLocationError('');
+    if (!industry.trim()) { setIndustryError('Please enter an industry or business type.'); return; }
+    if (!location.trim() && !lat) { setLocationError('Please enter a location or use your GPS.'); return; }
     runSearch(industry, location, lat, lng);
   };
 
@@ -153,11 +158,12 @@ export default function SearchForm({ onSearch, loading, onBrief }: SearchFormPro
   };
 
   const handleGeolocate = () => {
-    if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+    setGeoError('');
+    if (!navigator.geolocation) { setGeoError('Geolocation is not supported by your browser.'); return; }
     setGeoLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setLat(pos.coords.latitude); setLng(pos.coords.longitude); setLocation('My current location'); setSelectedTier(null); setGeoLoading(false); },
-      () => { alert('Could not get location. Please type it manually.'); setGeoLoading(false); }
+      (pos) => { setLat(pos.coords.latitude); setLng(pos.coords.longitude); setLocation('My current location'); setSelectedTier(null); setGeoLoading(false); setLocationError(''); },
+      () => { setGeoError('Could not get your location — please type it manually.'); setGeoLoading(false); }
     );
   };
 
@@ -211,12 +217,17 @@ export default function SearchForm({ onSearch, loading, onBrief }: SearchFormPro
                 Industry / Business Type
               </label>
               <input type="text" value={industry}
-                onChange={(e) => { setIndustry(e.target.value); setShowIndSug(true); }}
+                onChange={(e) => { setIndustry(e.target.value); setShowIndSug(true); setIndustryError(''); }}
                 onFocus={() => setShowIndSug(true)}
                 onBlur={() => setTimeout(() => setShowIndSug(false), 150)}
                 placeholder="e.g. Real Estate, Salons…"
-                className="w-full bg-gray-800/80 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors text-sm"
+                className={`w-full bg-gray-800/80 border rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none transition-colors text-sm ${industryError ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-purple-500'}`}
               />
+              {industryError && (
+                <p className="text-red-400 text-xs font-semibold mt-1.5 flex items-center gap-1">
+                  <span>⚠</span> {industryError}
+                </p>
+              )}
               {showIndSug && indSuggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden">
                   {indSuggestions.slice(0, 6).map((s) => (
@@ -241,17 +252,28 @@ export default function SearchForm({ onSearch, loading, onBrief }: SearchFormPro
               </label>
               <div className="flex gap-2">
                 <input ref={locationRef} type="text" value={location}
-                  onChange={(e) => { setLocation(e.target.value); setSelectedTier(null); setLat(undefined); setLng(undefined); setShowLocSug(true); }}
+                  onChange={(e) => { setLocation(e.target.value); setSelectedTier(null); setLat(undefined); setLng(undefined); setShowLocSug(true); setLocationError(''); }}
                   onFocus={() => setShowLocSug(true)}
                   onBlur={() => setTimeout(() => setShowLocSug(false), 200)}
                   placeholder="Type an area or city…"
-                  className="flex-1 bg-gray-800/80 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors text-sm"
+                  className={`flex-1 bg-gray-800/80 border rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none transition-colors text-sm ${locationError ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-purple-500'}`}
                 />
                 <button type="button" onClick={handleGeolocate} disabled={geoLoading} title="Use GPS"
                   className="bg-gray-700 hover:bg-gray-600 border border-white/10 rounded-xl px-3.5 transition-colors disabled:opacity-50 flex items-center">
                   {geoLoading ? <Loader2 className="w-4 h-4 text-gray-400 animate-spin" /> : <MapPin className="w-4 h-4 text-gray-400" />}
                 </button>
               </div>
+
+              {locationError && (
+                <p className="text-red-400 text-xs font-semibold mt-1.5 flex items-center gap-1">
+                  <span>⚠</span> {locationError}
+                </p>
+              )}
+              {geoError && (
+                <p className="text-red-400 text-xs font-semibold mt-1.5 flex items-center gap-1">
+                  <span>⚠</span> {geoError}
+                </p>
+              )}
 
               {/* Smart location dropdown */}
               {showLocSug && groupedAreas.length > 0 && (

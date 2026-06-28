@@ -16,13 +16,15 @@ export function useUpgrade() {
 }
 
 // Call this helper on any fetch response to auto-show the modal on 402
+// Returns 'auth' on 401 so callers can show a preview-then-lock UX
 export function useHandleAIResponse() {
   const { triggerUpgrade } = useUpgrade();
   return useCallback(
-    (res: Response, json: { code?: string; error?: string }) => {
+    (res: Response, json: { code?: string; error?: string }): boolean | 'auth' => {
+      if (res.status === 401) return 'auth';
       if (res.status === 402 || json.code === 'LIMIT_REACHED') {
         triggerUpgrade('ai_limit');
-        return true; // consumed — caller should return early
+        return true;
       }
       return false;
     },

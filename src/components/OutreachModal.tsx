@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Copy, Check, RefreshCw, MessageCircle, Mail, Loader2, Send } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { X, Copy, Check, RefreshCw, MessageCircle, Mail, Loader2, Send, Lock } from 'lucide-react';
 import { Business } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
 import { OutreachFramework } from '@/app/api/outreach/route';
@@ -93,6 +94,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export default function OutreachModal({ business, onClose }: Props) {
+  const router = useRouter();
   const { markOutreachSent, incrementToday, updateStage, isSaved, save } = useProspects();
   const handleAIResponse = useHandleAIResponse();
   const [tab, setTab] = useState<Tab>('whatsapp');
@@ -103,10 +105,27 @@ export default function OutreachModal({ business, onClose }: Props) {
   const [recipientEmail, setRecipientEmail] = useState(business.email ?? '');
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [signupGate, setSignupGate] = useState(false);
+  const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (lockTimer.current) clearTimeout(lockTimer.current); }, []);
+
+  const showDemoAndLock = () => {
+    const city = business.address?.split(',')[0] ?? 'your area';
+    const niche = (business.category ?? 'business').toLowerCase();
+    setData({
+      whatsapp: `Hi! I noticed ${business.name} doesn't have a website yet — you're losing customers who search online before they visit. In 2026, even ChatGPT recommends local businesses from their websites. I build digital front doors for ${niche} businesses in ${city}. Can I show you what yours could look like? 🏪`,
+      emailSubject: `${business.name} — your customers can't find you online`,
+      emailBody: `Hi ${business.name},\n\nI was looking for ${niche} businesses in ${city} and noticed you don't have a website yet.\n\nIn 2026, when someone asks ChatGPT or searches Google for "best ${niche} near me", only businesses with websites show up. Right now, you're invisible to those customers — and they're going to your competitors.\n\nI build digital front doors for local businesses — not just a website, but a 24/7 presence that gets discovered on Google AND by AI tools like ChatGPT and Perplexity.\n\nWould you be open to a quick 5-minute chat this week?\n\nWarm regards,\n[Your Name]`,
+      framework: framework as OutreachFramework,
+    });
+    lockTimer.current = setTimeout(() => setSignupGate(true), 1000);
+  };
 
   const generate = async () => {
     setLoading(true);
     setError('');
+    setSignupGate(false);
     try {
       const res = await fetch('/api/outreach', {
         method: 'POST',
@@ -114,7 +133,9 @@ export default function OutreachModal({ business, onClose }: Props) {
         body: JSON.stringify({ business, framework }),
       });
       const json = await res.json();
-      if (handleAIResponse(res, json)) return;
+      const handled = handleAIResponse(res, json);
+      if (handled === 'auth') { showDemoAndLock(); return; }
+      if (handled) return;
       if (!res.ok) throw new Error(json.error || 'Failed');
       setData(json);
     } catch (e: unknown) {
@@ -227,7 +248,33 @@ export default function OutreachModal({ business, onClose }: Props) {
             </div>
           )}
 
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 relative">
+            {/* Signup gate overlay */}
+            {signupGate && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-950/85 backdrop-blur-sm rounded-xl m-0">
+                <div className="text-center px-6 py-8 max-w-xs mx-auto">
+                  <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-purple-900/30">
+                    <Lock className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-white font-black text-lg mb-2">Your message is ready!</h3>
+                  <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                    Create a free account to copy, send, and save unlimited AI-generated outreach messages.
+                  </p>
+                  <button
+                    onClick={() => router.push('/auth/signup')}
+                    className="w-full bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-500 hover:to-orange-400 text-white font-black py-3 rounded-xl text-sm transition-all shadow-lg shadow-purple-900/30 mb-3"
+                  >
+                    Sign up free — it takes 30 seconds
+                  </button>
+                  <button
+                    onClick={() => router.push('/auth/signin')}
+                    className="w-full text-gray-500 hover:text-gray-300 text-sm transition-colors"
+                  >
+                    Already have an account? Sign in
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Generate CTA */}
             {!data && !loading && (
@@ -272,7 +319,7 @@ export default function OutreachModal({ business, onClose }: Props) {
                   </div>
                   <CopyButton text={data.whatsapp} />
                 </div>
-                <div className="bg-green-950/40 border border-green-500/20 rounded-xl p-4 text-green-100 text-sm leading-relaxed whitespace-pre-wrap">
+                <div className={`bg-green-950/40 border border-green-500/20 rounded-xl p-4 text-green-100 text-sm leading-relaxed whitespace-pre-wrap transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
                   {data.whatsapp}
                 </div>
                 <div className="flex gap-2 mt-3">
@@ -319,7 +366,7 @@ export default function OutreachModal({ business, onClose }: Props) {
                     </div>
                     <CopyButton text={`Subject: ${data.emailSubject}\n\n${data.emailBody}`} />
                   </div>
-                  <div className="bg-blue-950/20 border border-blue-500/15 rounded-xl p-4 text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                  <div className={`bg-blue-950/20 border border-blue-500/15 rounded-xl p-4 text-gray-300 text-sm leading-relaxed whitespace-pre-wrap transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
                     {data.emailBody}
                   </div>
                 </div>
