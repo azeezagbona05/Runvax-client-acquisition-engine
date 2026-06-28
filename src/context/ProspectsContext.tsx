@@ -7,153 +7,190 @@ import {
   Business, SavedProspect, ProspectStage, AppSettings, DailyLog,
   ConversationEntry, ConversationChannel,
 } from '@/types';
-import { scoreProspect, estimatePrice } from '@/lib/scoring';
-
-const STORAGE_KEY = 'aip_prospects_v2';
-const SETTINGS_KEY = 'aip_settings';
-const DAILY_KEY = 'aip_daily_log';
 
 interface Ctx {
   prospects: SavedProspect[];
-  save: (business: Business) => void;
-  remove: (id: string) => void;
-  updateStage: (id: string, stage: ProspectStage) => void;
-  updateNotes: (id: string, notes: string) => void;
-  setReminder: (id: string, date: string, note: string) => void;
-  clearReminder: (id: string) => void;
-  markOutreachSent: (id: string, content: string, channel: ConversationChannel, framework?: string) => void;
-  addConversationEntry: (id: string, entry: Omit<ConversationEntry, 'id' | 'timestamp'>) => void;
-  isSaved: (id: string) => boolean;
-  get: (id: string) => SavedProspect | undefined;
+  loading: boolean;
+  save: (business: Business) => Promise<{ error?: string; code?: string }>;
+  remove: (businessId: string) => Promise<void>;
+  updateStage: (businessId: string, stage: ProspectStage) => Promise<void>;
+  updateNotes: (businessId: string, notes: string) => Promise<void>;
+  setReminder: (businessId: string, date: string, note: string) => Promise<void>;
+  clearReminder: (businessId: string) => Promise<void>;
+  markOutreachSent: (businessId: string, content: string, channel: ConversationChannel, framework?: string) => Promise<void>;
+  addConversationEntry: (businessId: string, entry: Omit<ConversationEntry, 'id' | 'timestamp'>) => Promise<void>;
+  isSaved: (businessId: string) => boolean;
+  get: (businessId: string) => SavedProspect | undefined;
   settings: AppSettings;
-  updateSettings: (s: Partial<AppSettings>) => void;
+  updateSettings: (s: Partial<AppSettings>) => Promise<void>;
   dailyLogs: DailyLog[];
-  incrementToday: () => void;
+  incrementToday: () => Promise<void>;
   todayCount: number;
 }
 
 const ProspectsContext = createContext<Ctx | null>(null);
 
-function today() { return new Date().toISOString().split('T')[0]; }
+function todayStr() { return new Date().toISOString().split('T')[0]; }
 
-function loadJSON<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
-}
-
-function saveJSON(key: string, value: unknown) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-}
-
-function makeEntry(partial: Omit<ConversationEntry, 'id' | 'timestamp'>): ConversationEntry {
-  return {
-    ...partial,
-    id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
-    timestamp: new Date().toISOString(),
-  };
+// Find a prospect's DB id by its Google Places businessId
+function dbId(prospect: SavedProspect): string {
+  return (prospect as SavedProspect & { _dbId?: string })._dbId ?? '';
 }
 
 export function ProspectsProvider({ children }: { children: ReactNode }) {
   const [prospects, setProspects] = useState<SavedProspect[]>([]);
+  const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<AppSettings>({
     dailyGoal: 10, avgDealValue: 300000, closeRatePct: 10,
   });
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
 
+  // Load all data from the DB on mount
   useEffect(() => {
-    const raw = loadJSON<SavedProspect[]>(STORAGE_KEY, []);
-    // migrate old records that don't have conversations array
-    const migrated = raw.map((p) => ({ ...p, conversations: p.conversations ?? [] }));
-    setProspects(migrated);
-    setSettings((prev) => ({ ...prev, ...loadJSON<Partial<AppSettings>>(SETTINGS_KEY, {}) }));
-    setDailyLogs(loadJSON<DailyLog[]>(DAILY_KEY, []));
+    async function load() {
+      try {
+        const [pRes, sRes, dRes] = await Promise.all([
+          fetch('/api/prospects'),
+          fetch('/api/user/settings'),
+          fetch('/api/user/daily-log'),
+        ]);
+
+        if (pRes.ok) {
+          const data = await pRes.json() as (SavedProspect & { _dbId: string })[];
+          setProspects(data);
+        }
+        if (sRes.ok) {
+          const s = await sRes.json() as Partial<AppSettings>;
+          setSettings((prev) => ({ ...prev, ...s }));
+        }
+        if (dRes.ok) {
+          setDailyLogs(await dRes.json() as DailyLog[]);
+        }
+      } catch { /* network error — keep empty state */ }
+      finally { setLoading(false); }
+    }
+    void load();
   }, []);
 
-  const mutate = (fn: (prev: SavedProspect[]) => SavedProspect[]) => {
-    setProspects((prev) => {
-      const updated = fn(prev);
-      saveJSON(STORAGE_KEY, updated);
-      return updated;
-    });
+  // Helpers: find prospect by Google Places ID
+  const byBizId = (bizId: string) => prospects.find((p) => p.business.id === bizId);
+  const dbIdByBizId = (bizId: string): string => {
+    const p = byBizId(bizId);
+    return p ? dbId(p) : '';
   };
 
-  const save = useCallback((business: Business) => {
-    mutate((prev) => {
-      if (prev.some((p) => p.business.id === business.id)) return prev;
-      return [{
-        business,
-        stage: 'found',
-        savedAt: new Date().toISOString(),
-        notes: '',
-        score: scoreProspect(business),
-        estimatedPrice: estimatePrice(business.category, business.categoryTypes),
-        conversations: [],
-      }, ...prev];
+  const save = useCallback(async (business: Business): Promise<{ error?: string; code?: string }> => {
+    if (prospects.some((p) => p.business.id === business.id)) return {};
+
+    const res = await fetch('/api/prospects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ business }),
+    });
+
+    const data = await res.json() as SavedProspect & { _dbId?: string; error?: string; code?: string };
+
+    if (!res.ok) return { error: data.error, code: data.code };
+
+    setProspects((prev) => [data, ...prev]);
+    return {};
+  }, [prospects]);
+
+  const remove = useCallback(async (businessId: string) => {
+    const id = dbIdByBizId(businessId);
+    if (!id) return;
+
+    setProspects((prev) => prev.filter((p) => p.business.id !== businessId));
+    await fetch(`/api/prospects/${id}`, { method: 'DELETE' });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospects]);
+
+  const patch = useCallback(async (businessId: string, body: Record<string, unknown>) => {
+    const id = dbIdByBizId(businessId);
+    if (!id) return;
+    await fetch(`/api/prospects/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [prospects]);
 
-  const remove = useCallback((id: string) => {
-    mutate((prev) => prev.filter((p) => p.business.id !== id));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const updateStage = useCallback(async (businessId: string, stage: ProspectStage) => {
+    setProspects((prev) => prev.map((p) => p.business.id === businessId ? { ...p, stage } : p));
+    await patch(businessId, { stage });
+  }, [patch]);
 
-  const updateStage = useCallback((id: string, stage: ProspectStage) => {
-    mutate((prev) => prev.map((p) => p.business.id === id ? { ...p, stage } : p));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const updateNotes = useCallback(async (businessId: string, notes: string) => {
+    setProspects((prev) => prev.map((p) => p.business.id === businessId ? { ...p, notes } : p));
+    await patch(businessId, { notes });
+  }, [patch]);
 
-  const updateNotes = useCallback((id: string, notes: string) => {
-    mutate((prev) => prev.map((p) => p.business.id === id ? { ...p, notes } : p));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const setReminder = useCallback((id: string, date: string, note: string) => {
-    mutate((prev) => prev.map((p) =>
-      p.business.id === id ? { ...p, reminderDate: date, reminderNote: note } : p
+  const setReminder = useCallback(async (businessId: string, date: string, note: string) => {
+    setProspects((prev) => prev.map((p) =>
+      p.business.id === businessId ? { ...p, reminderDate: date, reminderNote: note } : p
     ));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    await patch(businessId, { reminderDate: date, reminderNote: note });
+  }, [patch]);
 
-  const clearReminder = useCallback((id: string) => {
-    mutate((prev) => prev.map((p) =>
-      p.business.id === id ? { ...p, reminderDate: undefined, reminderNote: undefined } : p
+  const clearReminder = useCallback(async (businessId: string) => {
+    setProspects((prev) => prev.map((p) =>
+      p.business.id === businessId ? { ...p, reminderDate: undefined, reminderNote: undefined } : p
     ));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    await patch(businessId, { reminderDate: null, reminderNote: null });
+  }, [patch]);
 
-  const markOutreachSent = useCallback((
-    id: string,
+  const addConversationEntry = useCallback(async (
+    businessId: string,
+    entry: Omit<ConversationEntry, 'id' | 'timestamp'>,
+  ) => {
+    const id = dbIdByBizId(businessId);
+    if (!id) return;
+
+    const res = await fetch(`/api/prospects/${id}/conversations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
+
+    if (res.ok) {
+      const full = await res.json() as ConversationEntry;
+      setProspects((prev) => prev.map((p) =>
+        p.business.id === businessId
+          ? { ...p, conversations: [...(p.conversations ?? []), full] }
+          : p
+      ));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospects]);
+
+  const markOutreachSent = useCallback(async (
+    businessId: string,
     content: string,
     channel: ConversationChannel,
     framework?: string,
   ) => {
-    mutate((prev) => prev.map((p) => {
-      if (p.business.id !== id) return p;
-      const entry = makeEntry({ type: 'sent', channel, content, framework });
+    const outreachSentAt = new Date().toISOString();
+
+    // Optimistic update
+    setProspects((prev) => prev.map((p) => {
+      if (p.business.id !== businessId) return p;
       return {
         ...p,
-        outreachSentAt: new Date().toISOString(),
+        outreachSentAt,
         stage: p.stage === 'found' ? 'contacted' : p.stage,
-        conversations: [...(p.conversations ?? []), entry],
       };
     }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  const addConversationEntry = useCallback((
-    id: string,
-    partial: Omit<ConversationEntry, 'id' | 'timestamp'>,
-  ) => {
-    mutate((prev) => prev.map((p) => {
-      if (p.business.id !== id) return p;
-      const entry = makeEntry(partial);
-      return { ...p, conversations: [...(p.conversations ?? []), entry] };
-    }));
+    await Promise.all([
+      patch(businessId, {
+        outreachSentAt,
+        stage: byBizId(businessId)?.stage === 'found' ? 'contacted' : undefined,
+      }),
+      addConversationEntry(businessId, { type: 'sent', channel, content, framework }),
+    ]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [prospects, patch, addConversationEntry]);
 
   const isSaved = useCallback(
     (id: string) => prospects.some((p) => p.business.id === id),
@@ -165,31 +202,31 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
     [prospects],
   );
 
-  const updateSettings = useCallback((s: Partial<AppSettings>) => {
-    setSettings((prev) => {
-      const updated = { ...prev, ...s };
-      saveJSON(SETTINGS_KEY, updated);
-      return updated;
+  const updateSettings = useCallback(async (s: Partial<AppSettings>) => {
+    setSettings((prev) => ({ ...prev, ...s }));
+    await fetch('/api/user/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(s),
     });
   }, []);
 
-  const incrementToday = useCallback(() => {
+  const incrementToday = useCallback(async () => {
+    const date = todayStr();
     setDailyLogs((prev) => {
-      const date = today();
       const existing = prev.find((l) => l.date === date);
-      const updated = existing
-        ? prev.map((l) => (l.date === date ? { ...l, count: l.count + 1 } : l))
+      return existing
+        ? prev.map((l) => l.date === date ? { ...l, count: l.count + 1 } : l)
         : [...prev, { date, count: 1 }];
-      saveJSON(DAILY_KEY, updated);
-      return updated;
     });
+    await fetch('/api/user/daily-log', { method: 'POST' });
   }, []);
 
-  const todayCount = dailyLogs.find((l) => l.date === today())?.count ?? 0;
+  const todayCount = dailyLogs.find((l) => l.date === todayStr())?.count ?? 0;
 
   return (
     <ProspectsContext.Provider value={{
-      prospects, save, remove, updateStage, updateNotes,
+      prospects, loading, save, remove, updateStage, updateNotes,
       setReminder, clearReminder, markOutreachSent, addConversationEntry,
       isSaved, get, settings, updateSettings, dailyLogs, incrementToday, todayCount,
     }}>

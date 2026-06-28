@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { checkAndIncrementAI } from '@/lib/usage';
 import { Business } from '@/types';
 
 async function fetchWebsiteHtml(url: string): Promise<string> {
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });
   }
+
+  const usage = await checkAndIncrementAI();
+  if (!usage.ok) return usage.error!;
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 

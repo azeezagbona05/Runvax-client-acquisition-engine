@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { checkAndIncrementAI } from '@/lib/usage';
 
 export async function POST(req: NextRequest) {
   const { industry, location }: { industry: string; location: string } = await req.json();
@@ -7,6 +8,9 @@ export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set' }, { status: 500 });
   }
+
+  const usage = await checkAndIncrementAI();
+  if (!usage.ok) return usage.error!;
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 

@@ -4,6 +4,7 @@ import './globals.css';
 import { ProspectsProvider } from '@/context/ProspectsContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import Nav from '@/components/Nav';
+import AuthProvider from '@/components/AuthProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -32,12 +33,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className={`${inter.className} bg-gray-950 text-white antialiased`}>
-        <ThemeProvider>
-          <ProspectsProvider>
-            <Nav />
-            {children}
-          </ProspectsProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <ProspectsProvider>
+              <Nav />
+              {children}
+            </ProspectsProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

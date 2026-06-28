@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { Business } from '@/types';
+import { checkAndIncrementAI } from '@/lib/usage';
 
 export type OutreachFramework = 'BAB' | 'AIDA' | 'PAS' | 'STORY';
 
@@ -67,6 +68,9 @@ export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });
   }
+
+  const usage = await checkAndIncrementAI();
+  if (!usage.ok) return usage.error!;
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
