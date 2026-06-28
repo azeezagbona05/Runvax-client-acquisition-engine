@@ -61,8 +61,8 @@ export default function Home() {
       if (!res.ok) throw new Error(json.error || 'Search failed');
       const results: Business[] = json.businesses || [];
       setBusinesses(results);
-      // Save to search history
-      saveToHistory({
+      // Save to search history (fire-and-forget — non-blocking)
+      void saveToHistory({
         industry: data.industry,
         location: data.location || 'GPS',
         totalCount: results.length,

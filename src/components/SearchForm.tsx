@@ -102,7 +102,7 @@ export default function SearchForm({ onSearch, loading, onBrief }: SearchFormPro
 
   const locationRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { setHistory(getSearchHistory()); }, []);
+  useEffect(() => { getSearchHistory().then(setHistory); }, []);
 
   const indSuggestions = INDUSTRIES.filter(
     (s) => industry && s.toLowerCase().includes(industry.toLowerCase())

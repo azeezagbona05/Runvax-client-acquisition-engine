@@ -6,29 +6,32 @@ export interface SearchHistoryEntry {
   timestamp: string;
 }
 
-const KEY = 'aip_search_history';
-const MAX = 15;
-
-export function getSearchHistory(): SearchHistoryEntry[] {
-  try { return JSON.parse(localStorage.getItem(KEY) || '[]'); }
-  catch { return []; }
+export async function saveToHistory(entry: Omit<SearchHistoryEntry, 'timestamp'>) {
+  try {
+    await fetch('/api/user/search-history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
+  } catch {
+    // non-critical — ignore network failures
+  }
 }
 
-export function saveToHistory(entry: Omit<SearchHistoryEntry, 'timestamp'>) {
-  const history = getSearchHistory();
-  const idx = history.findIndex(
-    (h) => h.industry.toLowerCase() === entry.industry.toLowerCase() &&
-            h.location.toLowerCase() === entry.location.toLowerCase()
-  );
-  if (idx >= 0) history.splice(idx, 1);
-  history.unshift({ ...entry, timestamp: new Date().toISOString() });
-  try { localStorage.setItem(KEY, JSON.stringify(history.slice(0, MAX))); } catch {}
+export async function getSearchHistory(): Promise<SearchHistoryEntry[]> {
+  try {
+    const res = await fetch('/api/user/search-history');
+    if (!res.ok) return [];
+    return await res.json() as SearchHistoryEntry[];
+  } catch {
+    return [];
+  }
 }
 
-export function getTopIndustries(): Array<{
+export async function getTopIndustries(): Promise<Array<{
   industry: string; searches: number; total: number; noWebsite: number; rate: number;
-}> {
-  const history = getSearchHistory();
+}>> {
+  const history = await getSearchHistory();
   const map: Record<string, { total: number; noWebsite: number; searches: number }> = {};
   for (const h of history) {
     if (!map[h.industry]) map[h.industry] = { total: 0, noWebsite: 0, searches: 0 };

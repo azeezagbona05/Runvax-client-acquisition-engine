@@ -48,13 +48,16 @@ export default function DashboardPage() {
   const [closeRate, setCloseRate] = useState(settings.closeRatePct);
   const [avgDeal, setAvgDeal] = useState(settings.avgDealValue);
   const [dailyGoal, setDailyGoal] = useState(settings.dailyGoal);
-  const [topIndustries, setTopIndustries] = useState(getTopIndustries());
+  const [topIndustries, setTopIndustries] = useState<Array<{
+    industry: string; searches: number; total: number; noWebsite: number; rate: number;
+  }>>([]);
 
   // Browser notifications for reminders
   useEffect(() => {
-    setTopIndustries(getTopIndustries());
+    getTopIndustries().then(setTopIndustries);
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') checkReminders();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkReminders = () => {

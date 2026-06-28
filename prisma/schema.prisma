@@ -23,6 +23,7 @@ model User {
   settings       UserSettings?
   dailyLogs      DailyLog[]
   usageRecords   UsageRecord[]
+  searchHistory  SearchHistory[]
 }
 
 model Account {
@@ -139,4 +140,18 @@ model UsageRecord {
   aiCalls Int    @default(0)
 
   @@unique([userId, date])
+}
+
+model SearchHistory {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  industry       String
+  location       String
+  totalCount     Int      @default(0)
+  noWebsiteCount Int      @default(0)
+  searchedAt     DateTime @default(now()) @updatedAt
+
+  @@unique([userId, industry, location])
+  @@index([userId])
 }
