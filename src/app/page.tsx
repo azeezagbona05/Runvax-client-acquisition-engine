@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Zap, Sparkles, Mail, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Mail, Lock } from 'lucide-react';
 
 import SearchForm from '@/components/SearchForm';
 import BusinessGrid from '@/components/BusinessGrid';
@@ -52,10 +52,24 @@ export default function Home() {
   const [showQuickFire, setShowQuickFire]   = useState(false);
   const [showBrief, setShowBrief]           = useState(false);
   const [showBulkEmail, setShowBulkEmail]   = useState(false);
+  const [guestGate, setGuestGate]           = useState(false);
+  const [guestStats, setGuestStats]         = useState({ total: 0, noWebsite: 0, location: '' });
+
+  // Track whether this guest has used their one free search
+  const [guestExhausted, setGuestExhausted] = useState(false);
+  useEffect(() => {
+    try { setGuestExhausted(!!localStorage.getItem('aip_guest_used')); } catch { /* */ }
+  }, []);
 
   const timeStatus = getBestTimeStatus();
 
   const handleSearch = async (data: SearchFormData) => {
+    // If guest already used their free search, show gate immediately
+    if (guestExhausted && businesses.length > 0) {
+      setGuestGate(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setBusinesses([]);
@@ -72,10 +86,6 @@ export default function Home() {
       });
       const json = await res.json();
 
-      if (res.status === 401) {
-        setError('__auth__');
-        return;
-      }
       if (res.status === 402 && json.code === 'SEARCH_LIMIT') {
         triggerUpgrade('ai_limit');
         setError(json.error || 'Daily search limit reached. Upgrade for more searches.');
@@ -85,6 +95,17 @@ export default function Home() {
 
       const results: Business[] = json.businesses || [];
       setBusinesses(results);
+
+      if (json.isGuest) {
+        // Show results blurred behind signup gate
+        const noWebsite = results.filter((b: Business) => !b.hasWebsite).length;
+        setGuestStats({ total: results.length, noWebsite, location: data.location || 'your area' });
+        setGuestGate(true);
+        // Mark this guest's free attempt as used
+        try { localStorage.setItem('aip_guest_used', '1'); setGuestExhausted(true); } catch { /* */ }
+        return; // skip search history + meta for guests
+      }
+
       setSearchMeta({
         searchesRemaining: json.searchesRemaining ?? null,
         searchesUsed:      json.searchesUsed      ?? null,
@@ -187,35 +208,69 @@ export default function Home() {
       {hasSearched && (
         <main className="max-w-7xl mx-auto px-4 py-8">
 
-          {/* Auth gate — shown instead of redirecting */}
-          {error === '__auth__' && (
-            <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-purple-900/30">
-                <img src="/logo.svg" alt="" className="w-10 h-10" />
+          {/* Guest signup gate — overlays blurred results */}
+          {guestGate && (
+            <div className="relative">
+              {/* Blurred results behind gate */}
+              <div className="pointer-events-none select-none blur-sm opacity-40 -mt-2">
+                <BusinessGrid businesses={businesses.slice(0, 6)} loading={false} error={null} onSelect={() => {}} />
               </div>
-              <h2 className="text-2xl font-black text-white mb-2">Create a free account to search</h2>
-              <p className="text-gray-400 text-sm mb-8 max-w-sm">
-                Sign up free to discover businesses with no website — your next paying clients. Takes 30 seconds.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => router.push('/auth/signup')}
-                  className="bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-500 hover:to-orange-400 text-white font-black px-8 py-3 rounded-xl text-sm transition-all shadow-lg shadow-purple-900/30"
-                >
-                  Sign up free
-                </button>
-                <button
-                  onClick={() => router.push('/auth/signin')}
-                  className="bg-white/8 hover:bg-white/15 border border-white/10 text-gray-300 font-semibold px-8 py-3 rounded-xl text-sm transition-colors"
-                >
-                  Sign in
-                </button>
+
+              {/* Overlay gate */}
+              <div className="absolute inset-0 flex items-start justify-center pt-10 px-4 z-10">
+                <div className="bg-gray-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 max-w-md w-full p-8 text-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-purple-900/30">
+                    <img src="/logo.svg" alt="" className="w-10 h-10" />
+                  </div>
+
+                  {guestStats.noWebsite > 0 ? (
+                    <>
+                      <div className="inline-flex items-center gap-1.5 bg-orange-500/15 border border-orange-500/25 text-orange-400 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
+                        🎯 {guestStats.noWebsite} businesses with no website found
+                      </div>
+                      <h2 className="text-xl font-black text-white mb-2">
+                        Your prospects are ready
+                      </h2>
+                      <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                        You found <strong className="text-white">{guestStats.total} businesses</strong> in {guestStats.location} —{' '}
+                        <strong className="text-orange-400">{guestStats.noWebsite} have no website</strong> and could be your next paying clients.
+                        Sign up free to access their details, phone numbers, and AI outreach messages.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-xl font-black text-white mb-2">
+                        {guestStats.total} businesses found
+                      </h2>
+                      <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                        Sign up free to access contact details, save prospects, and generate AI outreach messages.
+                      </p>
+                    </>
+                  )}
+
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => router.push('/auth/signup')}
+                      className="w-full bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-500 hover:to-orange-400 text-white font-black py-3.5 rounded-xl text-sm transition-all shadow-lg shadow-purple-900/30"
+                    >
+                      Sign up free — takes 30 seconds
+                    </button>
+                    <button
+                      onClick={() => router.push('/auth/signin')}
+                      className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white font-semibold py-3 rounded-xl text-sm transition-colors"
+                    >
+                      Already have an account? Sign in
+                    </button>
+                  </div>
+
+                  <p className="text-gray-700 text-xs mt-4">Free plan · No credit card needed</p>
+                </div>
               </div>
             </div>
           )}
 
           {/* Search quota badge */}
-          {error !== '__auth__' && searchMeta && searchMeta.searchesLimit !== null && (
+          {!guestGate && searchMeta && searchMeta.searchesLimit !== null && (
             <div className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border mb-4 ${remainingColor}`}>
               {searchMeta.searchesRemaining === 0
                 ? '🔒 No searches left today — upgrade to continue'
@@ -223,7 +278,7 @@ export default function Home() {
             </div>
           )}
 
-          {!loading && !error && businesses.length > 0 && (
+          {!guestGate && !loading && !error && businesses.length > 0 && (
             <div className="flex items-center gap-3 mb-6 flex-wrap">
 
               {/* Stats + time indicator */}
@@ -284,12 +339,12 @@ export default function Home() {
             </div>
           )}
 
-          {error !== '__auth__' && (
+          {!guestGate && (
             <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} />
           )}
 
           {/* Pagination */}
-          {error !== '__auth__' && !loading && !error && totalPages > 1 && (
+          {!guestGate && !loading && !error && totalPages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-3">
               <button onClick={goPrev} disabled={page === 0}
                 className="flex items-center gap-2 px-4 py-2.5 bg-white/8 hover:bg-white/15 border border-white/10 rounded-xl text-sm font-semibold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
@@ -337,7 +392,7 @@ export default function Home() {
           )}
 
           {/* Results cap notice for limited plans */}
-          {error !== '__auth__' && !loading && !error && filtered.length > 0 && (
+          {!guestGate && !loading && !error && filtered.length > 0 && (
             <div className="text-center mt-3 space-y-1">
               <p className="text-xs text-gray-600">
                 Showing {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, filtered.length)} of{' '}
