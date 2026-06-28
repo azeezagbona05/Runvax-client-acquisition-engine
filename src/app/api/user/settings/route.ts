@@ -11,14 +11,39 @@ export async function GET() {
     where: { userId: session.user.id },
   });
 
-  return NextResponse.json(settings ?? { dailyGoal: 10, avgDealValue: 300000, closeRatePct: 10 });
+  return NextResponse.json(settings ?? {
+    dailyGoal: 10, avgDealValue: 300000, closeRatePct: 10,
+    senderName: null, businessName: null, whatsapp: null,
+    replyEmail: null, city: null, tagline: null,
+    smtpHost: null, smtpPort: null, smtpUser: null,
+    smtpPass: null, smtpFrom: null,
+  });
 }
 
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const body = await req.json() as { dailyGoal?: number; avgDealValue?: number; closeRatePct?: number };
+  const body = await req.json() as {
+    dailyGoal?: number;
+    avgDealValue?: number;
+    closeRatePct?: number;
+    senderName?: string;
+    businessName?: string;
+    whatsapp?: string;
+    replyEmail?: string;
+    city?: string;
+    tagline?: string;
+    smtpHost?: string;
+    smtpPort?: number;
+    smtpUser?: string;
+    smtpPass?: string;
+    smtpFrom?: string;
+  };
+
+  const data = Object.fromEntries(
+    Object.entries(body).filter(([, v]) => v !== undefined)
+  );
 
   const settings = await prisma.userSettings.upsert({
     where: { userId: session.user.id },
@@ -27,13 +52,12 @@ export async function PATCH(req: NextRequest) {
       dailyGoal: body.dailyGoal ?? 10,
       avgDealValue: body.avgDealValue ?? 300000,
       closeRatePct: body.closeRatePct ?? 10,
+      ...data,
     },
-    update: {
-      ...(body.dailyGoal != null && { dailyGoal: body.dailyGoal }),
-      ...(body.avgDealValue != null && { avgDealValue: body.avgDealValue }),
-      ...(body.closeRatePct != null && { closeRatePct: body.closeRatePct }),
-    },
+    update: data,
   });
 
-  return NextResponse.json(settings);
+  // Don't return smtpPass in response
+  const { smtpPass: _, ...safe } = settings;
+  return NextResponse.json({ ...safe, smtpPass: settings.smtpPass ? '••••••••' : null });
 }

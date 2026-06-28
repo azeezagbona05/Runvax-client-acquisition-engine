@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Loader2, RefreshCw, Printer, Copy, Check } from 'lucide-react';
 import { Business } from '@/types';
 
@@ -17,6 +17,17 @@ export default function ProposalModal({ business, onClose }: Props) {
   const [yourPhone, setYourPhone] = useState('');
   const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Pre-fill from saved profile settings
+  useEffect(() => {
+    fetch('/api/user/settings')
+      .then((r) => r.json())
+      .then((s: { businessName?: string; senderName?: string; whatsapp?: string }) => {
+        if (s.businessName || s.senderName) setYourName(s.businessName ?? s.senderName ?? '');
+        if (s.whatsapp) setYourPhone(s.whatsapp);
+      })
+      .catch(() => {});
+  }, []);
 
   const generate = async () => {
     setLoading(true);

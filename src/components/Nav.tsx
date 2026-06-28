@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
 import { exportProspectsCSV } from '@/lib/export';
-import { Search, Columns3, BarChart3, Download, Plus, Sun, Moon, LogOut, Zap } from 'lucide-react';
+import { Search, Columns3, BarChart3, Download, Plus, Sun, Moon, LogOut, Zap, Settings } from 'lucide-react';
 import ManualProspectModal from './ManualProspectModal';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -90,6 +90,19 @@ export default function Nav() {
               <span className="hidden sm:inline">Export</span>
             </button>
           )}
+
+          {/* Settings link */}
+          <Link
+            href="/settings"
+            title="Settings"
+            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border border-white/10 ${
+              pathname === '/settings'
+                ? 'bg-purple-600/20 text-purple-300 border-purple-500/30'
+                : 'text-gray-400 hover:text-white hover:bg-white/8'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
 
           {/* Theme toggle */}
           <button

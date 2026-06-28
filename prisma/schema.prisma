@@ -97,9 +97,27 @@ model UserSettings {
   id           String   @id @default(cuid())
   userId       String   @unique
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Prospecting goals
   dailyGoal    Int      @default(10)
   avgDealValue Int      @default(300000)
   closeRatePct Int      @default(10)
+
+  // Sender identity — used in proposals, email signatures, outreach
+  senderName   String?
+  businessName String?
+  whatsapp     String?
+  replyEmail   String?
+  city         String?
+  tagline      String?
+
+  // Custom SMTP — overrides platform SMTP when filled in
+  smtpHost     String?
+  smtpPort     Int?
+  smtpUser     String?
+  smtpPass     String?  @db.Text
+  smtpFrom     String?
+
   updatedAt    DateTime @updatedAt
 }
 
