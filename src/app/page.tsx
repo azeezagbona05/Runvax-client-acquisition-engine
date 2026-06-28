@@ -72,7 +72,10 @@ export default function Home() {
       });
       const json = await res.json();
 
-      if (res.status === 401) { router.push('/auth/signup'); return; }
+      if (res.status === 401) {
+        setError('__auth__');
+        return;
+      }
       if (res.status === 402 && json.code === 'SEARCH_LIMIT') {
         triggerUpgrade('ai_limit');
         setError(json.error || 'Daily search limit reached. Upgrade for more searches.');
@@ -184,8 +187,35 @@ export default function Home() {
       {hasSearched && (
         <main className="max-w-7xl mx-auto px-4 py-8">
 
+          {/* Auth gate — shown instead of redirecting */}
+          {error === '__auth__' && (
+            <div className="flex flex-col items-center justify-center py-20 text-center px-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-purple-900/30">
+                <img src="/logo.svg" alt="" className="w-10 h-10" />
+              </div>
+              <h2 className="text-2xl font-black text-white mb-2">Create a free account to search</h2>
+              <p className="text-gray-400 text-sm mb-8 max-w-sm">
+                Sign up free to discover businesses with no website — your next paying clients. Takes 30 seconds.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => router.push('/auth/signup')}
+                  className="bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-500 hover:to-orange-400 text-white font-black px-8 py-3 rounded-xl text-sm transition-all shadow-lg shadow-purple-900/30"
+                >
+                  Sign up free
+                </button>
+                <button
+                  onClick={() => router.push('/auth/signin')}
+                  className="bg-white/8 hover:bg-white/15 border border-white/10 text-gray-300 font-semibold px-8 py-3 rounded-xl text-sm transition-colors"
+                >
+                  Sign in
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Search quota badge */}
-          {searchMeta && searchMeta.searchesLimit !== null && (
+          {error !== '__auth__' && searchMeta && searchMeta.searchesLimit !== null && (
             <div className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border mb-4 ${remainingColor}`}>
               {searchMeta.searchesRemaining === 0
                 ? '🔒 No searches left today — upgrade to continue'
@@ -254,10 +284,12 @@ export default function Home() {
             </div>
           )}
 
-          <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} />
+          {error !== '__auth__' && (
+            <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} />
+          )}
 
           {/* Pagination */}
-          {!loading && !error && totalPages > 1 && (
+          {error !== '__auth__' && !loading && !error && totalPages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-3">
               <button onClick={goPrev} disabled={page === 0}
                 className="flex items-center gap-2 px-4 py-2.5 bg-white/8 hover:bg-white/15 border border-white/10 rounded-xl text-sm font-semibold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
@@ -305,7 +337,7 @@ export default function Home() {
           )}
 
           {/* Results cap notice for limited plans */}
-          {!loading && !error && filtered.length > 0 && (
+          {error !== '__auth__' && !loading && !error && filtered.length > 0 && (
             <div className="text-center mt-3 space-y-1">
               <p className="text-xs text-gray-600">
                 Showing {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, filtered.length)} of{' '}
