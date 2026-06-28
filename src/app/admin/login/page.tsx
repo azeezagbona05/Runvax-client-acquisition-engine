@@ -1,17 +1,25 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
+
+  // Already logged in as admin → go straight to panel
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
+    if (isAdmin) router.replace('/admin');
+  }, [status, session, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,24 +27,32 @@ export default function AdminLoginPage() {
     setError('');
 
     const res = await signIn('credentials', { email, password, redirect: false });
-    setLoading(false);
 
     if (res?.error) {
       setError('Invalid credentials');
+      setLoading(false);
       return;
     }
 
-    // Verify the session has isAdmin — fetch to confirm before routing
+    // Fetch fresh session to read isAdmin from JWT
     const sessionRes = await fetch('/api/auth/session');
-    const session = await sessionRes.json() as { user?: { isAdmin?: boolean } };
+    const freshSession = await sessionRes.json() as { user?: { isAdmin?: boolean } };
 
-    if (!session?.user?.isAdmin) {
+    if (!freshSession?.user?.isAdmin) {
       setError('This account does not have admin access');
-      await fetch('/api/auth/signout', { method: 'POST' });
+      await signOut({ redirect: false }); // properly clears the session
+      setLoading(false);
       return;
     }
 
     router.replace('/admin');
+    // keep loading=true — the redirect will unmount the page
+  }
+
+  if (status === 'loading') {
+    return <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+    </div>;
   }
 
   return (
@@ -53,9 +69,9 @@ export default function AdminLoginPage() {
         </div>
 
         {/* Form */}
-        <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 space-y-5 shadow-2xl">
+        <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 shadow-2xl">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/25 text-red-400 text-sm rounded-xl px-4 py-3">
+            <div className="bg-red-500/10 border border-red-500/25 text-red-400 text-sm rounded-xl px-4 py-3 mb-5">
               {error}
             </div>
           )}
@@ -98,10 +114,11 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition-colors shadow-lg shadow-purple-900/30"
+              className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition-colors shadow-lg shadow-purple-900/30 mt-2"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-              {loading ? 'Verifying…' : 'Sign in to Admin'}
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</>
+                : <><ShieldCheck className="w-4 h-4" /> Sign in to Admin</>}
             </button>
           </form>
         </div>
