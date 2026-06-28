@@ -4,6 +4,8 @@ import { checkAndIncrementAI } from '@/lib/usage';
 import { Business, ReplyType } from '@/types';
 import { getEffectiveProfile } from '@/lib/userProfile';
 
+export const dynamic = 'force-dynamic';
+
 const REPLY_CONTEXTS: Record<ReplyType, string> = {
   interested: `They said YES or showed clear interest. This is a warm lead. Your job now:
 - Express genuine delight (briefly, not excessively)

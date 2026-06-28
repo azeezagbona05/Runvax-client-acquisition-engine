@@ -3,6 +3,8 @@ import OpenAI from 'openai';
 import { checkAndIncrementAI } from '@/lib/usage';
 import { Business } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.OPENAI_API_KEY) {

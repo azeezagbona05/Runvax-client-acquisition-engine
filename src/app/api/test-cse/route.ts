@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   // Allow testing a brand-new key without editing .env: /api/test-cse?key=XXXX
   const overrideKey = req.nextUrl.searchParams.get('key');

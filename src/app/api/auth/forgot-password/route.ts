@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const { email } = await req.json() as { email: string };
   if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 });

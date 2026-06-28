@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import type { ConversationEntry } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
 type Params = { params: { id: string } };
 
 export async function POST(req: NextRequest, { params }: Params) {

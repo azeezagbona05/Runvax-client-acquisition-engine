@@ -3,6 +3,8 @@ import OpenAI from 'openai';
 import { checkAndIncrementAI } from '@/lib/usage';
 import { getEffectiveProfile } from '@/lib/userProfile';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const { industry, location }: { industry: string; location: string } = await req.json();
 

@@ -4,6 +4,8 @@ import { Business } from '@/types';
 import { checkAndIncrementAI } from '@/lib/usage';
 import { getEffectiveProfile } from '@/lib/userProfile';
 
+export const dynamic = 'force-dynamic';
+
 export type OutreachFramework = 'BAB' | 'AIDA' | 'PAS' | 'STORY';
 
 const FRAMEWORK_GUIDES: Record<OutreachFramework, string> = {

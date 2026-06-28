@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getEffectiveProfile } from '@/lib/userProfile';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const { to, subject, body, fromName } = await req.json() as {
     to: string; subject: string; body: string; fromName?: string;

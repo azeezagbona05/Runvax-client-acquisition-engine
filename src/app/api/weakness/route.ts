@@ -4,6 +4,8 @@ import { checkAndIncrementAI } from '@/lib/usage';
 import { Business } from '@/types';
 import { getEffectiveProfile } from '@/lib/userProfile';
 
+export const dynamic = 'force-dynamic';
+
 async function fetchWebsiteHtml(url: string): Promise<string> {
   try {
     const normalized = url.startsWith('http') ? url : `https://${url}`;

@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { getPlan } from '@/lib/plans';
 import type { Business, ConversationEntry, ProspectStage, SavedProspect } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
 type ProspectWithConversations = {
   id: string;
   businessData: unknown;

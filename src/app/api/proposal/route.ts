@@ -5,6 +5,8 @@ import { Business } from '@/types';
 import { estimatePrice } from '@/lib/scoring';
 import { getEffectiveProfile } from '@/lib/userProfile';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const { business, yourName, yourPhone }: {
     business: Business;

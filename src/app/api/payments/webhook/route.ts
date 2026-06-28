@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyWebhookSignature } from '@/lib/paystack';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 // Paystack sends events here. Set this URL in:
 // Paystack Dashboard → Settings → API Keys & Webhooks → Webhook URL
 // URL: https://YOUR-DOMAIN.vercel.app/api/payments/webhook
