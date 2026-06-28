@@ -1,28 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { CheckCircle, MailCheck } from 'lucide-react';
 
-export default function SignInPage() {
+function SignInForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const justReset    = params.get('reset') === '1';
+  const justVerified = params.get('verified') === '1';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const res = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    });
-
+    const res = await signIn('credentials', { email, password, redirect: false });
     setLoading(false);
 
     if (res?.error) {
@@ -37,13 +37,24 @@ export default function SignInPage() {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">ProspectTracker</h1>
-          <p className="text-gray-400 mt-2">Sign in to your account</p>
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-orange-500 rounded-xl flex items-center justify-center text-xl font-black mx-auto mb-4">A</div>
+          <h1 className="text-2xl font-black text-white">AI Prospect Finder</h1>
+          <p className="text-gray-400 mt-1 text-sm">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl p-8 space-y-5">
+        <form onSubmit={handleSubmit} className="bg-gray-900 border border-white/10 rounded-2xl p-8 space-y-5">
+          {justVerified && (
+            <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/25 text-green-400 text-sm rounded-xl px-4 py-3">
+              <MailCheck className="w-4 h-4 flex-shrink-0" /> Email verified! You can now sign in.
+            </div>
+          )}
+          {justReset && (
+            <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/25 text-green-400 text-sm rounded-xl px-4 py-3">
+              <CheckCircle className="w-4 h-4 flex-shrink-0" /> Password reset. Sign in with your new password.
+            </div>
+          )}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3">
               {error}
             </div>
           )}
@@ -51,11 +62,8 @@ export default function SignInPage() {
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">Email</label>
             <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
+              className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60"
               placeholder="you@example.com"
             />
           </div>
@@ -63,36 +71,36 @@ export default function SignInPage() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-sm text-gray-400">Password</label>
-              <Link href="/auth/forgot-password" className="text-xs text-purple-400 hover:underline">
-                Forgot password?
-              </Link>
+              <Link href="/auth/forgot-password" className="text-xs text-purple-400 hover:underline">Forgot password?</Link>
             </div>
             <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
+              className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60"
               placeholder="••••••••"
             />
           </div>
 
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors"
+            type="submit" disabled={loading}
+            className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-colors"
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
 
           <p className="text-center text-sm text-gray-500">
             No account?{' '}
-            <Link href="/auth/signup" className="text-blue-400 hover:text-blue-300">
-              Create one free
-            </Link>
+            <Link href="/auth/signup" className="text-purple-400 hover:text-purple-300">Create one free</Link>
           </p>
         </form>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950" />}>
+      <SignInForm />
+    </Suspense>
   );
 }

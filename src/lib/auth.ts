@@ -30,7 +30,7 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) return null;
 
-        return { id: user.id, email: user.email, name: user.name, plan: user.plan };
+        return { id: user.id, email: user.email, name: user.name, plan: user.plan, emailVerified: user.emailVerified };
       },
     }),
   ],
@@ -39,6 +39,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.plan = (user as { plan?: string }).plan ?? 'free';
+        token.emailVerified = (user as { emailVerified?: Date | null }).emailVerified ?? null;
       }
       return token;
     },
@@ -46,6 +47,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.plan = token.plan as string;
+        (session.user as { emailVerified?: Date | null }).emailVerified = token.emailVerified as Date | null;
       }
       return session;
     },

@@ -8,6 +8,7 @@ import { scoreLabel, formatPrice } from '@/lib/scoring';
 import { whatsappLink } from '@/lib/phone';
 import Link from 'next/link';
 import ManualProspectModal from '@/components/ManualProspectModal';
+import ProspectDetailModal from '@/components/ProspectDetailModal';
 
 type Stage = { id: ProspectStage; icon: string; label: string; headerColor: string; bg: string };
 
@@ -28,7 +29,7 @@ function daysSince(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
-function PipelineCard({ prospect }: { prospect: SavedProspect }) {
+function PipelineCard({ prospect, onOpen }: { prospect: SavedProspect; onOpen: () => void }) {
   const { updateStage, remove } = useProspects();
   const { business, stage, score, estimatedPrice, notes, reminderDate, reminderNote, outreachSentAt } = prospect;
   const { label: scoreText, color: scoreColor } = scoreLabel(score);
@@ -46,7 +47,7 @@ function PipelineCard({ prospect }: { prospect: SavedProspect }) {
   const isOverdue = reminderDate && new Date(reminderDate) < new Date() && stage !== 'won' && stage !== 'lost';
 
   return (
-    <div className="bg-gray-800/60 border border-white/8 rounded-xl p-3 space-y-2.5 hover:border-white/20 transition-colors">
+    <div className="bg-gray-800/60 border border-white/8 rounded-xl p-3 space-y-2.5 hover:border-white/20 transition-colors cursor-pointer" onClick={onOpen}>
       {/* Name + score */}
       <div className="flex items-start gap-2 justify-between">
         <h4 className="text-sm font-bold text-white leading-snug line-clamp-2 flex-1">{business.name}</h4>
@@ -113,10 +114,10 @@ function PipelineCard({ prospect }: { prospect: SavedProspect }) {
 
       {/* Move + Delete */}
       <div className="flex items-center gap-1 pt-1 border-t border-white/5">
-        <button onClick={movePrev} disabled={idx === 0} className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
+        <button onClick={(e) => { e.stopPropagation(); movePrev(e); }} disabled={idx === 0} className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
           <ChevronLeft className="w-3 h-3" />
         </button>
-        <button onClick={moveNext} disabled={idx === STAGES.length - 1} className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
+        <button onClick={(e) => { e.stopPropagation(); moveNext(e); }} disabled={idx === STAGES.length - 1} className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
           <ChevronRight className="w-3 h-3" />
         </button>
         <button
@@ -134,6 +135,7 @@ export default function PipelinePage() {
   const { prospects } = useProspects();
   const [activeStages, setActiveStages] = useState<ProspectStage[]>(STAGES.map((s) => s.id));
   const [showManual, setShowManual] = useState(false);
+  const [detailProspect, setDetailProspect] = useState<SavedProspect | null>(null);
 
   const toggleStage = (id: ProspectStage) => {
     setActiveStages((prev) =>
@@ -171,6 +173,7 @@ export default function PipelinePage() {
   return (
     <div className="min-h-screen bg-gray-950">
       {showManual && <ManualProspectModal onClose={() => setShowManual(false)} />}
+      {detailProspect && <ProspectDetailModal prospect={detailProspect} onClose={() => setDetailProspect(null)} />}
 
       {/* Sub-header */}
       <div className="bg-gray-900/50 border-b border-white/6 px-4 py-3">
@@ -239,7 +242,7 @@ export default function PipelinePage() {
                   {stageProspects.length === 0 ? (
                     <div className="text-center py-8 text-gray-700 text-xs">Empty</div>
                   ) : (
-                    stageProspects.map((p) => <PipelineCard key={p.business.id} prospect={p} />)
+                    stageProspects.map((p) => <PipelineCard key={p.business.id} prospect={p} onOpen={() => setDetailProspect(p)} />)
                   )}
                 </div>
               </div>

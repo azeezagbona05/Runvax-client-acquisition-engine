@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
 import { exportProspectsCSV } from '@/lib/export';
-import { Search, Columns3, BarChart3, Download, Plus, Sun, Moon, LogOut, Zap, Settings } from 'lucide-react';
+import { Search, Columns3, BarChart3, Download, Plus, Sun, Moon, LogOut, Zap, Settings, MailWarning } from 'lucide-react';
 import ManualProspectModal from './ManualProspectModal';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -31,8 +31,17 @@ export default function Nav() {
     { href: '/dashboard', icon: BarChart3, label: 'Dashboard', badge: wonCount > 0 ? wonCount : undefined, badgeColor: 'bg-green-500' },
   ];
 
+  const emailVerified = (session?.user as { emailVerified?: Date | null })?.emailVerified;
+  const showVerifyBanner = session?.user && !emailVerified && !pathname.startsWith('/auth');
+
   return (
     <>
+      {showVerifyBanner && (
+        <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-2 flex items-center justify-center gap-2 text-xs text-yellow-400 font-semibold">
+          <MailWarning className="w-3.5 h-3.5 flex-shrink-0" />
+          Please verify your email — check your inbox for the verification link.
+        </div>
+      )}
       <header className="sticky top-0 z-40 bg-gray-900/90 backdrop-blur border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-orange-500 rounded-lg flex items-center justify-center text-sm font-black shadow-lg flex-shrink-0">
