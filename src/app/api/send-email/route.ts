@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getEffectiveProfile } from '@/lib/userProfile';
 
 export async function POST(req: NextRequest) {
   const { to, subject, body, fromName } = await req.json() as {
@@ -55,12 +56,26 @@ export async function POST(req: NextRequest) {
     host, port, secure: port === 465, auth: { user, pass },
   });
 
+  // Build auto-signature from effective profile
+  const profile = await getEffectiveProfile();
+  const sigParts = [
+    profile.senderName && profile.businessName
+      ? `— ${profile.senderName} | ${profile.businessName}`
+      : profile.senderName || profile.businessName || null,
+    profile.whatsapp ? `WhatsApp: ${profile.whatsapp}` : null,
+    profile.tagline || null,
+  ].filter(Boolean);
+  const signature = sigParts.length > 0 ? `\n\n${sigParts.join(' | ')}` : '';
+
+  const finalBody = body + signature;
+  const finalHtml = finalBody.replace(/\n/g, '<br>');
+
   try {
     const info = await transporter.sendMail({
       from: displayFrom ? `"${displayFrom}" <${user}>` : user,
       to, subject,
-      text: body,
-      html: body.replace(/\n/g, '<br>'),
+      text: finalBody,
+      html: finalHtml,
     });
     return NextResponse.json({ success: true, messageId: info.messageId });
   } catch (err: unknown) {

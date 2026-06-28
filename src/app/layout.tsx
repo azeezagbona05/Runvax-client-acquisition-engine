@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { UpgradeProvider } from '@/context/UpgradeContext';
 import Nav from '@/components/Nav';
 import AuthProvider from '@/components/AuthProvider';
+import OnboardingGate from '@/components/OnboardingGate';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ProspectsProvider>
               <UpgradeProvider>
                 <Nav />
+                <OnboardingGate />
                 {children}
               </UpgradeProvider>
             </ProspectsProvider>

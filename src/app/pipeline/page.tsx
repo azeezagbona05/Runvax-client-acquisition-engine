@@ -174,18 +174,23 @@ export default function PipelinePage() {
 
       {/* Sub-header */}
       <div className="bg-gray-900/50 border-b border-white/6 px-4 py-3">
-        <div className="max-w-[1600px] mx-auto flex items-center gap-4 flex-wrap">
-          <div>
-            <h1 className="font-black text-white">Sales Pipeline</h1>
-            <p className="text-xs text-gray-500">{prospects.length} prospects · Pipeline: {formatPrice(totalValue)} · Won: {formatPrice(wonValue)}</p>
+        <div className="max-w-[1600px] mx-auto space-y-2">
+          {/* Top row: title + add button */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="font-black text-white text-sm sm:text-base">Sales Pipeline</h1>
+              <p className="text-xs text-gray-500 truncate">{prospects.length} prospects · {formatPrice(totalValue)} pipeline · {formatPrice(wonValue)} won</p>
+            </div>
+            <button
+              onClick={() => setShowManual(true)}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/35 text-purple-300 border border-purple-500/30 rounded-xl text-sm font-bold transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Prospect</span>
+            </button>
           </div>
-          <button
-            onClick={() => setShowManual(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/35 text-purple-300 border border-purple-500/30 rounded-xl text-sm font-bold transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Add Prospect
-          </button>
-          <div className="flex gap-1 flex-wrap ml-auto">
+          {/* Stage filters — horizontally scrollable on mobile */}
+          <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
             {STAGES.map((s) => {
               const count = prospects.filter((p) => p.stage === s.id).length;
               const active = activeStages.includes(s.id);
@@ -193,7 +198,7 @@ export default function PipelinePage() {
                 <button
                   key={s.id}
                   onClick={() => toggleStage(s.id)}
-                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                  className={`flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
                     active ? 'bg-white/10 text-white border-white/20' : 'text-gray-600 border-white/5'
                   }`}
                 >

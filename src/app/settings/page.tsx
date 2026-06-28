@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff } from 'lucide-react';
+import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark } from 'lucide-react';
 
 interface Settings {
   // Goals
@@ -22,15 +22,21 @@ interface Settings {
   smtpUser: string;
   smtpPass: string;
   smtpFrom: string;
+  // Bank / payment
+  bankName: string;
+  bankAccount: string;
+  bankAcctName: string;
+  paymentLink: string;
 }
 
 const DEFAULTS: Settings = {
   dailyGoal: 10, avgDealValue: 300000, closeRatePct: 10,
   senderName: '', businessName: '', whatsapp: '', replyEmail: '', city: '', tagline: '',
   smtpHost: '', smtpPort: 587, smtpUser: '', smtpPass: '', smtpFrom: '',
+  bankName: '', bankAccount: '', bankAcctName: '', paymentLink: '',
 };
 
-type Tab = 'profile' | 'email' | 'goals';
+type Tab = 'profile' | 'email' | 'payment' | 'goals';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -119,6 +125,7 @@ export default function SettingsPage() {
   const tabs: { id: Tab; label: string; icon: typeof User }[] = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'email', label: 'Email & SMTP', icon: Mail },
+    { id: 'payment', label: 'Bank & Payment', icon: Landmark },
     { id: 'goals', label: 'Goals', icon: Target },
   ];
 
@@ -134,20 +141,20 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-gray-900 border border-white/10 rounded-xl p-1 mb-6">
+        {/* Tabs — scrollable on mobile */}
+        <div className="flex gap-1 bg-gray-900 border border-white/10 rounded-xl p-1 mb-6 overflow-x-auto scrollbar-none">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+              className={`flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                 tab === id
                   ? 'bg-purple-600 text-white'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
               <Icon className="w-4 h-4" />
-              {label}
+              <span className="whitespace-nowrap">{label}</span>
             </button>
           ))}
         </div>
@@ -263,6 +270,49 @@ export default function SettingsPage() {
                 {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 {testing ? 'Sending test…' : 'Send test email to myself'}
               </button>
+            </>
+          )}
+
+          {/* ── BANK & PAYMENT TAB ── */}
+          {tab === 'payment' && (
+            <>
+              <div className="pb-4 border-b border-white/8">
+                <p className="text-white font-semibold text-sm">Bank & Payment Details</p>
+                <p className="text-gray-500 text-xs mt-1">
+                  Printed automatically in AI-generated proposals so clients know how to pay you.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Bank Name</label>
+                  <input className={inputCls} value={settings.bankName} onChange={(e) => set('bankName', e.target.value)} placeholder="e.g. GTBank" />
+                </div>
+                <div>
+                  <label className={labelCls}>Account Number</label>
+                  <input className={inputCls} value={settings.bankAccount} onChange={(e) => set('bankAccount', e.target.value)} placeholder="e.g. 0123456789" />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Account Name</label>
+                <input className={inputCls} value={settings.bankAcctName} onChange={(e) => set('bankAcctName', e.target.value)} placeholder="e.g. AZEEZ OLADIPO" />
+              </div>
+
+              <div>
+                <label className={labelCls}>Payment Link <span className="text-gray-600 font-normal">(optional — Paystack/Flutterwave)</span></label>
+                <input type="url" className={inputCls} value={settings.paymentLink} onChange={(e) => set('paymentLink', e.target.value)} placeholder="https://paystack.com/pay/your-link" />
+              </div>
+
+              {(settings.bankName || settings.bankAccount) && (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-xs text-green-400">
+                  <p className="font-semibold mb-1">Preview in proposals:</p>
+                  <p>Bank: {settings.bankName || '—'}</p>
+                  <p>Account: {settings.bankAccount || '—'}</p>
+                  <p>Name: {settings.bankAcctName || '—'}</p>
+                  {settings.paymentLink && <p>Pay online: {settings.paymentLink}</p>}
+                </div>
+              )}
             </>
           )}
 

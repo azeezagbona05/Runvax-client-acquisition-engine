@@ -104,6 +104,12 @@ Write a professional, persuasive one-page website development proposal. Structur
 | 50% deposit to begin | [half of min price] |
 | Balance on delivery | [remaining] |
 
+${profile.bankName && profile.bankAccount ? `**Bank Transfer:**
+- Bank: ${profile.bankName}
+- Account Number: ${profile.bankAccount}
+- Account Name: ${profile.bankAcctName || profile.businessName}
+${profile.paymentLink ? `- Or pay online: ${profile.paymentLink}` : ''}` : '*[Bank details will be provided upon agreement]*'}
+
 ## Our Guarantee
 
 If you are not satisfied with the initial design concept, we redesign it **at no extra charge**. Your satisfaction is our priority.

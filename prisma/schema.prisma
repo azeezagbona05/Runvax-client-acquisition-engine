@@ -25,9 +25,10 @@ model User {
   prospects      Prospect[]
   settings       UserSettings?
   dailyLogs      DailyLog[]
-  usageRecords   UsageRecord[]
-  searchHistory  SearchHistory[]
-  payments       Payment[]
+  usageRecords        UsageRecord[]
+  searchHistory       SearchHistory[]
+  payments            Payment[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Account {
@@ -123,6 +124,15 @@ model UserSettings {
   smtpPass     String?  @db.Text
   smtpFrom     String?
 
+  // Bank / payment details — printed in proposals
+  bankName      String?
+  bankAccount   String?
+  bankAcctName  String?
+  paymentLink   String?
+
+  // Onboarding
+  onboardingDone Boolean @default(false)
+
   updatedAt    DateTime @updatedAt
 }
 
@@ -155,6 +165,18 @@ model Payment {
   amount    Int
   status    String   @default("success")
   paidAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }

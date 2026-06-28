@@ -17,6 +17,7 @@ export async function GET() {
     replyEmail: null, city: null, tagline: null,
     smtpHost: null, smtpPort: null, smtpUser: null,
     smtpPass: null, smtpFrom: null,
+    bankName: null, bankAccount: null, bankAcctName: null, paymentLink: null,
   });
 }
 
@@ -39,6 +40,11 @@ export async function PATCH(req: NextRequest) {
     smtpUser?: string;
     smtpPass?: string;
     smtpFrom?: string;
+    bankName?: string;
+    bankAccount?: string;
+    bankAcctName?: string;
+    paymentLink?: string;
+    onboardingDone?: boolean;
   };
 
   const data = Object.fromEntries(

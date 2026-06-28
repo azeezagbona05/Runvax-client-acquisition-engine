@@ -84,10 +84,10 @@ export default function Nav() {
             <button
               onClick={() => exportProspectsCSV(prospects)}
               title="Export all prospects to CSV"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/8 transition-colors"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/8 transition-colors"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export</span>
+              <span className="hidden md:inline">Export</span>
             </button>
           )}
 

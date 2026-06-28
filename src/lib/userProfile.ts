@@ -9,7 +9,11 @@ export interface EffectiveProfile {
   replyEmail: string;
   city: string;
   tagline: string;
-  services: string;      // free-text, e.g. "Web design, SEO, Google Ads"
+  services: string;
+  bankName: string;
+  bankAccount: string;
+  bankAcctName: string;
+  paymentLink: string;
 }
 
 const DEFAULT_EMAIL = 'info@beamai.net';
@@ -31,6 +35,10 @@ async function getDefaultProfile(): Promise<EffectiveProfile> {
     city: defaultUser?.settings?.city ?? 'Lagos, Nigeria',
     tagline: defaultUser?.settings?.tagline ?? 'Building digital front doors for Nigerian businesses',
     services: 'Web design, SEO, Google Business Profile setup',
+    bankName: defaultUser?.settings?.bankName ?? '',
+    bankAccount: defaultUser?.settings?.bankAccount ?? '',
+    bankAcctName: defaultUser?.settings?.bankAcctName ?? '',
+    paymentLink: defaultUser?.settings?.paymentLink ?? '',
   };
   return _defaultCache;
 }
@@ -52,6 +60,10 @@ export async function getEffectiveProfile(): Promise<EffectiveProfile> {
     replyEmail: s?.replyEmail || defaults.replyEmail,
     city: s?.city || defaults.city,
     tagline: s?.tagline || defaults.tagline,
-    services: 'Web design, SEO, Google Business Profile setup', // until services field is added
+    services: 'Web design, SEO, Google Business Profile setup',
+    bankName: s?.bankName || defaults.bankName,
+    bankAccount: s?.bankAccount || defaults.bankAccount,
+    bankAcctName: s?.bankAcctName || defaults.bankAcctName,
+    paymentLink: s?.paymentLink || defaults.paymentLink,
   };
 }
