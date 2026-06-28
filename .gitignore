@@ -13,6 +13,7 @@ node_modules/
 
 # environment variables — NEVER commit secrets
 .env
+.env.json
 .env.local
 .env.development.local
 .env.test.local

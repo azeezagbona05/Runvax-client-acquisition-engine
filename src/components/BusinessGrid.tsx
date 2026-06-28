@@ -30,7 +30,7 @@ export default function BusinessGrid({ businesses, loading, error, onSelect }: P
         </div>
         <p className="text-red-400 font-semibold">Search failed</p>
         <p className="text-gray-500 text-sm max-w-sm">{error}</p>
-        <p className="text-gray-600 text-xs">Make sure your GOOGLE_PLACES_API_KEY is set in .env.local</p>
+       
       </div>
     );
   }
