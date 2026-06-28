@@ -5,6 +5,8 @@ export interface PlanConfig {
   price: string | null;
   priceNote: string;
   aiCallsPerDay: number;
+  searchesPerDay: number;
+  resultsPerSearch: number;
   maxProspects: number;
   badge: string;
   badgeClass: string;
@@ -17,6 +19,8 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     price: null,
     priceNote: 'No credit card needed',
     aiCallsPerDay: 15,
+    searchesPerDay: 5,
+    resultsPerSearch: 20,
     maxProspects: 30,
     badge: 'FREE',
     badgeClass: 'bg-gray-700 text-gray-300',
@@ -27,6 +31,8 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     price: '₦9,999',
     priceNote: 'per month',
     aiCallsPerDay: 200,
+    searchesPerDay: 20,
+    resultsPerSearch: 60,
     maxProspects: Infinity,
     badge: 'PRO',
     badgeClass: 'bg-purple-600 text-white',
@@ -37,6 +43,8 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     price: '₦24,999',
     priceNote: 'per month',
     aiCallsPerDay: Infinity,
+    searchesPerDay: Infinity,
+    resultsPerSearch: Infinity,
     maxProspects: Infinity,
     badge: 'AGENCY',
     badgeClass: 'bg-orange-500 text-white',

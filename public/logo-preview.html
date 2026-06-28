@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BeamAI Logo Preview</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0a;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    padding: 48px 24px;
+  }
+  h1 { font-size: 13px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #6b7280; margin-bottom: 40px; text-align: center; }
+  .section { margin-bottom: 56px; }
+  .section-title { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #4b5563; margin-bottom: 20px; text-align: center; }
+  .row { display: flex; align-items: center; justify-content: center; gap: 40px; flex-wrap: wrap; }
+  .swatch { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .swatch span { font-size: 11px; color: #6b7280; }
+
+  /* SIZE DEMOS */
+  img.sz-16  { width: 16px;  height: 16px; }
+  img.sz-24  { width: 24px;  height: 24px; }
+  img.sz-32  { width: 32px;  height: 32px; }
+  img.sz-48  { width: 48px;  height: 48px; }
+  img.sz-64  { width: 64px;  height: 64px; }
+  img.sz-96  { width: 96px;  height: 96px; }
+  img.sz-128 { width: 128px; height: 128px; }
+  img.sz-200 { width: 200px; height: 200px; }
+
+  /* USAGE CONTEXT DEMOS */
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #1c1c2e; border: 1px solid rgba(139,92,246,.25);
+    border-radius: 12px; padding: 8px 16px;
+    font-size: 15px; font-weight: 700; color: #e2d9ff;
+  }
+  .nav-bar {
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px; padding: 12px 20px;
+    display: flex; align-items: center; gap: 12px;
+    max-width: 420px;
+  }
+  .nav-bar .brand { font-size: 17px; font-weight: 900; color: #fff; }
+  .nav-bar .tagline { font-size: 11px; color: #6b7280; }
+  .favicon-strip { display: flex; align-items: center; gap: 8px; background: #1c1c2e; border-radius: 10px; padding: 6px 14px; }
+  .favicon-strip span { font-size: 12px; color: #9ca3af; }
+
+  /* Light background test -->
+  .light-bg { background: #f3f4f6; border-radius: 16px; padding: 32px; display: flex; gap: 24px; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+
+<h1>BeamAI — Logo Mark</h1>
+
+<!-- SIZE SCALE -->
+<div class="section">
+  <div class="section-title">Size scale</div>
+  <div class="row">
+    <div class="swatch"><img src="logo.svg" class="sz-16"><span>16</span></div>
+    <div class="swatch"><img src="logo.svg" class="sz-24"><span>24</span></div>
+    <div class="swatch"><img src="logo.svg" class="sz-32"><span>32</span></div>
+    <div class="swatch"><img src="logo.svg" class="sz-48"><span>48</span></div>
+    <div class="swatch"><img src="logo.svg" class="sz-64"><span>64</span></div>
+    <div class="swatch"><img src="logo.svg" class="sz-96"><span>96</span></div>
+    <div class="swatch"><img src="logo.svg" class="sz-128"><span>128</span></div>
+    <div class="swatch"><img src="logo.svg" class="sz-200"><span>200</span></div>
+  </div>
+</div>
+
+<!-- USAGE CONTEXTS -->
+<div class="section">
+  <div class="section-title">In context</div>
+  <div class="row" style="flex-direction:column; align-items:center; gap:24px;">
+
+    <!-- Nav bar -->
+    <div class="nav-bar">
+      <img src="logo.svg" style="width:36px;height:36px">
+      <div>
+        <div class="brand">BeamAI</div>
+        <div class="tagline">AI Prospect Finder</div>
+      </div>
+    </div>
+
+    <!-- Pill / badge -->
+    <div class="pill">
+      <img src="logo.svg" style="width:22px;height:22px">
+      AI Prospect Finder
+    </div>
+
+    <!-- Favicon strip -->
+    <div class="favicon-strip">
+      <img src="logo.svg" style="width:16px;height:16px">
+      <span>beamai.net — AI Prospect Finder</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- LIGHT BACKGROUND TEST -->
+<div class="section">
+  <div class="section-title">On light background</div>
+  <div class="row">
+    <div class="light-bg">
+      <img src="logo.svg" style="width:48px;height:48px">
+      <img src="logo.svg" style="width:64px;height:64px">
+      <img src="logo.svg" style="width:96px;height:96px">
+    </div>
+  </div>
+</div>
+
+<!-- HERO SIZE -->
+<div class="section">
+  <div class="section-title">Hero / app icon size</div>
+  <div class="row">
+    <img src="logo.svg" style="width:200px;height:200px;filter:drop-shadow(0 0 40px rgba(124,58,237,.5))">
+  </div>
+</div>
+
+</body>
+</html>

@@ -44,9 +44,7 @@ export default function Nav() {
       )}
       <header className="sticky top-0 z-40 bg-gray-900/90 backdrop-blur border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-orange-500 rounded-lg flex items-center justify-center text-sm font-black shadow-lg flex-shrink-0">
-            A
-          </div>
+          <img src="/logo.svg" alt="BeamAI" className="w-8 h-8 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="font-black text-white text-sm leading-none">AI Prospect Finder</div>
             <div className="text-[11px] text-gray-500 leading-none mt-0.5 hidden sm:block">

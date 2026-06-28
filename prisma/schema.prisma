@@ -148,11 +148,12 @@ model DailyLog {
 }
 
 model UsageRecord {
-  id      String @id @default(cuid())
-  userId  String
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date    String
-  aiCalls Int    @default(0)
+  id           String @id @default(cuid())
+  userId       String
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         String
+  aiCalls      Int    @default(0)
+  searchCount  Int    @default(0)
 
   @@unique([userId, date])
 }

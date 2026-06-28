@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Zap, Sparkles, Mail } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Sparkles, Mail, Lock } from 'lucide-react';
 
 import SearchForm from '@/components/SearchForm';
 import BusinessGrid from '@/components/BusinessGrid';
@@ -13,6 +13,7 @@ import DailyBriefModal from '@/components/DailyBriefModal';
 import BulkEmailModal from '@/components/BulkEmailModal';
 import { Business, SearchFormData } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
+import { useUpgrade } from '@/context/UpgradeContext';
 import { saveToHistory, getBestTimeStatus } from '@/lib/searchHistory';
 
 type FilterMode = 'all' | 'no-website' | 'new';
@@ -23,26 +24,36 @@ const STAGE_SORT_ORDER: Record<string, number> = {
 
 const PER_PAGE = 20;
 
+interface SearchMeta {
+  searchesRemaining: number | null;
+  searchesUsed: number | null;
+  searchesLimit: number | null;
+  plan: string;
+  resultsLimit: number;
+}
+
 export default function Home() {
   const router = useRouter();
   const { isSaved, get } = useProspects();
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [filter, setFilter] = useState<FilterMode>('all');
-  const [page, setPage] = useState(0);
+  const { triggerUpgrade } = useUpgrade();
 
-  const [selected, setSelected] = useState<Business | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [businesses, setBusinesses]   = useState<Business[]>([]);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [filter, setFilter]           = useState<FilterMode>('all');
+  const [page, setPage]               = useState(0);
+  const [searchMeta, setSearchMeta]   = useState<SearchMeta | null>(null);
+
+  const [selected, setSelected]             = useState<Business | null>(null);
+  const [detailLoading, setDetailLoading]   = useState(false);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [showQuickFire, setShowQuickFire] = useState(false);
-  const [showBrief, setShowBrief] = useState(false);
-  const [showBulkEmail, setShowBulkEmail] = useState(false);
+  const [generating, setGenerating]         = useState(false);
+  const [showQuickFire, setShowQuickFire]   = useState(false);
+  const [showBrief, setShowBrief]           = useState(false);
+  const [showBulkEmail, setShowBulkEmail]   = useState(false);
 
   const timeStatus = getBestTimeStatus();
-
 
   const handleSearch = async (data: SearchFormData) => {
     setLoading(true);
@@ -60,10 +71,25 @@ export default function Home() {
         body: JSON.stringify(data),
       });
       const json = await res.json();
+
+      if (res.status === 401) { router.push('/auth/signup'); return; }
+      if (res.status === 402 && json.code === 'SEARCH_LIMIT') {
+        triggerUpgrade('ai_limit');
+        setError(json.error || 'Daily search limit reached. Upgrade for more searches.');
+        return;
+      }
       if (!res.ok) throw new Error(json.error || 'Search failed');
+
       const results: Business[] = json.businesses || [];
       setBusinesses(results);
-      // Save to search history (fire-and-forget — non-blocking)
+      setSearchMeta({
+        searchesRemaining: json.searchesRemaining ?? null,
+        searchesUsed:      json.searchesUsed      ?? null,
+        searchesLimit:     json.searchesLimit     ?? null,
+        plan:              json.plan              ?? 'free',
+        resultsLimit:      json.resultsLimit      ?? 20,
+      });
+
       void saveToHistory({
         industry: data.industry,
         location: data.location || 'GPS',
@@ -98,10 +124,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ business: selected }),
       });
-      if (res.status === 401) {
-        router.push('/auth/signup');
-        return;
-      }
+      if (res.status === 401) { router.push('/auth/signup'); return; }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Generation failed');
       setGeneratedPrompt(json.prompt);
@@ -124,21 +147,34 @@ export default function Home() {
     filter === 'new'        ? sorted.filter((b) => !isSaved(b.id)) :
     sorted;
 
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+  const totalPages   = Math.ceil(filtered.length / PER_PAGE);
+  const paginated    = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+
+  // Is Next locked? Free plan gets only 1 page (20 results)
+  const resultsLimit    = searchMeta?.resultsLimit ?? Infinity;
+  const maxAllowedPages = resultsLimit === Infinity ? totalPages : Math.ceil(resultsLimit / PER_PAGE);
+  const nextLocked      = page >= maxAllowedPages - 1 && totalPages > maxAllowedPages;
 
   const handleFilterChange = (f: FilterMode) => { setFilter(f); setPage(0); };
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
-  const goNext = () => { setPage((p) => Math.min(p + 1, totalPages - 1)); scrollToTop(); };
+  const goNext = () => {
+    if (nextLocked) { triggerUpgrade('feature'); return; }
+    setPage((p) => Math.min(p + 1, totalPages - 1));
+    scrollToTop();
+  };
   const goPrev = () => { setPage((p) => Math.max(p - 1, 0)); scrollToTop(); };
 
-  const quickFireTargets = businesses.filter((b) => !b.hasWebsite && b.phone);
-
-  // Email blast: no-website + social-only (FB/IG). Social-only businesses
-  // are online enough that their contact email is often findable.
-  const isSocialOnly = (b: typeof businesses[0]) =>
+  const quickFireTargets  = businesses.filter((b) => !b.hasWebsite && b.phone);
+  const isSocialOnly      = (b: typeof businesses[0]) =>
     !!b.website && /instagram\.com|facebook\.com|tiktok\.com|twitter\.com|x\.com/.test(b.website);
   const emailBlastTargets = businesses.filter((b) => !b.hasWebsite || isSocialOnly(b));
+
+  // Searches remaining badge color
+  const remainingColor =
+    searchMeta?.searchesRemaining == null ? '' :
+    searchMeta.searchesRemaining <= 1     ? 'text-red-400 bg-red-500/10 border-red-500/20' :
+    searchMeta.searchesRemaining <= 3     ? 'text-orange-400 bg-orange-500/10 border-orange-500/20' :
+                                            'text-green-400 bg-green-500/10 border-green-500/20';
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -147,6 +183,15 @@ export default function Home() {
 
       {hasSearched && (
         <main className="max-w-7xl mx-auto px-4 py-8">
+
+          {/* Search quota badge */}
+          {searchMeta && searchMeta.searchesLimit !== null && (
+            <div className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border mb-4 ${remainingColor}`}>
+              {searchMeta.searchesRemaining === 0
+                ? '🔒 No searches left today — upgrade to continue'
+                : `🔍 ${searchMeta.searchesRemaining} of ${searchMeta.searchesLimit} searches left today`}
+            </div>
+          )}
 
           {!loading && !error && businesses.length > 0 && (
             <div className="flex items-center gap-3 mb-6 flex-wrap">
@@ -157,7 +202,11 @@ export default function Home() {
                   <strong className="text-white">{filtered.length}</strong> results
                   {totalPages > 1 && (
                     <span className="text-gray-600">
-                      &nbsp;· page <strong className="text-purple-400">{page + 1}</strong> of <strong className="text-purple-400">{totalPages}</strong>
+                      &nbsp;· page <strong className="text-purple-400">{page + 1}</strong> of{' '}
+                      <strong className="text-purple-400">{maxAllowedPages}</strong>
+                      {maxAllowedPages < totalPages && (
+                        <span className="text-gray-700"> ({totalPages - maxAllowedPages} locked)</span>
+                      )}
                     </span>
                   )}
                   &nbsp;·&nbsp;
@@ -172,7 +221,6 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-2 ml-auto flex-wrap">
-                {/* Quick-Fire button */}
                 {quickFireTargets.length > 0 && (
                   <button
                     onClick={() => setShowQuickFire(true)}
@@ -181,16 +229,12 @@ export default function Home() {
                     <Zap className="w-3.5 h-3.5" /> Quick-Fire ({quickFireTargets.length})
                   </button>
                 )}
-
-                {/* Email Blast button */}
                 <button
                   onClick={() => setShowBulkEmail(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 transition-colors"
                 >
                   <Mail className="w-3.5 h-3.5" /> Email Blast ({emailBlastTargets.length})
                 </button>
-
-                {/* Filters */}
                 <button onClick={() => handleFilterChange('all')}
                   className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
                     filter === 'all' ? 'bg-purple-600 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
@@ -219,25 +263,63 @@ export default function Home() {
                 className="flex items-center gap-2 px-4 py-2.5 bg-white/8 hover:bg-white/15 border border-white/10 rounded-xl text-sm font-semibold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                 <ChevronLeft className="w-4 h-4" /> Previous
               </button>
+
               <div className="flex items-center gap-1.5">
-                {Array.from({ length: totalPages }).map((_, i) => (
-                  <button key={i} onClick={() => { setPage(i); scrollToTop(); }}
-                    className={`w-9 h-9 rounded-xl text-sm font-bold transition-colors ${
-                      i === page ? 'bg-purple-600 text-white' : 'bg-white/8 text-gray-500 hover:bg-white/15 hover:text-white border border-white/10'}`}>
-                    {i + 1}
-                  </button>
-                ))}
+                {Array.from({ length: totalPages }).map((_, i) => {
+                  const locked = i >= maxAllowedPages;
+                  return (
+                    <button key={i}
+                      onClick={() => {
+                        if (locked) { triggerUpgrade('feature'); return; }
+                        setPage(i); scrollToTop();
+                      }}
+                      className={`w-9 h-9 rounded-xl text-sm font-bold transition-colors flex items-center justify-center ${
+                        locked
+                          ? 'bg-white/5 text-gray-700 border border-white/8 cursor-not-allowed'
+                          : i === page
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-white/8 text-gray-500 hover:bg-white/15 hover:text-white border border-white/10'
+                      }`}
+                    >
+                      {locked ? <Lock className="w-3 h-3" /> : i + 1}
+                    </button>
+                  );
+                })}
               </div>
-              <button onClick={goNext} disabled={page === totalPages - 1}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white/8 hover:bg-white/15 border border-white/10 rounded-xl text-sm font-semibold text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                Next <ChevronRight className="w-4 h-4" />
+
+              <button onClick={goNext}
+                disabled={page >= maxAllowedPages - 1 && !nextLocked}
+                className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-semibold transition-colors ${
+                  nextLocked
+                    ? 'bg-orange-500/10 border-orange-500/25 text-orange-400 hover:bg-orange-500/20 cursor-pointer'
+                    : page === totalPages - 1
+                    ? 'bg-white/8 border-white/10 text-gray-300 opacity-30 cursor-not-allowed'
+                    : 'bg-white/8 hover:bg-white/15 border-white/10 text-gray-300'
+                }`}
+              >
+                {nextLocked
+                  ? <><Lock className="w-4 h-4" /> Upgrade for More</>
+                  : <>Next <ChevronRight className="w-4 h-4" /></>}
               </button>
             </div>
           )}
+
+          {/* Results cap notice for limited plans */}
           {!loading && !error && filtered.length > 0 && (
-            <p className="text-center text-xs text-gray-600 mt-3">
-              Showing {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, filtered.length)} of {filtered.length} businesses
-            </p>
+            <div className="text-center mt-3 space-y-1">
+              <p className="text-xs text-gray-600">
+                Showing {page * PER_PAGE + 1}–{Math.min((page + 1) * PER_PAGE, filtered.length)} of{' '}
+                {filtered.length} businesses
+              </p>
+              {maxAllowedPages < totalPages && (
+                <p className="text-xs text-orange-400/70">
+                  Your plan shows {resultsLimit} results per search —{' '}
+                  <button onClick={() => triggerUpgrade('feature')} className="underline hover:text-orange-400">
+                    upgrade to unlock all {filtered.length}
+                  </button>
+                </p>
+              )}
+            </div>
           )}
         </main>
       )}
@@ -246,7 +328,7 @@ export default function Home() {
         <div className="max-w-3xl mx-auto px-4 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { icon: '🔍', title: 'Discover Prospects', desc: 'Search any industry in any city — up to 60 results per search' },
+              { icon: '🔍', title: 'Discover Prospects', desc: 'Search any industry in any city — up to 60 results per search on Pro' },
               { icon: '⚡', title: 'Quick-Fire Mode', desc: 'Send WhatsApp to 20 prospects in under 5 minutes — one by one' },
               { icon: '🤖', title: 'AI-Powered Outreach', desc: 'BAB, AIDA, PAS messages + proposals + Lovable prompts generated instantly' },
             ].map((step) => (
@@ -278,23 +360,16 @@ export default function Home() {
         />
       )}
       {showQuickFire && (
-        <QuickFireModal
-          businesses={businesses}
-          onClose={() => setShowQuickFire(false)}
-        />
+        <QuickFireModal businesses={businesses} onClose={() => setShowQuickFire(false)} />
       )}
       {showBulkEmail && (
-        <BulkEmailModal
-          businesses={emailBlastTargets}
-          onClose={() => setShowBulkEmail(false)}
-        />
+        <BulkEmailModal businesses={emailBlastTargets} onClose={() => setShowBulkEmail(false)} />
       )}
       {showBrief && (
         <DailyBriefModal
           onStart={(industry, location) => {
             setShowBrief(false);
-            const query = `${industry} in ${location}`;
-            handleSearch({ industry, location, radius: 5, query });
+            handleSearch({ industry, location, radius: 5, query: `${industry} in ${location}` });
           }}
           onDismiss={() => setShowBrief(false)}
         />

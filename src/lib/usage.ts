@@ -78,3 +78,73 @@ export async function getUsageToday(userId: string): Promise<number> {
   });
   return record?.aiCalls ?? 0;
 }
+
+export interface SearchCheckResult {
+  ok: boolean;
+  error?: NextResponse;
+  userId?: string;
+  plan?: string;
+  used?: number;
+  limit?: number;
+  remaining?: number;
+  resultsPerSearch?: number;
+}
+
+export async function checkAndIncrementSearch(): Promise<SearchCheckResult> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return {
+      ok: false,
+      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    };
+  }
+
+  const userId = session.user.id;
+  const userPlan = (session.user as { plan?: string }).plan ?? 'free';
+  const planConfig = getPlan(userPlan);
+  const date = todayStr();
+
+  if (planConfig.searchesPerDay === Infinity) {
+    await prisma.usageRecord.upsert({
+      where: { userId_date: { userId, date } },
+      create: { userId, date, searchCount: 1 },
+      update: { searchCount: { increment: 1 } },
+    });
+    return { ok: true, userId, plan: userPlan, resultsPerSearch: planConfig.resultsPerSearch };
+  }
+
+  const record = await prisma.usageRecord.findUnique({
+    where: { userId_date: { userId, date } },
+  });
+
+  const used = record?.searchCount ?? 0;
+
+  if (used >= planConfig.searchesPerDay) {
+    return {
+      ok: false,
+      error: NextResponse.json({
+        error: `Daily search limit reached. Upgrade for more searches.`,
+        code: 'SEARCH_LIMIT',
+        plan: userPlan,
+        used,
+        limit: planConfig.searchesPerDay,
+      }, { status: 402 }),
+    };
+  }
+
+  await prisma.usageRecord.upsert({
+    where: { userId_date: { userId, date } },
+    create: { userId, date, searchCount: 1 },
+    update: { searchCount: { increment: 1 } },
+  });
+
+  return {
+    ok: true,
+    userId,
+    plan: userPlan,
+    used: used + 1,
+    limit: planConfig.searchesPerDay,
+    remaining: planConfig.searchesPerDay - used - 1,
+    resultsPerSearch: planConfig.resultsPerSearch,
+  };
+}

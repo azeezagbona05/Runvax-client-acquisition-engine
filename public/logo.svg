@@ -1,0 +1,115 @@
+<svg width="200" height="200" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+
+    <!-- Background: deep purple radial, lighter top-left -->
+    <radialGradient id="bg" cx="28%" cy="22%" r="80%">
+      <stop offset="0%"   stop-color="#2D1060"/>
+      <stop offset="100%" stop-color="#0A0118"/>
+    </radialGradient>
+
+    <!-- Ring gradient: lavender → purple -->
+    <linearGradient id="ringG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#C4B5FD"/>
+      <stop offset="60%"  stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#5B21B6"/>
+    </linearGradient>
+
+    <!-- Sparkle gradient: gold → orange -->
+    <linearGradient id="starG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#FDE68A"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+
+    <!-- Soft blur for glow halos -->
+    <filter id="halo" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7"/>
+    </filter>
+
+    <!-- Ring glow: blur + original on top -->
+    <filter id="ringGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Star glow: bloom around the sparkle -->
+    <filter id="starGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+  </defs>
+
+  <!-- ── Background ──────────────────────────────────── -->
+  <rect width="120" height="120" rx="26" fill="url(#bg)"/>
+
+  <!-- Inner border highlight (glass edge) -->
+  <rect x="1" y="1" width="118" height="118" rx="25.5"
+        fill="none" stroke="rgba(196,181,253,0.14)" stroke-width="1"/>
+
+  <!-- ── Purple ambient glow behind ring ───────────────── -->
+  <circle cx="60" cy="60" r="46"
+    fill="none" stroke="#7C3AED" stroke-width="10"
+    opacity="0.12" filter="url(#halo)"/>
+
+  <!-- ── Outer ring — 4 arcs, gaps at cardinal points ─── -->
+  <!--
+    Circumference = 2π × 44 ≈ 276.46
+    We want 4 arcs of ~59 units each, 4 gaps of ~10.6 units.
+    To centre each gap at a cardinal point we shift the pattern
+    by -(arc + gap/2) = -(59 + 5.3) = -64.3
+  -->
+  <circle cx="60" cy="60" r="44"
+    fill="none"
+    stroke="url(#ringG)"
+    stroke-width="2.8"
+    stroke-dasharray="59 10.6"
+    stroke-dashoffset="-64.3"
+    stroke-linecap="round"
+    filter="url(#ringGlow)"
+    opacity="0.92"/>
+
+  <!-- ── Cardinal tick marks (thin lines, inward from ring) ── -->
+  <g stroke="rgba(196,181,253,0.75)" stroke-width="2" stroke-linecap="round">
+    <line x1="60" y1="14" x2="60" y2="22"/>   <!-- North -->
+    <line x1="106" y1="60" x2="98" y2="60"/>   <!-- East  -->
+    <line x1="60" y1="106" x2="60" y2="98"/>   <!-- South -->
+    <line x1="14" y1="60" x2="22" y2="60"/>    <!-- West  -->
+  </g>
+
+  <!-- Tiny accent dot at each tick tip -->
+  <g fill="#A78BFA">
+    <circle cx="60"  cy="12"  r="2.2"/>
+    <circle cx="108" cy="60"  r="2.2"/>
+    <circle cx="60"  cy="108" r="2.2"/>
+    <circle cx="12"  cy="60"  r="2.2"/>
+  </g>
+
+  <!-- ── Inner dashed ring (depth layer) ──────────────── -->
+  <circle cx="60" cy="60" r="29"
+    fill="none"
+    stroke="rgba(139,92,246,0.28)"
+    stroke-width="1.2"
+    stroke-dasharray="3.8 4.5"/>
+
+  <!-- ── Glow halos behind sparkle ────────────────────── -->
+  <!-- Purple bloom -->
+  <circle cx="60" cy="60" r="17" fill="#7C3AED" opacity="0.45" filter="url(#halo)"/>
+  <!-- Orange bloom -->
+  <circle cx="60" cy="60" r="10" fill="#F97316" opacity="0.35" filter="url(#halo)"/>
+
+  <!-- ── 4-pointed sparkle ─────────────────────────────
+    Outer points  (r=14 N/S, r=13 E/W — slightly taller for a classic sparkle):
+      North  (60, 46)   South  (60, 74)
+      East   (73, 60)   West   (47, 60)
+    Inner points  (r=5.5 at 45° diagonals):
+      NE (63.9, 56.1)   SE (63.9, 63.9)
+      SW (56.1, 63.9)   NW (56.1, 56.1)
+  ────────────────────────────────────────────────── -->
+  <path d="M60,46 L63.9,56.1 L73,60 L63.9,63.9 L60,74 L56.1,63.9 L47,60 L56.1,56.1 Z"
+    fill="url(#starG)"
+    filter="url(#starGlow)"/>
+
+  <!-- Small white centre dot — the "found" point -->
+  <circle cx="60" cy="60" r="2.8" fill="white" opacity="0.95"/>
+
+</svg>
