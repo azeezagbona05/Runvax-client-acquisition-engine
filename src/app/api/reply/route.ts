@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { checkAndIncrementAI } from '@/lib/usage';
 import { Business, ReplyType } from '@/types';
+import { getEffectiveProfile } from '@/lib/userProfile';
 
 const REPLY_CONTEXTS: Record<ReplyType, string> = {
   interested: `They said YES or showed clear interest. This is a warm lead. Your job now:
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
   const usage = await checkAndIncrementAI();
   if (!usage.ok) return usage.error!;
 
+  const profile = await getEffectiveProfile();
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const replyContext = REPLY_CONTEXTS[replyType] ?? REPLY_CONTEXTS.custom;
@@ -143,7 +145,14 @@ ${replyContext}
 
 CHANNEL: ${channel === 'whatsapp' ? 'WhatsApp (keep it SHORT, warm, conversational — under 70 words)' : 'Email (can be slightly longer, professional but warm — under 150 words)'}
 
-Write the reply. Output ONLY the message text — no labels, no "Here's the reply:", just the message itself.`;
+SENDER IDENTITY:
+- Name: ${profile.senderName} from ${profile.businessName}
+- WhatsApp: ${profile.whatsapp}
+- City: ${profile.city}
+- Services: ${profile.services}
+
+Write the reply. Output ONLY the message text — no labels, no "Here's the reply:", just the message itself.
+For email, sign off naturally as ${profile.senderName} from ${profile.businessName}. For WhatsApp, no formal signature.`;
 
   try {
     const completion = await client.chat.completions.create({

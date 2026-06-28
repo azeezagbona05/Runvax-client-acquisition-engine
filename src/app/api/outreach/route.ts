@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { Business } from '@/types';
 import { checkAndIncrementAI } from '@/lib/usage';
+import { getEffectiveProfile } from '@/lib/userProfile';
 
 export type OutreachFramework = 'BAB' | 'AIDA' | 'PAS' | 'STORY';
 
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
   const usage = await checkAndIncrementAI();
   if (!usage.ok) return usage.error!;
 
+  const profile = await getEffectiveProfile();
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const frameworkGuide = FRAMEWORK_GUIDES[framework] || FRAMEWORK_GUIDES.PAS;
@@ -116,7 +118,17 @@ Write TWO outreach messages using the ${framework} framework:
 [Subject line — max 8 words. Intriguing, specific, not salesy. No "Check this out" or "Quick question".]
 
 ---EMAIL-BODY---
-[Email — MAX 200 words. Use the ${framework} framework fully. Open with a hook specific to their business. Weave in 1-2 of the 2026 digital presence concepts (GEO/AIEO/SEO) naturally. End with ONE clear, low-friction CTA. Sign as "A digital growth partner".]`;
+[Email — MAX 200 words. Use the ${framework} framework fully. Open with a hook specific to their business. Weave in 1-2 of the 2026 digital presence concepts (GEO/AIEO/SEO) naturally. End with ONE clear, low-friction CTA.]
+
+SENDER IDENTITY (use this in signatures and closing):
+- Name / Agency: ${profile.businessName} (${profile.senderName})
+- WhatsApp: ${profile.whatsapp}
+- City: ${profile.city}
+- Tagline: ${profile.tagline}
+- Services: ${profile.services}
+
+Sign the email naturally as ${profile.senderName} from ${profile.businessName}.
+For WhatsApp, do NOT add a formal signature — just end naturally.`;
 
   try {
     const completion = await client.chat.completions.create({

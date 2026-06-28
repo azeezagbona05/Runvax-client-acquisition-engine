@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { checkAndIncrementAI } from '@/lib/usage';
+import { getEffectiveProfile } from '@/lib/userProfile';
 
 export async function POST(req: NextRequest) {
   const { industry, location }: { industry: string; location: string } = await req.json();
@@ -12,11 +13,12 @@ export async function POST(req: NextRequest) {
   const usage = await checkAndIncrementAI();
   if (!usage.ok) return usage.error!;
 
+  const profile = await getEffectiveProfile();
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const prompt = `You are a market research expert for web development businesses in Nigeria in 2026.
 
-A web developer wants to prospect for clients in:
+A ${profile.services} provider (${profile.businessName}, based in ${profile.city}) wants to prospect for clients in:
 - Industry: ${industry}
 - Location: ${location}, Nigeria
 

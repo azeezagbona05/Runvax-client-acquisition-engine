@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { checkAndIncrementAI } from '@/lib/usage';
 import { Business } from '@/types';
 import { estimatePrice } from '@/lib/scoring';
+import { getEffectiveProfile } from '@/lib/userProfile';
 
 export async function POST(req: NextRequest) {
   const { business, yourName, yourPhone }: {
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
   const usage = await checkAndIncrementAI();
   if (!usage.ok) return usage.error!;
 
+  const profile = await getEffectiveProfile();
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const price = estimatePrice(business.category, business.categoryTypes);
@@ -34,7 +36,11 @@ Client business:
 - Current website: ${business.hasWebsite ? business.website : 'NONE — they have no website'}
 - About: ${business.description || 'N/A'}
 
-Your company: ${yourName || 'ProWeb Nigeria'} | Contact: ${yourPhone || 'Available on request'}
+Your company: ${yourName || profile.businessName} (${profile.senderName})
+Contact: ${yourPhone || profile.whatsapp} | ${profile.replyEmail}
+City: ${profile.city}
+Tagline: ${profile.tagline}
+Services offered: ${profile.services}
 Suggested price range: ${priceMin} – ${priceMax}
 Today's date: ${new Date().toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
 
@@ -106,8 +112,8 @@ If you are not satisfied with the initial design concept, we redesign it **at no
 
 **Ready to get started? Let's talk.**
 
-📱 ${yourPhone || 'WhatsApp us to discuss'}
-🏢 ${yourName || 'ProWeb Nigeria'} — Professional Websites for Nigerian Businesses
+📱 ${yourPhone || profile.whatsapp}
+🏢 ${yourName || profile.businessName} — ${profile.tagline}
 
 *This proposal is valid for 14 days.*`;
 

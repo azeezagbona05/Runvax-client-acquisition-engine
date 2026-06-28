@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { checkAndIncrementAI } from '@/lib/usage';
 import { Business } from '@/types';
+import { getEffectiveProfile } from '@/lib/userProfile';
 
 async function fetchWebsiteHtml(url: string): Promise<string> {
   try {
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
   const usage = await checkAndIncrementAI();
   if (!usage.ok) return usage.error!;
 
+  const profile = await getEffectiveProfile();
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   if (!business.website) {
@@ -76,7 +78,7 @@ Generate a detailed website weakness report. FORMAT EXACTLY:
 [List 6–8 specific weaknesses as numbered items. Each item: bold weakness title, then 1-2 sentences explaining the problem and its business impact. Be specific to their industry and Nigerian market. Examples: no WhatsApp button (Nigerians prefer WhatsApp), no Google Business link, slow loading, no SSL, no testimonials, no pricing page, no local SEO keywords, outdated design, no mobile optimization, no contact form, etc.]
 
 ---PITCH-ANGLE---
-[2-3 sentences: how to position your rebuild service to this business. What specific outcomes will you promise? What pain point does their weak website cause them right now?]
+[2-3 sentences: how ${profile.businessName} (${profile.city}) should position their ${profile.services} service to this business. What specific outcomes will you promise? What pain point does their weak website cause them right now? Sign off hinting at ${profile.senderName} as the contact.]
 
 ---REVENUE-IMPACT---
 [A brief, concrete statement about what having a better website could mean for their business revenue — e.g., "Businesses like yours in [area] get [X] Google searches per month. Your current site may be losing 70-80% of those visitors due to poor mobile experience and slow loading."]`;
