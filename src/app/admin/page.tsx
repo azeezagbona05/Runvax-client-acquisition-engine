@@ -39,17 +39,20 @@ export default function AdminPage() {
   const [tab, setTab] = useState<'users' | 'payments'>('users');
 
   useEffect(() => {
-    if (status === 'unauthenticated') { router.replace('/auth/signin'); return; }
+    if (status === 'unauthenticated') { router.replace('/admin/login'); return; }
     if (status !== 'authenticated') return;
+
+    const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
+    if (!isAdmin) { router.replace('/admin/login'); return; }
 
     fetch('/api/admin/stats')
       .then((r) => {
-        if (r.status === 403) { setError('Access denied — not an admin account'); return null; }
+        if (r.status === 403) { router.replace('/admin/login'); return null; }
         return r.json() as Promise<Stats>;
       })
       .then((data) => { if (data) setStats(data); })
       .catch(() => setError('Failed to load admin data'));
-  }, [status, router]);
+  }, [status, session, router]);
 
   if (error) {
     return (
