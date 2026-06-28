@@ -54,6 +54,7 @@ export default function Home() {
   const [showBulkEmail, setShowBulkEmail]   = useState(false);
   const [guestGate, setGuestGate]           = useState(false);
   const [guestStats, setGuestStats]         = useState({ total: 0, noWebsite: 0, location: '' });
+  const [generateError, setGenerateError]   = useState<string | null>(null);
 
   // Track whether this guest has used their one free search
   const [guestExhausted, setGuestExhausted] = useState(false);
@@ -142,6 +143,7 @@ export default function Home() {
   const handleGenerate = async () => {
     if (!selected) return;
     setGenerating(true);
+    setGenerateError(null);
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -153,7 +155,7 @@ export default function Home() {
       if (!res.ok) throw new Error(json.error || 'Generation failed');
       setGeneratedPrompt(json.prompt);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to generate prompt');
+      setGenerateError(err instanceof Error ? err.message : 'Failed to generate prompt');
     } finally { setGenerating(false); }
   };
 
@@ -432,9 +434,10 @@ export default function Home() {
       {selected && (
         <BusinessDrawer
           business={selected}
-          onClose={() => { setSelected(null); setGeneratedPrompt(null); }}
+          onClose={() => { setSelected(null); setGeneratedPrompt(null); setGenerateError(null); }}
           onGenerate={handleGenerate}
           generating={generating || detailLoading}
+          generateError={generateError}
         />
       )}
       {generatedPrompt && selected && (

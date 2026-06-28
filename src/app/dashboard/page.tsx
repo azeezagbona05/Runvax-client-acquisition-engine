@@ -74,7 +74,7 @@ export default function DashboardPage() {
   };
 
   const requestNotifications = async () => {
-    if (!('Notification' in window)) return alert('Notifications not supported in this browser');
+    if (!('Notification' in window)) return;
     const result = await Notification.requestPermission();
     if (result === 'granted') checkReminders();
   };

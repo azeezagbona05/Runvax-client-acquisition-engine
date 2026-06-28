@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -18,6 +18,7 @@ const PLANS = [
     badgeClass: 'bg-gray-700 text-gray-300',
     ctaClass: 'bg-white/10 hover:bg-white/15 text-white',
     features: [
+      '5 searches/day · 20 results per search',
       '15 AI messages per day',
       'Save up to 30 prospects',
       'AI outreach (WhatsApp + Email)',
@@ -45,6 +46,7 @@ const PLANS = [
     ctaClass: 'bg-purple-600 hover:bg-purple-700 text-white',
     highlight: true,
     features: [
+      '20 searches/day · 60 results per search',
       '200 AI messages per day',
       'Unlimited saved prospects',
       'AI outreach (WhatsApp + Email)',
@@ -69,6 +71,7 @@ const PLANS = [
     badgeClass: 'bg-orange-500 text-white',
     ctaClass: 'bg-orange-500 hover:bg-orange-600 text-white',
     features: [
+      'Unlimited searches · unlimited results',
       'Unlimited AI messages',
       'Unlimited saved prospects',
       'Everything in Pro',
@@ -79,7 +82,7 @@ const PLANS = [
   },
 ];
 
-export default function PricingPage() {
+function PricingContent() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const currentPlan = (session?.user as { plan?: string })?.plan ?? 'free';
@@ -253,6 +256,8 @@ export default function PricingPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {[
+                  ['Searches per day', '5', '20', 'Unlimited'],
+                  ['Results per search', '20', '60', 'Unlimited'],
                   ['AI messages/day', '15', '200', 'Unlimited'],
                   ['Saved prospects', '30', 'Unlimited', 'Unlimited'],
                   ['WhatsApp outreach AI', '✓', '✓', '✓'],
@@ -286,5 +291,13 @@ export default function PricingPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense>
+      <PricingContent />
+    </Suspense>
   );
 }
