@@ -129,7 +129,8 @@ export default function Home() {
         searchesUsed:      json.searchesUsed      ?? null,
         searchesLimit:     json.searchesLimit     ?? null,
         plan:              json.plan              ?? 'free',
-        resultsLimit:      json.resultsLimit      ?? 20,
+        // Unlimited plans (agency) send a flag — Infinity can't survive JSON
+        resultsLimit:      json.unlimitedResults ? Infinity : (json.resultsLimit ?? 20),
       });
 
       void saveToHistory({
@@ -331,8 +332,19 @@ export default function Home() {
                   &nbsp;·&nbsp;
                   <strong className="text-green-400">{newCount}</strong> new
                 </span>
-                <div className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
-                  <span className={`w-1.5 h-1.5 rounded-full ${timeStatus.dot}`} />
+                <div className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${
+                  timeStatus.level === 'low'
+                    ? 'bg-red-500/10 border-red-500/30'
+                    : timeStatus.level === 'good'
+                    ? 'bg-green-500/10 border-green-500/25'
+                    : 'bg-white/5 border-white/10'
+                }`}>
+                  <span className="relative flex w-1.5 h-1.5">
+                    {timeStatus.level === 'low' && (
+                      <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} animate-ping`} />
+                    )}
+                    <span className={`relative inline-flex w-1.5 h-1.5 rounded-full ${timeStatus.dot}`} />
+                  </span>
                   <span className={timeStatus.color}>{timeStatus.label}</span>
                 </div>
               </div>

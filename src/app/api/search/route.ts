@@ -75,7 +75,9 @@ export async function POST(req: NextRequest) {
       businesses,
       total: businesses.length,
       isGuest,
-      resultsLimit,
+      // Infinity can't survive JSON (becomes null) — send an explicit flag instead
+      unlimitedResults: resultsLimit === Infinity,
+      resultsLimit: resultsLimit === Infinity ? null : resultsLimit,
       ...searchMeta,
     });
   } catch (error: unknown) {

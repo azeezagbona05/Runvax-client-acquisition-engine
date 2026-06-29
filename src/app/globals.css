@@ -223,6 +223,9 @@ html.light .text-purple-300        { color: #7c3aed !important; }
 html.light .border-purple-500\/30  { border-color: rgba(139,92,246,0.3) !important; }
 html.light .border-purple-500\/20  { border-color: rgba(139,92,246,0.25) !important; }
 
+/* ── Cyan accents ── */
+html.light .text-cyan-400 { color: #0891b2 !important; }
+
 /* ── Blue accents ── */
 html.light .bg-blue-950\/40 { background-color: rgba(219,234,254,0.5) !important; }
 html.light .bg-blue-950\/20 { background-color: rgba(219,234,254,0.3) !important; }
@@ -252,6 +255,33 @@ html.light .border-orange-500\/25 { border-color: rgba(249,115,22,0.3) !importan
 html.light .bg-red-950\/40  { background-color: rgba(254,226,226,0.5) !important; }
 html.light .bg-red-500\/10  { background-color: rgba(239,68,68,0.08) !important; }
 html.light .text-red-400    { color: #dc2626 !important; }
+
+/* ── Faded accent subtitles (text-*-400/60 etc.) ──
+   Opacity-reduced accent text is unreadable on light tint cards.
+   Map each to a readable solid 700-level shade at full opacity. */
+html.light .text-green-400\/60  { color: #15803d !important; }
+html.light .text-green-300\/60  { color: #15803d !important; }
+html.light .text-purple-400\/60 { color: #6d28d9 !important; }
+html.light .text-purple-300\/60 { color: #6d28d9 !important; }
+html.light .text-orange-400\/60 { color: #c2410c !important; }
+html.light .text-orange-300\/60 { color: #c2410c !important; }
+html.light .text-orange-300\/70 { color: #c2410c !important; }
+html.light .text-yellow-400\/60 { color: #a16207 !important; }
+html.light .text-yellow-300\/60 { color: #a16207 !important; }
+html.light .text-cyan-400\/60   { color: #0e7490 !important; }
+html.light .text-blue-400\/60   { color: #1d4ed8 !important; }
+html.light .text-blue-300\/60   { color: #1d4ed8 !important; }
+html.light .text-amber-500\/80  { color: #b45309 !important; }
+html.light .text-amber-500\/60  { color: #b45309 !important; }
+
+/* Light-pastel accent text (-300) — readable on light cards/pills */
+html.light .text-yellow-300 { color: #a16207 !important; }
+html.light .text-green-300  { color: #15803d !important; }
+html.light .text-orange-300 { color: #c2410c !important; }
+html.light .text-blue-300   { color: #1d4ed8 !important; }
+html.light .text-red-300    { color: #b91c1c !important; }
+html.light .text-cyan-300   { color: #0e7490 !important; }
+html.light .bg-yellow-900\/30 { background-color: rgba(254,249,195,0.7) !important; }
 
 /* ── Yellow accents ── */
 html.light .bg-yellow-500\/15 { background-color: rgba(234,179,8,0.10) !important; }

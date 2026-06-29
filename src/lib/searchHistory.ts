@@ -53,13 +53,13 @@ export function getNigeriaHour(): number {
   return (new Date().getUTCHours() + 1) % 24;
 }
 
-export function getBestTimeStatus(): { label: string; color: string; dot: string } {
+export function getBestTimeStatus(): { label: string; color: string; dot: string; level: 'good' | 'decent' | 'low' } {
   const h = getNigeriaHour();
   if ((h >= 8 && h < 10) || (h >= 19 && h < 21)) {
-    return { label: 'Great time to send', color: 'text-green-400', dot: 'bg-green-400' };
+    return { label: 'Great time to send', color: 'text-green-400', dot: 'bg-green-400', level: 'good' };
   }
   if (h >= 10 && h < 19) {
-    return { label: 'Decent time to send', color: 'text-yellow-400', dot: 'bg-yellow-400' };
+    return { label: 'Decent time to send', color: 'text-yellow-400', dot: 'bg-yellow-400', level: 'decent' };
   }
-  return { label: 'Low response time', color: 'text-gray-500', dot: 'bg-gray-500' };
+  return { label: 'Low response time', color: 'text-red-400', dot: 'bg-red-400', level: 'low' };
 }

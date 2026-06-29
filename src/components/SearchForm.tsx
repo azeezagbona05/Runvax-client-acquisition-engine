@@ -26,6 +26,9 @@ const COUNTRIES = [
   { code: 'RW', name: 'Rwanda',        flag: '🇷🇼' },
   { code: 'SN', name: 'Senegal',       flag: '🇸🇳' },
   { code: 'CM', name: 'Cameroon',      flag: '🇨🇲' },
+  { code: 'US', name: 'United States', flag: '🇺🇸' },
+  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
+  { code: 'CA', name: 'Canada',        flag: '🇨🇦' },
   { code: 'OTHER', name: 'Other',      flag: '🌍' },
 ];
 
@@ -172,7 +175,7 @@ export default function SearchForm({ onSearch, loading, onBrief, landing = true 
   const [showLocSug, setShowLocSug] = useState(false);
   const [history, setHistory] = useState<SearchHistoryEntry[]>([]);
   const [timeStatus, setTimeStatus] = useState<ReturnType<typeof getBestTimeStatus>>({
-    label: 'Checking…', color: 'text-gray-500', dot: 'bg-gray-500',
+    label: 'Checking…', color: 'text-gray-500', dot: 'bg-gray-500', level: 'decent',
   });
   useEffect(() => { setTimeStatus(getBestTimeStatus()); }, []);
   const [industryError, setIndustryError] = useState('');
@@ -288,8 +291,23 @@ export default function SearchForm({ onSearch, loading, onBrief, landing = true 
 
         {/* Status row */}
         <div className="flex items-center justify-center gap-3 mb-5 flex-wrap">
-          <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-            <span className={`w-2 h-2 rounded-full ${timeStatus.dot} animate-pulse`} />
+          <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border transition-colors ${
+            timeStatus.level === 'low'
+              ? 'bg-red-500/10 border-red-500/30'
+              : timeStatus.level === 'good'
+              ? 'bg-green-500/10 border-green-500/25'
+              : 'bg-white/5 border-white/10'
+          }`}>
+            <span className="relative flex w-2 h-2">
+              {timeStatus.level !== 'decent' && (
+                <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} ${
+                  timeStatus.level === 'low' ? 'animate-ping' : 'animate-pulse'
+                }`} />
+              )}
+              <span className={`relative inline-flex w-2 h-2 rounded-full ${timeStatus.dot} ${
+                timeStatus.level === 'decent' ? 'animate-pulse' : ''
+              }`} />
+            </span>
             <span className={timeStatus.color}>{timeStatus.label}</span>
             <span className="text-gray-600">· {selectedCountry.flag} {selectedCountry.name}</span>
           </div>
