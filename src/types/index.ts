@@ -63,6 +63,14 @@ export interface ConversationEntry {
   timestamp: string;
 }
 
+export interface FollowUpStep {
+  day: number;
+  channel: 'whatsapp' | 'email';
+  label: string;
+  dueDate: string;
+  sentAt?: string;
+}
+
 export interface SavedProspect {
   business: Business;
   stage: ProspectStage;
@@ -73,6 +81,7 @@ export interface SavedProspect {
   estimatedPrice?: { min: number; max: number };
   score: number;
   outreachSentAt?: string;
+  followUpSequence?: FollowUpStep[];
   conversations: ConversationEntry[];
 }
 

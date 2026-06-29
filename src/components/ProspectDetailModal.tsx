@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import {
   X, Star, Phone, Globe, MapPin, MessageCircle, ChevronLeft, ChevronRight,
-  Trash2, Bell, BellOff, StickyNote, Clock, Send, FileText,
+  Trash2, Bell, BellOff, StickyNote, Clock, Send, FileText, Zap, Check,
 } from 'lucide-react';
 import { useProspects } from '@/context/ProspectsContext';
-import { SavedProspect, ProspectStage, ConversationEntry } from '@/types';
+import { SavedProspect, ProspectStage, ConversationEntry, FollowUpStep } from '@/types';
 import { scoreLabel, formatPrice } from '@/lib/scoring';
 import { whatsappLink } from '@/lib/phone';
 
@@ -37,8 +37,8 @@ interface Props {
 }
 
 export default function ProspectDetailModal({ prospect, onClose }: Props) {
-  const { updateStage, updateNotes, setReminder, clearReminder, remove, addConversationEntry } = useProspects();
-  const { business, stage, score, estimatedPrice, notes: initNotes, reminderDate, reminderNote, outreachSentAt, conversations = [], savedAt } = prospect;
+  const { updateStage, updateNotes, setReminder, clearReminder, setFollowUpSequence, remove, addConversationEntry } = useProspects();
+  const { business, stage, score, estimatedPrice, notes: initNotes, reminderDate, reminderNote, outreachSentAt, followUpSequence, conversations = [], savedAt } = prospect;
   const { label: scoreText, color: scoreColor } = scoreLabel(score);
 
   const [notes, setNotes] = useState(initNotes ?? '');
@@ -48,6 +48,37 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [seqState, setSeqState] = useState<FollowUpStep[]>(followUpSequence ?? []);
+
+  function addOffsetDays(startIso: string, days: number): string {
+    const d = new Date(startIso);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  }
+
+  const startSequence = async () => {
+    const now = new Date().toISOString();
+    const steps: FollowUpStep[] = [
+      { day: 1, channel: 'whatsapp', label: 'Initial outreach',    dueDate: addOffsetDays(now, 1) },
+      { day: 3, channel: 'whatsapp', label: 'Follow-up check-in',  dueDate: addOffsetDays(now, 3) },
+      { day: 7, channel: 'email',    label: 'Final angle (email)',  dueDate: addOffsetDays(now, 7) },
+    ];
+    setSeqState(steps);
+    await setFollowUpSequence(business.id, steps);
+  };
+
+  const markStepSent = async (dayNum: number) => {
+    const updated = seqState.map((s) =>
+      s.day === dayNum ? { ...s, sentAt: new Date().toISOString() } : s
+    );
+    setSeqState(updated);
+    await setFollowUpSequence(business.id, updated);
+  };
+
+  const clearSequence = async () => {
+    setSeqState([]);
+    await setFollowUpSequence(business.id, []);
+  };
 
   const stageIdx = STAGES.findIndex((s) => s.id === stage);
   const currentStage = STAGES[stageIdx];
@@ -225,6 +256,80 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
             />
             {notesDirty && (
               <button onClick={saveNotes} className="text-xs text-purple-400 hover:text-purple-300 mt-1 font-semibold">Save notes</button>
+            )}
+          </div>
+
+          {/* Follow-up Sequence */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5" /> Follow-up Sequence
+              </p>
+              {seqState.length > 0 && (
+                <button onClick={clearSequence} className="text-[11px] text-red-400 hover:text-red-300 transition-colors">
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {seqState.length === 0 ? (
+              <button
+                onClick={startSequence}
+                className="flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors w-full justify-center"
+              >
+                <Zap className="w-3.5 h-3.5" /> Start 3-Step Sequence
+              </button>
+            ) : (
+              <div className="space-y-2">
+                {seqState.map((step) => {
+                  const isToday = step.dueDate === new Date().toISOString().split('T')[0];
+                  const isPast = !step.sentAt && step.dueDate < new Date().toISOString().split('T')[0];
+                  return (
+                    <div
+                      key={step.day}
+                      className={`flex items-center gap-3 p-2.5 rounded-xl border transition-colors ${
+                        step.sentAt
+                          ? 'bg-green-500/5 border-green-500/15 opacity-60'
+                          : isPast
+                          ? 'bg-red-500/10 border-red-500/20'
+                          : isToday
+                          ? 'bg-amber-500/10 border-amber-500/25'
+                          : 'bg-white/[0.03] border-white/8'
+                      }`}
+                    >
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black ${
+                        step.sentAt ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-gray-400'
+                      }`}>
+                        {step.sentAt ? <Check className="w-3.5 h-3.5" /> : step.day}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-white">{step.label}</div>
+                        <div className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+                          {step.channel === 'whatsapp' ? '💬' : '✉️'} {step.channel}
+                          {' · '}
+                          {step.sentAt ? (
+                            <span className="text-green-400">Sent {new Date(step.sentAt).toLocaleDateString('en-GB')}</span>
+                          ) : isPast ? (
+                            <span className="text-red-400">Overdue · was {step.dueDate}</span>
+                          ) : isToday ? (
+                            <span className="text-amber-400 font-bold">Due today</span>
+                          ) : (
+                            <span>Due {step.dueDate}</span>
+                          )}
+                        </div>
+                      </div>
+                      {!step.sentAt && (
+                        <button
+                          onClick={() => markStepSent(step.day)}
+                          className="flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded-lg bg-white/5 hover:bg-green-500/20 text-gray-400 hover:text-green-400 border border-white/10 transition-colors"
+                        >
+                          Mark sent
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 

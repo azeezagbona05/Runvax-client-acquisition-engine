@@ -80,10 +80,11 @@ model Prospect {
   estimatedPriceMax Int?
   savedAt           DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  outreachSentAt DateTime?
-  reminderDate   String?
-  reminderNote   String?
-  conversations  Conversation[]
+  outreachSentAt   DateTime?
+  reminderDate     String?
+  reminderNote     String?
+  followUpSequence Json?
+  conversations    Conversation[]
 
   @@unique([userId, businessId])
 }

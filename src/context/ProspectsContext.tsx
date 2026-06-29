@@ -5,7 +5,7 @@ import {
 } from 'react';
 import {
   Business, SavedProspect, ProspectStage, AppSettings, DailyLog,
-  ConversationEntry, ConversationChannel,
+  ConversationEntry, ConversationChannel, FollowUpStep,
 } from '@/types';
 
 interface Ctx {
@@ -17,6 +17,7 @@ interface Ctx {
   updateNotes: (businessId: string, notes: string) => Promise<void>;
   setReminder: (businessId: string, date: string, note: string) => Promise<void>;
   clearReminder: (businessId: string) => Promise<void>;
+  setFollowUpSequence: (businessId: string, steps: FollowUpStep[]) => Promise<void>;
   markOutreachSent: (businessId: string, content: string, channel: ConversationChannel, framework?: string) => Promise<void>;
   addConversationEntry: (businessId: string, entry: Omit<ConversationEntry, 'id' | 'timestamp'>) => Promise<void>;
   isSaved: (businessId: string) => boolean;
@@ -140,6 +141,13 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
     await patch(businessId, { reminderDate: null, reminderNote: null });
   }, [patch]);
 
+  const setFollowUpSequence = useCallback(async (businessId: string, steps: FollowUpStep[]) => {
+    setProspects((prev) => prev.map((p) =>
+      p.business.id === businessId ? { ...p, followUpSequence: steps } : p
+    ));
+    await patch(businessId, { followUpSequence: steps });
+  }, [patch]);
+
   const addConversationEntry = useCallback(async (
     businessId: string,
     entry: Omit<ConversationEntry, 'id' | 'timestamp'>,
@@ -227,7 +235,7 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
   return (
     <ProspectsContext.Provider value={{
       prospects, loading, save, remove, updateStage, updateNotes,
-      setReminder, clearReminder, markOutreachSent, addConversationEntry,
+      setReminder, clearReminder, setFollowUpSequence, markOutreachSent, addConversationEntry,
       isSaved, get, settings, updateSettings, dailyLogs, incrementToday, todayCount,
     }}>
       {children}

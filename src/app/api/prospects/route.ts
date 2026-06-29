@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
 import { getPlanConfig } from '@/lib/plans';
-import type { Business, ConversationEntry, ProspectStage, SavedProspect } from '@/types';
+import type { Business, ConversationEntry, FollowUpStep, ProspectStage, SavedProspect } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,10 +18,10 @@ type ProspectWithConversations = {
   estimatedPriceMax: number | null;
   score: number | null;
   outreachSentAt: Date | null;
+  followUpSequence: unknown;
   conversations: { content: string }[];
 };
 
-// Returns SavedProspect with _dbId injected so the client can call PATCH/DELETE
 function toSavedProspect(p: ProspectWithConversations): SavedProspect & { _dbId: string } {
   return {
     _dbId: p.id,
@@ -37,18 +36,20 @@ function toSavedProspect(p: ProspectWithConversations): SavedProspect & { _dbId:
       : undefined,
     score: p.score ?? 0,
     outreachSentAt: p.outreachSentAt?.toISOString(),
+    followUpSequence: Array.isArray(p.followUpSequence) ? (p.followUpSequence as FollowUpStep[]) : undefined,
     conversations: p.conversations.map((c) => {
       try { return JSON.parse(c.content) as ConversationEntry; } catch { return null; }
     }).filter(Boolean) as ConversationEntry[],
   };
 }
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function GET(req: NextRequest) {
+  const token = await getToken({ req });
+  const userId = (token?.id ?? token?.sub) as string | undefined;
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const prospects = await prisma.prospect.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     include: { conversations: { orderBy: { createdAt: 'asc' } } },
     orderBy: { savedAt: 'desc' },
   });
@@ -57,18 +58,18 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const token = await getToken({ req });
+  const userId = (token?.id ?? token?.sub) as string | undefined;
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { business } = await req.json() as { business: Business };
   if (!business?.id) return NextResponse.json({ error: 'Missing business' }, { status: 400 });
 
-  const userPlan = (session.user as { plan?: string }).plan ?? 'free';
+  const userPlan = (token?.plan as string) ?? 'free';
   const planConfig = await getPlanConfig(userPlan);
 
-  // Enforce prospect save limit for free plan
   if (planConfig.maxProspects !== Infinity) {
-    const count = await prisma.prospect.count({ where: { userId: session.user.id } });
+    const count = await prisma.prospect.count({ where: { userId } });
     if (count >= planConfig.maxProspects) {
       return NextResponse.json({
         error: `Free plan limit: max ${planConfig.maxProspects} saved prospects`,
@@ -79,15 +80,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Import scoring dynamically to avoid server/client mismatch
   const { scoreProspect, estimatePrice } = await import('@/lib/scoring');
   const score = scoreProspect(business);
   const price = estimatePrice(business.category, business.categoryTypes);
 
   const prospect = await prisma.prospect.upsert({
-    where: { userId_businessId: { userId: session.user.id, businessId: business.id } },
+    where: { userId_businessId: { userId, businessId: business.id } },
     create: {
-      userId: session.user.id,
+      userId,
       businessId: business.id,
       businessName: business.name,
       businessData: business as object,
