@@ -5,7 +5,7 @@ import {
   X, MapPin, Phone, Globe, Star, Clock, Loader2, Sparkles,
   ExternalLink, MessageCircle, FileText, AlertTriangle,
   Bookmark, BookmarkX, TrendingUp, MessageSquare, Mail, ShieldCheck, ShieldX, ShieldQuestion,
-  Copy, Check,
+  Copy, Check, Wand2,
 } from 'lucide-react';
 import { Business } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
@@ -51,6 +51,10 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
   const [auditText, setAuditText] = useState<string | null>(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditCopied, setAuditCopied] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoUrl, setDemoUrl] = useState<string | null>(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
+  const [demoCopied, setDemoCopied] = useState(false);
   const [emailVerifying, setEmailVerifying] = useState(false);
   const [emailVerified, setEmailVerified] = useState<'valid' | 'invalid' | 'unknown' | null>(
     business.emailVerified ?? null
@@ -110,6 +114,43 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
     try { await navigator.clipboard.writeText(auditText); } catch { /* ignore */ }
     setAuditCopied(true);
     setTimeout(() => setAuditCopied(false), 2500);
+  };
+
+  const generateDemo = async () => {
+    setDemoLoading(true);
+    setDemoError(null);
+    setDemoUrl(null);
+    try {
+      const res = await fetch('/api/demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to generate');
+      setDemoUrl(`${window.location.origin}${json.url}`);
+    } catch (e: unknown) {
+      setDemoError(e instanceof Error ? e.message : 'Failed to generate demo');
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
+  const copyDemo = async () => {
+    if (!demoUrl) return;
+    try { await navigator.clipboard.writeText(demoUrl); } catch { /* ignore */ }
+    setDemoCopied(true);
+    setTimeout(() => setDemoCopied(false), 2500);
+  };
+
+  const shareDemoWhatsApp = () => {
+    if (!demoUrl) return;
+    const msg = `Hi! I put together a website preview for ${business.name} — take a look: ${demoUrl}`;
+    const digits = (business.phoneIntl || business.phone || '').replace(/[^0-9]/g, '');
+    const link = digits
+      ? `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(link, '_blank');
   };
 
   const verifyEmail = async () => {
@@ -176,6 +217,53 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
           {activeTab === 'outreach' && (
             <div className="space-y-3">
               <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Choose an action</p>
+
+              {/* Flagship: instant demo website */}
+              <button
+                onClick={generateDemo}
+                disabled={demoLoading}
+                className="w-full flex items-center gap-3 px-4 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-900/30 disabled:opacity-60"
+              >
+                {demoLoading ? <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" /> : <Wand2 className="w-5 h-5 flex-shrink-0" />}
+                <div className="text-left">
+                  <div className="font-bold">{demoLoading ? 'Building their website…' : 'Build Demo Website'}</div>
+                  <div className="text-xs text-white/70 mt-0.5">Instant live preview from their Google data — pitch &ldquo;here&apos;s your site&rdquo;</div>
+                </div>
+              </button>
+
+              {demoError && (
+                <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl px-4 py-3">{demoError}</div>
+              )}
+
+              {demoUrl && (
+                <div className="bg-purple-950/30 border border-purple-500/25 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-purple-300">
+                    <Check className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-[11px] font-bold uppercase tracking-widest">Demo site ready</span>
+                  </div>
+                  <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="block text-xs text-purple-300 hover:text-purple-200 break-all underline">
+                    {demoUrl}
+                  </a>
+                  <div className="grid grid-cols-3 gap-2">
+                    <a href={demoUrl} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 transition-colors">
+                      <ExternalLink className="w-3.5 h-3.5" /> Open
+                    </a>
+                    <button onClick={copyDemo}
+                      className={`flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg transition-colors ${
+                        demoCopied ? 'bg-green-600 text-white' : 'bg-white/10 hover:bg-white/20 text-gray-200'
+                      }`}>
+                      {demoCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {demoCopied ? 'Copied' : 'Copy'}
+                    </button>
+                    <button onClick={shareDemoWhatsApp}
+                      className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/20 transition-colors">
+                      <MessageCircle className="w-3.5 h-3.5" /> Send
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={() => setShowOutreach(true)}
                 className="w-full flex items-center gap-3 px-4 py-4 bg-green-600/15 hover:bg-green-600/25 text-green-400 border border-green-500/20 rounded-xl text-sm font-semibold transition-colors"

@@ -30,6 +30,7 @@ model User {
   payments                Payment[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  demoSites               DemoSite[]
 }
 
 model Account {
@@ -220,4 +221,20 @@ model PlanConfig {
   aiCallsPerDay    Int
   maxProspects     Int
   updatedAt        DateTime @updatedAt
+}
+
+model DemoSite {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId   String
+  businessName String
+  data         Json
+  views        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, businessId])
+  @@index([userId])
 }

@@ -288,8 +288,9 @@ html.light .bg-yellow-500\/15 { background-color: rgba(234,179,8,0.10) !importan
 html.light .text-yellow-400   { color: #ca8a04 !important; }
 
 /* ── Amber accents ── */
-html.light .bg-amber-500\/10  { background-color: rgba(245,158,11,0.08) !important; }
+html.light .bg-amber-500\/10  { background-color: rgba(245,158,11,0.12) !important; }
 html.light .text-amber-400    { color: #d97706 !important; }
+html.light .text-amber-600    { color: #b45309 !important; }
 
 /* ── Sidebar always stays dark (sidebar-dark class) ── */
 .sidebar-dark                                { background-color: #111827; }

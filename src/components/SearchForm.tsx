@@ -146,6 +146,38 @@ const AREAS: Array<{
   { country: 'CM', name: 'Bastos, Yaoundé, Cameroon',  city: 'Yaoundé',  tier: 'high',   note: 'Diplomatic & elite · XAF500k–₵1.2M' },
   { country: 'CM', name: 'Bonanjo, Douala, Cameroon',  city: 'Douala',   tier: 'high',   note: 'Business district · XAF400k–₵1M' },
   { country: 'CM', name: 'Akwa, Douala, Cameroon',     city: 'Douala',   tier: 'mid',    note: 'Commercial centre · XAF150k–₵400k' },
+
+  // ── United States (USD) ──
+  { country: 'US', name: 'Manhattan, New York, USA',        city: 'New York',      tier: 'high',   note: 'Luxury & finance · $8k–$30k' },
+  { country: 'US', name: 'Beverly Hills, Los Angeles, USA', city: 'Los Angeles',   tier: 'high',   note: 'High-end retail · $7k–$25k' },
+  { country: 'US', name: 'SoMa, San Francisco, USA',        city: 'San Francisco', tier: 'high',   note: 'Tech & startups · $8k–$30k' },
+  { country: 'US', name: 'Downtown, Miami, USA',            city: 'Miami',         tier: 'high',   note: 'Affluent & corporate · $6k–$20k' },
+  { country: 'US', name: 'Buckhead, Atlanta, USA',          city: 'Atlanta',       tier: 'mid',    note: 'Upscale business · $3k–$10k' },
+  { country: 'US', name: 'Downtown, Austin, USA',           city: 'Austin',        tier: 'mid',    note: 'Growing SME hub · $3k–$9k' },
+  { country: 'US', name: 'Brooklyn, New York, USA',         city: 'New York',      tier: 'mid',    note: 'Dense SME market · $2.5k–$8k' },
+  { country: 'US', name: 'Plano, Dallas, USA',              city: 'Dallas',        tier: 'mid',    note: 'Suburban business · $2k–$7k' },
+  { country: 'US', name: 'Queens, New York, USA',           city: 'New York',      tier: 'budget', note: 'High volume · $800–$2.5k' },
+  { country: 'US', name: 'East LA, Los Angeles, USA',       city: 'Los Angeles',   tier: 'budget', note: 'Price-sensitive · $700–$2k' },
+
+  // ── United Kingdom (GBP) ──
+  { country: 'GB', name: 'Mayfair, London, UK',             city: 'London',        tier: 'high',   note: 'Luxury & wealth · £6k–£25k' },
+  { country: 'GB', name: 'Kensington, London, UK',          city: 'London',        tier: 'high',   note: 'Affluent residential · £5k–£20k' },
+  { country: 'GB', name: 'Canary Wharf, London, UK',        city: 'London',        tier: 'high',   note: 'Corporate & finance · £6k–£22k' },
+  { country: 'GB', name: 'Shoreditch, London, UK',          city: 'London',        tier: 'mid',    note: 'Creative & startups · £2.5k–£8k' },
+  { country: 'GB', name: 'City Centre, Manchester, UK',     city: 'Manchester',    tier: 'mid',    note: 'Northern business hub · £2k–£7k' },
+  { country: 'GB', name: 'City Centre, Birmingham, UK',     city: 'Birmingham',    tier: 'mid',    note: 'Active SME market · £1.8k–£6k' },
+  { country: 'GB', name: 'Croydon, London, UK',             city: 'London',        tier: 'budget', note: 'High volume · £600–£2k' },
+  { country: 'GB', name: 'Bradford, UK',                    city: 'Bradford',      tier: 'budget', note: 'Price-sensitive · £500–£1.8k' },
+
+  // ── Canada (CAD) ──
+  { country: 'CA', name: 'Yorkville, Toronto, Canada',      city: 'Toronto',       tier: 'high',   note: 'Luxury district · C$7k–C$28k' },
+  { country: 'CA', name: 'West Vancouver, Canada',          city: 'Vancouver',     tier: 'high',   note: 'Wealthy residential · C$7k–C$25k' },
+  { country: 'CA', name: 'Financial District, Toronto, Canada', city: 'Toronto',   tier: 'high',   note: 'Corporate core · C$6k–C$22k' },
+  { country: 'CA', name: 'Kitchener-Waterloo, Canada',      city: 'Waterloo',      tier: 'mid',    note: 'Tech corridor · C$3k–C$9k' },
+  { country: 'CA', name: 'Downtown, Calgary, Canada',       city: 'Calgary',       tier: 'mid',    note: 'Energy & business · C$2.5k–C$8k' },
+  { country: 'CA', name: 'Mississauga, Canada',             city: 'Mississauga',   tier: 'mid',    note: 'Suburban SMEs · C$2k–C$7k' },
+  { country: 'CA', name: 'Scarborough, Toronto, Canada',    city: 'Toronto',       tier: 'budget', note: 'High volume · C$800–C$2.5k' },
+  { country: 'CA', name: 'Surrey, Vancouver, Canada',       city: 'Vancouver',     tier: 'budget', note: 'Price-sensitive · C$700–C$2.2k' },
 ];
 
 const TIER_CONFIG = {
@@ -177,7 +209,6 @@ export default function SearchForm({ onSearch, loading, onBrief, landing = true 
   const [timeStatus, setTimeStatus] = useState<ReturnType<typeof getBestTimeStatus>>({
     label: 'Checking…', color: 'text-gray-500', dot: 'bg-gray-500', level: 'decent',
   });
-  useEffect(() => { setTimeStatus(getBestTimeStatus()); }, []);
   const [industryError, setIndustryError] = useState('');
   const [locationError, setLocationError] = useState('');
   const [geoError, setGeoError] = useState('');
@@ -185,6 +216,9 @@ export default function SearchForm({ onSearch, loading, onBrief, landing = true 
   const locationRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { getSearchHistory().then(setHistory); }, []);
+
+  // Recompute "best time to send" in the selected country's timezone
+  useEffect(() => { setTimeStatus(getBestTimeStatus(country)); }, [country]);
 
   const selectedCountry = COUNTRIES.find((c) => c.code === country) ?? COUNTRIES[0];
   const countryAreas = AREAS.filter((a) => a.country === country);
@@ -296,19 +330,15 @@ export default function SearchForm({ onSearch, loading, onBrief, landing = true 
               ? 'bg-red-500/10 border-red-500/30'
               : timeStatus.level === 'good'
               ? 'bg-green-500/10 border-green-500/25'
-              : 'bg-white/5 border-white/10'
+              : 'bg-amber-500/10 border-amber-500/30'
           }`}>
             <span className="relative flex w-2 h-2">
-              {timeStatus.level !== 'decent' && (
-                <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} ${
-                  timeStatus.level === 'low' ? 'animate-ping' : 'animate-pulse'
-                }`} />
-              )}
-              <span className={`relative inline-flex w-2 h-2 rounded-full ${timeStatus.dot} ${
-                timeStatus.level === 'decent' ? 'animate-pulse' : ''
+              <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} ${
+                timeStatus.level === 'low' ? 'animate-ping' : 'animate-pulse'
               }`} />
+              <span className={`relative inline-flex w-2 h-2 rounded-full ${timeStatus.dot}`} />
             </span>
-            <span className={timeStatus.color}>{timeStatus.label}</span>
+            <span className={`font-semibold ${timeStatus.color}`}>{timeStatus.label}</span>
             <span className="text-gray-600">· {selectedCountry.flag} {selectedCountry.name}</span>
           </div>
           {onBrief && (

@@ -337,15 +337,15 @@ export default function Home() {
                     ? 'bg-red-500/10 border-red-500/30'
                     : timeStatus.level === 'good'
                     ? 'bg-green-500/10 border-green-500/25'
-                    : 'bg-white/5 border-white/10'
+                    : 'bg-amber-500/10 border-amber-500/30'
                 }`}>
                   <span className="relative flex w-1.5 h-1.5">
-                    {timeStatus.level === 'low' && (
-                      <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} animate-ping`} />
-                    )}
+                    <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} ${
+                      timeStatus.level === 'low' ? 'animate-ping' : 'animate-pulse'
+                    }`} />
                     <span className={`relative inline-flex w-1.5 h-1.5 rounded-full ${timeStatus.dot}`} />
                   </span>
-                  <span className={timeStatus.color}>{timeStatus.label}</span>
+                  <span className={`font-semibold ${timeStatus.color}`}>{timeStatus.label}</span>
                 </div>
               </div>
 
