@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 import { searchPlaces } from '@/lib/google-places';
 import { checkAndIncrementSearch } from '@/lib/usage';
 
@@ -15,9 +14,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
     }
 
-    // Check if user is authenticated
-    const session = await getServerSession(authOptions);
-    const isGuest = !session?.user?.id;
+    // Use getToken (reads JWT cookie directly) — more reliable than getServerSession in App Router
+    const token = await getToken({ req });
+    const userId = (token?.id ?? token?.sub) as string | undefined;
+    const isGuest = !userId;
 
     let resultsLimit = 20;
     let searchMeta: {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       resultsLimit = 20;
     } else {
       // Authenticated: enforce daily search limit + plan result cap
-      const usage = await checkAndIncrementSearch();
+      const usage = await checkAndIncrementSearch(req);
       if (!usage.ok) return usage.error!;
       resultsLimit = usage.resultsPerSearch ?? 20;
       searchMeta = {

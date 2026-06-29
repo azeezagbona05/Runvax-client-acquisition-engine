@@ -1,6 +1,5 @@
-import { getServerSession } from 'next-auth';
-import { NextResponse } from 'next/server';
-import { authOptions } from './auth';
+import { getToken } from 'next-auth/jwt';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from './prisma';
 import { getPlanConfig } from './plans';
 
@@ -16,17 +15,17 @@ interface UsageCheckResult {
   remaining?: number;
 }
 
-export async function checkAndIncrementAI(): Promise<UsageCheckResult> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+export async function checkAndIncrementAI(req: NextRequest): Promise<UsageCheckResult> {
+  const token = await getToken({ req });
+  const userId = (token?.id ?? token?.sub) as string | undefined;
+  if (!userId) {
     return {
       ok: false,
       error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     };
   }
 
-  const userId = session.user.id;
-  const userPlan = (session.user as { plan?: string }).plan ?? 'free';
+  const userPlan = (token?.plan as string) ?? 'free';
   const planConfig = await getPlanConfig(userPlan);
   const date = todayStr();
 
@@ -90,17 +89,17 @@ export interface SearchCheckResult {
   resultsPerSearch?: number;
 }
 
-export async function checkAndIncrementSearch(): Promise<SearchCheckResult> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchCheckResult> {
+  const token = await getToken({ req });
+  const userId = (token?.id ?? token?.sub) as string | undefined;
+  if (!userId) {
     return {
       ok: false,
       error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     };
   }
 
-  const userId = session.user.id;
-  const userPlan = (session.user as { plan?: string }).plan ?? 'free';
+  const userPlan = (token?.plan as string) ?? 'free';
   const planConfig = await getPlanConfig(userPlan);
   const date = todayStr();
 

@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set' }, { status: 500 });
   }
 
-  const usage = await checkAndIncrementAI();
+  const usage = await checkAndIncrementAI(req);
   if (!usage.ok) return usage.error!;
 
   const profile = await getEffectiveProfile();
