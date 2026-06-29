@@ -156,10 +156,15 @@ html.light textarea:focus { border-color: #7c3aed !important; box-shadow: 0 0 0 
 html.light .shadow-2xl       { box-shadow: 0 25px 50px rgba(15,23,42,0.12) !important; }
 html.light .shadow-xl        { box-shadow: 0 20px 25px rgba(15,23,42,0.10) !important; }
 
-/* ── Gradients ── */
-html.light .from-purple-950\/60 { --tw-gradient-from: rgba(237,233,254,0.5) !important; }
-html.light .via-gray-900        { --tw-gradient-via: #f8fafc !important; }
-html.light .to-gray-950         { --tw-gradient-to: #f1f5f9 !important; }
+/* ── Gradients ──
+   Tailwind's `via-*` bakes its color straight into --tw-gradient-stops, so
+   overriding --tw-gradient-via does nothing. We must rewrite the whole stops
+   list with light colors to kill the dark hero gradient. */
+html.light .from-purple-950\/60 { --tw-gradient-from: #ede9fe !important; }
+html.light .to-gray-950         { --tw-gradient-to: #f8fafc !important; }
+html.light .via-gray-900 {
+  --tw-gradient-stops: var(--tw-gradient-from), #f5f3ff, var(--tw-gradient-to) !important;
+}
 
 /* ── Purple accents ── */
 html.light .bg-purple-950\/60      { background-color: rgba(237,233,254,0.6) !important; }
