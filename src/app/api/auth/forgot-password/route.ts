@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/prisma';
+import { getAppUrl, getAppName } from '@/lib/url';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +25,15 @@ export async function POST(req: NextRequest) {
     data: { userId: user.id, token, expiresAt },
   });
 
-  const appUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
-  const resetUrl = `${appUrl}/auth/reset-password?token=${token}`;
+  const resetUrl = `${getAppUrl()}/auth/reset-password?token=${token}`;
 
-  // Use platform SMTP
+  // Use the user's own business name as the sender name if available
+  const settings = await prisma.userSettings.findUnique({
+    where: { userId: user.id },
+    select: { businessName: true, senderName: true },
+  });
+  const senderName = settings?.businessName || settings?.senderName || user.name || getAppName();
+
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT ?? 587);
   const smtpUser = process.env.SMTP_USER;
@@ -39,9 +45,9 @@ export async function POST(req: NextRequest) {
         host, port, secure: port === 465, auth: { user: smtpUser, pass },
       });
       await transporter.sendMail({
-        from: `"AI Prospect Finder" <${smtpUser}>`,
+        from: `"${senderName}" <${smtpUser}>`,
         to: email,
-        subject: 'Reset your password',
+        subject: `Reset your password — ${senderName}`,
         text: `You requested a password reset.\n\nClick this link to set a new password (expires in 1 hour):\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
         html: `
           <p>You requested a password reset.</p>

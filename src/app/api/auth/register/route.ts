@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/prisma';
+import { getAppUrl, getAppName } from '@/lib/url';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +38,9 @@ export async function POST(req: NextRequest) {
   });
 
   // Send verification email (fire-and-forget — don't block registration)
-  const appUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
-  const verifyUrl = `${appUrl}/api/auth/verify-email?token=${token}`;
+  const verifyUrl = `${getAppUrl()}/api/auth/verify-email?token=${token}`;
+  // At registration there are no UserSettings yet — use the name they registered with
+  const senderName = name || getAppName();
   try {
     const smtpPort = Number(process.env.SMTP_PORT ?? 587);
     const transporter = nodemailer.createTransport({
@@ -48,10 +50,10 @@ export async function POST(req: NextRequest) {
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
     await transporter.sendMail({
-      from: `"AI Prospect Finder" <${process.env.SMTP_FROM}>`,
+      from: `"${senderName}" <${process.env.SMTP_FROM}>`,
       to: email,
-      subject: 'Verify your email — AI Prospect Finder',
-      text: `Hi ${name},\n\nClick the link below to verify your email:\n\n${verifyUrl}\n\nThis link expires in 24 hours.\n\n— AI Prospect Finder`,
+      subject: `Verify your email — ${senderName}`,
+      text: `Hi ${name},\n\nClick the link below to verify your email:\n\n${verifyUrl}\n\nThis link expires in 24 hours.\n\n— ${senderName}`,
       html: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f172a;color:#e2e8f0;border-radius:16px">
           <div style="background:linear-gradient(135deg,#7c3aed,#f97316);width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#fff;margin-bottom:24px">A</div>

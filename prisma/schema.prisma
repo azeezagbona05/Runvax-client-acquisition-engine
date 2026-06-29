@@ -207,3 +207,16 @@ model SearchHistory {
   @@unique([userId, industry, location])
   @@index([userId])
 }
+
+model PlanConfig {
+  id               String   @id @default(cuid())
+  planId           String   @unique
+  name             String   @default("")
+  price            String?
+  priceNote        String   @default("per month")
+  searchesPerDay   Int
+  resultsPerSearch Int
+  aiCallsPerDay    Int
+  maxProspects     Int
+  updatedAt        DateTime @updatedAt
+}

@@ -14,10 +14,11 @@ export async function POST() {
     where: { userId: session.user.id },
   });
 
-  const host = settings?.smtpHost || process.env.SMTP_HOST;
+  const host = settings?.smtpHost ?? process.env.SMTP_HOST;
   const port = Number(settings?.smtpPort ?? process.env.SMTP_PORT ?? 587);
-  const user = settings?.smtpUser || process.env.SMTP_USER;
-  const pass = settings?.smtpPass || process.env.SMTP_PASS;
+  const user = settings?.smtpUser ?? process.env.SMTP_USER;
+  const pass = settings?.smtpPass ?? process.env.SMTP_PASS;
+  const senderName = settings?.businessName ?? settings?.senderName ?? settings?.smtpFrom ?? 'AI Prospect Finder';
   const toEmail = session.user.email!;
 
   if (!host || !user || !pass) {
@@ -32,13 +33,11 @@ export async function POST() {
     await transporter.verify();
 
     await transporter.sendMail({
-      from: settings?.smtpFrom
-        ? `"${settings.smtpFrom}" <${user}>`
-        : `"AI Prospect Finder" <${user}>`,
+      from: `"${senderName}" <${user}>`,
       to: toEmail,
-      subject: 'SMTP test — AI Prospect Finder',
-      text: `Your email settings are working correctly. Emails will be sent from ${user}.`,
-      html: `<p>Your email settings are working correctly.</p><p>Emails will be sent from <strong>${user}</strong>.</p>`,
+      subject: `SMTP test — ${senderName}`,
+      text: `Your email settings are working. Outreach emails will be sent from "${senderName}" <${user}>.`,
+      html: `<p>Your email settings are working correctly.</p><p>Outreach emails will be sent from <strong>"${senderName}" &lt;${user}&gt;</strong>.</p>`,
     });
 
     return NextResponse.json({ ok: true, sentTo: toEmail });

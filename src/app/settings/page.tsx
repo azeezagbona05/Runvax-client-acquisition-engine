@@ -49,17 +49,19 @@ export default function SettingsPage() {
   const [error, setError] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [showPass, setShowPass] = useState(false);
+  const [hasExistingPass, setHasExistingPass] = useState(false);
 
   useEffect(() => {
     fetch('/api/user/settings')
       .then((r) => r.json())
       .then((d) => {
+        if (d.smtpPass === '••••••••') setHasExistingPass(true);
         setSettings((prev) => ({
           ...prev,
           ...Object.fromEntries(
             Object.entries(d).filter(([, v]) => v != null && v !== '')
           ),
-          smtpPass: d.smtpPass === '••••••••' ? '' : (d.smtpPass ?? ''),
+          smtpPass: '', // never pre-fill password field
         }));
       })
       .finally(() => setLoading(false));
@@ -116,7 +118,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-dvh bg-gray-950 flex items-center justify-center">
         <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
       </div>
     );
@@ -130,7 +132,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950 py-10 px-4">
+    <div className="min-h-dvh bg-gray-950 py-4 sm:py-10 px-4">
       <div className="max-w-2xl mx-auto">
 
         {/* Header */}
@@ -231,14 +233,22 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className={labelCls}>SMTP Password / App Password</label>
+                <label className={labelCls}>
+                  SMTP Password / App Password
+                  {hasExistingPass && !settings.smtpPass && (
+                    <span className="ml-2 text-green-400 font-normal text-[11px]">✓ Saved — leave blank to keep existing</span>
+                  )}
+                </label>
                 <div className="relative">
                   <input
                     type={showPass ? 'text' : 'password'}
                     className={inputCls + ' pr-10'}
                     value={settings.smtpPass}
-                    onChange={(e) => set('smtpPass', e.target.value)}
-                    placeholder="Your Gmail App Password"
+                    onChange={(e) => {
+                      set('smtpPass', e.target.value);
+                      if (e.target.value) setHasExistingPass(false);
+                    }}
+                    placeholder={hasExistingPass ? '••••••••  (saved)' : 'Your Gmail App Password'}
                   />
                   <button
                     type="button"
@@ -264,7 +274,7 @@ export default function SettingsPage() {
 
               <button
                 onClick={testSmtp}
-                disabled={testing || !settings.smtpHost || !settings.smtpUser || !settings.smtpPass}
+                disabled={testing || !settings.smtpHost || !settings.smtpUser || (!settings.smtpPass && !hasExistingPass)}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white/8 hover:bg-white/15 text-gray-300 disabled:opacity-40 transition-colors border border-white/10"
               >
                 {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

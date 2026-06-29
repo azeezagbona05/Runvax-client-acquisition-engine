@@ -2,16 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Native mobile app feel ──────────────────────────────────── */
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Only apply manipulation to interactive elements — applying to * blocks touch scroll on WebKit */
+a, button, [role="button"], label {
+  touch-action: manipulation;
+}
+
+html {
+  /* Do NOT set overflow on html — WebKit hands viewport scroll to body which breaks touch scroll */
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+  min-height: 100dvh;
+}
+
+/* App content area: clears the mobile bottom nav + safe area */
+.app-content {
+  min-height: calc(100dvh - 3.5rem);
+}
+
+@media (max-width: 639px) {
+  .app-content {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 3.5rem);
+  }
+  /* Hide scrollbars on mobile for native feel */
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
+}
+
 /* Custom range slider */
 input[type='range'] {
   @apply w-full accent-purple-500 cursor-pointer;
 }
 
-/* Scrollbar — dark mode */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+/* Scrollbar — dark mode (desktop) */
+@media (min-width: 640px) {
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+}
 
 /* ============================================================
    LIGHT THEME OVERRIDES

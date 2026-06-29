@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { getPlan } from '@/lib/plans';
+import { getPlanConfig } from '@/lib/plans';
 import type { Business, ConversationEntry, ProspectStage, SavedProspect } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   if (!business?.id) return NextResponse.json({ error: 'Missing business' }, { status: 400 });
 
   const userPlan = (session.user as { plan?: string }).plan ?? 'free';
-  const planConfig = getPlan(userPlan);
+  const planConfig = await getPlanConfig(userPlan);
 
   // Enforce prospect save limit for free plan
   if (planConfig.maxProspects !== Infinity) {

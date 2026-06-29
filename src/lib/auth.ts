@@ -45,6 +45,14 @@ export const authOptions: NextAuthOptions = {
         token.plan = (user as { plan?: string }).plan ?? 'free';
         token.emailVerified = (user as { emailVerified?: Date | null }).emailVerified ?? null;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
+      } else if (token.id && !token.emailVerified) {
+        // Poll DB on every token refresh until the user verifies, so the
+        // banner disappears without requiring a sign-out/sign-in cycle.
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { emailVerified: true },
+        });
+        if (dbUser?.emailVerified) token.emailVerified = dbUser.emailVerified;
       }
       return token;
     },

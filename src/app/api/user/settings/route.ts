@@ -13,14 +13,20 @@ export async function GET() {
     where: { userId: session.user.id },
   });
 
-  return NextResponse.json(settings ?? {
-    dailyGoal: 10, avgDealValue: 300000, closeRatePct: 10,
-    senderName: null, businessName: null, whatsapp: null,
-    replyEmail: null, city: null, tagline: null,
-    smtpHost: null, smtpPort: null, smtpUser: null,
-    smtpPass: null, smtpFrom: null,
-    bankName: null, bankAccount: null, bankAcctName: null, paymentLink: null,
-  });
+  if (!settings) {
+    return NextResponse.json({
+      dailyGoal: 10, avgDealValue: 300000, closeRatePct: 10,
+      senderName: null, businessName: null, whatsapp: null,
+      replyEmail: null, city: null, tagline: null,
+      smtpHost: null, smtpPort: null, smtpUser: null,
+      smtpPass: null, smtpFrom: null,
+      bankName: null, bankAccount: null, bankAcctName: null, paymentLink: null,
+    });
+  }
+
+  // Never return the raw password — mask it
+  const { smtpPass: _, ...safe } = settings;
+  return NextResponse.json({ ...safe, smtpPass: settings.smtpPass ? '••••••••' : null });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -50,7 +56,12 @@ export async function PATCH(req: NextRequest) {
   };
 
   const data = Object.fromEntries(
-    Object.entries(body).filter(([, v]) => v !== undefined)
+    Object.entries(body).filter(([k, v]) => {
+      if (v === undefined) return false;
+      // Don't overwrite the saved password with an empty/placeholder value
+      if (k === 'smtpPass' && (!v || v === '••••••••')) return false;
+      return true;
+    })
   );
 
   const settings = await prisma.userSettings.upsert({

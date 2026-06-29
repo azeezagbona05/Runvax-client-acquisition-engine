@@ -1,3 +1,5 @@
+import { prisma } from './prisma';
+
 export type PlanId = 'free' | 'pro' | 'agency';
 
 export interface PlanConfig {
@@ -13,6 +15,7 @@ export interface PlanConfig {
   highlight: boolean;
 }
 
+// Hardcoded defaults — used as fallback when DB row is missing
 export const PLANS: Record<PlanId, PlanConfig> = {
   free: {
     name: 'Free',
@@ -52,6 +55,55 @@ export const PLANS: Record<PlanId, PlanConfig> = {
   },
 };
 
+// DB stores -1 for unlimited
+export const UNLIMITED = -1;
+export function dbToVal(n: number): number { return n === UNLIMITED ? Infinity : n; }
+export function valToDb(n: number): number { return n === Infinity ? UNLIMITED : n; }
+
+// 60-second in-memory cache — avoids a DB round-trip on every search/AI call
+const cache = new Map<string, { config: PlanConfig; exp: number }>();
+const CACHE_TTL = 60_000;
+
+export async function getPlanConfig(planId: string): Promise<PlanConfig> {
+  const hit = cache.get(planId);
+  if (hit && hit.exp > Date.now()) return hit.config;
+
+  try {
+    const row = await prisma.planConfig.findUnique({ where: { planId } });
+    if (row) {
+      // For built-in plans use PLANS as the base; for custom plans build a base from DB fields
+      const base: PlanConfig = PLANS[planId as PlanId] ?? {
+        name: row.name || planId,
+        price: row.price ?? null,
+        priceNote: row.priceNote || 'per month',
+        aiCallsPerDay: Infinity,
+        searchesPerDay: Infinity,
+        resultsPerSearch: Infinity,
+        maxProspects: Infinity,
+        badge: (row.name || planId).toUpperCase(),
+        badgeClass: 'bg-gray-700 text-gray-300',
+        highlight: false,
+      };
+      const config: PlanConfig = {
+        ...base,
+        aiCallsPerDay:    dbToVal(row.aiCallsPerDay),
+        searchesPerDay:   dbToVal(row.searchesPerDay),
+        resultsPerSearch: dbToVal(row.resultsPerSearch),
+        maxProspects:     dbToVal(row.maxProspects),
+      };
+      cache.set(planId, { config, exp: Date.now() + CACHE_TTL });
+      return config;
+    }
+  } catch { /* fall through to hardcoded */ }
+
+  return PLANS[planId as PlanId] ?? PLANS.free;
+}
+
+export function clearPlanCache(): void {
+  cache.clear();
+}
+
+// Sync fallback kept for non-critical uses (e.g. UI display)
 export function getPlan(plan: string): PlanConfig {
   return PLANS[plan as PlanId] ?? PLANS.free;
 }

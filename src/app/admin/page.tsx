@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   Users, CreditCard, TrendingUp, ShieldCheck,
-  LogOut, RefreshCw, Search, ChevronDown,
+  LogOut, RefreshCw, Search, ChevronDown, SlidersHorizontal, Check,
+  Infinity as InfinityIcon, Plus, Trash2, X, AlertTriangle,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
 
@@ -37,6 +38,327 @@ const PLAN_BADGE: Record<string, string> = {
 const PLAN_OPTIONS = ['free', 'pro', 'agency'] as const;
 type Plan = typeof PLAN_OPTIONS[number];
 
+interface PlanRow {
+  planId: string;
+  name: string;
+  price: string | null;
+  priceNote: string;
+  searchesPerDay: number;
+  resultsPerSearch: number;
+  aiCallsPerDay: number;
+  maxProspects: number;
+}
+
+const PLAN_META: Record<string, { color: string; border: string }> = {
+  free:   { color: 'text-gray-300',   border: 'border-white/10' },
+  pro:    { color: 'text-purple-300',  border: 'border-purple-500/30' },
+  agency: { color: 'text-orange-300',  border: 'border-orange-500/30' },
+};
+
+function LimitField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  const isUnlimited = value === -1;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-xs font-semibold text-gray-400">{label}</label>
+        <button
+          type="button"
+          onClick={() => onChange(isUnlimited ? 10 : -1)}
+          className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
+            isUnlimited ? 'bg-purple-600/20 text-purple-300 border-purple-500/30' : 'text-gray-600 border-white/10 hover:border-white/25'
+          }`}
+        >
+          <InfinityIcon className="w-3 h-3" /> {isUnlimited ? 'Unlimited' : 'Set unlimited'}
+        </button>
+      </div>
+      {isUnlimited ? (
+        <div className="w-full bg-gray-800/50 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-purple-400 font-bold flex items-center gap-2">
+          <InfinityIcon className="w-4 h-4" /> Unlimited
+        </div>
+      ) : (
+        <input
+          type="number" min={0} value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+        />
+      )}
+    </div>
+  );
+}
+
+function PlanCard({ row, onSaved, onDeleted }: { row: PlanRow; onSaved: (r: PlanRow) => void; onDeleted: () => void }) {
+  const meta = PLAN_META[row.planId] ?? { color: 'text-gray-300', border: 'border-white/10' };
+  const isFree = row.planId === 'free';
+
+  const [fields, setFields] = useState({
+    name:             row.name,
+    price:            row.price ?? '',
+    priceNote:        row.priceNote,
+    searchesPerDay:   row.searchesPerDay,
+    resultsPerSearch: row.resultsPerSearch,
+    aiCallsPerDay:    row.aiCallsPerDay,
+    maxProspects:     row.maxProspects,
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteErr, setDeleteErr] = useState('');
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/plans/${row.planId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...fields,
+          price: fields.price.trim() || null,
+        }),
+      });
+      if (res.ok) {
+        onSaved({ ...row, ...fields, price: fields.price.trim() || null });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setDeleteErr('');
+    try {
+      const res = await fetch(`/api/admin/plans/${row.planId}`, { method: 'DELETE' });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) { setDeleteErr(data.error ?? 'Failed to delete'); return; }
+      onDeleted();
+    } finally { setDeleting(false); }
+  };
+
+  const setF = (k: keyof typeof fields) => (v: string | number) =>
+    setFields((f) => ({ ...f, [k]: v }));
+
+  return (
+    <div className={`bg-gray-900 border rounded-2xl p-5 space-y-4 ${meta.border}`}>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <span className={`text-[10px] font-black px-2 py-0.5 rounded ${PLAN_BADGE[row.planId] ?? 'bg-gray-700 text-gray-300'}`}>
+            {row.planId.toUpperCase()}
+          </span>
+          <h3 className={`font-black text-base mt-1 ${meta.color}`}>{row.name || row.planId}</h3>
+        </div>
+        {!isFree && (
+          <button
+            onClick={() => { setConfirmDelete(true); setDeleteErr(''); }}
+            title="Delete plan"
+            className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 space-y-2">
+          <div className="flex items-center gap-2 text-red-400 text-xs font-semibold">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Users on this plan will be downgraded to Free.
+          </div>
+          {deleteErr && <p className="text-red-400 text-xs">{deleteErr}</p>}
+          <div className="flex gap-2">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white text-xs font-bold py-2 rounded-lg transition-colors"
+            >
+              {deleting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+              {deleting ? 'Deleting…' : 'Confirm Delete'}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="px-3 py-2 text-xs font-semibold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Name & price */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-400 block mb-1.5">Plan Name</label>
+          <input
+            value={fields.name}
+            onChange={(e) => setF('name')(e.target.value)}
+            className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
+            placeholder="e.g. Starter"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-400 block mb-1.5">Price display</label>
+          <input
+            value={fields.price}
+            onChange={(e) => setF('price')(e.target.value)}
+            className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
+            placeholder="₦9,999 or blank"
+          />
+        </div>
+      </div>
+
+      {/* Limits */}
+      <LimitField label="Searches per day"   value={fields.searchesPerDay}   onChange={(v) => setF('searchesPerDay')(v)} />
+      <LimitField label="Results per search"  value={fields.resultsPerSearch}  onChange={(v) => setF('resultsPerSearch')(v)} />
+      <LimitField label="AI calls per day"    value={fields.aiCallsPerDay}    onChange={(v) => setF('aiCallsPerDay')(v)} />
+      <LimitField label="Max saved prospects" value={fields.maxProspects}     onChange={(v) => setF('maxProspects')(v)} />
+
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+          saved
+            ? 'bg-green-600/20 text-green-400 border border-green-500/30'
+            : 'bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-60'
+        }`}
+      >
+        {saving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Saving…</> : saved ? <><Check className="w-4 h-4" /> Saved!</> : 'Save Changes'}
+      </button>
+    </div>
+  );
+}
+
+const EMPTY_PLAN = {
+  planId: '', name: '', price: '', priceNote: 'per month',
+  searchesPerDay: 5, resultsPerSearch: 20, aiCallsPerDay: 15, maxProspects: 30,
+};
+
+function CreatePlanModal({ onCreated, onClose }: { onCreated: (r: PlanRow) => void; onClose: () => void }) {
+  const [fields, setFields] = useState(EMPTY_PLAN);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const setF = (k: keyof typeof EMPTY_PLAN) => (v: string | number) =>
+    setFields((f) => ({ ...f, [k]: v }));
+
+  // Auto-generate planId slug from name
+  const handleNameChange = (v: string) => {
+    setF('name')(v);
+    setF('planId')(v.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr('');
+    if (!fields.planId) { setErr('Plan ID is required'); return; }
+    if (!fields.name)   { setErr('Name is required'); return; }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...fields, price: fields.price.trim() || null }),
+      });
+      const data = await res.json() as PlanRow & { error?: string };
+      if (!res.ok) { setErr(data.error ?? 'Failed to create plan'); return; }
+      onCreated(data);
+      onClose();
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-gray-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/8 sticky top-0 bg-gray-900">
+          <h2 className="font-black text-white flex items-center gap-2">
+            <Plus className="w-5 h-5 text-purple-400" /> Create New Plan
+          </h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-500 hover:text-white hover:bg-white/10 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {err && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl px-4 py-3">
+              {err}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-400 block mb-1.5">Plan Name *</label>
+              <input
+                required value={fields.name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                placeholder="e.g. Starter"
+                className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-400 block mb-1.5">Plan ID (slug) *</label>
+              <input
+                required value={fields.planId}
+                onChange={(e) => setF('planId')(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                placeholder="e.g. starter"
+                className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-purple-500/50"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-400 block mb-1.5">Price (display)</label>
+              <input
+                value={fields.price}
+                onChange={(e) => setF('price')(e.target.value)}
+                placeholder="₦4,999 or blank"
+                className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-400 block mb-1.5">Price note</label>
+              <input
+                value={fields.priceNote}
+                onChange={(e) => setF('priceNote')(e.target.value)}
+                placeholder="per month"
+                className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-white/8 pt-4 space-y-3">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Limits</p>
+            <LimitField label="Searches per day"   value={fields.searchesPerDay}   onChange={(v) => setF('searchesPerDay')(v)} />
+            <LimitField label="Results per search"  value={fields.resultsPerSearch}  onChange={(v) => setF('resultsPerSearch')(v)} />
+            <LimitField label="AI calls per day"    value={fields.aiCallsPerDay}    onChange={(v) => setF('aiCallsPerDay')(v)} />
+            <LimitField label="Max saved prospects" value={fields.maxProspects}     onChange={(v) => setF('maxProspects')(v)} />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
+            >
+              {saving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Creating…</> : <><Plus className="w-4 h-4" /> Create Plan</>}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-sm font-semibold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function monthLabel(iso: string) {
   return new Date(iso + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 }
@@ -46,11 +368,35 @@ export default function AdminPage() {
   const router = useRouter();
   const [stats, setStats]       = useState<Stats | null>(null);
   const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<'users' | 'payments' | 'revenue'>('users');
+  const [tab, setTab]           = useState<'users' | 'payments' | 'revenue' | 'plans'>('users');
 
   // Users filter state
   const [search, setSearch]         = useState('');
   const [planFilter, setPlanFilter] = useState<Plan | 'all'>('all');
+
+  // Plan config state
+  const [planRows, setPlanRows] = useState<PlanRow[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [plansError, setPlansError] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const loadPlans = useCallback(async () => {
+    setPlansLoading(true);
+    setPlansError('');
+    try {
+      const res = await fetch('/api/admin/plans');
+      const data = await res.json() as PlanRow[] | { error: string };
+      if (!res.ok || !Array.isArray(data)) {
+        setPlansError((data as { error?: string }).error ?? `HTTP ${res.status}`);
+        return;
+      }
+      setPlanRows(data);
+    } catch (e) {
+      setPlansError(String(e));
+    } finally {
+      setPlansLoading(false);
+    }
+  }, []);
 
   // Inline plan-change state: userId → loading
   const [planChanging, setPlanChanging] = useState<Record<string, boolean>>({});
@@ -74,8 +420,9 @@ export default function AdminPage() {
     if (status !== 'authenticated') return;
     if (!isAdmin) { router.replace('/admin/login'); return; }
     loadStats();
+    loadPlans();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, isAdmin]);
+  }, [status, isAdmin, loadPlans]);
 
   // ── Manual plan change ───────────────────────────────────────────────────
   const handlePlanChange = async (userId: string, newPlan: Plan) => {
@@ -237,11 +584,12 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-white/8">
+        <div className="flex gap-1 border-b border-white/8 overflow-x-auto">
           {([
             ['users',    `Users (${users.length})`],
             ['payments', `Payments (${payments.length})`],
             ['revenue',  'Revenue by Month'],
+            ['plans',    'Plan Limits'],
           ] as const).map(([t, label]) => (
             <button
               key={t}
@@ -508,6 +856,81 @@ export default function AdminPage() {
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {/* ── PLANS TAB ── */}
+        {tab === 'plans' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-black text-white flex items-center gap-2">
+                  <SlidersHorizontal className="w-5 h-5 text-purple-400" /> Plan Management
+                </h2>
+                <p className="text-gray-500 text-sm mt-0.5">
+                  Changes take effect within 60 seconds (server cache TTL).
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-white bg-purple-600 hover:bg-purple-500 px-3 py-2 rounded-xl transition-colors font-bold"
+                >
+                  <Plus className="w-3.5 h-3.5" /> New Plan
+                </button>
+                <button
+                  onClick={loadPlans}
+                  disabled={plansLoading}
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${plansLoading ? 'animate-spin' : ''}`} /> Refresh
+                </button>
+              </div>
+            </div>
+
+            {showCreateModal && (
+              <CreatePlanModal
+                onCreated={(row) => {
+                  setPlanRows((prev) => [...prev, row]);
+                  setShowCreateModal(false);
+                }}
+                onClose={() => setShowCreateModal(false)}
+              />
+            )}
+
+            {plansError && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                Failed to load plans: {plansError}
+              </div>
+            )}
+
+            {plansLoading && planRows.length === 0 ? (
+              <div className="flex items-center justify-center py-16">
+                <RefreshCw className="w-5 h-5 text-purple-400 animate-spin" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {planRows.map((row) => (
+                  <PlanCard
+                    key={row.planId}
+                    row={row}
+                    onSaved={(updated) =>
+                      setPlanRows((prev) => prev.map((r) => (r.planId === row.planId ? updated : r)))
+                    }
+                    onDeleted={() =>
+                      setPlanRows((prev) => prev.filter((r) => r.planId !== row.planId))
+                    }
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="bg-gray-900/50 border border-white/8 rounded-xl p-4 text-xs text-gray-500 space-y-1">
+              <p><strong className="text-gray-400">-1</strong> = unlimited in DB. Use the ∞ toggle to set a field as unlimited.</p>
+              <p>The <strong className="text-gray-400">Free</strong> plan cannot be deleted — it is the system default.</p>
+              <p>Deleting a plan will downgrade all users on it to Free.</p>
+            </div>
           </div>
         )}
       </div>

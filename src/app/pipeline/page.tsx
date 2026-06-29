@@ -145,7 +145,7 @@ export default function PipelinePage() {
 
   if (prospects.length === 0) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-24 text-center">
+      <div className="max-w-3xl mx-auto px-4 py-12 sm:py-24 text-center">
         <div className="text-6xl mb-4">📋</div>
         <h1 className="text-2xl font-black text-white mb-2">Pipeline Empty</h1>
         <p className="text-gray-400 mb-4">Save prospects from the search page, or add them manually</p>
@@ -171,7 +171,7 @@ export default function PipelinePage() {
     .reduce((sum, p) => sum + (p.estimatedPrice?.min ?? 0), 0);
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-dvh bg-gray-950">
       {showManual && <ManualProspectModal onClose={() => setShowManual(false)} />}
       {detailProspect && <ProspectDetailModal prospect={detailProspect} onClose={() => setDetailProspect(null)} />}
 
@@ -214,14 +214,14 @@ export default function PipelinePage() {
       </div>
 
       {/* Kanban board */}
-      <div className="overflow-x-auto">
-        <div className="flex gap-4 p-4 min-w-max max-w-[1600px] mx-auto">
+      <div className="overflow-x-auto snap-x snap-mandatory sm:snap-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 min-w-max max-w-[1600px] mx-auto">
           {STAGES.filter((s) => activeStages.includes(s.id)).map((stage) => {
             const stageProspects = prospects.filter((p) => p.stage === stage.id);
             const stageValue = stageProspects.reduce((sum, p) => sum + (p.estimatedPrice?.min ?? 0), 0);
 
             return (
-              <div key={stage.id} className={`w-64 flex-shrink-0 rounded-2xl border p-3 ${stage.bg}`}>
+              <div key={stage.id} className={`w-[85vw] sm:w-64 flex-shrink-0 snap-center rounded-2xl border p-3 ${stage.bg}`}>
                 {/* Column header */}
                 <div className="flex items-center justify-between mb-3">
                   <div>

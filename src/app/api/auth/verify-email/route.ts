@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAppUrl } from '@/lib/url';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token');
-  const appUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
 
   if (!token) {
     return NextResponse.redirect(`${appUrl}/auth/verify-email?error=missing`);

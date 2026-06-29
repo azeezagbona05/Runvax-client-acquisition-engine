@@ -116,7 +116,7 @@ export default function DashboardPage() {
 
   if (prospects.length === 0) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-24 text-center">
+      <div className="max-w-3xl mx-auto px-4 py-12 sm:py-24 text-center">
         <div className="text-6xl mb-4">📊</div>
         <h1 className="text-2xl font-black text-white mb-2">Dashboard</h1>
         <p className="text-gray-400 mb-6">Save some prospects to see your stats here</p>
@@ -128,7 +128,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 py-4 sm:py-8 space-y-5 sm:space-y-8">
 
       <div>
         <h1 className="text-2xl font-black text-white mb-1">Dashboard</h1>

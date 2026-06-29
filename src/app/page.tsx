@@ -45,6 +45,9 @@ export default function Home() {
   const [page, setPage]               = useState(0);
   const [searchMeta, setSearchMeta]   = useState<SearchMeta | null>(null);
 
+  const [phoneOnly, setPhoneOnly]           = useState(false);
+  const [reviewedOnly, setReviewedOnly]     = useState(false);
+
   const [selected, setSelected]             = useState<Business | null>(null);
   const [detailLoading, setDetailLoading]   = useState(false);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
@@ -168,10 +171,14 @@ export default function Home() {
     return aStage - bStage;
   });
 
-  const filtered =
+  const primaryFiltered =
     filter === 'no-website' ? sorted.filter((b) => !b.hasWebsite) :
     filter === 'new'        ? sorted.filter((b) => !isSaved(b.id)) :
     sorted;
+
+  const filtered = primaryFiltered
+    .filter((b) => !phoneOnly || !!b.phone)
+    .filter((b) => !reviewedOnly || (b.reviewCount != null && b.reviewCount > 0));
 
   const totalPages   = Math.ceil(filtered.length / PER_PAGE);
   const paginated    = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
@@ -203,12 +210,12 @@ export default function Home() {
                                             'text-green-400 bg-green-500/10 border-green-500/20';
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-dvh bg-gray-950 text-white">
 
       <SearchForm onSearch={handleSearch} loading={loading} onBrief={() => setShowBrief(true)} />
 
       {hasSearched && (
-        <main className="max-w-7xl mx-auto px-4 py-8">
+        <main className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
 
           {/* Guest signup gate — overlays blurred results */}
           {guestGate && (
@@ -220,7 +227,7 @@ export default function Home() {
 
               {/* Overlay gate */}
               <div className="absolute inset-0 flex items-start justify-center pt-10 px-4 z-10">
-                <div className="bg-gray-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 max-w-md w-full p-8 text-center">
+                <div className="bg-gray-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 max-w-md w-full p-5 sm:p-8 text-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-purple-900/30">
                     <img src="/logo.svg" alt="" className="w-10 h-10" />
                   </div>
@@ -336,6 +343,21 @@ export default function Home() {
                   className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
                     filter === 'new' ? 'bg-green-600 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
                   ✨ New ({newCount})
+                </button>
+                <span className="text-gray-700 text-xs hidden sm:inline">|</span>
+                <button
+                  onClick={() => setPhoneOnly((v) => !v)}
+                  title="Only show businesses with a phone number (WhatsApp-ready)"
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                    phoneOnly ? 'bg-green-700 text-green-200 border border-green-600/50' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
+                  📞 Phone only
+                </button>
+                <button
+                  onClick={() => setReviewedOnly((v) => !v)}
+                  title="Only show businesses with at least one Google review (active & real)"
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                    reviewedOnly ? 'bg-yellow-700 text-yellow-200 border border-yellow-600/50' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
+                  ⭐ Reviewed
                 </button>
               </div>
             </div>

@@ -4,15 +4,16 @@ export const dynamic = 'force-dynamic';
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
-// Emails that appear in every page header/footer — never a real business email
+// Domains that are never real business emails — platform noise
 const SITE_NOISE = [
   'example.com', 'sentry.io', 'wixpress.com', 'godaddy.com', 'yourdomain',
   'noreply', 'no-reply', 'donotreply', 'mailer', 'bounce',
   'schema.org', 'w3.org', 'openid', 'cloudflare', 'wordpress.com',
-  'nairaland.com', 'jiji.ng', 'jiji.com', 'vconnect.com', 'businesslist.com',
+  'nairaland.com', 'jiji.ng', 'jiji.com', 'vconnect.com', 'businesslist.com.ng', 'businesslist.com',
   'facebook.com', 'fb.com', 'meta.com', 'instagram.com', 'twitter.com',
   'google.com', 'googleapis.com', 'bing.com', 'microsoft.com', 'yahoo.com/help',
   'duckduckgo.com', 'duck.com', 'ddg.gg',
+  'yellowpages.com', 'yellowpages.com.ng',
   '.png', '.jpg', '.gif', '.webp', '.svg', '.css', '.js',
 ];
 
@@ -40,7 +41,7 @@ function pickEmail(text: string, extraExclude: string[] = []): string | null {
   return clean.find((m) => PREFERRED.test(m.split('@')[0])) ?? clean[0];
 }
 
-async function fetchText(url: string, ms = 8000): Promise<string> {
+async function fetchText(url: string, ms = 7000): Promise<string> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -51,10 +52,11 @@ async function fetchText(url: string, ms = 8000): Promise<string> {
         Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
+        'Referer': 'https://www.google.com/',
       },
     });
     if (!res.ok) return '';
-    return (await res.text()).slice(0, 300_000);
+    return (await res.text()).slice(0, 250_000);
   } catch { return ''; }
   finally { clearTimeout(t); }
 }
@@ -80,8 +82,141 @@ function phoneVariants(phone: string): string[] {
   return Array.from(new Set(variants)).filter((v) => v.length > 7);
 }
 
-// ── DuckDuckGo Lite — free web search, no API key needed ──
-// Searches by phone, then name+city. Scans snippets first, then visits top pages.
+// ── VConnect Nigeria — primary Nigerian business directory ──
+// Phone number search is most accurate (unique identifier vs name which can have duplicates)
+async function tryVConnect(name: string, city: string, phone?: string): Promise<{ email: string; source: string } | null> {
+  const queries: string[] = [];
+
+  // Phone search first — phone number uniquely identifies a business
+  if (phone) {
+    for (const v of phoneVariants(phone).slice(0, 2)) {
+      queries.push(v);
+    }
+  }
+  // Name + city fallback
+  queries.push(`${name} ${city}`);
+
+  for (const q of queries) {
+    const searchHtml = await fetchText(`https://www.vconnect.com/search?q=${encodeURIComponent(q)}`, 6000);
+    if (!searchHtml) continue;
+
+    // Scan search results page directly
+    const directEmail = pickEmail(searchHtml, ['vconnect.com']);
+    if (directEmail) return { email: directEmail, source: 'vconnect' };
+
+    // Follow first listing link
+    const listingMatch = searchHtml.match(/href="(\/listing\/[^"]+)"/i)
+      ?? searchHtml.match(/href="(\/[a-zA-Z0-9/_-]+-(?:lagos|abuja|nigeria|ph|ibadan|kano|enugu|benin)[a-zA-Z0-9/_-]*)"/i);
+    if (listingMatch) {
+      const listingHtml = await fetchText(`https://www.vconnect.com${listingMatch[1]}`, 5000);
+      const email = pickEmail(listingHtml, ['vconnect.com']);
+      if (email) return { email, source: 'vconnect' };
+    }
+  }
+
+  return null;
+}
+
+// ── BusinessList Nigeria ──
+async function tryBusinessList(name: string, city: string, phone?: string): Promise<{ email: string; source: string } | null> {
+  const queries: string[] = [];
+
+  if (phone) {
+    for (const v of phoneVariants(phone).slice(0, 2)) {
+      queries.push(v);
+    }
+  }
+  queries.push(`${name} ${city}`);
+
+  for (const q of queries) {
+    const searchHtml = await fetchText(`https://www.businesslist.com.ng/search/?query=${encodeURIComponent(q)}`, 6000);
+    if (!searchHtml) continue;
+
+    const directEmail = pickEmail(searchHtml, ['businesslist.com.ng', 'businesslist.com']);
+    if (directEmail) return { email: directEmail, source: 'directory' };
+
+    const linkMatch = searchHtml.match(/href="(\/company\/[^"]+)"/i);
+    if (linkMatch) {
+      const pageHtml = await fetchText(`https://www.businesslist.com.ng${linkMatch[1]}`, 5000);
+      const email = pickEmail(pageHtml, ['businesslist.com.ng', 'businesslist.com']);
+      if (email) return { email, source: 'directory' };
+    }
+  }
+
+  return null;
+}
+
+// ── Jiji Nigeria — classifieds where businesses list with contact details ──
+async function tryJiji(name: string, city: string, phone?: string): Promise<{ email: string; source: string } | null> {
+  const queries: string[] = [];
+
+  if (phone) {
+    for (const v of phoneVariants(phone).slice(0, 2)) {
+      queries.push(v);
+    }
+  }
+  queries.push(`${name} ${city}`);
+
+  for (const q of queries) {
+    const searchHtml = await fetchText(`https://jiji.ng/search?query=${encodeURIComponent(q)}`, 6000);
+    if (!searchHtml) continue;
+
+    const directEmail = pickEmail(searchHtml, ['jiji.ng', 'jiji.com']);
+    if (directEmail) return { email: directEmail, source: 'directory' };
+
+    // Follow first ad listing
+    const linkMatch = searchHtml.match(/href="(\/[a-z-]+\/\d+[^"]*\.html)"/i);
+    if (linkMatch) {
+      const pageHtml = await fetchText(`https://jiji.ng${linkMatch[1]}`, 4000);
+      const email = pickEmail(pageHtml, ['jiji.ng', 'jiji.com']);
+      if (email) return { email, source: 'directory' };
+    }
+  }
+
+  return null;
+}
+
+// ── Bing Web Search — more lenient with server IPs than DDG ──
+async function tryBing(name: string, city: string, phone?: string): Promise<{ email: string; source: string } | null> {
+  const shortName = name.split(' ').slice(0, 4).join(' ');
+  const queries: string[] = [];
+
+  if (phone) {
+    for (const v of phoneVariants(phone).slice(0, 2)) {
+      queries.push(`"${v}" email gmail yahoo`);
+    }
+  }
+  queries.push(`"${shortName}" "${city}" email contact`);
+  queries.push(`"${shortName}" Nigeria gmail.com OR yahoo.com`);
+
+  for (const q of queries) {
+    const html = await fetchText(`https://www.bing.com/search?q=${encodeURIComponent(q)}&mkt=en-NG`, 6000);
+    if (!html || html.includes('CAPTCHA') || html.length < 500) continue;
+
+    // Scan snippets first
+    const snippetEmail = pickEmail(html, ['bing.com', 'microsoft.com']);
+    if (snippetEmail) return { email: snippetEmail, source: 'web_search' };
+
+    // Extract result URLs from Bing HTML
+    const urlMatches = Array.from(html.matchAll(/href="(https?:\/\/(?!www\.bing\.com)[^"]+)"/g));
+    const resultUrls = urlMatches
+      .map((m) => m[1])
+      .filter((u) => !u.includes('bing.com') && !u.includes('microsoft.com') && !u.includes('msn.com'))
+      .slice(0, 3);
+
+    for (const resultUrl of resultUrls) {
+      try {
+        const pageHost = new URL(resultUrl).hostname.replace('www.', '');
+        const pageHtml = await fetchText(resultUrl, 4000);
+        const pageEmail = pickEmail(pageHtml, [pageHost]);
+        if (pageEmail) return { email: pageEmail, source: 'web_search' };
+      } catch { continue; }
+    }
+  }
+  return null;
+}
+
+// ── DuckDuckGo Lite — fallback free web search ──
 async function tryDuckDuckGo(name: string, city: string, phone?: string): Promise<{ email: string; source: string } | null> {
   const shortName = name.split(' ').slice(0, 4).join(' ');
   const queries: string[] = [];
@@ -92,27 +227,25 @@ async function tryDuckDuckGo(name: string, city: string, phone?: string): Promis
     }
   }
   queries.push(`"${shortName}" "${city}" email contact`);
-  queries.push(`"${shortName}" Nigeria email gmail yahoo`);
 
   for (const q of queries) {
-    const html = await fetchText(`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`, 7000);
-    if (!html) continue;
+    const html = await fetchText(`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`, 6000);
+    // DDG Lite returns CAPTCHA/empty when rate-limited — detect and skip
+    if (!html || html.length < 500 || html.includes('CAPTCHA') || html.includes('robot')) continue;
 
-    // Scan snippets first (fast path — email often appears directly in result text)
     const snippetEmail = pickEmail(html, ['duckduckgo.com', 'duck.com']);
     if (snippetEmail) return { email: snippetEmail, source: 'web_search' };
 
-    // DDG Lite wraps result links as /l/?uddg=ENCODED_URL — decode to get real URLs
     const uddgMatches = Array.from(html.matchAll(/uddg=([^&"]+)/g));
     const resultUrls = uddgMatches
       .map((m) => { try { return decodeURIComponent(m[1]); } catch { return ''; } })
       .filter((u) => u.startsWith('http') && !u.includes('duckduckgo.com'))
-      .slice(0, 3);
+      .slice(0, 2);
 
     for (const resultUrl of resultUrls) {
       try {
         const pageHost = new URL(resultUrl).hostname.replace('www.', '');
-        const pageHtml = await fetchText(resultUrl, 5000);
+        const pageHtml = await fetchText(resultUrl, 4000);
         const pageEmail = pickEmail(pageHtml, [pageHost]);
         if (pageEmail) return { email: pageEmail, source: 'web_search' };
       } catch { continue; }
@@ -135,7 +268,7 @@ async function tryWebsite(url: string): Promise<{ email: string; source: string 
   return null;
 }
 
-// ── Facebook About — mobile is less JS-heavy but still often blocked ──
+// ── Facebook About page ──
 async function tryFacebook(url: string): Promise<{ email: string; source: string } | null> {
   const base = url.replace(/\/$/, '').split('?')[0];
   const mobile = base.replace('www.facebook.com', 'm.facebook.com');
@@ -188,7 +321,7 @@ async function tryBraveSearch(name: string, city: string, phone?: string): Promi
         if (!r.url) continue;
         try {
           const pageHost = new URL(r.url).hostname.replace('www.', '');
-          const email = pickEmail(await fetchText(r.url, 5000), [pageHost]);
+          const email = pickEmail(await fetchText(r.url, 4000), [pageHost]);
           if (email) return { email, source: 'web_search' };
         } catch { continue; }
       }
@@ -224,7 +357,7 @@ async function tryGoogleCSE(name: string, city: string, phone?: string): Promise
         if (!item.link) continue;
         try {
           const pageHost = new URL(item.link).hostname.replace('www.', '');
-          const email = pickEmail(await fetchText(item.link, 5000), [pageHost]);
+          const email = pickEmail(await fetchText(item.link, 4000), [pageHost]);
           if (email) return { email, source: 'google_search' };
         } catch { continue; }
       }
@@ -245,7 +378,7 @@ export async function POST(req: NextRequest) {
 
   const city = extractCity(location ?? '');
 
-  // ── Social / website URLs — try first as most direct ──
+  // ── 1. Social / website URLs — most direct source ──
   if (website) {
     const lower = website.toLowerCase();
     if (lower.includes('facebook.com')) {
@@ -262,10 +395,21 @@ export async function POST(req: NextRequest) {
 
   if (!name) return NextResponse.json({ email: null, source: null });
 
-  // ── Run search strategies in parallel ──
-  // DuckDuckGo Lite is the primary engine (free, no API key, actually works).
-  // Brave/Google CSE are dormant unless their keys are set in .env.local.
+  // ── 2. Nigerian directories — run first as primary Nigeria-specific sources ──
+  // Phone number is the key link: same number they registered with Google is on Jiji/VConnect/BusinessList
+  const [vcResult, blResult, jijiResult] = await Promise.allSettled([
+    tryVConnect(name, city, phone),
+    tryBusinessList(name, city, phone),
+    tryJiji(name, city, phone),
+  ]);
+  for (const r of [vcResult, blResult, jijiResult]) {
+    if (r.status === 'fulfilled' && r.value) return NextResponse.json(r.value);
+  }
+
+  // ── 3. Web search strategies in parallel ──
+  // Bing first (more lenient with server IPs), DDG as fallback, optional paid APIs
   const settled = await Promise.allSettled([
+    tryBing(name, city, phone),
     tryDuckDuckGo(name, city, phone),
     tryBraveSearch(name, city, phone),
     tryGoogleCSE(name, city, phone),

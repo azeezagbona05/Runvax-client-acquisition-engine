@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions } from './auth';
 import { prisma } from './prisma';
-import { getPlan } from './plans';
+import { getPlanConfig } from './plans';
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
@@ -27,7 +27,7 @@ export async function checkAndIncrementAI(): Promise<UsageCheckResult> {
 
   const userId = session.user.id;
   const userPlan = (session.user as { plan?: string }).plan ?? 'free';
-  const planConfig = getPlan(userPlan);
+  const planConfig = await getPlanConfig(userPlan);
   const date = todayStr();
 
   if (planConfig.aiCallsPerDay === Infinity) {
@@ -101,7 +101,7 @@ export async function checkAndIncrementSearch(): Promise<SearchCheckResult> {
 
   const userId = session.user.id;
   const userPlan = (session.user as { plan?: string }).plan ?? 'free';
-  const planConfig = getPlan(userPlan);
+  const planConfig = await getPlanConfig(userPlan);
   const date = todayStr();
 
   if (planConfig.searchesPerDay === Infinity) {
