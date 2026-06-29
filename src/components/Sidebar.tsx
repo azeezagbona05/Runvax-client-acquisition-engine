@@ -45,7 +45,7 @@ export default function Sidebar() {
     <>
       {/* Desktop sidebar — hidden below lg */}
       <aside
-        className={`hidden lg:flex flex-col fixed left-0 top-0 h-screen z-40 bg-gray-900 border-r border-white/[0.06] transition-all duration-300 ease-in-out overflow-hidden ${
+        className={`sidebar-dark hidden lg:flex flex-col fixed left-0 top-0 h-screen z-40 border-r border-white/[0.06] transition-all duration-300 ease-in-out overflow-hidden ${
           collapsed ? 'w-16' : 'w-60'
         }`}
       >
