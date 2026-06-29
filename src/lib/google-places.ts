@@ -30,6 +30,7 @@ const DETAIL_FIELDS = [
   'currentOpeningHours',
   'editorialSummary',
   'types',
+  'reviews',
 ].join(',');
 
 export async function searchPlaces(params: {

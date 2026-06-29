@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { X, Copy, Check, RefreshCw, MessageCircle, Mail, Loader2, Send, Lock } from 'lucide-react';
 import { Business } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
-import { OutreachFramework } from '@/app/api/outreach/route';
+import type { OutreachFramework } from '@/app/api/outreach/route';
 import { whatsappLink } from '@/lib/phone';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 
@@ -27,7 +27,6 @@ const FRAMEWORKS: Array<{
   id: OutreachFramework;
   label: string;
   short: string;
-  color: string;
   activeColor: string;
   desc: string;
 }> = [
@@ -35,33 +34,57 @@ const FRAMEWORKS: Array<{
     id: 'PAS',
     label: 'PAS',
     short: 'Problem → Agitate → Solution',
-    color: 'text-gray-400',
     activeColor: 'bg-red-600/20 text-red-300 border-red-500/40',
-    desc: 'Identify their pain, make it real, offer the relief',
-  },
-  {
-    id: 'BAB',
-    label: 'BAB',
-    short: 'Before → After → Bridge',
-    color: 'text-gray-400',
-    activeColor: 'bg-blue-600/20 text-blue-300 border-blue-500/40',
-    desc: 'Paint where they are, where they could be, how to get there',
+    desc: 'Identify their pain, make it real, offer the relief. Best cold opener.',
   },
   {
     id: 'AIDA',
     label: 'AIDA',
     short: 'Attention → Interest → Desire → Action',
-    color: 'text-gray-400',
     activeColor: 'bg-purple-600/20 text-purple-300 border-purple-500/40',
-    desc: 'Hook them, build interest, create desire, one clear CTA',
+    desc: 'Hook, build curiosity, create want, one clear CTA. Great for email.',
+  },
+  {
+    id: 'HSO',
+    label: 'Hook-Story-Offer',
+    short: 'Hook → Story → Offer',
+    activeColor: 'bg-pink-600/20 text-pink-300 border-pink-500/40',
+    desc: 'Disarming and human. Feels like a friend, not a pitch. Best for WhatsApp.',
+  },
+  {
+    id: 'SPIN',
+    label: 'SPIN',
+    short: 'Situation → Problem → Implication → Need',
+    activeColor: 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40',
+    desc: 'Consultative and conversational. Best for follow-up after first contact.',
+  },
+  {
+    id: '4PS',
+    label: '4Ps',
+    short: 'Promise → Picture → Proof → Push',
+    activeColor: 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40',
+    desc: 'Bold, visual, conviction-building. Great when you have results to show.',
+  },
+  {
+    id: 'FAB',
+    label: 'FAB',
+    short: 'Feature → Advantage → Benefit',
+    activeColor: 'bg-yellow-600/20 text-yellow-300 border-yellow-500/40',
+    desc: 'Logical and clear. Best for follow-up or when prospect wants specifics.',
+  },
+  {
+    id: 'BAB',
+    label: 'BAB',
+    short: 'Before → After → Bridge',
+    activeColor: 'bg-blue-600/20 text-blue-300 border-blue-500/40',
+    desc: 'Paint where they are, where they could be, how to get there.',
   },
   {
     id: 'STORY',
     label: 'Story',
     short: 'Storytelling',
-    color: 'text-gray-400',
     activeColor: 'bg-orange-600/20 text-orange-300 border-orange-500/40',
-    desc: 'A relatable story about a similar business that made the leap',
+    desc: 'A relatable story about a similar business that made the leap.',
   },
 ];
 
@@ -130,7 +153,7 @@ export default function OutreachModal({ business, onClose }: Props) {
       const res = await fetch('/api/outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, framework }),
+        body: JSON.stringify({ business, framework, competitors: business.competitors }),
       });
       const json = await res.json();
       const handled = handleAIResponse(res, json);
@@ -288,9 +311,13 @@ export default function OutreachModal({ business, onClose }: Props) {
                 <button
                   onClick={generate}
                   className={`font-bold px-6 py-3 rounded-xl transition-all text-white ${
-                    framework === 'PAS' ? 'bg-red-600 hover:bg-red-500' :
-                    framework === 'BAB' ? 'bg-blue-600 hover:bg-blue-500' :
-                    framework === 'AIDA' ? 'bg-purple-600 hover:bg-purple-500' :
+                    framework === 'PAS'   ? 'bg-red-600 hover:bg-red-500' :
+                    framework === 'AIDA'  ? 'bg-purple-600 hover:bg-purple-500' :
+                    framework === 'HSO'   ? 'bg-pink-600 hover:bg-pink-500' :
+                    framework === 'SPIN'  ? 'bg-cyan-600 hover:bg-cyan-500' :
+                    framework === '4PS'   ? 'bg-emerald-600 hover:bg-emerald-500' :
+                    framework === 'FAB'   ? 'bg-yellow-600 hover:bg-yellow-500' :
+                    framework === 'BAB'   ? 'bg-blue-600 hover:bg-blue-500' :
                     'bg-orange-600 hover:bg-orange-500'
                   }`}
                 >

@@ -15,6 +15,7 @@ import { Business, SearchFormData } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
 import { useUpgrade } from '@/context/UpgradeContext';
 import { saveToHistory, getBestTimeStatus } from '@/lib/searchHistory';
+import { scoreProspect } from '@/lib/scoring';
 
 type FilterMode = 'all' | 'no-website' | 'new';
 
@@ -47,6 +48,7 @@ export default function Home() {
 
   const [phoneOnly, setPhoneOnly]           = useState(false);
   const [reviewedOnly, setReviewedOnly]     = useState(false);
+  const [sortByScore, setSortByScore]       = useState(false);
 
   const [selected, setSelected]             = useState<Business | null>(null);
   const [detailLoading, setDetailLoading]   = useState(false);
@@ -164,8 +166,12 @@ export default function Home() {
 
   const noWebsiteCount = businesses.filter((b) => !b.hasWebsite).length;
   const newCount = businesses.filter((b) => !isSaved(b.id)).length;
+  const hotCount = businesses.filter((b) => scoreProspect(b) >= 8).length;
 
   const sorted = [...businesses].sort((a, b) => {
+    if (sortByScore) {
+      return scoreProspect(b) - scoreProspect(a);
+    }
     const aStage = isSaved(a.id) ? STAGE_SORT_ORDER[get(a.id)?.stage ?? 'found'] ?? 2 : 1;
     const bStage = isSaved(b.id) ? STAGE_SORT_ORDER[get(b.id)?.stage ?? 'found'] ?? 2 : 1;
     return aStage - bStage;
@@ -179,6 +185,11 @@ export default function Home() {
   const filtered = primaryFiltered
     .filter((b) => !phoneOnly || !!b.phone)
     .filter((b) => !reviewedOnly || (b.reviewCount != null && b.reviewCount > 0));
+
+  // Hot leads pinned strip (score ≥ 8, only when not already sorted by score)
+  const hotLeads = !sortByScore && page === 0
+    ? filtered.filter((b) => scoreProspect(b) >= 8).slice(0, 3)
+    : [];
 
   const totalPages   = Math.ceil(filtered.length / PER_PAGE);
   const paginated    = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
@@ -359,7 +370,27 @@ export default function Home() {
                     reviewedOnly ? 'bg-yellow-700 text-yellow-200 border border-yellow-600/50' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
                   ⭐ Reviewed
                 </button>
+                <button
+                  onClick={() => { setSortByScore((v) => !v); setPage(0); }}
+                  title="Sort by lead score — hottest prospects first"
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                    sortByScore ? 'bg-red-700 text-red-200 border border-red-600/50' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
+                  🔥 Hot first {hotCount > 0 && `(${hotCount})`}
+                </button>
               </div>
+            </div>
+          )}
+
+          {/* Hot leads pinned strip */}
+          {!guestGate && hotLeads.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[11px] font-bold text-red-400 uppercase tracking-widest">🔥 Hottest Leads</span>
+                <span className="text-[10px] text-gray-600">Score 8–10 · pitch these first</span>
+              </div>
+              <BusinessGrid businesses={hotLeads} loading={false} error={null} onSelect={handleSelect} />
+              <div className="border-t border-white/8 mt-6 mb-2" />
+              <p className="text-[11px] text-gray-600 mb-4">All results below</p>
             </div>
           )}
 

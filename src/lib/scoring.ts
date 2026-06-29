@@ -1,10 +1,28 @@
 import { Business } from '@/types';
 
+const HIGH_VALUE_CATEGORIES = [
+  'hotel', 'motel', 'resort',
+  'real estate', 'property', 'estate agent', 'realty',
+  'law', 'legal', 'solicitor', 'barrister',
+  'hospital', 'clinic', 'medical', 'doctor', 'dentist', 'optician',
+  'school', 'college', 'university', 'academy',
+  'event', 'catering', 'wedding', 'venue',
+  'accounting', 'finance', 'consultant', 'audit',
+  'logistics', 'transport', 'courier',
+];
+
+function isHighValue(category = '', types: string[] = []): boolean {
+  const text = `${category} ${types.join(' ')}`.toLowerCase();
+  return HIGH_VALUE_CATEGORIES.some((k) => text.includes(k));
+}
+
 export function scoreProspect(business: Business): number {
   let score = 0;
 
-  if (!business.hasWebsite) score += 3;
+  // No website — core signal (+40 pts, normalised to 4/10)
+  if (!business.hasWebsite) score += 4;
 
+  // Rating quality
   if (business.rating) {
     if (business.rating >= 4.5) score += 2;
     else if (business.rating >= 4.0) score += 1.5;
@@ -12,18 +30,29 @@ export function scoreProspect(business: Business): number {
     else score += 0.5;
   }
 
+  // Review volume — social proof already built
   if (business.reviewCount) {
-    if (business.reviewCount >= 200) score += 2;
-    else if (business.reviewCount >= 100) score += 1.5;
+    if (business.reviewCount >= 200) score += 1.5;
     else if (business.reviewCount >= 50) score += 1;
     else if (business.reviewCount >= 10) score += 0.5;
   }
 
+  // Has phone — reachable
   if (business.phone) score += 0.5;
-  if (business.status === 'OPERATIONAL') score += 0.5;
-  if (business.description) score += 0.5;
 
-  return Math.min(Math.round(score), 10);
+  // Still operational
+  if (business.status === 'OPERATIONAL') score += 0.5;
+
+  // High-value category — bigger deal size
+  if (isHighValue(business.category, business.categoryTypes)) score += 1;
+
+  // Email found — can reach via two channels
+  if (business.email) score += 0.5;
+
+  // Hours not listed on Google — more digital gaps = more opportunity
+  if (business.hoursComplete === false) score += 0.5;
+
+  return Math.min(Math.round(score * 10) / 10, 10);
 }
 
 export function scoreLabel(score: number): { label: string; color: string } {

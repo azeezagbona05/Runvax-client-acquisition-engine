@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
 import { getEffectiveProfile } from '@/lib/userProfile';
 
@@ -23,10 +22,11 @@ export async function POST(req: NextRequest) {
   let pass: string | undefined;
   let displayFrom: string | undefined = fromName;
 
-  const session = await getServerSession(authOptions);
-  if (session?.user?.id) {
+  const token = await getToken({ req });
+  const userId = (token?.id ?? token?.sub) as string | undefined;
+  if (userId) {
     const s = await prisma.userSettings.findUnique({
-      where: { userId: session.user.id },
+      where: { userId },
       select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpFrom: true, businessName: true, senderName: true },
     });
     if (s?.smtpHost && s?.smtpUser && s?.smtpPass) {

@@ -5,6 +5,7 @@ export interface Business {
   phone?: string;
   phoneIntl?: string;
   email?: string;
+  emailVerified?: 'valid' | 'invalid' | 'unknown';
   website?: string;
   hasWebsite: boolean;
   category: string;
@@ -15,6 +16,9 @@ export interface Business {
   categoryTypes?: string[];
   description?: string;
   openingHours?: string[];
+  lastReviewDate?: string;
+  hoursComplete?: boolean;
+  competitors?: string[];
   reviews?: Array<{
     author: string;
     rating: number;

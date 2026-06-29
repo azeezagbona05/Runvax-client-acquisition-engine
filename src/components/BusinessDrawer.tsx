@@ -4,7 +4,8 @@ import { useState } from 'react';
 import {
   X, MapPin, Phone, Globe, Star, Clock, Loader2, Sparkles,
   ExternalLink, MessageCircle, FileText, AlertTriangle,
-  Bookmark, BookmarkX, TrendingUp, MessageSquare,
+  Bookmark, BookmarkX, TrendingUp, MessageSquare, Mail, ShieldCheck, ShieldX, ShieldQuestion,
+  Copy, Check,
 } from 'lucide-react';
 import { Business } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
@@ -47,6 +48,13 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
   const [showOutreach, setShowOutreach] = useState(false);
   const [showProposal, setShowProposal] = useState(false);
   const [showWeakness, setShowWeakness] = useState(false);
+  const [auditText, setAuditText] = useState<string | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditCopied, setAuditCopied] = useState(false);
+  const [emailVerifying, setEmailVerifying] = useState(false);
+  const [emailVerified, setEmailVerified] = useState<'valid' | 'invalid' | 'unknown' | null>(
+    business.emailVerified ?? null
+  );
 
   const conversationCount = prospect?.conversations?.length ?? 0;
 
@@ -77,6 +85,50 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
   };
 
   const currentStage = prospect?.stage ?? 'found';
+
+  const generateAudit = async () => {
+    setAuditLoading(true);
+    setAuditText(null);
+    try {
+      const res = await fetch('/api/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed');
+      setAuditText(json.audit);
+    } catch (e: unknown) {
+      setAuditText(`Error: ${e instanceof Error ? e.message : 'Failed to generate audit'}`);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const copyAudit = async () => {
+    if (!auditText) return;
+    try { await navigator.clipboard.writeText(auditText); } catch { /* ignore */ }
+    setAuditCopied(true);
+    setTimeout(() => setAuditCopied(false), 2500);
+  };
+
+  const verifyEmail = async () => {
+    if (!business.email || emailVerifying) return;
+    setEmailVerifying(true);
+    try {
+      const res = await fetch('/api/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: business.email }),
+      });
+      const json = await res.json();
+      setEmailVerified(json.result ?? 'unknown');
+    } catch {
+      setEmailVerified('unknown');
+    } finally {
+      setEmailVerifying(false);
+    }
+  };
 
   return (
     <>
@@ -131,7 +183,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                 <MessageCircle className="w-5 h-5 flex-shrink-0" />
                 <div className="text-left">
                   <div className="font-bold">Cold Outreach Message</div>
-                  <div className="text-xs text-green-400/60 mt-0.5">Generate BAB / AIDA / PAS / Story message</div>
+                  <div className="text-xs text-green-400/60 mt-0.5">PAS · AIDA · SPIN · 4Ps · HSO · FAB · BAB · Story</div>
                 </div>
               </button>
               <button
@@ -175,6 +227,37 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                     <div className="text-xs text-yellow-400/60 mt-0.5">Analyse what&apos;s wrong with their site</div>
                   </div>
                 </button>
+              )}
+
+              {/* Digital Presence Audit */}
+              <button
+                onClick={generateAudit}
+                disabled={auditLoading}
+                className="w-full flex items-center gap-3 px-4 py-4 bg-cyan-600/15 hover:bg-cyan-600/25 text-cyan-400 border border-cyan-500/20 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {auditLoading ? <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" /> : <TrendingUp className="w-5 h-5 flex-shrink-0" />}
+                <div className="text-left">
+                  <div className="font-bold">Generate Digital Presence Audit</div>
+                  <div className="text-xs text-cyan-400/60 mt-0.5">Shareable audit showing exactly what they&apos;re missing</div>
+                </div>
+              </button>
+
+              {auditText && (
+                <div className="bg-cyan-950/30 border border-cyan-500/20 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-widest">Digital Presence Audit</span>
+                    <button
+                      onClick={copyAudit}
+                      className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${
+                        auditCopied ? 'bg-green-600 text-white' : 'bg-white/10 hover:bg-white/20 text-gray-300'
+                      }`}
+                    >
+                      {auditCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      {auditCopied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <div className="text-gray-300 text-xs leading-relaxed whitespace-pre-wrap">{auditText}</div>
+                </div>
               )}
             </div>
           )}
@@ -278,12 +361,51 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                 </a>
               </div>
             )}
+            {business.email && (
+              <div className="flex items-center gap-3">
+                <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <span className="text-gray-300 text-sm flex-1 truncate">{business.email}</span>
+                {emailVerified === 'valid' && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-green-400 bg-green-500/15 border border-green-500/25 px-2 py-0.5 rounded-full flex-shrink-0">
+                    <ShieldCheck className="w-3 h-3" /> Valid
+                  </span>
+                )}
+                {emailVerified === 'invalid' && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-500/15 border border-red-500/25 px-2 py-0.5 rounded-full flex-shrink-0">
+                    <ShieldX className="w-3 h-3" /> Invalid
+                  </span>
+                )}
+                {emailVerified === 'unknown' && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-white/8 border border-white/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                    <ShieldQuestion className="w-3 h-3" /> Unknown
+                  </span>
+                )}
+                {!emailVerified && (
+                  <button
+                    onClick={verifyEmail}
+                    disabled={emailVerifying}
+                    className="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 px-2 py-0.5 rounded-full transition-colors flex-shrink-0 disabled:opacity-50"
+                  >
+                    {emailVerifying ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Verify'}
+                  </button>
+                )}
+              </div>
+            )}
             {business.rating ? (
               <div className="flex items-center gap-3">
                 <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 flex-shrink-0" />
-                <span className="text-gray-300 text-sm">{business.rating} / 5 &nbsp;·&nbsp; {business.reviewCount} reviews</span>
+                <span className="text-gray-300 text-sm">
+                  {business.rating} / 5 &nbsp;·&nbsp; {business.reviewCount} reviews
+                  {business.lastReviewDate && <span className="text-gray-500"> · last {business.lastReviewDate}</span>}
+                </span>
               </div>
             ) : null}
+            {business.hoursComplete === false && (
+              <div className="flex items-center gap-3">
+                <Clock className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                <span className="text-amber-500/80 text-sm">Opening hours not listed on Google</span>
+              </div>
+            )}
           </div>
 
           <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors">

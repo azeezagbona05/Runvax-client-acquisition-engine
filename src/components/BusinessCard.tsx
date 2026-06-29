@@ -56,10 +56,13 @@ export default function BusinessCard({ business, onClick }: Props) {
   const quickWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!business.phone) return;
-    const reviewLine = business.reviewCount
-      ? `You've already earned ${business.reviewCount} Google reviews ⭐ — that trust is being lost the moment people search for you and find nothing.`
-      : `People are searching for ${business.category} in your area every day.`;
-    const msg = `Hi! 👋 I came across ${business.name} on Google. ${reviewLine}\n\nI build digital front doors for ${business.category} businesses — not just a website, but the full experience customers have *before* they walk in and *after* they leave. Found on Google, recommended by AI assistants, enquiries coming in 24/7.\n\nWould you be open to a quick chat? 🌐`;
+    // PAS — Problem → Agitate → Solution
+    const problem = business.reviewCount && business.reviewCount > 0
+      ? `You have ${business.reviewCount} Google reviews ⭐ — real trust you've built. But when those customers search for you online, there's no website to land on.`
+      : `People search for ${business.category} businesses in your area every day — but without a website, you're invisible to all of them.`;
+    const agitate = `Every day, potential customers find your competitors instead — not because they're better, but because they show up online.`;
+    const solution = `I build digital front doors for ${business.category} businesses — mobile-first, found on Google AND recommended by AI tools like ChatGPT. Quick chat?`;
+    const msg = `Hi 👋\n\n${problem}\n\n${agitate}\n\n${solution}`;
     const link = whatsappLink(business, msg);
     if (!link) return;
     window.open(link, '_blank');
@@ -140,14 +143,28 @@ export default function BusinessCard({ business, onClick }: Props) {
         </div>
       )}
 
-      {/* Rating */}
+      {/* Rating + last review */}
       {business.rating ? (
         <div className="flex items-center gap-1.5 text-xs">
           <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
           <span className="text-white font-semibold">{business.rating}</span>
           {business.reviewCount && <span className="text-gray-600">({business.reviewCount} reviews)</span>}
+          {business.lastReviewDate && (
+            <span className="text-gray-600 ml-1">· last {business.lastReviewDate}</span>
+          )}
         </div>
       ) : null}
+
+      {/* Data quality signals */}
+      {(business.hoursComplete === false || !business.phone) && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {business.hoursComplete === false && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+              ⏰ No hours listed
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Bottom: score + actions */}
       <div className="mt-auto pt-3 border-t border-white/5 flex items-center gap-2">
