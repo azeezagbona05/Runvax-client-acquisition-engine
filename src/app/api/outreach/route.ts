@@ -109,9 +109,14 @@ export async function POST(req: NextRequest) {
     ? `- Nearby competitors WITH websites: ${competitors.join(', ')} — use this as a gentle comparison point in the message`
     : '- No specific competitor data available';
 
+  // Truncate names like "Asamly Tutors (Best Home Lesson Teachers in Ajah...)" — use short form
+  const shortName = business.name.includes('(')
+    ? business.name.split('(')[0].trim()
+    : business.name;
+
   const businessContext = `
 BUSINESS RESEARCH:
-- Name: ${business.name}
+- Name: ${shortName} (full: ${business.name})
 - Type/Niche: ${business.category}
 - Location: ${business.address || 'Nigeria'}
 - Phone: ${business.phone || 'unknown'}
@@ -125,6 +130,8 @@ BUSINESS RESEARCH:
   const systemPrompt = `You are a world-class copywriter specialising in outreach for Nigerian web developers and digital agencies. You write messages that feel like they came from a genuine, knowledgeable friend — not a spammer or salesperson.
 
 Your messages:
+✅ Use ONLY the short business name (before any parentheses) — never paste the full long Google name into the message
+✅ If the business category is generic ("Business", "Establishment", "Local business"), infer the niche from the business name or address instead — never say "business businesses" or "local local businesses"
 ✅ Are specific to the exact business and niche — never generic
 ✅ Show the prospect you actually looked at their business
 ✅ Educate without preaching — one sharp insight, delivered naturally
