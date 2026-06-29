@@ -14,6 +14,7 @@ import BulkEmailModal from '@/components/BulkEmailModal';
 import { Business, SearchFormData } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
 import { useUpgrade } from '@/context/UpgradeContext';
+import { useSession } from 'next-auth/react';
 import { saveToHistory, getBestTimeStatus } from '@/lib/searchHistory';
 import { scoreProspect } from '@/lib/scoring';
 
@@ -35,6 +36,7 @@ interface SearchMeta {
 
 export default function Home() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { isSaved, get } = useProspects();
   const { triggerUpgrade } = useUpgrade();
 
@@ -64,14 +66,23 @@ export default function Home() {
   // Track whether this guest has used their one free search
   const [guestExhausted, setGuestExhausted] = useState(false);
   useEffect(() => {
-    try { setGuestExhausted(!!localStorage.getItem('aip_guest_used')); } catch { /* */ }
-  }, []);
+    try {
+      if (session) {
+        // Logged-in user — clear any stale guest flag so it never blocks them
+        localStorage.removeItem('aip_guest_used');
+        setGuestExhausted(false);
+      } else {
+        setGuestExhausted(!!localStorage.getItem('aip_guest_used'));
+      }
+    } catch { /* */ }
+  }, [session]);
 
   const timeStatus = getBestTimeStatus();
 
   const handleSearch = async (data: SearchFormData) => {
-    // If guest already used their free search, show gate immediately
-    if (guestExhausted && businesses.length > 0) {
+    // Only block the API call for guests who already used their free search.
+    // Never block logged-in users, even if localStorage has the old guest flag.
+    if (!session && guestExhausted && businesses.length > 0) {
       setGuestGate(true);
       return;
     }
@@ -79,6 +90,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setBusinesses([]);
+    setGuestGate(false);  // always reset gate on a fresh search
     setHasSearched(true);
     setSelected(null);
     setGeneratedPrompt(null);
