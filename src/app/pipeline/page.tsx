@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Phone, Star, MessageCircle, StickyNote, Bell, ChevronRight, ChevronLeft, Trash2, Plus, Download, Zap } from 'lucide-react';
+import {
+  Phone, Star, MessageCircle, StickyNote, Bell, ChevronRight, ChevronLeft,
+  Trash2, Plus, Download, Zap, CheckSquare, Square, X,
+} from 'lucide-react';
 import { useProspects } from '@/context/ProspectsContext';
 import { SavedProspect, ProspectStage } from '@/types';
 import { scoreLabel, formatPrice } from '@/lib/scoring';
@@ -9,6 +12,7 @@ import { whatsappLink } from '@/lib/phone';
 import Link from 'next/link';
 import ManualProspectModal from '@/components/ManualProspectModal';
 import ProspectDetailModal from '@/components/ProspectDetailModal';
+import BulkOutreachModal from '@/components/BulkOutreachModal';
 
 type Stage = { id: ProspectStage; icon: string; label: string; headerColor: string; bg: string };
 
@@ -21,39 +25,21 @@ const STAGES: Stage[] = [
   { id: 'lost',       icon: '❌', label: 'Lost',       headerColor: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20' },
 ];
 
-function stageIdx(id: ProspectStage) {
-  return STAGES.findIndex((s) => s.id === id);
-}
-
-function daysSince(iso: string) {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-}
-
+function stageIdx(id: ProspectStage) { return STAGES.findIndex((s) => s.id === id); }
+function daysSince(iso: string) { return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); }
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 
 function exportCSV(prospects: SavedProspect[]) {
-  const headers = [
-    'Name', 'Category', 'Phone', 'Email', 'Address',
-    'Score', 'Stage', 'Price Min (NGN)', 'Price Max (NGN)',
-    'Notes', 'Saved Date', 'Outreach Sent',
-  ];
+  const headers = ['Name', 'Category', 'Phone', 'Email', 'Address', 'Score', 'Stage', 'Price Min (NGN)', 'Price Max (NGN)', 'Notes', 'Saved Date', 'Outreach Sent'];
   const rows = prospects.map((p) => [
-    p.business.name,
-    p.business.category,
-    p.business.phone ?? '',
-    p.business.email ?? '',
-    p.business.address ?? '',
-    p.score,
-    p.stage,
-    p.estimatedPrice?.min ?? '',
-    p.estimatedPrice?.max ?? '',
+    p.business.name, p.business.category, p.business.phone ?? '', p.business.email ?? '',
+    p.business.address ?? '', p.score, p.stage,
+    p.estimatedPrice?.min ?? '', p.estimatedPrice?.max ?? '',
     (p.notes ?? '').replace(/\n/g, ' '),
     new Date(p.savedAt).toLocaleDateString('en-GB'),
     p.outreachSentAt ? new Date(p.outreachSentAt).toLocaleDateString('en-GB') : '',
   ]);
-  const csv = [headers, ...rows]
-    .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-    .join('\n');
+  const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -65,86 +51,90 @@ function exportCSV(prospects: SavedProspect[]) {
   URL.revokeObjectURL(url);
 }
 
-function hasDueStepToday(prospect: SavedProspect): boolean {
+function hasDueStepToday(prospect: SavedProspect) {
   if (!prospect.followUpSequence?.length) return false;
-  const today = todayStr();
-  return prospect.followUpSequence.some((step) => !step.sentAt && step.dueDate === today);
+  return prospect.followUpSequence.some((s) => !s.sentAt && s.dueDate === todayStr());
 }
 
 interface PipelineCardProps {
   prospect: SavedProspect;
   onOpen: () => void;
   onDragStart: (id: string) => void;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
 }
 
-function PipelineCard({ prospect, onOpen, onDragStart }: PipelineCardProps) {
+function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onToggleSelect }: PipelineCardProps) {
   const { updateStage, remove } = useProspects();
   const { business, stage, score, estimatedPrice, notes, reminderDate, reminderNote, outreachSentAt } = prospect;
-  const { label: scoreText, color: scoreColor } = scoreLabel(score);
+  const { color: scoreColor } = scoreLabel(score);
   const idx = stageIdx(stage);
 
-  const movePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (idx > 0) updateStage(business.id, STAGES[idx - 1].id);
-  };
-  const moveNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (idx < STAGES.length - 1) updateStage(business.id, STAGES[idx + 1].id);
-  };
-
+  const movePrev = (e: React.MouseEvent) => { e.stopPropagation(); if (idx > 0) updateStage(business.id, STAGES[idx - 1].id); };
+  const moveNext = (e: React.MouseEvent) => { e.stopPropagation(); if (idx < STAGES.length - 1) updateStage(business.id, STAGES[idx + 1].id); };
   const isOverdue = reminderDate && new Date(reminderDate) < new Date() && stage !== 'won' && stage !== 'lost';
   const dueToday = hasDueStepToday(prospect);
 
+  const handleClick = () => {
+    if (selectMode) { onToggleSelect(business.id); return; }
+    onOpen();
+  };
+
   return (
     <div
-      draggable
+      draggable={!selectMode}
       onDragStart={(e) => {
+        if (selectMode) return;
         e.dataTransfer.setData('businessId', business.id);
         e.dataTransfer.effectAllowed = 'move';
         onDragStart(business.id);
       }}
-      className="bg-gray-800/60 border border-white/8 rounded-xl p-3 space-y-2.5 hover:border-white/20 transition-colors cursor-grab active:cursor-grabbing"
-      onClick={onOpen}
+      onClick={handleClick}
+      className={`relative bg-gray-800/60 border rounded-xl p-3 space-y-2.5 transition-all ${
+        selectMode
+          ? selected
+            ? 'border-green-500/50 bg-green-500/8 cursor-pointer ring-1 ring-green-500/30'
+            : 'border-white/8 hover:border-white/20 cursor-pointer'
+          : 'border-white/8 hover:border-white/20 cursor-grab active:cursor-grabbing'
+      }`}
     >
-      {/* Due today badge */}
+      {/* Select checkbox */}
+      {selectMode && (
+        <div className="absolute top-2.5 right-2.5 pointer-events-none">
+          {selected
+            ? <CheckSquare className="w-4 h-4 text-green-400" />
+            : <Square className="w-4 h-4 text-gray-600" />}
+        </div>
+      )}
+
       {dueToday && (
         <div className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full w-fit">
           <Zap className="w-2.5 h-2.5" /> Follow-up due today
         </div>
       )}
 
-      {/* Name + score */}
       <div className="flex items-start gap-2 justify-between">
-        <h4 className="text-sm font-bold text-white leading-snug line-clamp-2 flex-1">{business.name}</h4>
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${scoreColor}`}>
-          {score}/10
-        </span>
+        <h4 className={`text-sm font-bold leading-snug line-clamp-2 flex-1 ${selectMode && !selected ? 'text-gray-300' : 'text-white'} ${selectMode ? 'pr-5' : ''}`}>{business.name}</h4>
+        {!selectMode && (
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${scoreColor}`}>{score}/10</span>
+        )}
       </div>
 
-      {/* Category */}
       <div className="text-[11px] text-purple-400 font-medium truncate">{business.category}</div>
 
-      {/* Phone */}
       {business.phone && (
-        <a
-          href={whatsappLink(business) ?? '#'}
-          target="_blank"
-          rel="noopener noreferrer"
+        <a href={whatsappLink(business) ?? '#'} target="_blank" rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 transition-colors"
-        >
+          className="flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 transition-colors">
           <MessageCircle className="w-3 h-3" /> {business.phone}
         </a>
       )}
 
-      {/* Price */}
       {estimatedPrice && (
-        <div className="text-xs text-gray-400">
-          💰 {formatPrice(estimatedPrice.min)} – {formatPrice(estimatedPrice.max)}
-        </div>
+        <div className="text-xs text-gray-400">💰 {formatPrice(estimatedPrice.min)} – {formatPrice(estimatedPrice.max)}</div>
       )}
 
-      {/* Rating */}
       {business.rating && (
         <div className="flex items-center gap-1 text-xs text-gray-500">
           <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
@@ -152,7 +142,6 @@ function PipelineCard({ prospect, onOpen, onDragStart }: PipelineCardProps) {
         </div>
       )}
 
-      {/* Indicators row */}
       <div className="flex items-center gap-2 flex-wrap">
         {notes && (
           <span className="flex items-center gap-1 text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
@@ -164,34 +153,32 @@ function PipelineCard({ prospect, onOpen, onDragStart }: PipelineCardProps) {
             <Bell className="w-2.5 h-2.5" /> {isOverdue ? 'Overdue' : reminderDate}
           </span>
         )}
-        {outreachSentAt && (
-          <span className="text-[10px] text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">✉ Sent</span>
-        )}
+        {outreachSentAt && <span className="text-[10px] text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">✉ Sent</span>}
         <span className="text-[10px] text-gray-600 ml-auto">{daysSince(prospect.savedAt)}d ago</span>
       </div>
 
-      {/* Reminder note */}
       {reminderNote && (
         <div className={`text-[11px] px-2 py-1 rounded ${isOverdue ? 'text-red-300 bg-red-500/10' : 'text-gray-400 bg-white/5'}`}>
           {reminderNote}
         </div>
       )}
 
-      {/* Move + Delete */}
-      <div className="flex items-center gap-1 pt-1 border-t border-white/5">
-        <button onClick={(e) => { e.stopPropagation(); movePrev(e); }} disabled={idx === 0} className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
-          <ChevronLeft className="w-3 h-3" />
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); moveNext(e); }} disabled={idx === STAGES.length - 1} className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
-          <ChevronRight className="w-3 h-3" />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); remove(business.id); }}
-          className="ml-auto text-[10px] px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
-        >
-          <Trash2 className="w-3 h-3" />
-        </button>
-      </div>
+      {!selectMode && (
+        <div className="flex items-center gap-1 pt-1 border-t border-white/5">
+          <button onClick={(e) => { e.stopPropagation(); movePrev(e); }} disabled={idx === 0}
+            className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
+            <ChevronLeft className="w-3 h-3" />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); moveNext(e); }} disabled={idx === STAGES.length - 1}
+            className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
+            <ChevronRight className="w-3 h-3" />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); remove(business.id); }}
+            className="ml-auto text-[10px] px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors">
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -203,6 +190,9 @@ export default function PipelinePage() {
   const [detailProspect, setDetailProspect] = useState<SavedProspect | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<ProspectStage | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulk, setShowBulk] = useState(false);
 
   const toggleStage = (id: ProspectStage) => {
     setActiveStages((prev) =>
@@ -210,15 +200,32 @@ export default function PipelinePage() {
     );
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(prospects.filter((p) => p.business.phone).map((p) => p.business.id)));
+  };
+
+  const exitSelect = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
   const handleDrop = useCallback((stageId: ProspectStage) => (e: React.DragEvent) => {
     e.preventDefault();
     const businessId = e.dataTransfer.getData('businessId') || draggingId;
-    if (businessId) {
-      void updateStage(businessId, stageId);
-    }
+    if (businessId) void updateStage(businessId, stageId);
     setDraggingId(null);
     setDragOverStage(null);
   }, [draggingId, updateStage]);
+
+  const selectedProspects = prospects.filter((p) => selectedIds.has(p.business.id));
 
   if (prospects.length === 0) {
     return (
@@ -239,59 +246,73 @@ export default function PipelinePage() {
     );
   }
 
-  const totalValue = prospects
-    .filter((p) => p.stage !== 'lost')
-    .reduce((sum, p) => sum + (p.estimatedPrice?.min ?? 0), 0);
-
-  const wonValue = prospects
-    .filter((p) => p.stage === 'won')
-    .reduce((sum, p) => sum + (p.estimatedPrice?.min ?? 0), 0);
+  const totalValue = prospects.filter((p) => p.stage !== 'lost').reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0);
+  const wonValue = prospects.filter((p) => p.stage === 'won').reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0);
 
   return (
     <div className="min-h-dvh bg-gray-950">
       {showManual && <ManualProspectModal onClose={() => setShowManual(false)} />}
-      {detailProspect && <ProspectDetailModal prospect={detailProspect} onClose={() => setDetailProspect(null)} />}
+      {detailProspect && !selectMode && <ProspectDetailModal prospect={detailProspect} onClose={() => setDetailProspect(null)} />}
+      {showBulk && <BulkOutreachModal prospects={selectedProspects} onClose={() => setShowBulk(false)} />}
 
       {/* Sub-header */}
       <div className="bg-gray-900/50 border-b border-white/6 px-4 py-3">
         <div className="max-w-[1600px] mx-auto space-y-2">
-          {/* Top row: title + buttons */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h1 className="font-black text-white text-sm sm:text-base">Sales Pipeline</h1>
-              <p className="text-xs text-gray-500 truncate">{prospects.length} prospects · {formatPrice(totalValue)} pipeline · {formatPrice(wonValue)} won</p>
+              <p className="text-xs text-gray-500 truncate">
+                {prospects.length} prospects · {formatPrice(totalValue)} pipeline · {formatPrice(wonValue)} won
+              </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => exportCSV(prospects)}
-                title="Export as CSV"
-                className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 rounded-xl text-sm font-bold transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Export CSV</span>
-              </button>
-              <button
-                onClick={() => setShowManual(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/35 text-purple-300 border border-purple-500/30 rounded-xl text-sm font-bold transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Add Prospect</span>
-              </button>
+              {!selectMode ? (
+                <>
+                  <button
+                    onClick={() => setSelectMode(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-xl text-sm font-bold transition-colors"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span className="hidden sm:inline">Bulk WhatsApp</span>
+                  </button>
+                  <button
+                    onClick={() => exportCSV(prospects)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 rounded-xl text-sm font-bold transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">Export CSV</span>
+                  </button>
+                  <button
+                    onClick={() => setShowManual(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/35 text-purple-300 border border-purple-500/30 rounded-xl text-sm font-bold transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Add</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={selectAll} className="text-xs font-semibold text-gray-400 hover:text-white px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 transition-colors">
+                    Select all with phone
+                  </button>
+                  <button onClick={exitSelect} className="text-gray-500 hover:text-gray-300 transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
+
           {/* Stage filters */}
           <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
             {STAGES.map((s) => {
               const count = prospects.filter((p) => p.stage === s.id).length;
               const active = activeStages.includes(s.id);
               return (
-                <button
-                  key={s.id}
-                  onClick={() => toggleStage(s.id)}
+                <button key={s.id} onClick={() => toggleStage(s.id)}
                   className={`flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
                     active ? 'bg-white/10 text-white border-white/20' : 'text-gray-600 border-white/5'
-                  }`}
-                >
+                  }`}>
                   {s.icon} {s.label} {count > 0 && <span className="text-gray-500">({count})</span>}
                 </button>
               );
@@ -305,46 +326,31 @@ export default function PipelinePage() {
         <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 min-w-max max-w-[1600px] mx-auto">
           {STAGES.filter((s) => activeStages.includes(s.id)).map((stage) => {
             const stageProspects = prospects.filter((p) => p.stage === stage.id);
-            const stageValue = stageProspects.reduce((sum, p) => sum + (p.estimatedPrice?.min ?? 0), 0);
-            const isDragTarget = dragOverStage === stage.id;
+            const stageValue = stageProspects.reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0);
+            const isDragTarget = !selectMode && dragOverStage === stage.id;
 
             return (
               <div
                 key={stage.id}
-                className={`w-[85vw] sm:w-64 flex-shrink-0 snap-center rounded-2xl border p-3 transition-all ${stage.bg} ${
-                  isDragTarget ? 'ring-2 ring-white/30 scale-[1.01]' : ''
-                }`}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverStage(stage.id); }}
-                onDragLeave={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    setDragOverStage(null);
-                  }
-                }}
+                className={`w-[85vw] sm:w-64 flex-shrink-0 snap-center rounded-2xl border p-3 transition-all ${stage.bg} ${isDragTarget ? 'ring-2 ring-white/30 scale-[1.01]' : ''}`}
+                onDragOver={(e) => { if (selectMode) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverStage(stage.id); }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverStage(null); }}
                 onDrop={handleDrop(stage.id)}
               >
-                {/* Column header */}
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <div className={`font-bold text-sm ${stage.headerColor}`}>
-                      {stage.icon} {stage.label}
-                    </div>
-                    {stageValue > 0 && (
-                      <div className="text-[11px] text-gray-600 mt-0.5">{formatPrice(stageValue)}</div>
-                    )}
+                    <div className={`font-bold text-sm ${stage.headerColor}`}>{stage.icon} {stage.label}</div>
+                    {stageValue > 0 && <div className="text-[11px] text-gray-600 mt-0.5">{formatPrice(stageValue)}</div>}
                   </div>
-                  <span className="text-xs font-bold text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
-                    {stageProspects.length}
-                  </span>
+                  <span className="text-xs font-bold text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{stageProspects.length}</span>
                 </div>
 
-                {/* Drop zone hint */}
                 {isDragTarget && (
                   <div className="mb-3 border-2 border-dashed border-white/20 rounded-xl py-3 text-center text-[11px] text-gray-500">
                     Drop here → {stage.label}
                   </div>
                 )}
 
-                {/* Cards */}
                 <div className="space-y-3">
                   {stageProspects.length === 0 && !isDragTarget ? (
                     <div className="text-center py-8 text-gray-700 text-xs">Empty</div>
@@ -355,6 +361,9 @@ export default function PipelinePage() {
                         prospect={p}
                         onOpen={() => setDetailProspect(p)}
                         onDragStart={setDraggingId}
+                        selectMode={selectMode}
+                        selected={selectedIds.has(p.business.id)}
+                        onToggleSelect={toggleSelect}
                       />
                     ))
                   )}
@@ -364,6 +373,35 @@ export default function PipelinePage() {
           })}
         </div>
       </div>
+
+      {/* Bottom action bar — visible in select mode */}
+      {selectMode && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 border-t border-white/10 px-4 py-3 backdrop-blur-sm">
+          <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-3">
+            <span className="text-sm text-gray-400">
+              {selectedIds.size === 0
+                ? 'Tap cards to select'
+                : `${selectedIds.size} prospect${selectedIds.size > 1 ? 's' : ''} selected`}
+            </span>
+            <div className="flex items-center gap-2">
+              <button onClick={exitSelect} className="text-sm text-gray-500 hover:text-gray-300 px-4 py-2 rounded-xl transition-colors">
+                Cancel
+              </button>
+              <button
+                disabled={selectedIds.size === 0}
+                onClick={() => setShowBulk(true)}
+                className="flex items-center gap-2 bg-green-500 hover:bg-green-400 disabled:opacity-40 text-white font-black px-5 py-2.5 rounded-xl text-sm transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Send WhatsApp to {selectedIds.size > 0 ? selectedIds.size : '...'} selected
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Spacer for bottom bar */}
+      {selectMode && <div className="h-20" />}
     </div>
   );
 }
