@@ -51,6 +51,18 @@ input[type='range'] {
   @apply w-full accent-purple-500 cursor-pointer;
 }
 
+/* ── Auth background — subtle slow drift ── */
+@keyframes auth-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(24px, -28px); }
+}
+.auth-blob      { animation: auth-drift 20s ease-in-out infinite; }
+.auth-blob-slow { animation: auth-drift 28s ease-in-out infinite reverse; }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-blob, .auth-blob-slow { animation: none; }
+}
+
 /* Scrollbar — dark mode (desktop) */
 @media (min-width: 640px) {
   ::-webkit-scrollbar { width: 6px; }
@@ -111,19 +123,51 @@ html.light .hover\:bg-white\/10:hover  { background-color: rgba(15,23,42,0.07) !
 html.light .hover\:bg-white\/15:hover  { background-color: rgba(15,23,42,0.09) !important; }
 html.light .hover\:bg-white\/20:hover  { background-color: rgba(15,23,42,0.11) !important; }
 
-/* ── Text ── */
-html.light .text-white    { color: #0f172a !important; }
+/* ── Text ──
+   Darker, readable slate scale. In dark mode gray-500/600 are dim labels;
+   on white those must stay dark enough to read, so we compress toward 600/700. */
+html.light .text-white    { color: #0f172a !important; } /* primary / headings */
 html.light .text-gray-100 { color: #1e293b !important; }
 html.light .text-gray-200 { color: #334155 !important; }
-html.light .text-gray-300 { color: #475569 !important; }
-html.light .text-gray-400 { color: #64748b !important; }
-html.light .text-gray-500 { color: #94a3b8 !important; }
-html.light .text-gray-600 { color: #b0bac7 !important; }
-html.light .text-gray-700 { color: #cbd5e1 !important; }
+html.light .text-gray-300 { color: #334155 !important; } /* body */
+html.light .text-gray-400 { color: #475569 !important; } /* secondary */
+html.light .text-gray-500 { color: #64748b !important; } /* muted labels */
+html.light .text-gray-600 { color: #64748b !important; } /* muted labels */
+html.light .text-gray-700 { color: #475569 !important; }
 
 html.light .placeholder-gray-600::placeholder { color: #94a3b8 !important; }
 html.light .hover\:text-white:hover            { color: #0f172a !important; }
-html.light .hover\:text-gray-300:hover         { color: #475569 !important; }
+html.light .hover\:text-gray-300:hover         { color: #334155 !important; }
+
+/* ── Saturated colored surfaces keep WHITE text in light mode ──
+   Solid purple/blue/green/orange/red buttons & badges (and saturated
+   gradient buttons) must not pick up the dark .text-white override.
+   Exact class tokens only — opacity tints like bg-purple-600/20 are
+   untouched (those correctly use colored text). */
+html.light .bg-purple-600,
+html.light .bg-purple-700,
+html.light .bg-purple-500,
+html.light .bg-blue-600,
+html.light .bg-blue-700,
+html.light .bg-green-600,
+html.light .bg-green-700,
+html.light .bg-orange-500,
+html.light .bg-orange-600,
+html.light .bg-red-600,
+html.light .bg-red-700,
+html.light .from-purple-600 {
+  color: #ffffff !important;
+}
+/* Restore white on explicit text-white children inside those surfaces */
+html.light .bg-purple-600 .text-white,
+html.light .bg-purple-700 .text-white,
+html.light .bg-purple-500 .text-white,
+html.light .bg-blue-600 .text-white,
+html.light .bg-green-600 .text-white,
+html.light .bg-orange-500 .text-white,
+html.light .from-purple-600 .text-white {
+  color: #ffffff !important;
+}
 
 /* ── Borders ── */
 html.light .border-white\/\[0\.06\] { border-color: #e9edf2 !important; }

@@ -9,7 +9,7 @@ interface ThemeCtx {
   toggle: () => void;
 }
 
-const ThemeContext = createContext<ThemeCtx>({ theme: 'dark', toggle: () => {} });
+const ThemeContext = createContext<ThemeCtx>({ theme: 'light', toggle: () => {} });
 
 function applyTheme(t: Theme) {
   const html = document.documentElement;
@@ -23,10 +23,10 @@ function applyTheme(t: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
-    const saved = (localStorage.getItem('aip_theme') as Theme) ?? 'dark';
+    const saved = (localStorage.getItem('aip_theme') as Theme) ?? 'light';
     setTheme(saved);
     applyTheme(saved);
   }, []);

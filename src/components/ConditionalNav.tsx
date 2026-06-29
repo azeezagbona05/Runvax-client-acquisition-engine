@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Nav from './Nav';
 import Sidebar from './Sidebar';
+import TopBar from './TopBar';
 import OnboardingGate from './OnboardingGate';
 import { SidebarProvider, useSidebar } from '@/context/SidebarContext';
 
@@ -24,6 +25,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           'transition-[padding-left] duration-300 ease-in-out',
         ].join(' ')}
       >
+        {!isAuth && <TopBar />}
         {children}
       </div>
     </>

@@ -235,7 +235,7 @@ export default function Home() {
   return (
     <div className="min-h-dvh bg-gray-950 text-white">
 
-      <SearchForm onSearch={handleSearch} loading={loading} onBrief={() => setShowBrief(true)} />
+      <SearchForm onSearch={handleSearch} loading={loading} onBrief={() => setShowBrief(true)} landing={!hasSearched} />
 
       {hasSearched && (
         <main className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
@@ -476,24 +476,6 @@ export default function Home() {
             </div>
           )}
         </main>
-      )}
-
-      {!hasSearched && (
-        <div className="max-w-3xl mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { icon: '🔍', title: 'Discover Prospects', desc: 'Search any industry in any city — up to 60 results per search on Pro' },
-              { icon: '⚡', title: 'Quick-Fire Mode', desc: 'Send WhatsApp to 20 prospects in under 5 minutes — one by one' },
-              { icon: '🤖', title: 'AI-Powered Outreach', desc: 'BAB, AIDA, PAS messages + proposals + Lovable prompts generated instantly' },
-            ].map((step) => (
-              <div key={step.title} className="bg-white/[0.03] border border-white/8 rounded-2xl p-5 text-left">
-                <div className="text-3xl mb-3">{step.icon}</div>
-                <div className="font-bold text-white text-sm mb-1">{step.title}</div>
-                <div className="text-gray-500 text-xs leading-relaxed">{step.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
       )}
 
       {selected && (

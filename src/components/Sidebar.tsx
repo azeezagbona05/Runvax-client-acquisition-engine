@@ -10,7 +10,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { formatPrice } from '@/lib/scoring';
 import {
   Search, Columns3, BarChart3, Settings, ChevronLeft, ChevronRight,
-  LogOut, Zap, Sun, Moon, Plus, TrendingUp, Target, Users,
+  LogOut, LogIn, Zap, Sun, Moon, Plus, TrendingUp, Target, Users,
 } from 'lucide-react';
 import ManualProspectModal from './ManualProspectModal';
 
@@ -35,10 +35,10 @@ export default function Sidebar() {
     :                       { label: 'FREE',   cls: 'bg-white/5 text-gray-500 border border-white/10' };
 
   const tabs = [
-    { href: '/',          icon: Search,   label: 'Search',    badge: undefined,                                            badgeColor: 'bg-purple-600' },
-    { href: '/pipeline',  icon: Columns3, label: 'Pipeline',  badge: savedCount > 0 ? savedCount : undefined,             badgeColor: 'bg-purple-600' },
-    { href: '/dashboard', icon: BarChart3, label: 'Dashboard', badge: wonCount > 0 ? wonCount : undefined,                 badgeColor: 'bg-green-500' },
-    { href: '/settings',  icon: Settings, label: 'Settings',  badge: undefined,                                            badgeColor: 'bg-purple-600' },
+    { href: '/',          icon: Search,    label: 'Search',    badge: undefined,                              badgeColor: 'bg-purple-600' },
+    { href: '/pipeline',  icon: Columns3,  label: 'Pipeline',  badge: savedCount > 0 ? savedCount : undefined, badgeColor: 'bg-purple-600' },
+    { href: '/dashboard', icon: BarChart3, label: 'Dashboard', badge: wonCount > 0 ? wonCount : undefined,     badgeColor: 'bg-green-500' },
+    { href: '/settings',  icon: Settings,  label: 'Settings',  badge: undefined,                              badgeColor: 'bg-purple-600' },
   ];
 
   return (
@@ -163,7 +163,7 @@ export default function Sidebar() {
             </Link>
           )}
 
-          {/* User row */}
+          {/* User row — signed in only */}
           {session?.user && (
             <div className={`flex items-center gap-2 px-1 py-1 ${collapsed ? 'flex-col' : ''}`}>
               {/* Avatar / initials */}
@@ -180,26 +180,53 @@ export default function Sidebar() {
                 </div>
               )}
 
-              <div className={`flex items-center gap-1 ${collapsed ? 'flex-col' : ''}`}>
-                <button
-                  onClick={toggleTheme}
-                  title="Toggle theme"
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/8 transition-colors"
-                >
-                  {theme === 'dark'
-                    ? <Sun className="w-3.5 h-3.5 text-yellow-400" />
-                    : <Moon className="w-3.5 h-3.5 text-purple-400" />}
-                </button>
-                <button
-                  onClick={() => signOut({ callbackUrl: '/auth/signin' })}
-                  title="Sign out"
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <button
+                onClick={() => signOut({ callbackUrl: '/' })}
+                title="Sign out"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
+
+          {/* Sign-in block — logged out only */}
+          {!session?.user && (
+            <div className="space-y-1.5">
+              <Link
+                href="/auth/signin"
+                title={collapsed ? 'Log in' : undefined}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition-colors whitespace-nowrap ${
+                  collapsed ? 'justify-center' : ''
+                }`}
+              >
+                <LogIn className="w-4 h-4 flex-shrink-0" />
+                {!collapsed && <span>Log in</span>}
+              </Link>
+              {!collapsed && (
+                <Link
+                  href="/auth/signup"
+                  className="block text-center text-[11px] text-gray-500 hover:text-gray-300 transition-colors py-1"
+                >
+                  Create free account
+                </Link>
+              )}
+            </div>
+          )}
+
+          {/* Theme toggle — always visible (signed in or not) */}
+          <button
+            onClick={toggleTheme}
+            title={collapsed ? 'Toggle theme' : undefined}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/8 transition-colors whitespace-nowrap ${
+              collapsed ? 'justify-center' : ''
+            }`}
+          >
+            {theme === 'dark'
+              ? <Sun className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+              : <Moon className="w-4 h-4 text-purple-400 flex-shrink-0" />}
+            {!collapsed && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
+          </button>
 
           {/* Collapse toggle */}
           <button

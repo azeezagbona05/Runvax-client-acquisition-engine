@@ -34,8 +34,16 @@ function SignInForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Subtle animated background */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="auth-blob absolute -top-32 -left-24 w-[30rem] h-[30rem] rounded-full blur-3xl opacity-60"
+          style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.30), transparent 70%)' }} />
+        <div className="auth-blob-slow absolute -bottom-32 -right-24 w-[32rem] h-[32rem] rounded-full blur-3xl opacity-50"
+          style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.22), transparent 70%)' }} />
+      </div>
+
+      <div className="w-full max-w-md relative">
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-orange-500 rounded-xl flex items-center justify-center text-xl font-black mx-auto mb-4">A</div>
           <h1 className="text-2xl font-black text-white">AI Prospect Finder</h1>

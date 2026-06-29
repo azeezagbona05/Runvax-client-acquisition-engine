@@ -155,9 +155,11 @@ interface SearchFormProps {
   onSearch: (data: SearchFormData) => void;
   loading: boolean;
   onBrief?: () => void;
+  /** Show the stats row + Quick Industry / Recent Searches panels (landing state only) */
+  landing?: boolean;
 }
 
-export default function SearchForm({ onSearch, loading, onBrief }: SearchFormProps) {
+export default function SearchForm({ onSearch, loading, onBrief, landing = true }: SearchFormProps) {
   const [industry, setIndustry] = useState('');
   const [country, setCountry] = useState('NG');
   const [location, setLocation] = useState('');
@@ -266,16 +268,18 @@ export default function SearchForm({ onSearch, loading, onBrief }: SearchFormPro
   }
 
   return (
+    <>
     <div className="bg-gradient-to-br from-purple-950/60 via-gray-900 to-gray-950 border-b border-white/5">
-      <div className="max-w-3xl mx-auto px-4 py-10 md:py-14">
+      <div className="max-w-4xl mx-auto px-4 py-6 md:py-8">
 
         {/* Hero */}
-        <div className="text-center mb-7">
+        <div className="text-center mb-5">
           <div className="inline-flex items-center gap-2 bg-purple-500/20 border border-purple-500/30 rounded-full px-4 py-1.5 text-purple-300 text-sm font-semibold mb-4">
             🎯 AI Prospect Discovery
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-white mb-2 leading-tight">
-            Find Businesses That<br className="hidden md:block" /> Need a Website
+            Find Businesses That<br className="hidden md:block" />{' '}
+            <span className="bg-gradient-to-r from-purple-500 to-purple-400 bg-clip-text text-transparent">Need a Website</span>
           </h1>
           <p className="text-gray-400 text-sm md:text-base max-w-lg mx-auto">
             Search any industry, any city. Surface businesses with zero online presence — your next paying clients.
@@ -427,16 +431,39 @@ export default function SearchForm({ onSearch, loading, onBrief }: SearchFormPro
               : <><Search className="w-5 h-5" /> Find Prospects Now</>}
           </button>
         </form>
+      </div>
+    </div>
 
-        {/* Recent searches */}
+    {/* ── Quick Industry Select (left) + Recent Searches (right) ── */}
+    {landing && (
+    <div className="max-w-5xl mx-auto px-4 py-5">
+      <div className={`grid gap-x-8 gap-y-5 ${history.length > 0 ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+
+        {/* Quick Industry Select (left — fills the row when no recent searches) */}
+        <div>
+          <p className="text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-2.5">Quick Industry Select</p>
+          <div className="flex flex-wrap gap-2">
+            {INDUSTRIES.slice(0, 12).map((s) => (
+              <button key={s} type="button" disabled={loading} onClick={() => pickIndustry(s)}
+                className={`px-3 py-1.5 border rounded-full text-xs font-semibold transition-all disabled:opacity-40 ${
+                  industry === s
+                    ? 'bg-purple-600/30 border-purple-500/50 text-purple-300'
+                    : 'bg-white/5 hover:bg-purple-600/20 border-white/10 hover:border-purple-500/30 text-gray-400 hover:text-white'}`}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Searches (right — only when there's history, max 5) */}
         {history.length > 0 && (
-          <div className="mt-4">
-            <p className="text-[11px] text-gray-600 uppercase tracking-widest font-bold text-center mb-2">Recent Searches</p>
-            <div className="flex flex-wrap gap-2 justify-center">
+          <div>
+            <p className="text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-2.5">Recent Searches</p>
+            <div className="flex flex-wrap gap-2">
               {history.slice(0, 5).map((h, i) => (
                 <button key={i} onClick={() => pickHistory(h)} disabled={loading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-40">
-                  <Clock className="w-3 h-3 text-gray-600" />
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 rounded-full text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-40">
+                  <Clock className="w-3 h-3 text-gray-500" />
                   <span className="font-medium">{h.industry}</span>
                   <span className="text-gray-600">·</span>
                   <span>{h.location.split(',')[0]}</span>
@@ -445,30 +472,15 @@ export default function SearchForm({ onSearch, loading, onBrief }: SearchFormPro
                       {h.noWebsiteCount}🎯
                     </span>
                   )}
-                  <span className="text-gray-700">{timeAgoShort(h.timestamp)}</span>
+                  <span className="text-gray-600">{timeAgoShort(h.timestamp)}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
-
-        {/* Industry quick picks */}
-        <div className="mt-4 space-y-2">
-          <p className="text-center text-[11px] text-gray-600 uppercase tracking-widest font-bold">Quick Industry Select</p>
-          <div className="flex flex-wrap gap-2 justify-center">
-            {INDUSTRIES.slice(0, 10).map((s) => (
-              <button key={s} type="button" disabled={loading} onClick={() => pickIndustry(s)}
-                className={`px-3 py-1.5 border rounded-full text-xs font-semibold transition-all disabled:opacity-40 ${
-                  industry === s
-                    ? 'bg-purple-600/30 border-purple-500/50 text-purple-300'
-                    : 'bg-white/5 hover:bg-purple-600/20 border-white/10 hover:border-purple-500/30 text-gray-500 hover:text-gray-200'}`}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-
       </div>
     </div>
+    )}
+    </>
   );
 }

@@ -37,10 +37,10 @@ export const metadata: Metadata = {
 const themeScript = `
 (function(){
   try {
-    var t = localStorage.getItem('aip_theme') || 'dark';
+    var t = localStorage.getItem('aip_theme') || 'light';
     document.documentElement.classList.add(t);
   } catch(e) {
-    document.documentElement.classList.add('dark');
+    document.documentElement.classList.add('light');
   }
 })();
 `;
