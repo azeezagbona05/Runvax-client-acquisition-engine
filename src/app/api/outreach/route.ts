@@ -128,10 +128,17 @@ Your messages:
 ✅ Are specific to the exact business and niche — never generic
 ✅ Show the prospect you actually looked at their business
 ✅ Educate without preaching — one sharp insight, delivered naturally
-✅ Position the offer as a DIGITAL FRONT DOOR / digital experience centre — the experience customers have before, during and after visiting — NEVER as "just a website"
+✅ Position the offer as a DIGITAL FRONT DOOR / digital experience centre — NEVER as "just a website"
 ✅ Have a soft, curious CTA — opening a conversation, not closing a sale
 ✅ Sound like a human wrote them, not a template
 ✅ Never use phrases like "I hope this message finds you well", "My name is X and I...", "Are you interested in..."
+
+WHATSAPP FORMATTING (critical — always apply):
+• Write in short paragraphs — 1 to 2 sentences per paragraph, blank line between each
+• *asterisks* = bold — use for: business name, key numbers (review count), and the core offer phrase
+• _underscores_ = italic — use for: emotional phrases, the CTA question, and soft empathetic lines
+• Never write a wall of text — if a paragraph is more than 2 sentences, split it
+• Maximum 2 emojis per message, placed naturally mid-sentence or at the end
 
 ${POSITIONING}
 ${NIGERIANCONTEXT}`;
@@ -146,13 +153,31 @@ ${business.reviewCount ? `IMPORTANT: This business has ${business.reviewCount} G
 Write TWO outreach messages using the ${framework} framework:
 
 ---WHATSAPP---
-[WhatsApp message — MAX 90 words. Warm, specific, one insight about their digital gap, soft CTA question. Add 1-2 natural emojis. Use the ${framework} structure but make it feel completely natural — not like a template.]
+[WhatsApp message — MAX 100 words. Structure it in SHORT paragraphs (1-2 sentences each), separated by blank lines.
+
+FORMATTING RULES — apply these exactly:
+• Use *asterisks* for bold: wrap key stats, the business name, and the core value proposition in *bold*
+• Use _underscores_ for italic: wrap emotional or soft phrases in _italic_
+• Each paragraph = one idea. Never write a wall of text.
+• 1-2 emojis maximum, placed naturally (not at the start of every line)
+• End with a soft CTA question on its own line, in _italic_
+
+Example structure:
+Hi [name] 👋
+
+*[Specific observation about their business.]*
+
+_[Emotional consequence — what they're losing.]_
+
+*[Your solution — one sentence, bold the key offer.]*
+
+_[Soft CTA question?]_]
 
 ---EMAIL-SUBJECT---
 [Subject line — max 8 words. Intriguing, specific, not salesy. No "Check this out" or "Quick question".]
 
 ---EMAIL-BODY---
-[Email — MAX 200 words. Use the ${framework} framework fully. Open with a hook specific to their business. Weave in 1-2 of the 2026 digital presence concepts (GEO/AIEO/SEO) naturally. End with ONE clear, low-friction CTA.]
+[Email — MAX 200 words. Use the ${framework} framework fully. Short paragraphs with ONE idea each. Use *bold* for the most important phrase in the email (the core insight or the offer). Use _italic_ for one emotional line. Open with a hook specific to their business. Weave in 1-2 of the 2026 digital presence concepts (GEO/AIEO/SEO) naturally. End with ONE clear, low-friction CTA.]
 
 SENDER IDENTITY (use this in signatures and closing):
 - Name / Agency: ${profile.businessName} (${profile.senderName})

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Copy, Check, RefreshCw, MessageCircle, Mail, Loader2, Send, Lock } from 'lucide-react';
 import { Business } from '@/types';
@@ -87,6 +87,52 @@ const FRAMEWORKS: Array<{
     desc: 'A relatable story about a similar business that made the leap.',
   },
 ];
+
+function renderWhatsApp(text: string): React.ReactNode {
+  return text.split('\n').map((line, i) => {
+    // Parse *bold*, _italic_, ~strike~ within each line
+    const parts: React.ReactNode[] = [];
+    let remaining = line;
+    let key = 0;
+
+    const push = (str: string, tag?: 'b' | 'i' | 's') => {
+      if (!str) return;
+      if (tag === 'b') parts.push(<strong key={key++} className="font-bold text-white">{str}</strong>);
+      else if (tag === 'i') parts.push(<em key={key++} className="italic text-green-200">{str}</em>);
+      else if (tag === 's') parts.push(<s key={key++} className="line-through opacity-60">{str}</s>);
+      else parts.push(<span key={key++}>{str}</span>);
+    };
+
+    // Simple sequential parser: find first */_/~ marker
+    while (remaining.length > 0) {
+      const boldIdx   = remaining.indexOf('*');
+      const italicIdx = remaining.indexOf('_');
+      const strikeIdx = remaining.indexOf('~');
+
+      const candidates = [
+        boldIdx   >= 0 ? { idx: boldIdx,   marker: '*', tag: 'b' as const } : null,
+        italicIdx >= 0 ? { idx: italicIdx, marker: '_', tag: 'i' as const } : null,
+        strikeIdx >= 0 ? { idx: strikeIdx, marker: '~', tag: 's' as const } : null,
+      ].filter(Boolean) as { idx: number; marker: string; tag: 'b' | 'i' | 's' }[];
+
+      if (candidates.length === 0) { push(remaining); break; }
+      candidates.sort((a, b) => a.idx - b.idx);
+      const { idx, marker, tag } = candidates[0];
+      push(remaining.slice(0, idx));
+      const closeIdx = remaining.indexOf(marker, idx + 1);
+      if (closeIdx < 0) { push(remaining.slice(idx)); break; }
+      push(remaining.slice(idx + 1, closeIdx), tag);
+      remaining = remaining.slice(closeIdx + 1);
+    }
+
+    return (
+      <span key={i}>
+        {parts}
+        {i < text.split('\n').length - 1 && <br />}
+      </span>
+    );
+  });
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -346,8 +392,8 @@ export default function OutreachModal({ business, onClose }: Props) {
                   </div>
                   <CopyButton text={data.whatsapp} />
                 </div>
-                <div className={`bg-green-950/40 border border-green-500/20 rounded-xl p-4 text-green-100 text-sm leading-relaxed whitespace-pre-wrap transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
-                  {data.whatsapp}
+                <div className={`bg-green-950/40 border border-green-500/20 rounded-xl p-4 text-green-100 text-sm leading-loose transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
+                  {renderWhatsApp(data.whatsapp)}
                 </div>
                 <div className="flex gap-2 mt-3">
                   {whatsappUrl && (

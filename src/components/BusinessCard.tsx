@@ -56,13 +56,15 @@ export default function BusinessCard({ business, onClick }: Props) {
   const quickWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!business.phone) return;
-    // PAS — Problem → Agitate → Solution
+    // PAS — Problem → Agitate → Solution with WhatsApp formatting (*bold*, _italic_)
+    const name = `*${business.name}*`;
+    const niche = business.category.toLowerCase();
     const problem = business.reviewCount && business.reviewCount > 0
-      ? `You have ${business.reviewCount} Google reviews ⭐ — real trust you've built. But when those customers search for you online, there's no website to land on.`
-      : `People search for ${business.category} businesses in your area every day — but without a website, you're invisible to all of them.`;
-    const agitate = `Every day, potential customers find your competitors instead — not because they're better, but because they show up online.`;
-    const solution = `I build digital front doors for ${business.category} businesses — mobile-first, found on Google AND recommended by AI tools like ChatGPT. Quick chat?`;
-    const msg = `Hi 👋\n\n${problem}\n\n${agitate}\n\n${solution}`;
+      ? `Hi! 👋 I came across ${name} on Google.\n\nYou have *${business.reviewCount} Google reviews* ⭐ — _that's real trust people have given you._ But when a new customer searches for ${niche} online right now, there's *no website to land on.*`
+      : `Hi! 👋 I came across ${name} on Google.\n\nPeople are searching for *${niche} businesses* in your area every day — but _without a website, you're invisible_ to all of them.`;
+    const agitate = `Every day, potential customers find your competitors instead — _not because they're better,_ but because *they show up online and you don't.*`;
+    const solution = `I build *digital front doors* for ${niche} businesses — mobile-first, found on Google *and* recommended by AI tools like ChatGPT. 🌐\n\n_Would you be open to a quick chat?_`;
+    const msg = `${problem}\n\n${agitate}\n\n${solution}`;
     const link = whatsappLink(business, msg);
     if (!link) return;
     window.open(link, '_blank');
