@@ -25,9 +25,9 @@ body {
   min-height: 100dvh;
 }
 
-/* App content area: clears the mobile bottom nav + safe area */
+/* App content area: clears the mobile top + bottom nav */
 .app-content {
-  min-height: calc(100dvh - 3.5rem);
+  min-height: calc(100dvh - 3.5rem); /* mobile: subtracts top nav height */
 }
 
 @media (max-width: 639px) {
@@ -37,6 +37,13 @@ body {
   /* Hide scrollbars on mobile for native feel */
   ::-webkit-scrollbar { display: none; }
   * { scrollbar-width: none; }
+}
+
+/* Desktop: no top nav — sidebar is on the left, content is full height */
+@media (min-width: 1024px) {
+  .app-content {
+    min-height: 100dvh;
+  }
 }
 
 /* Custom range slider */
