@@ -1,0 +1,87 @@
+import type { Framework } from '../types';
+
+export const structureFrameworks: Framework[] = [
+  {
+    id: 'three_line',
+    name: 'Three-Line',
+    category: 'structure',
+    structure: [
+      'Observation — one ultra-specific true detail about this business',
+      'Implication — the quietly-expensive consequence of the gap',
+      'Ask — a single soft question or offer that opens the conversation',
+    ],
+    whenToUse: 'WhatsApp cold outreach where brevity is paramount. Forces discipline: one observation, one implication, one ask. Blend with a copywriting framework for texture.',
+    template: 'Line 1: Prove you looked (name a real number, location, or niche detail). Line 2: Name what that gap is costing them right now. Line 3: One low-friction ask.',
+    bestChannels: ['whatsapp', 'dm'],
+    bestTemperature: ['cold'],
+  },
+  {
+    id: 'triple_c',
+    name: 'Triple C (Connect-Communicate-Close)',
+    category: 'structure',
+    structure: [
+      'Connect — establish a genuine, specific human connection',
+      'Communicate — one clear insight or value point',
+      'Close — low-friction next step',
+    ],
+    whenToUse: 'Short WhatsApp or DM messages where tone matters as much as content.',
+    template: 'Open by connecting on something specific and true. Share one insight. Ask for one next step.',
+    bestChannels: ['whatsapp', 'dm'],
+    bestTemperature: ['cold', 'warm'],
+  },
+  {
+    id: 'trigger_value_ask',
+    name: 'Trigger-Value-Ask',
+    category: 'structure',
+    structure: [
+      'Trigger — name the specific event or observation that prompted outreach',
+      'Value — what you can offer that is immediately useful',
+      'Ask — one question',
+    ],
+    whenToUse: 'When there is a clear trigger (competitor just launched a site, business recently got reviews, new location opened).',
+    template: 'Name the trigger. Offer something useful in response to it. Ask one question.',
+    bestChannels: ['whatsapp', 'email'],
+    bestTemperature: ['cold', 'warm'],
+  },
+  {
+    id: 'qvc',
+    name: 'QVC (Question-Value-CTA)',
+    category: 'structure',
+    structure: [
+      'Question — open with a question that surfaces the gap',
+      'Value — answer the question with insight',
+      'CTA — one next step',
+    ],
+    whenToUse: 'Short consultative messages. The question makes the reader a participant, not a target.',
+    template: 'Ask a question they cannot say "not applicable" to. Answer it with one sharp insight. Ask for a next step.',
+    bestChannels: ['whatsapp', 'email'],
+    bestTemperature: ['cold', 'warm'],
+  },
+  {
+    id: 'cgp',
+    name: 'CGP (Challenges-Goals-Plan)',
+    category: 'structure',
+    structure: [
+      'Challenges — acknowledge the specific challenge they are facing',
+      'Goals — articulate the goal on the other side of that challenge',
+      'Plan — present your service as the plan that bridges them',
+    ],
+    whenToUse: 'Audit and presence messages where you want to sound consultative. Ideal for email.',
+    template: 'Name the challenge (no digital presence, invisible to AI search). State the goal they likely have (more bookings, more walk-ins). Present your plan as the bridge.',
+    bestChannels: ['email'],
+    bestTemperature: ['cold', 'warm'],
+  },
+  {
+    id: 'why_you_now',
+    name: 'Why You, Why Now',
+    category: 'structure',
+    structure: [
+      'Why you — why this specific business is the right fit',
+      'Why now — why this moment specifically is the right time',
+    ],
+    whenToUse: 'Reactivation messages or second-touch follow-ups where urgency and specificity are the levers.',
+    template: 'Explain clearly why you reached out to them specifically (not everyone). Then add a time-bound reason: something changing in 2026, competitor just launched, local market shift.',
+    bestChannels: ['email', 'whatsapp'],
+    bestTemperature: ['warm'],
+  },
+];
