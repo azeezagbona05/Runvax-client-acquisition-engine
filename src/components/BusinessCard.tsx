@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MapPin, Phone, Star, Globe, Bookmark, Copy, Check, MessageCircle } from 'lucide-react';
+import { MapPin, Phone, Star, Globe, Bookmark, Copy, Check, MessageCircle, Loader2 } from 'lucide-react';
 import { Business } from '@/types';
 import { scoreProspect, scoreLabel } from '@/lib/scoring';
 import { useProspects } from '@/context/ProspectsContext';
@@ -40,6 +40,7 @@ export default function BusinessCard({ business, onClick }: Props) {
   const timeStatus = getBestTimeStatus();
 
   const [copied, setCopied] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const copyPhone = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -54,10 +55,27 @@ export default function BusinessCard({ business, onClick }: Props) {
     saved ? remove(business.id) : save(business);
   };
 
-  const quickWhatsApp = (e: React.MouseEvent) => {
+  const quickWhatsApp = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!business.phone) return;
-    const msg = buildQuickWAMessage(business);
+    if (!business.phone || generating) return;
+
+    setGenerating(true);
+    let msg: string;
+    try {
+      const res = await fetch('/api/outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business, competitors: business.competitors }),
+      });
+      const json = await res.json();
+      // Use AI message if available, fall back to template if API fails
+      msg = (res.ok && json.whatsapp) ? json.whatsapp : buildQuickWAMessage(business);
+    } catch {
+      msg = buildQuickWAMessage(business);
+    } finally {
+      setGenerating(false);
+    }
+
     const link = whatsappLink(business, msg);
     if (!link) return;
     window.open(link, '_blank');
@@ -172,10 +190,14 @@ export default function BusinessCard({ business, onClick }: Props) {
           {business.phone && (
             <button
               onClick={quickWhatsApp}
-              title="Send WhatsApp message"
-              className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors"
+              disabled={generating}
+              title={generating ? 'Writing message…' : 'Send WhatsApp message'}
+              className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors disabled:opacity-60 disabled:cursor-wait"
             >
-              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+              {generating
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Writing…</>
+                : <><MessageCircle className="w-3.5 h-3.5" /> WhatsApp</>
+              }
             </button>
           )}
 
