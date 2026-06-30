@@ -24,70 +24,6 @@ interface OutreachData {
   framework: OutreachFramework;
 }
 
-const FRAMEWORKS: Array<{
-  id: OutreachFramework;
-  label: string;
-  short: string;
-  activeColor: string;
-  desc: string;
-}> = [
-  {
-    id: 'PAS',
-    label: 'PAS',
-    short: 'Problem → Agitate → Solution',
-    activeColor: 'bg-red-600/20 text-red-300 border-red-500/40',
-    desc: 'Identify their pain, make it real, offer the relief. Best cold opener.',
-  },
-  {
-    id: 'AIDA',
-    label: 'AIDA',
-    short: 'Attention → Interest → Desire → Action',
-    activeColor: 'bg-purple-600/20 text-purple-300 border-purple-500/40',
-    desc: 'Hook, build curiosity, create want, one clear CTA. Great for email.',
-  },
-  {
-    id: 'HSO',
-    label: 'Hook-Story-Offer',
-    short: 'Hook → Story → Offer',
-    activeColor: 'bg-pink-600/20 text-pink-300 border-pink-500/40',
-    desc: 'Disarming and human. Feels like a friend, not a pitch. Best for WhatsApp.',
-  },
-  {
-    id: 'SPIN',
-    label: 'SPIN',
-    short: 'Situation → Problem → Implication → Need',
-    activeColor: 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40',
-    desc: 'Consultative and conversational. Best for follow-up after first contact.',
-  },
-  {
-    id: '4PS',
-    label: '4Ps',
-    short: 'Promise → Picture → Proof → Push',
-    activeColor: 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40',
-    desc: 'Bold, visual, conviction-building. Great when you have results to show.',
-  },
-  {
-    id: 'FAB',
-    label: 'FAB',
-    short: 'Feature → Advantage → Benefit',
-    activeColor: 'bg-yellow-600/20 text-yellow-300 border-yellow-500/40',
-    desc: 'Logical and clear. Best for follow-up or when prospect wants specifics.',
-  },
-  {
-    id: 'BAB',
-    label: 'BAB',
-    short: 'Before → After → Bridge',
-    activeColor: 'bg-blue-600/20 text-blue-300 border-blue-500/40',
-    desc: 'Paint where they are, where they could be, how to get there.',
-  },
-  {
-    id: 'STORY',
-    label: 'Story',
-    short: 'Storytelling',
-    activeColor: 'bg-orange-600/20 text-orange-300 border-orange-500/40',
-    desc: 'A relatable story about a similar business that made the leap.',
-  },
-];
 
 function renderWhatsApp(text: string): React.ReactNode {
   return text.split('\n').map((line, i) => {
@@ -140,7 +76,6 @@ export default function OutreachModal({ business, onClose }: Props) {
   const { markOutreachSent, incrementToday, updateStage, isSaved, save } = useProspects();
   const handleAIResponse = useHandleAIResponse();
   const [tab, setTab] = useState<Tab>('whatsapp');
-  const [framework, setFramework] = useState<OutreachFramework>('PAS');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<OutreachData | null>(null);
   const [error, setError] = useState('');
@@ -159,7 +94,7 @@ export default function OutreachModal({ business, onClose }: Props) {
       whatsapp: `Hi! I noticed ${business.name} doesn't have a website yet — you're losing customers who search online before they visit. In 2026, even ChatGPT recommends local businesses from their websites. I build digital front doors for ${niche} businesses in ${city}. Can I show you what yours could look like? 🏪`,
       emailSubject: `${business.name} — your customers can't find you online`,
       emailBody: `Hi ${business.name},\n\nI was looking for ${niche} businesses in ${city} and noticed you don't have a website yet.\n\nIn 2026, when someone asks ChatGPT or searches Google for "best ${niche} near me", only businesses with websites show up. Right now, you're invisible to those customers — and they're going to your competitors.\n\nI build digital front doors for local businesses — not just a website, but a 24/7 presence that gets discovered on Google AND by AI tools like ChatGPT and Perplexity.\n\nWould you be open to a quick 5-minute chat this week?\n\nWarm regards,\n[Your Name]`,
-      framework: framework as OutreachFramework,
+      framework: 'PAS' as OutreachFramework,
     });
     lockTimer.current = setTimeout(() => setSignupGate(true), 1000);
   };
@@ -172,7 +107,7 @@ export default function OutreachModal({ business, onClose }: Props) {
       const res = await fetch('/api/outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, framework, competitors: business.competitors }),
+        body: JSON.stringify({ business, competitors: business.competitors }),
       });
       const json = await res.json();
       const handled = handleAIResponse(res, json);
@@ -232,9 +167,7 @@ export default function OutreachModal({ business, onClose }: Props) {
     reviewCount: business.reviewCount,
     rating: business.rating,
     city: business.address?.split(',')[0],
-  };
-
-  const selectedFw = FRAMEWORKS.find((f) => f.id === framework)!;
+  };;
 
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
@@ -252,30 +185,6 @@ export default function OutreachModal({ business, onClose }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-
-          {/* Framework selector */}
-          <div className="p-4 border-b border-white/8">
-            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Choose Copywriting Framework</p>
-            <div className="grid grid-cols-2 gap-2">
-              {FRAMEWORKS.map((fw) => (
-                <button
-                  key={fw.id}
-                  onClick={() => { setFramework(fw.id); setData(null); }}
-                  className={`px-3 py-2.5 rounded-xl text-left border transition-all ${
-                    framework === fw.id
-                      ? fw.activeColor
-                      : 'bg-white/5 text-gray-500 border-white/8 hover:bg-white/10 hover:text-gray-300'
-                  }`}
-                >
-                  <div className="font-black text-sm">{fw.label}</div>
-                  <div className="text-[10px] opacity-70 leading-snug mt-0.5">{fw.short}</div>
-                </button>
-              ))}
-            </div>
-            {framework && (
-              <p className="text-xs text-gray-500 mt-2 italic">{selectedFw.desc}</p>
-            )}
-          </div>
 
           {/* Content tabs */}
           {data && (
@@ -331,25 +240,16 @@ export default function OutreachModal({ business, onClose }: Props) {
             {!data && !loading && (
               <div className="text-center py-6">
                 <div className="text-4xl mb-3">✍️</div>
-                <p className="text-gray-300 font-semibold mb-1">
-                  {selectedFw.label} Framework Selected
+                <p className="text-gray-300 font-semibold mb-1">Ready to generate</p>
+                <p className="text-gray-500 text-sm mb-5 max-w-xs mx-auto">
+                  AI will write a personalised message for {business.name} — WhatsApp and email.
                 </p>
-                <p className="text-gray-500 text-sm mb-5 max-w-xs mx-auto">{selectedFw.desc}</p>
                 {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
                 <button
                   onClick={generate}
-                  className={`font-bold px-6 py-3 rounded-xl transition-all text-white ${
-                    framework === 'PAS'   ? 'bg-red-600 hover:bg-red-500' :
-                    framework === 'AIDA'  ? 'bg-purple-600 hover:bg-purple-500' :
-                    framework === 'HSO'   ? 'bg-pink-600 hover:bg-pink-500' :
-                    framework === 'SPIN'  ? 'bg-cyan-600 hover:bg-cyan-500' :
-                    framework === '4PS'   ? 'bg-emerald-600 hover:bg-emerald-500' :
-                    framework === 'FAB'   ? 'bg-yellow-600 hover:bg-yellow-500' :
-                    framework === 'BAB'   ? 'bg-blue-600 hover:bg-blue-500' :
-                    'bg-orange-600 hover:bg-orange-500'
-                  }`}
+                  className="font-bold px-6 py-3 rounded-xl transition-all text-white bg-purple-600 hover:bg-purple-500"
                 >
-                  Generate {framework} Message
+                  Generate Message
                 </button>
               </div>
             )}
@@ -357,8 +257,8 @@ export default function OutreachModal({ business, onClose }: Props) {
             {loading && (
               <div className="flex flex-col items-center justify-center py-10 gap-3">
                 <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-                <p className="text-gray-400 text-sm">Writing your {framework} message…</p>
-                <p className="text-gray-600 text-xs">Weaving in SEO, AIEO & GEO angles</p>
+                <p className="text-gray-400 text-sm">Writing your message…</p>
+                <p className="text-gray-600 text-xs">Personalising for {business.name}</p>
               </div>
             )}
 
@@ -367,9 +267,6 @@ export default function OutreachModal({ business, onClose }: Props) {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp Message</h3>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-block border ${selectedFw.activeColor}`}>
-                    {selectedFw.label}
-                  </span>
                 </div>
                 <div className={`transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
                   <EditablePitch
@@ -417,9 +314,6 @@ export default function OutreachModal({ business, onClose }: Props) {
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Email Body</h3>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-block border ${selectedFw.activeColor}`}>
-                      {selectedFw.label}
-                    </span>
                   </div>
                   <div className={`transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
                     <EditablePitch

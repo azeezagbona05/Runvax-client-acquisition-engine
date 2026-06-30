@@ -41,8 +41,8 @@ export async function generate(
   const aiRes = await aiGenerate({
     system,
     prompt: user,
-    temperature: 0.9,   // matches existing outreach/route.ts
-    maxTokens: 1100,    // matches existing outreach/route.ts
+    temperature: 0.9,
+    maxTokens: 650,     // conversational messages are shorter — ~250 words total across both channels
     feature: 'outreach',
   });
 

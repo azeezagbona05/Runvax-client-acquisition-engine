@@ -1,56 +1,58 @@
 import type { ProspectContext, RouterSelection, SenderProfile } from './types';
-import { persuasionInstruction } from './persuasion';
-import { ctaInstruction } from './cta';
 import { localizationInstruction } from './localization';
 import {
-  POSITIONING,
-  DIGITAL_CONCEPTS,
-  REVIEW_ANGLE,
+  OPENER_POOL,
+  CTA_POOL,
+  CONVERSATION_STYLE,
+  OBSERVATION_PATTERN,
+  COMPETITOR_ANGLE,
   HARD_BANS,
-  whatsappFormatting,
-  checklistInstruction,
   senderIdentity,
 } from './assets';
 
-// Determines whether this intent generates multi-part output (whatsapp + email)
-// or a single message (reply, proposal, reports).
 function isMultiChannel(intent: ProspectContext['intent']): boolean {
   return intent === 'cold_first_touch' || intent === 'audit_outreach';
 }
 
-// Builds the output contract block — tells the model exactly what to return.
-function outputContractBlock(ctx: ProspectContext, profile: SenderProfile): string {
+function outputContract(ctx: ProspectContext, profile: SenderProfile): string {
+  const shortName = ctx.businessName.includes('(')
+    ? ctx.businessName.split('(')[0].trim()
+    : ctx.businessName;
+
   if (isMultiChannel(ctx.intent)) {
-    return `OUTPUT FORMAT — FOLLOW EXACTLY, NO DEVIATIONS:
+    return `OUTPUT — produce all three sections in this exact order. Do not stop after the first.
 
 ---WHATSAPP---
-[WhatsApp message — STRICTLY ≤120 words. Short paragraphs (1–2 sentences), blank line between each.
-FORMATTING: *bold* for business name / key numbers / core offer; _italic_ for emotional lines and the CTA question.
-CHECKLIST: include exactly 3 ✅ lines (4–6 words each) between the agitation and the CTA — these must be feature-specific to a ${ctx.industry} and must dismantle the top objections.
-End with the CTA on its own line in _italic_.
-Do NOT add a signature.]
+[Conversational WhatsApp message. Strictly ≤120 words. No markdown formatting required.
+Structure (natural, not labelled):
+  Line 1: opener from the pool
+  Short acknowledgement of their reviews/reputation (1-2 sentences)
+  The concrete observation — search scenario → gap → consequence (2-3 sentences)
+  If competitor data is available: one neutral sentence naming them
+  Final line: one CTA from the pool, on its own line
+Do not add a signature. Count words before outputting.]
 
 ---EMAIL-SUBJECT---
-[Subject line — max 8 words. Specific to this business and city. Intriguing, not salesy.]
+[Max 8 words. Specific to this business or city. Curious, not salesy.
+No "Quick question", "Check this out", or "I noticed..."]
 
 ---EMAIL-BODY---
-[Email body — STRICTLY ≤200 words. Short paragraphs, one idea each.
-Open with the same core hook as the WhatsApp, phrased differently.
-Include a checklist titled "Here's what your digital front door (website) would include:" with 4–6 ✅ items — concrete, ${ctx.industry}-specific, objection-dismantling.
-End with ONE clear, low-friction CTA.
-Sign: ${profile.senderName} from ${profile.businessName}.]`;
+[Conversational email. ≤180 words. Short paragraphs.
+Same structure as WhatsApp but with slightly more room:
+  Opener (different wording from WhatsApp opener)
+  Acknowledge their reviews/reputation
+  The concrete observation with one more sentence of detail
+  Competitor sentence if available
+  One sentence on what a website would change for them specifically
+  CTA (different from WhatsApp CTA)
+  Sign as ${profile.senderName} from ${profile.businessName}.]
+
+YOU MUST produce all three sections. Do not stop after the WhatsApp section.`;
   }
 
-  // Single-channel intents
-  const channelInstructions: Record<string, string> = {
-    whatsapp: `Output a single WhatsApp message, ≤120 words, formatted with *bold* and _italic_ as specified. No delimiters.`,
-    email: `Output a subject line on the first line (max 8 words), then a blank line, then the email body (≤200 words). No delimiters.`,
-    dm: `Output a single DM message, ≤80 words, casual register. No delimiters.`,
-  };
-
-  return `OUTPUT FORMAT:
-${channelInstructions[ctx.channel] ?? channelInstructions.email}
-Output only the final message — no preamble, no "here's the message:", no framework labels.`;
+  return `OUTPUT — write a single ${ctx.channel} message. No delimiters.
+≤${ctx.channel === 'whatsapp' ? '120' : ctx.channel === 'dm' ? '80' : '180'} words.
+Conversational, natural, human. Output only the message — no preamble.`;
 }
 
 export function composePrompt(
@@ -58,104 +60,62 @@ export function composePrompt(
   selection: RouterSelection,
   profile: SenderProfile,
 ): { system: string; user: string } {
-  const { primary, secondary, principle, ctaLevel, objectionReframe } = selection;
-  const { text: locText, priceBand } = localizationInstruction(ctx);
+  const { priceBand } = localizationInstruction(ctx);
 
-  // ── Block 1: Role ──────────────────────────────────────────────────────────
-  const roleBlock = `You are an elite local-business sales specialist and copywriter operating in ${ctx.city}, ${ctx.country}. You help web designers and digital agencies close deals with local SMBs. You know the local market, local pricing, and how local business owners think and communicate.`;
+  const shortName = ctx.businessName.includes('(')
+    ? ctx.businessName.split('(')[0].trim()
+    : ctx.businessName;
 
-  // ── Block 2: Framework ────────────────────────────────────────────────────
-  const frameworkBlock = [
-    `PRIMARY FRAMEWORK: ${primary.name}`,
-    `Apply in this order:`,
-    primary.structure.map((s, i) => `${i + 1}. ${s}`).join('\n'),
-    `Template guidance: ${primary.template}`,
-    secondary
-      ? `\nSECONDARY BLEND: ${secondary.name}\nWhere the primary gives structure, let ${secondary.name} add texture:\n${secondary.structure.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
-      : '',
-    `\nDo NOT label these steps in the message. The reader feels the shape; they don't see it.`,
-  ].filter(Boolean).join('\n');
-
-  // ── Block 3: Persuasion ───────────────────────────────────────────────────
-  const persuasionBlock = persuasionInstruction(principle, ctx);
-
-  // ── Block 4: Localization ─────────────────────────────────────────────────
-  const localizationBlock = locText;
-
-  // ── Block 5: CTA ──────────────────────────────────────────────────────────
-  const ctaBlock = ctaInstruction(ctaLevel, ctx);
-
-  // ── Block 6: House style ──────────────────────────────────────────────────
-  const houseStyleParts = [
-    POSITIONING,
-    DIGITAL_CONCEPTS,
-    ctx.reviewCount ? REVIEW_ANGLE : '',
-    ctx.channel === 'whatsapp' ? whatsappFormatting() : '',
-    checklistInstruction(ctx.industry),   // spike fix: always included
-    senderIdentity(profile),
-    HARD_BANS,
-  ].filter(Boolean);
-  const houseStyleBlock = houseStyleParts.join('\n\n');
-
-  // ── Block 7: Hard constraints ─────────────────────────────────────────────
-  const constraintsBlock = `RULES YOU MUST FOLLOW:
-- The business owner is the HERO of this message. You are their guide. Never position yourself as the star.
-- Use ONLY the currency symbol for their country (${ctx.country}).
-- Do NOT fabricate statistics, reviews, or results you don't have data for.
-- Do NOT use placeholder text like [INSERT NAME] — use the real data provided.
-- Do NOT mention competitor tool names (Apollo, ZoomInfo, HubSpot, etc).
-- Channel: ${ctx.channel}. Obey the word limit for this channel strictly.${objectionReframe ? `\n- OBJECTION REFRAME to use if the objection arises: "${objectionReframe}"` : ''}`;
-
-  // ── Block 8: Quality self-check ───────────────────────────────────────────
-  const qualityBlock = `QUALITY SELF-CHECK — RUN SILENTLY BEFORE WRITING. IF ANY FAILS, REWRITE.
-4 C's: Clear? Concise? Compelling? Credible?
-4 U's: Is the opener Useful? Urgent? Unique? Ultra-specific to THIS business?
-Hero check: Is the business owner the hero?
-Checklist check: Are the ✅ features concrete, industry-specific, and objection-dismantling — not generic?
-If any check fails, rewrite before outputting. Output only the final message — no preamble, no explanation, no framework labels.`;
-
-  // ── Block 9: Output contract ──────────────────────────────────────────────
-  const outputBlock = outputContractBlock(ctx, profile);
-
-  // Assemble system prompt in fixed order — never reorder.
-  // Output contract goes in the USER message (higher model attention, clearer expectation).
+  // ── System prompt: role + style + rules ───────────────────────────────────
   const system = [
-    roleBlock,
-    frameworkBlock,
-    persuasionBlock,
-    localizationBlock,
-    ctaBlock,
-    houseStyleBlock,
-    constraintsBlock,
-    qualityBlock,
+    // Role
+    `You are a professional web designer and digital consultant based in ${ctx.city}, ${ctx.country}.
+You reach out to local businesses that could benefit from a website.
+You write messages that feel like they came from a real person who genuinely noticed their business — not from a system that processed a record.`,
+
+    // Conversation style (the most important layer)
+    CONVERSATION_STYLE,
+
+    // How to construct the observation
+    OBSERVATION_PATTERN,
+
+    // Competitor angle
+    COMPETITOR_ANGLE,
+
+    // Opener and CTA pools
+    OPENER_POOL,
+    CTA_POOL,
+
+    // Hard bans
+    HARD_BANS,
+
+    // Quality check
+    `SELF-CHECK before outputting:
+— Does this sound like a real person or a script?
+— Is there one specific thing that proves you looked at THIS business?
+— Is the observation concrete (search scenario) or generic ("you're losing customers")?
+— Is there exactly one CTA question at the end?
+— Is the word count within limit?
+If any check fails, rewrite first.`,
   ].join('\n\n---\n\n');
 
-  // User prompt: prospect data as clean JSON + output contract.
-  const prospectJson = JSON.stringify({
-    businessName: ctx.businessName,
-    shortName: ctx.businessName.includes('(')
-      ? ctx.businessName.split('(')[0].trim()
-      : ctx.businessName,
+  // ── User prompt: prospect data + output contract ───────────────────────────
+  const prospectData = JSON.stringify({
+    shortName,
+    fullName: ctx.businessName,
     industry: ctx.industry,
     city: ctx.city,
     country: ctx.country,
     hasWebsite: ctx.hasWebsite,
-    socialOnly: ctx.socialOnly,
-    leadScore: ctx.leadScore,
-    ...(ctx.rating != null && { rating: ctx.rating }),
-    ...(ctx.reviewCount != null && { reviewCount: ctx.reviewCount }),
-    ...(ctx.competitorWithSite && { competitorWithSite: ctx.competitorWithSite }),
+    rating: ctx.rating ?? null,
+    reviewCount: ctx.reviewCount ?? null,
+    competitorWithSite: ctx.competitorWithSite ?? null,
     channel: ctx.channel,
     intent: ctx.intent,
-    ...(ctx.followupStep != null && { followupStep: ctx.followupStep }),
     priceBand,
   }, null, 2);
 
-  const requireAll = isMultiChannel(ctx.intent)
-    ? '\n\nYOU MUST produce all three sections in the exact order shown above.\nDo not stop after the WhatsApp section. All three are required.'
-    : '';
-
-  const user = `${prospectJson}\n\n${outputBlock}${requireAll}`;
+  const user = `${prospectData}\n\n${outputContract(ctx, profile)}\n\n${senderIdentity(profile)}`;
 
   return { system, user };
 }

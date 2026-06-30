@@ -1,93 +1,113 @@
 /**
- * ProspectAI house-style assets — ported verbatim from outreach/route.ts,
- * then extended with the checklist fix revealed by the Step-10 spike.
- *
- * All positioning, formatting rules, and AI-naming conventions live here.
- * composer.ts pulls these in at fixed positions so they can't be forgotten.
+ * ProspectAI house-style assets — conversational tone, human-first.
+ * The goal: every message reads like one person noticed one business.
  */
 
 import type { SenderProfile } from './types';
 
-// ─── Core positioning ─────────────────────────────────────────────────────────
+// ─── Opener pool — rotate, never repeat the same one twice in a row ───────────
 
-export const POSITIONING = `CORE POSITIONING — THIS IS THE HEART OF EVERY MESSAGE:
-We do NOT sell "a website". We build a DIGITAL FRONT DOOR — a digital experience centre.
-Frame it as the complete experience a customer has:
-- BEFORE coming in-store / in-location: they search Google or ask an AI assistant, they find the business, see the reviews, the photos, the story, the offer — and decide to trust it before they ever walk in.
-- DURING: the site answers their questions, shows directions, takes bookings/enquiries 24/7.
-- AFTER leaving: it keeps them connected — repeat visits, referrals, reviews, loyalty.
-This is a digital experience centre that shapes how people feel about the business at every touchpoint, not a brochure.
+export const OPENER_POOL = `OPENER — pick ONE of the following and use it exactly as the opening line.
+Choose based on what sounds most natural for this specific business and city.
+Never use the same opener twice for different messages in the same session.
 
-When you use the phrase "digital front door", always write it exactly as "digital front door (website)" so the prospect understands it means a real website.`;
+Options:
+1. "Hi [shortName], I found your business while searching on Google."
+2. "I was looking at local [industry] businesses in [city] and your listing caught my attention."
+3. "Your Google profile came up when I was browsing [industry] businesses in [city]."
+4. "I noticed [shortName] while looking at [industry] listings in [city] today."
+5. "I came across [shortName] on Google — [reviewCount] reviews is genuinely impressive."
+6. "I was doing some research on [industry] businesses in [city] and found your listing."
+7. "Your business stood out while I was looking at [industry] businesses in [city]."
+8. "I found [shortName] on Google while searching for [industry] businesses in [city]."
 
-// ─── AI/SEO/GEO concepts ──────────────────────────────────────────────────────
+Use the real data. Replace [shortName], [industry], [city], [reviewCount] with actual values.`;
 
-export const DIGITAL_CONCEPTS = `KEY 2026 DIGITAL PRESENCE CONCEPTS — weave in 1–2 naturally, never lecture:
-- SEO: Google ranks websites, not social media pages — without a website they rank for nothing.
-- AIEO (AI Engine Optimization): When people ask AI assistants "best [niche] in [city]", they pull from websites. No website = not recommended by AI.
-- GEO (Generative Engine Optimization): Structuring content so generative AI engines can discover and recommend the business.
-- A digital front door works 24/7 — answering questions, building trust, taking enquiries while they sleep.
+// ─── CTA pool — rotate across messages ───────────────────────────────────────
 
-CRITICAL: Whenever you mention AI tools or AI search, ALWAYS name concrete examples: "(like ChatGPT, Claude, Google AI)" — never say "AI tools" alone.`;
+export const CTA_POOL = `CALL TO ACTION — pick ONE from the list below. Vary it — never use the same CTA for every message.
 
-// ─── Review / social-proof angle ──────────────────────────────────────────────
+Options:
+1. "Would you be open to seeing a quick concept?"
+2. "Would you like me to show you what that could look like?"
+3. "I had a few ideas — would you be open to hearing them?"
+4. "Can I send you something I think you'd find useful?"
+5. "Would it be okay if I shared a quick idea with you?"
+6. "I actually put a few ideas together — mind if I send them over?"
 
-export const REVIEW_ANGLE = `REVIEWS / SOCIAL PROOF ANGLE (use when the business HAS Google reviews):
-- Name the review count specifically: "You've earned [N] Google reviews — that's real trust most businesses dream of."
-- Then the gap: that hard-earned trust has nowhere to land. When someone reads those reviews and searches for them, there's no website, no front door — so the trust leaks away to a competitor who has one.
-- Make it sting gently: their reputation is already built; they're just not capturing the customers it's attracting.`;
+The CTA goes on its own line at the end. One question only. No stacking.`;
 
-// ─── WhatsApp formatting ──────────────────────────────────────────────────────
+// ─── Conversation style rules ─────────────────────────────────────────────────
 
-export function whatsappFormatting(): string {
-  return `WHATSAPP FORMATTING — CRITICAL, ALWAYS APPLY:
-• Write in short paragraphs — 1 to 2 sentences per paragraph, blank line between each.
-• *asterisks* = bold — use for: business name, key numbers (review count), core offer phrase.
-• _underscores_ = italic — use for: emotional phrases, the CTA question, soft empathetic lines.
-• Never write a wall of text — if a paragraph is more than 2 sentences, split it.
-• Maximum 2 emojis per message, placed naturally mid-sentence or at the end — NOT at the start of every line.
-• Maximum 120 words total — count before outputting, shorten if needed.`;
-}
+export const CONVERSATION_STYLE = `TONE AND STYLE — THIS IS THE MOST IMPORTANT INSTRUCTION:
 
-// ─── Checklist instruction (spike fix) ───────────────────────────────────────
+Write like a real person sending a real WhatsApp message.
+Not a marketer. Not a copywriter. A person who genuinely noticed something about this business.
 
-export function checklistInstruction(industry: string): string {
-  return `OBJECTION-BUSTING CHECKLIST — MANDATORY FOR WHATSAPP AND EMAIL:
-Every message MUST include a short checklist of 3 (WhatsApp) or 4–6 (email) features.
-These features are NOT generic — they are chosen specifically to dismantle the top objections
-a ${industry} owner is likely to have: "I already have Instagram/Facebook", "I get clients by referral",
-"I'm too busy to manage a website", "it's too expensive", "I don't really need one."
-Each checklist line starts with "✅ " and is no more than 4–6 words.
-For WhatsApp: place the checklist between the agitation and the CTA question.
-For email: place under a line like "Here's what your digital front door (website) would include:".
-Make every feature concrete and category-specific to ${industry}.`;
-}
+Rules:
+• Short sentences. One idea per line. Blank line between paragraphs.
+• No marketing language. "Digital transformation", "digital front door", "leverage", "synergy" — ban them all.
+  If you mean website, say website.
+• Use "website" naturally — not jargon wrapped around it.
+• No hype. No exclamation marks on every sentence. No manufactured urgency.
+• Acknowledge their achievement before pointing out the gap. Sequence matters.
+• ONE concrete observation — specific enough that they know you actually looked.
+  Good: "someone who finds you on Google can't see your prices or book without calling"
+  Bad: "you're missing out on online visibility"
+• Emoji: zero or one. Never at the start of a line. Only if it feels genuinely natural.
+• Bold (*) and italic (_): use sparingly — at most once each per message, if at all.
+  The message should read fine without any formatting.
+• Sound like one person noticed one business. Not one system processed one record.`;
+
+// ─── Concrete observation pattern ─────────────────────────────────────────────
+
+export const OBSERVATION_PATTERN = `THE OBSERVATION — how to show the gap concretely:
+
+Do not say "you're losing customers" or "competitors are winning."
+Instead: describe the actual customer journey that breaks.
+
+Pattern: [search scenario] → [what they find] → [what's missing] → [consequence]
+
+Example for a beauty salon:
+"When someone searches for a salon in Lagos and finds your Google profile,
+they can see your reviews — but there's no website to click through to.
+That means they can't check your services, see your prices, or book an appointment
+without calling. A lot of people don't call. They just move on."
+
+Adapt this pattern to the specific industry and city in the prospect data.
+Make the consequence feel real, not dramatic.`;
+
+// ─── Competitor angle ─────────────────────────────────────────────────────────
+
+export const COMPETITOR_ANGLE = `COMPETITOR ANGLE — only use this when a competitor name is provided:
+
+If competitorWithSite is set, add one natural sentence after the observation:
+"I also noticed [competitor] nearby has a website where customers can browse and book directly."
+
+Do NOT say competitors are "beating" them or "winning." Just state the fact neutrally.
+Then follow with: "I think [shortName]'s reputation deserves that same presence."
+
+If no competitor is provided, skip this section entirely.`;
 
 // ─── Sender identity ──────────────────────────────────────────────────────────
 
 export function senderIdentity(profile: SenderProfile): string {
-  return `SENDER IDENTITY — USE IN SIGNATURES:
-Name / Agency: ${profile.businessName} (${profile.senderName})
-WhatsApp: ${profile.whatsapp}
-City: ${profile.city}
-Tagline: ${profile.tagline}
-Services: ${profile.services}
-
-Sign email naturally as ${profile.senderName} from ${profile.businessName}.
-For WhatsApp, do NOT add a formal signature — end naturally.`;
+  return `SENDER:
+Sign the email as ${profile.senderName} from ${profile.businessName}.
+WhatsApp: no signature, no sign-off — the message ends after the CTA question.`;
 }
 
-// ─── Hard bans (never allowed in any message) ─────────────────────────────────
+// ─── Hard bans ────────────────────────────────────────────────────────────────
 
-export const HARD_BANS = `HARD BANS — NEVER USE THESE:
+export const HARD_BANS = `NEVER USE:
 • "I hope this message finds you well"
 • "My name is X and I..."
 • "Are you interested in..."
 • "I wanted to reach out"
-• "Just following up"
-• "Touching base"
-• "Synergy" / "Leverage" / "Game-changer"
-• Unfilled placeholders like [INSERT NAME] — use the real data provided.
-• Competitor tool names (Apollo, ZoomInfo, HubSpot, etc).
-• Short business name rule: strip everything after "(" in the Google name — use only the short form.
-• Infer the niche if category is generic ("Business"/"Establishment") — never write "business business".`;
+• "Just following up" / "Touching base"
+• "Digital front door" / "Digital transformation" / "Game-changer"
+• "Leverage" / "Synergy" / "Empower"
+• Unfilled placeholders like [INSERT NAME] — use real data only
+• Fabricated statistics or results
+• Competitor tool names (Apollo, ZoomInfo, HubSpot, etc.)
+• The full Google business name if it has a parenthetical — strip to short name only`;
