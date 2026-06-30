@@ -18,6 +18,12 @@ model User {
   paystackCustomerCode    String?
   paystackSubscriptionCode String?
   planExpiresAt           DateTime?
+  searchLimitOverride     Int?          // null = use plan default; set to override daily search limit
+  blockedLocations        String? @db.Text  // JSON string[] of blocked location keywords
+  blockedCountries        String? @db.Text  // JSON string[] of blocked country codes e.g. ["NG","GH"]
+  registrationIp          String?           // IP address captured at signup
+  lastSeenIp              String?           // IP address from most recent sign-in
+  isSuspended             Boolean       @default(false)  // blocks sign-in and API usage when true
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   accounts       Account[]
@@ -119,6 +125,8 @@ model UserSettings {
   replyEmail   String?
   city         String?
   tagline      String?
+  jobTitle     String?
+  website      String?
 
   // Custom SMTP — overrides platform SMTP when filled in
   smtpHost     String?
@@ -132,6 +140,9 @@ model UserSettings {
   bankAccount   String?
   bankAcctName  String?
   paymentLink   String?
+
+  // Rate card — JSON blob storing packages, maintenance plans, add-ons, and payment terms
+  rateCard     Json?
 
   // Onboarding
   onboardingDone Boolean @default(false)
@@ -150,12 +161,19 @@ model DailyLog {
 }
 
 model UsageRecord {
-  id           String @id @default(cuid())
-  userId       String
-  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date         String
-  aiCalls      Int    @default(0)
-  searchCount  Int    @default(0)
+  id                  String @id @default(cuid())
+  userId              String
+  user                User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                String
+  aiCalls             Int    @default(0)
+  searchCount         Int    @default(0)
+  // Token tracking for cost calculation
+  openaiInputTokens   Int    @default(0)
+  openaiOutputTokens  Int    @default(0)
+  geminiInputTokens   Int    @default(0)
+  geminiOutputTokens  Int    @default(0)
+  // Google Places API requests (each search can make up to 3 paginated requests)
+  googlePlacesReqs    Int    @default(0)
 
   @@unique([userId, date])
 }
@@ -222,6 +240,10 @@ model PlanConfig {
   maxProspects     Int
   // Comma-separated feature ids the plan unlocks. NULL = fall back to code defaults.
   features         String?  @db.Text
+  // JSON string[] of allowed location keywords. NULL = all locations allowed.
+  allowedLocations String?  @db.Text
+  // JSON string[] of allowed country codes e.g. ["NG","KE"]. NULL = all countries allowed.
+  allowedCountries String?  @db.Text
   updatedAt        DateTime @updatedAt
 }
 

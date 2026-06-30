@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, MapPin, Loader2, Clock, Sparkles } from 'lucide-react';
+import { Search, MapPin, Loader2, Clock, Sparkles, ChevronDown, X } from 'lucide-react';
 import { SearchFormData } from '@/types';
 import { getSearchHistory, getBestTimeStatus, SearchHistoryEntry } from '@/lib/searchHistory';
 
@@ -223,9 +223,10 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
   const selectedCountry = COUNTRIES.find((c) => c.code === country) ?? COUNTRIES[0];
   const countryAreas = AREAS.filter((a) => a.country === country);
 
-  const indSuggestions = INDUSTRIES.filter(
-    (s) => industry && s.toLowerCase().includes(industry.toLowerCase())
-  );
+  // Show all categories when the field is empty/focused, filter as the user types
+  const indSuggestions = industry.trim()
+    ? INDUSTRIES.filter((s) => s.toLowerCase().includes(industry.toLowerCase()))
+    : INDUSTRIES;
 
   const query = location.toLowerCase().trim();
   const matchedAreas = query
@@ -240,7 +241,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
   const runSearch = (ind: string, loc: string, lt?: number, ln?: number) => {
     if (!ind.trim() || (!loc.trim() && !lt)) return;
     const q = lt ? `${ind} near me` : `${ind} in ${loc}`;
-    onSearch({ industry: ind, location: loc, lat: lt, lng: ln, radius, query: q });
+    onSearch({ industry: ind, location: loc, country, lat: lt, lng: ln, radius, query: q });
   };
 
   const handleCountryChange = (code: string) => {
@@ -319,7 +320,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
             <span className="bg-gradient-to-r from-purple-500 to-purple-400 bg-clip-text text-transparent">Need a Website</span>
           </h1>
           <p className="text-gray-400 text-sm md:text-base max-w-lg mx-auto">
-            Search any industry, any city. Surface businesses with zero online presence — your next paying clients.
+            Search any business type, in any city, worldwide. Find your next client in seconds.
           </p>
         </div>
 
@@ -376,28 +377,53 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
 
           <div className="grid md:grid-cols-2 gap-4">
 
-            {/* Industry */}
+            {/* Industry — searchable dropdown */}
             <div className="relative">
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
                 Industry / Business Type
               </label>
-              <input type="text" value={industry}
-                onChange={(e) => { setIndustry(e.target.value); setShowIndSug(true); setIndustryError(''); }}
-                onFocus={() => setShowIndSug(true)}
-                onBlur={() => setTimeout(() => setShowIndSug(false), 150)}
-                placeholder="e.g. Real Estate, Salons…"
-                className={`w-full bg-gray-800/80 border rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none transition-colors text-sm ${industryError ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-purple-500'}`}
-              />
+              <div className="relative">
+                <input type="text" value={industry}
+                  onChange={(e) => { setIndustry(e.target.value); setShowIndSug(true); setIndustryError(''); }}
+                  onFocus={() => setShowIndSug(true)}
+                  onBlur={() => setTimeout(() => setShowIndSug(false), 150)}
+                  placeholder="Select or search a category…"
+                  className={`w-full bg-gray-800/80 border rounded-xl pl-4 pr-16 py-3 text-white placeholder-gray-600 focus:outline-none transition-colors text-sm ${industryError ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-purple-500'}`}
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+                  {industry && (
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); setIndustry(''); setShowIndSug(true); }}
+                      className="pointer-events-auto text-gray-500 hover:text-gray-300 transition-colors">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showIndSug ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
               {industryError && (
                 <p className="text-red-400 text-xs font-semibold mt-1.5 flex items-center gap-1">
                   <span>⚠</span> {industryError}
                 </p>
               )}
               {showIndSug && indSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden">
-                  {indSuggestions.slice(0, 6).map((s) => (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-20 max-h-60 overflow-y-auto">
+                  {industry.trim() && !INDUSTRIES.includes(industry) && (
+                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/5 bg-white/[0.02]">
+                      Suggestions
+                    </div>
+                  )}
+                  {!industry.trim() && (
+                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/5 bg-white/[0.02]">
+                      All Categories
+                    </div>
+                  )}
+                  {indSuggestions.map((s) => (
                     <button key={s} type="button" onMouseDown={() => pickIndustry(s)}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-purple-600/30 hover:text-white transition-colors border-b border-white/5 last:border-0">
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors border-b border-white/5 last:border-0 ${
+                        industry === s
+                          ? 'bg-purple-600/25 text-purple-200 font-semibold'
+                          : 'text-gray-300 hover:bg-purple-600/20 hover:text-white'
+                      }`}>
                       {s}
                     </button>
                   ))}
@@ -480,50 +506,56 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
       </div>
     </div>
 
-    {/* ── Quick Industry Select (left) + Recent Searches (right) ── */}
+    {/* ── Recent Searches + SEO content strip ── */}
     {landing && (
-    <div className="max-w-5xl mx-auto px-4 py-5">
-      <div className={`grid gap-x-8 gap-y-5 ${history.length > 0 ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+    <div className="max-w-5xl mx-auto px-4 py-5 flex flex-col gap-6">
 
-        {/* Quick Industry Select (left — fills the row when no recent searches) */}
+      {/* Recent Searches — single row */}
+      {history.length > 0 && (
         <div>
-          <p className="text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-2.5">Quick Industry Select</p>
+          <p className="text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-2.5">Recent Searches</p>
           <div className="flex flex-wrap gap-2">
-            {INDUSTRIES.slice(0, 12).map((s) => (
-              <button key={s} type="button" disabled={loading} onClick={() => pickIndustry(s)}
-                className={`px-3 py-1.5 border rounded-full text-xs font-semibold transition-all disabled:opacity-40 ${
-                  industry === s
-                    ? 'bg-purple-600/30 border-purple-500/50 text-purple-300'
-                    : 'bg-white/5 hover:bg-purple-600/20 border-white/10 hover:border-purple-500/30 text-gray-400 hover:text-white'}`}>
-                {s}
+            {history.slice(0, 5).map((h, i) => (
+              <button key={i} onClick={() => pickHistory(h)} disabled={loading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 rounded-full text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-40">
+                <Clock className="w-3 h-3 text-gray-500" />
+                <span className="font-medium">{h.industry}</span>
+                <span className="text-gray-600">·</span>
+                <span>{h.location.split(',')[0]}</span>
+                {h.noWebsiteCount > 0 && (
+                  <span className="bg-orange-500/20 text-orange-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    {h.noWebsiteCount}🎯
+                  </span>
+                )}
+                <span className="text-gray-600">{timeAgoShort(h.timestamp)}</span>
               </button>
             ))}
           </div>
         </div>
+      )}
 
-        {/* Recent Searches (right — only when there's history, max 5) */}
-        {history.length > 0 && (
-          <div>
-            <p className="text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-2.5">Recent Searches</p>
-            <div className="flex flex-wrap gap-2">
-              {history.slice(0, 5).map((h, i) => (
-                <button key={i} onClick={() => pickHistory(h)} disabled={loading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/30 rounded-full text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-40">
-                  <Clock className="w-3 h-3 text-gray-500" />
-                  <span className="font-medium">{h.industry}</span>
-                  <span className="text-gray-600">·</span>
-                  <span>{h.location.split(',')[0]}</span>
-                  {h.noWebsiteCount > 0 && (
-                    <span className="bg-orange-500/20 text-orange-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                      {h.noWebsiteCount}🎯
-                    </span>
-                  )}
-                  <span className="text-gray-600">{timeAgoShort(h.timestamp)}</span>
-                </button>
-              ))}
-            </div>
+      {/* SEO / AEO content strip — visible text for search engines and AI crawlers */}
+      <div className="border-t border-white/5 pt-6 space-y-6">
+
+        {/* How it works */}
+        <div>
+          <h2 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3">How It Works</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { step: '1', title: 'Search any industry, any city', body: 'Find local businesses — restaurants, salons, law firms, clinics, gyms, and more — in any city in Nigeria, Ghana, Kenya, South Africa, UK, USA, Canada, or worldwide.' },
+              { step: '2', title: 'Identify businesses with no website', body: 'ProspectAI flags every business that has no website. These are your highest-priority leads — businesses actively missing online presence and most likely to need your services.' },
+              { step: '3', title: 'Send AI-generated cold outreach', body: 'Generate a personalized cold email, WhatsApp message, or business proposal for each lead in one click, tailored to the specific business name, industry, and location.' },
+            ].map(({ step, title, body }) => (
+              <div key={step} className="bg-white/[0.03] border border-white/8 rounded-2xl p-4">
+                <div className="w-6 h-6 rounded-full bg-purple-600/20 text-purple-400 text-xs font-black flex items-center justify-center mb-2">{step}</div>
+                <h3 className="text-white text-sm font-bold mb-1">{title}</h3>
+                <p className="text-gray-500 text-xs leading-relaxed">{body}</p>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+
+
       </div>
     </div>
     )}

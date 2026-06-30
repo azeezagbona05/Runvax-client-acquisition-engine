@@ -97,6 +97,9 @@ export interface SenderProfile {
   city: string;
   tagline: string;
   services: string;
+  jobTitle?: string;
+  website?: string;
+  rateCardSummary?: string; // pre-formatted text from rateCardSummary()
 }
 
 export interface RouterSelection {

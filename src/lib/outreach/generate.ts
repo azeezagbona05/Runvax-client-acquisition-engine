@@ -4,6 +4,7 @@ import { selectFrameworks } from './router';
 import { composePrompt } from './composer';
 import { runQualityGate } from './quality-gate';
 import { logOutreachEvent } from './telemetry';
+import { logTokenUsage } from '@/lib/usage';
 import { localizationInstruction } from './localization';
 
 function parseOutput(
@@ -78,6 +79,11 @@ export async function generate(
       provider: aiRes.provider,
     },
   };
+
+  // Log token usage fire-and-forget — never awaited in the critical path.
+  if (ctx.userId && aiRes.inputTokens != null && aiRes.outputTokens != null) {
+    void logTokenUsage(ctx.userId, aiRes.provider as 'openai' | 'gemini', aiRes.inputTokens, aiRes.outputTokens);
+  }
 
   // Fire-and-forget — never awaited in the critical path.
   void logOutreachEvent({

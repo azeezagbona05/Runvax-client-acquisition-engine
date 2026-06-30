@@ -60,6 +60,17 @@ export async function checkAndIncrementAI(req: NextRequest): Promise<UsageCheckR
     };
   }
 
+  const userRecord = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isSuspended: true },
+  });
+  if (userRecord?.isSuspended) {
+    return {
+      ok: false,
+      error: NextResponse.json({ error: 'This account has been suspended.', code: 'SUSPENDED' }, { status: 403 }),
+    };
+  }
+
   const userPlan = (token?.plan as string) ?? 'free';
   const planConfig = await getPlanConfig(userPlan);
   const date = todayStr();
@@ -138,7 +149,22 @@ export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchC
   const planConfig = await getPlanConfig(userPlan);
   const date = todayStr();
 
-  if (planConfig.searchesPerDay === Infinity) {
+  // Per-user override takes precedence over plan default.
+  const userRecord = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { searchLimitOverride: true, isSuspended: true },
+  });
+  if (userRecord?.isSuspended) {
+    return {
+      ok: false,
+      error: NextResponse.json({ error: 'This account has been suspended.', code: 'SUSPENDED' }, { status: 403 }),
+    };
+  }
+  const effectiveLimit = userRecord?.searchLimitOverride != null
+    ? userRecord.searchLimitOverride
+    : planConfig.searchesPerDay;
+
+  if (effectiveLimit === Infinity || effectiveLimit === -1) {
     await prisma.usageRecord.upsert({
       where: { userId_date: { userId, date } },
       create: { userId, date, searchCount: 1 },
@@ -153,7 +179,7 @@ export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchC
 
   const used = record?.searchCount ?? 0;
 
-  if (used >= planConfig.searchesPerDay) {
+  if (used >= effectiveLimit) {
     return {
       ok: false,
       error: NextResponse.json({
@@ -161,7 +187,7 @@ export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchC
         code: 'SEARCH_LIMIT',
         plan: userPlan,
         used,
-        limit: planConfig.searchesPerDay,
+        limit: effectiveLimit,
       }, { status: 402 }),
     };
   }
@@ -177,8 +203,133 @@ export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchC
     userId,
     plan: userPlan,
     used: used + 1,
-    limit: planConfig.searchesPerDay,
-    remaining: planConfig.searchesPerDay - used - 1,
+    limit: effectiveLimit,
+    remaining: effectiveLimit - used - 1,
     resultsPerSearch: planConfig.resultsPerSearch,
   };
+}
+
+export interface LocationCheckResult {
+  ok: boolean;
+  error?: NextResponse;
+}
+
+function locationMatches(location: string, keywords: string[]): boolean {
+  const loc = location.toLowerCase();
+  return keywords.some((kw) => loc.includes(kw.toLowerCase().trim()));
+}
+
+export async function checkLocationRestriction(
+  userId: string,
+  userPlan: string,
+  location: string,
+  country?: string,
+): Promise<LocationCheckResult> {
+  const [user, planConfig] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { blockedLocations: true, blockedCountries: true },
+    }),
+    getPlanConfig(userPlan),
+  ]);
+
+  // User-level blocked countries
+  if (country && user?.blockedCountries) {
+    try {
+      const blocked: string[] = JSON.parse(user.blockedCountries);
+      if (blocked.length > 0 && blocked.some((c) => c.toUpperCase() === country.toUpperCase())) {
+        return {
+          ok: false,
+          error: NextResponse.json({
+            error: 'Searches in this country are restricted on your account.',
+            code: 'COUNTRY_BLOCKED',
+          }, { status: 403 }),
+        };
+      }
+    } catch { /* malformed JSON — skip */ }
+  }
+
+  // User-level blocked locations
+  if (user?.blockedLocations) {
+    try {
+      const blocked: string[] = JSON.parse(user.blockedLocations);
+      if (blocked.length > 0 && locationMatches(location, blocked)) {
+        return {
+          ok: false,
+          error: NextResponse.json({
+            error: 'Searches in this location are restricted on your account.',
+            code: 'LOCATION_BLOCKED',
+          }, { status: 403 }),
+        };
+      }
+    } catch { /* malformed JSON — skip */ }
+  }
+
+  // Plan-level allowed countries (whitelist)
+  const planAllowedCountries = (planConfig as { allowedCountries?: string | null }).allowedCountries;
+  if (country && planAllowedCountries) {
+    try {
+      const allowed: string[] = JSON.parse(planAllowedCountries);
+      if (allowed.length > 0 && !allowed.some((c) => c.toUpperCase() === country.toUpperCase())) {
+        return {
+          ok: false,
+          error: NextResponse.json({
+            error: 'Searches in this country are not available on your plan.',
+            code: 'COUNTRY_NOT_ALLOWED',
+          }, { status: 403 }),
+        };
+      }
+    } catch { /* malformed JSON — skip */ }
+  }
+
+  // Plan-level allowed locations (whitelist)
+  const planAllowedLocations = (planConfig as { allowedLocations?: string | null }).allowedLocations;
+  if (planAllowedLocations) {
+    try {
+      const allowed: string[] = JSON.parse(planAllowedLocations);
+      if (allowed.length > 0 && !locationMatches(location, allowed)) {
+        return {
+          ok: false,
+          error: NextResponse.json({
+            error: 'Searches in this location are not available on your plan.',
+            code: 'LOCATION_NOT_ALLOWED',
+          }, { status: 403 }),
+        };
+      }
+    } catch { /* malformed JSON — skip */ }
+  }
+
+  return { ok: true };
+}
+
+/** Fire-and-forget: log AI token usage after a successful generation. */
+export async function logTokenUsage(
+  userId: string,
+  provider: 'openai' | 'gemini',
+  inputTokens: number,
+  outputTokens: number,
+): Promise<void> {
+  const date = todayStr();
+  const data = provider === 'openai'
+    ? { openaiInputTokens: { increment: inputTokens }, openaiOutputTokens: { increment: outputTokens } }
+    : { geminiInputTokens: { increment: inputTokens }, geminiOutputTokens: { increment: outputTokens } };
+  try {
+    await prisma.usageRecord.upsert({
+      where: { userId_date: { userId, date } },
+      create: { userId, date, ...( provider === 'openai' ? { openaiInputTokens: inputTokens, openaiOutputTokens: outputTokens } : { geminiInputTokens: inputTokens, geminiOutputTokens: outputTokens }) },
+      update: data,
+    });
+  } catch { /* never block the main response */ }
+}
+
+/** Fire-and-forget: log Google Places API requests made during a search. */
+export async function logGooglePlacesReqs(userId: string, count: number): Promise<void> {
+  const date = todayStr();
+  try {
+    await prisma.usageRecord.upsert({
+      where: { userId_date: { userId, date } },
+      create: { userId, date, googlePlacesReqs: count },
+      update: { googlePlacesReqs: { increment: count } },
+    });
+  } catch { /* never block the main response */ }
 }

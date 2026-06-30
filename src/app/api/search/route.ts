@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { searchPlaces } from '@/lib/google-places';
-import { checkAndIncrementSearch } from '@/lib/usage';
+import { checkAndIncrementSearch, checkLocationRestriction, logGooglePlacesReqs } from '@/lib/usage';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { query, lat, lng, radius = 5 } = body;
+    const { query, lat, lng, radius = 5, location, country } = body;
 
     if (!query?.trim()) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
@@ -34,6 +34,16 @@ export async function POST(req: NextRequest) {
       // Authenticated: enforce daily search limit + plan result cap
       const usage = await checkAndIncrementSearch(req);
       if (!usage.ok) return usage.error!;
+
+      // Location + country restriction check (user-level block + plan-level whitelist)
+      if (location || country) {
+        const locCheck = await checkLocationRestriction(
+          usage.userId!, usage.plan!,
+          (location as string) || '',
+          (country as string) || undefined,
+        );
+        if (!locCheck.ok) return locCheck.error!;
+      }
       resultsLimit = usage.resultsPerSearch ?? 20;
       searchMeta = {
         searchesRemaining: usage.remaining,
@@ -45,6 +55,10 @@ export async function POST(req: NextRequest) {
 
     const maxPages = resultsLimit === Infinity ? 3 : Math.ceil(resultsLimit / 20);
     const data = await searchPlaces({ query, lat, lng, radius, maxPages });
+
+    // Log actual Google Places API requests (each page = 1 request)
+    const pagesUsed = Math.min(maxPages, Math.ceil((data.places?.length ?? 0) / 20) || 1);
+    if (userId) void logGooglePlacesReqs(userId, pagesUsed);
 
     const allBusinesses = (data.places || []).map((place: unknown) => {
       const p = place as Record<string, unknown>;

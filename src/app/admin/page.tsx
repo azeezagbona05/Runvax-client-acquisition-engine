@@ -7,13 +7,26 @@ import {
   Users, CreditCard, TrendingUp, ShieldCheck,
   LogOut, RefreshCw, Search, ChevronDown, SlidersHorizontal, Check,
   Infinity as InfinityIcon, Plus, Trash2, X, AlertTriangle,
+  MapPin, Activity, Ban, Save, ShieldOff,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
 
+interface SearchActivity {
+  industry: string; location: string; totalCount: number;
+  noWebsiteCount: number; searchedAt: string;
+}
+
 interface AdminUser {
   id: string; name: string | null; email: string | null; plan: string;
   createdAt: string; emailVerified: string | null; planExpiresAt: string | null;
+  searchLimitOverride: number | null;
+  blockedLocations: string | null;
+  blockedCountries: string | null;
+  registrationIp: string | null;
+  lastSeenIp: string | null;
+  isSuspended: boolean;
+  searchHistory: SearchActivity[];
   _count: { prospects: number };
 }
 
@@ -23,11 +36,27 @@ interface AdminPayment {
   user: { name: string | null; email: string | null };
 }
 
+interface UserCost {
+  aiCalls: number;
+  searchCount: number;
+  openaiInputTokens: number;
+  openaiOutputTokens: number;
+  geminiInputTokens: number;
+  geminiOutputTokens: number;
+  googlePlacesReqs: number;
+  openaiCostUsd: number;
+  geminiCostUsd: number;
+  googleCostUsd: number;
+  totalCostUsd: number;
+}
+
 interface Stats {
   users: AdminUser[];
   payments: AdminPayment[];
   totalRevenue: number;
   byPlan: Record<string, number>;
+  costByUser: Record<string, UserCost>;
+  costSince: string;
 }
 
 const PLAN_BADGE: Record<string, string> = {
@@ -49,6 +78,8 @@ interface PlanRow {
   aiCallsPerDay: number;
   maxProspects: number;
   features: FeatureId[];
+  allowedLocations?: string[] | null;
+  allowedCountries?: string[] | null;
 }
 
 function FeatureToggles({ value, onChange }: { value: FeatureId[]; onChange: (v: FeatureId[]) => void }) {
@@ -120,6 +151,211 @@ function LimitField({ label, value, onChange }: { label: string; value: number; 
   );
 }
 
+function LocationTagInput({
+  label, values, onChange, placeholder, variant = 'block',
+}: { label: string; values: string[]; onChange: (v: string[]) => void; placeholder: string; variant?: 'block' | 'allow' }) {
+  const [input, setInput] = useState('');
+  const add = () => {
+    const v = input.trim();
+    if (v && !values.includes(v)) onChange([...values, v]);
+    setInput('');
+  };
+  const tagCls = variant === 'allow'
+    ? 'bg-green-500/15 text-green-300 border-green-500/20'
+    : 'bg-red-500/15 text-red-300 border-red-500/20';
+  const icon = variant === 'allow'
+    ? <MapPin className="w-3 h-3" />
+    : <Ban className="w-3 h-3" />;
+  return (
+    <div>
+      <p className="text-xs font-bold text-gray-400 mb-1.5">{label}</p>
+      <div className="flex gap-2 mb-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+          placeholder={placeholder}
+          className="flex-1 bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+        />
+        <button type="button" onClick={add}
+          className="px-3 py-2 bg-purple-600/20 border border-purple-500/30 text-purple-300 text-xs font-bold rounded-xl hover:bg-purple-600/30 transition-colors">
+          Add
+        </button>
+      </div>
+      {values.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {values.map((v) => (
+            <span key={v} className={`flex items-center gap-1 text-xs border px-2.5 py-1 rounded-full font-semibold ${tagCls}`}>
+              {icon} {v}
+              <button type="button" onClick={() => onChange(values.filter((x) => x !== v))}
+                className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserRestrictionsPanel({ user, onUpdated, duplicateIp }: {
+  user: AdminUser;
+  onUpdated: (u: Partial<AdminUser>) => void;
+  duplicateIp: boolean;
+}) {
+  const parse = (raw: string | null) => { try { return raw ? JSON.parse(raw) as string[] : []; } catch { return []; } };
+
+  const [searchLimit, setSearchLimit] = useState<string>(
+    user.searchLimitOverride != null ? String(user.searchLimitOverride) : ''
+  );
+  const [blockedLocs, setBlockedLocs] = useState<string[]>(parse(user.blockedLocations));
+  const [blockedCountries, setBlockedCountries] = useState<string[]>(parse(user.blockedCountries));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [suspending, setSuspending] = useState(false);
+
+  const toggleSuspend = async () => {
+    setSuspending(true);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isSuspended: !user.isSuspended }),
+      });
+      if (res.ok) onUpdated({ isSuspended: !user.isSuspended });
+    } finally { setSuspending(false); }
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          searchLimitOverride: searchLimit === '' ? null : Number(searchLimit),
+          blockedLocations: blockedLocs,
+          blockedCountries,
+        }),
+      });
+      if (res.ok) {
+        onUpdated({
+          searchLimitOverride: searchLimit === '' ? null : Number(searchLimit),
+          blockedLocations: blockedLocs.length ? JSON.stringify(blockedLocs) : null,
+          blockedCountries: blockedCountries.length ? JSON.stringify(blockedCountries) : null,
+        });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="bg-gray-950/60 border-t border-white/5 px-4 py-4 space-y-4">
+
+      {/* IP addresses + suspend toggle */}
+      <div className="flex flex-wrap gap-3 items-start justify-between">
+        <div className="flex flex-wrap gap-3 items-start">
+          <div>
+            <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Registration IP</p>
+            <span className={`text-xs font-mono px-2.5 py-1 rounded-lg border ${duplicateIp ? 'bg-red-500/15 text-red-300 border-red-500/25' : 'bg-white/[0.04] text-gray-300 border-white/8'}`}>
+              {user.registrationIp ?? '—'}
+              {duplicateIp && <span className="ml-1.5 text-red-400 font-bold">⚠ duplicate</span>}
+            </span>
+          </div>
+          {user.lastSeenIp && user.lastSeenIp !== user.registrationIp && (
+            <div>
+              <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Last Seen IP</p>
+              <span className="text-xs font-mono px-2.5 py-1 rounded-lg border bg-white/[0.04] text-gray-300 border-white/8">
+                {user.lastSeenIp}
+              </span>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={toggleSuspend}
+          disabled={suspending}
+          className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border transition-colors disabled:opacity-60 ${
+            user.isSuspended
+              ? 'bg-green-500/15 text-green-300 border-green-500/25 hover:bg-green-500/25'
+              : 'bg-red-500/15 text-red-300 border-red-500/25 hover:bg-red-500/25'
+          }`}
+        >
+          {suspending
+            ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            : user.isSuspended ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
+          {user.isSuspended ? 'Unsuspend Account' : 'Suspend Account'}
+        </button>
+      </div>
+
+      {/* Search activity */}
+      {user.searchHistory.length > 0 ? (
+        <div>
+          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+            <Activity className="w-3 h-3" /> Search Activity
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {user.searchHistory.map((h, i) => (
+              <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/[0.04] border border-white/8 rounded-xl text-xs">
+                <span className="text-white font-semibold">{h.industry}</span>
+                <span className="text-gray-600">·</span>
+                <span className="text-gray-400">{h.location.split(',')[0]}</span>
+                <span className="text-gray-600 text-[10px]">×{h.totalCount}</span>
+                {h.noWebsiteCount > 0 && (
+                  <span className="text-orange-400 text-[10px] font-bold">{h.noWebsiteCount}🎯</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-600 flex items-center gap-1.5">
+          <Activity className="w-3 h-3" /> No searches yet
+        </p>
+      )}
+
+      {/* Controls */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-white/5">
+        <div>
+          <label className="text-xs font-bold text-gray-400 block mb-1.5">
+            Daily Limit Override
+            <span className="text-gray-600 font-normal ml-1">(blank = plan default)</span>
+          </label>
+          <input
+            type="number" min={0} value={searchLimit}
+            onChange={(e) => setSearchLimit(e.target.value)}
+            placeholder="e.g. 3"
+            className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+          />
+        </div>
+
+        <LocationTagInput
+          label="Blocked Locations"
+          values={blockedLocs}
+          onChange={setBlockedLocs}
+          placeholder="e.g. Lagos, Lekki…"
+        />
+
+        <LocationTagInput
+          label="Blocked Countries"
+          values={blockedCountries}
+          onChange={setBlockedCountries}
+          placeholder="e.g. NG, GH, KE…"
+        />
+      </div>
+
+      <div className="flex justify-end">
+        <button onClick={save} disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white text-sm font-bold rounded-xl transition-colors">
+          {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : saved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+          {saved ? 'Saved' : 'Save Restrictions'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PlanCard({ row, onSaved, onDeleted }: { row: PlanRow; onSaved: (r: PlanRow) => void; onDeleted: () => void }) {
   const meta = PLAN_META[row.planId] ?? { color: 'text-gray-300', border: 'border-white/10' };
   const isFree = row.planId === 'free';
@@ -134,6 +370,8 @@ function PlanCard({ row, onSaved, onDeleted }: { row: PlanRow; onSaved: (r: Plan
     maxProspects:     row.maxProspects,
     features:         row.features ?? [],
   });
+  const [allowedLocations, setAllowedLocations] = useState<string[]>(row.allowedLocations ?? []);
+  const [allowedCountries, setAllowedCountries] = useState<string[]>(row.allowedCountries ?? []);
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -149,6 +387,8 @@ function PlanCard({ row, onSaved, onDeleted }: { row: PlanRow; onSaved: (r: Plan
         body: JSON.stringify({
           ...fields,
           price: fields.price.trim() || null,
+          allowedLocations,
+          allowedCountries,
         }),
       });
       if (res.ok) {
@@ -250,6 +490,23 @@ function PlanCard({ row, onSaved, onDeleted }: { row: PlanRow; onSaved: (r: Plan
       <LimitField label="Max saved prospects" value={fields.maxProspects}     onChange={(v) => setF('maxProspects')(v)} />
 
       <FeatureToggles value={fields.features} onChange={(v) => setFields((f) => ({ ...f, features: v }))} />
+
+      <div className="border-t border-white/8 pt-4">
+        <LocationTagInput
+          label="Allowed Locations (whitelist — blank = all allowed)"
+          values={allowedLocations}
+          onChange={setAllowedLocations}
+          placeholder="e.g. Lagos, Accra, London…"
+          variant="allow"
+        />
+        <LocationTagInput
+          label="Allowed Countries (whitelist — blank = all allowed)"
+          values={allowedCountries}
+          onChange={setAllowedCountries}
+          placeholder="e.g. NG, GH, KE, ZA…"
+          variant="allow"
+        />
+      </div>
 
       <button
         onClick={handleSave}
@@ -410,7 +667,8 @@ export default function AdminPage() {
   const router = useRouter();
   const [stats, setStats]       = useState<Stats | null>(null);
   const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<'users' | 'payments' | 'revenue' | 'plans'>('users');
+  const [tab, setTab]           = useState<'users' | 'payments' | 'revenue' | 'plans' | 'costs'>('users');
+  const [costSince, setCostSince] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Users filter state
   const [search, setSearch]         = useState('');
@@ -442,12 +700,15 @@ export default function AdminPage() {
 
   // Inline plan-change state: userId → loading
   const [planChanging, setPlanChanging] = useState<Record<string, boolean>>({});
+  // Expanded user rows for restrictions panel
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
   const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
 
-  const loadStats = () => {
+  const loadStats = (since?: string) => {
     setLoading(true);
-    fetch('/api/admin/stats')
+    const date = since ?? costSince;
+    fetch(`/api/admin/stats?costSince=${date}`)
       .then((r) => {
         if (r.status === 403) { router.replace('/admin/login'); return null; }
         return r.json() as Promise<Stats>;
@@ -508,6 +769,16 @@ export default function AdminPage() {
       return matchesPlan && matchesSearch;
     });
   }, [stats, search, planFilter]);
+
+  // IPs that appear on more than one account — flags potential multi-registration
+  const duplicateIpSet = useMemo(() => {
+    if (!stats) return new Set<string>();
+    const ipCount: Record<string, number> = {};
+    for (const u of stats.users) {
+      if (u.registrationIp) ipCount[u.registrationIp] = (ipCount[u.registrationIp] ?? 0) + 1;
+    }
+    return new Set(Object.entries(ipCount).filter(([, n]) => n > 1).map(([ip]) => ip));
+  }, [stats]);
 
   // ── Monthly revenue ──────────────────────────────────────────────────────
   const monthlyRevenue = useMemo(() => {
@@ -579,7 +850,7 @@ export default function AdminPage() {
             <p className="text-gray-500 text-sm">All users, plans, and revenue</p>
           </div>
           <button
-            onClick={loadStats}
+            onClick={() => loadStats()}
             disabled={loading}
             className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
           >
@@ -632,6 +903,7 @@ export default function AdminPage() {
             ['payments', `Payments (${payments.length})`],
             ['revenue',  'Revenue by Month'],
             ['plans',    'Plan Limits'],
+            ['costs',    'API Costs'],
           ] as const).map(([t, label]) => (
             <button
               key={t}
@@ -691,57 +963,108 @@ export default function AdminPage() {
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Joined</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Expires</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Change Plan</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Activity</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {filteredUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-white">{u.name ?? '—'}</div>
-                          <div className="text-xs text-gray-500">{u.email}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded ${PLAN_BADGE[u.plan] ?? PLAN_BADGE.free}`}>
-                            {u.plan.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-400 font-semibold">{u._count.prospects}</td>
-                        <td className="px-4 py-3">
-                          {u.emailVerified
-                            ? <span className="text-green-400 text-xs font-semibold">✓ Yes</span>
-                            : <span className="text-red-400 text-xs font-semibold">✗ No</span>}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
-                          {new Date(u.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
-                          {u.planExpiresAt
-                            ? new Date(u.planExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-                            : '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="relative">
-                            <select
-                              value={u.plan}
-                              disabled={planChanging[u.id]}
-                              onChange={(e) => handlePlanChange(u.id, e.target.value as Plan)}
-                              className="appearance-none text-xs font-bold bg-gray-800 border border-white/10 text-white rounded-lg pl-3 pr-7 py-1.5 focus:outline-none focus:border-purple-500/50 disabled:opacity-50 cursor-pointer hover:border-white/25 transition-colors"
-                            >
-                              {PLAN_OPTIONS.map((p) => (
-                                <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-                              ))}
-                            </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
-                            {planChanging[u.id] && (
-                              <RefreshCw className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-purple-400 animate-spin" />
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                  <tbody>
+                    {filteredUsers.map((u) => {
+                      const isExpanded = expandedUser === u.id;
+                      const hasRestrictions = u.searchLimitOverride != null || !!u.blockedLocations || u.isSuspended;
+                      return (
+                        <>
+                          <tr key={u.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${isExpanded ? 'bg-white/[0.03]' : ''} ${u.isSuspended ? 'bg-red-500/[0.04]' : ''}`}>
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-white flex items-center gap-1.5">
+                                {u.name ?? '—'}
+                                {u.isSuspended && (
+                                  <span className="flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
+                                    <ShieldOff className="w-2.5 h-2.5" /> SUSPENDED
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500">{u.email}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded ${PLAN_BADGE[u.plan] ?? PLAN_BADGE.free}`}>
+                                {u.plan.toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-400 font-semibold">{u._count.prospects}</td>
+                            <td className="px-4 py-3">
+                              {u.emailVerified
+                                ? <span className="text-green-400 text-xs font-semibold">✓ Yes</span>
+                                : <span className="text-red-400 text-xs font-semibold">✗ No</span>}
+                            </td>
+                            <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                              {new Date(u.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </td>
+                            <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                              {u.planExpiresAt
+                                ? new Date(u.planExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : '—'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="relative">
+                                <select
+                                  value={u.plan}
+                                  disabled={planChanging[u.id]}
+                                  onChange={(e) => handlePlanChange(u.id, e.target.value as Plan)}
+                                  className="appearance-none text-xs font-bold bg-gray-800 border border-white/10 text-white rounded-lg pl-3 pr-7 py-1.5 focus:outline-none focus:border-purple-500/50 disabled:opacity-50 cursor-pointer hover:border-white/25 transition-colors"
+                                >
+                                  {PLAN_OPTIONS.map((p) => (
+                                    <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
+                                {planChanging[u.id] && (
+                                  <RefreshCw className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-purple-400 animate-spin" />
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => setExpandedUser(isExpanded ? null : u.id)}
+                                className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-xl border transition-colors ${
+                                  isExpanded
+                                    ? 'bg-purple-600/20 text-purple-300 border-purple-500/30'
+                                    : hasRestrictions
+                                    ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
+                                    : 'bg-white/5 text-gray-500 border-white/10 hover:text-white hover:bg-white/10'
+                                }`}
+                              >
+                                {hasRestrictions ? <Ban className="w-3 h-3" /> : <Activity className="w-3 h-3" />}
+                                {u.searchHistory.length > 0 ? u.searchHistory.length : '—'}
+                                <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${u.id}-expand`} className="border-b border-white/5">
+                              <td colSpan={8} className="p-0">
+                                <UserRestrictionsPanel
+                                  user={u}
+                                  duplicateIp={!!(u.registrationIp && duplicateIpSet.has(u.registrationIp))}
+                                  onUpdated={(updates) => {
+                                    setStats((prev) => {
+                                      if (!prev) return prev;
+                                      return {
+                                        ...prev,
+                                        users: prev.users.map((x) =>
+                                          x.id === u.id ? { ...x, ...updates } : x
+                                        ),
+                                      };
+                                    });
+                                  }}
+                                />
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
                     {filteredUsers.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-gray-600 text-sm">
+                        <td colSpan={8} className="px-4 py-10 text-center text-gray-600 text-sm">
                           {search || planFilter !== 'all' ? 'No users match your filters' : 'No users yet'}
                         </td>
                       </tr>
@@ -975,6 +1298,141 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {/* ── API COSTS TAB ── */}
+        {tab === 'costs' && (() => {
+          const costByUser = stats.costByUser ?? {};
+          const rows = users.map((u) => ({
+            user: u,
+            cost: costByUser[u.id] ?? {
+              aiCalls: 0, searchCount: 0,
+              openaiInputTokens: 0, openaiOutputTokens: 0,
+              geminiInputTokens: 0, geminiOutputTokens: 0,
+              googlePlacesReqs: 0,
+              openaiCostUsd: 0, geminiCostUsd: 0, googleCostUsd: 0, totalCostUsd: 0,
+            },
+          })).sort((a, b) => b.cost.totalCostUsd - a.cost.totalCostUsd);
+
+          const grandTotal = rows.reduce((s, r) => s + r.cost.totalCostUsd, 0);
+          const totalOpenai = rows.reduce((s, r) => s + r.cost.openaiCostUsd, 0);
+          const totalGemini = rows.reduce((s, r) => s + r.cost.geminiCostUsd, 0);
+          const totalGoogle = rows.reduce((s, r) => s + r.cost.googleCostUsd, 0);
+
+          const fmt = (n: number) => `$${n.toFixed(4)}`;
+          const fmtBig = (n: number) => `$${n.toFixed(2)}`;
+
+          return (
+            <div className="space-y-4">
+              {/* Date filter */}
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">Tracking from</span>
+                <input
+                  type="date"
+                  value={costSince}
+                  onChange={(e) => {
+                    setCostSince(e.target.value);
+                    loadStats(e.target.value);
+                  }}
+                  className="bg-gray-800 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500/60"
+                />
+                <span className="text-xs text-gray-600">— only usage on or after this date is counted</span>
+              </div>
+
+              {/* Cost summary cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { label: 'Total API Cost', value: fmtBig(grandTotal), color: 'text-red-400' },
+                  { label: 'OpenAI (GPT-4o)', value: fmtBig(totalOpenai), color: 'text-blue-400' },
+                  { label: 'Gemini Flash', value: fmtBig(totalGemini), color: 'text-green-400' },
+                  { label: 'Google Places', value: fmtBig(totalGoogle), color: 'text-yellow-400' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-gray-900 border border-white/8 rounded-xl p-4">
+                    <p className="text-xs text-gray-500 mb-1">{label}</p>
+                    <p className={`text-2xl font-black ${color}`}>{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pricing reference */}
+              <div className="bg-gray-900/50 border border-white/8 rounded-xl p-3 text-xs text-gray-500 flex flex-wrap gap-4">
+                <span>GPT-4o: <strong className="text-gray-400">$2.50/1M input · $10.00/1M output</strong></span>
+                <span>Gemini Flash: <strong className="text-gray-400">$0.10/1M input · $0.40/1M output</strong></span>
+                <span>Google Places: <strong className="text-gray-400">$0.032/request</strong></span>
+                <span className="text-gray-600">Token tracking starts from now — historical calls show $0.00</span>
+              </div>
+
+              {/* Per-user cost table */}
+              <div className="bg-gray-900 border border-white/8 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/8 text-left">
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500">User</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500">Plan</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">AI Calls</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Searches</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">OpenAI tokens</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">OpenAI cost</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Gemini tokens</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Gemini cost</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Places reqs</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Places cost</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 text-right">Total cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map(({ user: u, cost: c }) => {
+                        const openaiTokens = c.openaiInputTokens + c.openaiOutputTokens;
+                        const geminiTokens = c.geminiInputTokens + c.geminiOutputTokens;
+                        return (
+                          <tr key={u.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
+                            <td className="px-4 py-3">
+                              <p className="text-white font-medium truncate max-w-[180px]">{u.name || u.email}</p>
+                              {u.name && <p className="text-xs text-gray-600 truncate max-w-[180px]">{u.email}</p>}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${PLAN_BADGE[u.plan] ?? 'bg-gray-700 text-gray-300'}`}>
+                                {u.plan}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-400">{c.aiCalls.toLocaleString()}</td>
+                            <td className="px-4 py-3 text-right text-gray-400">{c.searchCount.toLocaleString()}</td>
+                            <td className="px-4 py-3 text-right text-gray-400">{openaiTokens.toLocaleString()}</td>
+                            <td className={`px-4 py-3 text-right font-mono text-xs ${c.openaiCostUsd > 0.01 ? 'text-orange-400' : 'text-gray-500'}`}>
+                              {fmt(c.openaiCostUsd)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-400">{geminiTokens.toLocaleString()}</td>
+                            <td className={`px-4 py-3 text-right font-mono text-xs ${c.geminiCostUsd > 0.001 ? 'text-yellow-400' : 'text-gray-500'}`}>
+                              {fmt(c.geminiCostUsd)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-400">{c.googlePlacesReqs.toLocaleString()}</td>
+                            <td className={`px-4 py-3 text-right font-mono text-xs ${c.googleCostUsd > 0.05 ? 'text-yellow-400' : 'text-gray-500'}`}>
+                              {fmt(c.googleCostUsd)}
+                            </td>
+                            <td className={`px-4 py-3 text-right font-mono text-sm font-bold ${c.totalCostUsd > 0.5 ? 'text-red-400' : c.totalCostUsd > 0.1 ? 'text-orange-400' : 'text-gray-400'}`}>
+                              {fmtBig(c.totalCostUsd)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-white/10 bg-white/[0.02]">
+                        <td className="px-4 py-3 text-xs font-bold text-gray-400" colSpan={5}>TOTAL</td>
+                        <td className="px-4 py-3 text-right font-mono text-xs font-bold text-blue-400">{fmtBig(totalOpenai)}</td>
+                        <td className="px-4 py-3" />
+                        <td className="px-4 py-3 text-right font-mono text-xs font-bold text-green-400">{fmtBig(totalGemini)}</td>
+                        <td className="px-4 py-3" />
+                        <td className="px-4 py-3 text-right font-mono text-xs font-bold text-yellow-400">{fmtBig(totalGoogle)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-sm font-bold text-red-400">{fmtBig(grandTotal)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

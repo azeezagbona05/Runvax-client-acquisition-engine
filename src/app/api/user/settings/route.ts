@@ -18,6 +18,7 @@ export async function GET() {
       dailyGoal: 10, avgDealValue: 300000, closeRatePct: 10,
       senderName: null, businessName: null, whatsapp: null,
       replyEmail: null, city: null, tagline: null,
+      jobTitle: null, website: null,
       smtpHost: null, smtpPort: null, smtpUser: null,
       smtpPass: null, smtpFrom: null,
       bankName: null, bankAccount: null, bankAcctName: null, paymentLink: null,
@@ -43,6 +44,8 @@ export async function PATCH(req: NextRequest) {
     replyEmail?: string;
     city?: string;
     tagline?: string;
+    jobTitle?: string;
+    website?: string;
     smtpHost?: string;
     smtpPort?: number;
     smtpUser?: string;
@@ -53,6 +56,7 @@ export async function PATCH(req: NextRequest) {
     bankAcctName?: string;
     paymentLink?: string;
     onboardingDone?: boolean;
+    rateCard?: unknown;
   };
 
   const data = Object.fromEntries(

@@ -33,6 +33,8 @@ export interface GenerateResult {
   text: string;
   provider: AIProvider;
   sources?: AISource[];    // grounding citations (Gemini search)
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash';
@@ -76,7 +78,12 @@ async function generateOpenAI(o: GenerateOptions): Promise<GenerateResult> {
       { role: 'user' as const, content: o.prompt },
     ],
   });
-  return { text: completion.choices[0]?.message?.content ?? '', provider: 'openai' };
+  return {
+    text: completion.choices[0]?.message?.content ?? '',
+    provider: 'openai',
+    inputTokens: completion.usage?.prompt_tokens,
+    outputTokens: completion.usage?.completion_tokens,
+  };
 }
 
 interface GeminiPart { text?: string }
@@ -86,6 +93,10 @@ interface GeminiResponse {
     content?: { parts?: GeminiPart[] };
     groundingMetadata?: { groundingChunks?: GeminiChunk[] };
   }>;
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+  };
 }
 
 async function generateGemini(o: GenerateOptions): Promise<GenerateResult> {
@@ -125,7 +136,13 @@ async function generateGemini(o: GenerateOptions): Promise<GenerateResult> {
     .map((w) => ({ uri: w.uri, title: w.title || w.uri }))
     .filter((s) => (seen.has(s.uri) ? false : (seen.add(s.uri), true)));
 
-  return { text, provider: 'gemini', sources };
+  return {
+    text,
+    provider: 'gemini',
+    sources,
+    inputTokens: data.usageMetadata?.promptTokenCount,
+    outputTokens: data.usageMetadata?.candidatesTokenCount,
+  };
 }
 
 /** Generate text with the resolved provider, with a resilient fallback to the other. */

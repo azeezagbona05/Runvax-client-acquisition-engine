@@ -45,7 +45,7 @@ Same structure as WhatsApp but with slightly more room:
   Competitor sentence if available
   One sentence on what a website would change for them specifically
   CTA (different from WhatsApp CTA)
-  Sign as ${profile.senderName} from ${profile.businessName}.]
+  Email signature exactly as specified in SENDER block below.]
 
 YOU MUST produce all three sections. Do not stop after the WhatsApp section.`;
   }
@@ -115,7 +115,11 @@ If any check fails, rewrite first.`,
     priceBand,
   }, null, 2);
 
-  const user = `${prospectData}\n\n${outputContract(ctx, profile)}\n\n${senderIdentity(profile)}`;
+  const rateCardBlock = ctx.intent === 'proposal' && profile.rateCardSummary
+    ? `\n\nUSE THIS RATE CARD when writing the proposal — match the right package to the business type and size:\n${profile.rateCardSummary}`
+    : '';
+
+  const user = `${prospectData}${rateCardBlock}\n\n${outputContract(ctx, profile)}\n\n${senderIdentity(profile)}`;
 
   return { system, user };
 }

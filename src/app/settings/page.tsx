@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark, RotateCcw } from 'lucide-react';
+import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark, RotateCcw, Receipt } from 'lucide-react';
+import RateCardTab from '@/components/RateCardTab';
+import { DEFAULT_RATE_CARD } from '@/lib/rateCard';
+import type { RateCard } from '@/lib/rateCard';
 
 interface Settings {
   // Goals
@@ -16,6 +19,8 @@ interface Settings {
   replyEmail: string;
   city: string;
   tagline: string;
+  jobTitle: string;
+  website: string;
   // SMTP
   smtpHost: string;
   smtpPort: number;
@@ -31,12 +36,12 @@ interface Settings {
 
 const DEFAULTS: Settings = {
   dailyGoal: 10, avgDealValue: 300000, closeRatePct: 10,
-  senderName: '', businessName: '', whatsapp: '', replyEmail: '', city: '', tagline: '',
+  senderName: '', businessName: '', whatsapp: '', replyEmail: '', city: '', tagline: '', jobTitle: '', website: '',
   smtpHost: '', smtpPort: 587, smtpUser: '', smtpPass: '', smtpFrom: '',
   bankName: '', bankAccount: '', bankAcctName: '', paymentLink: '',
 };
 
-type Tab = 'profile' | 'email' | 'payment' | 'goals';
+type Tab = 'profile' | 'email' | 'payment' | 'goals' | 'ratecard';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -50,6 +55,7 @@ export default function SettingsPage() {
   const [testMsg, setTestMsg] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [hasExistingPass, setHasExistingPass] = useState(false);
+  const [rateCard, setRateCard] = useState<RateCard>(DEFAULT_RATE_CARD);
 
   useEffect(() => {
     fetch('/api/user/settings')
@@ -63,6 +69,7 @@ export default function SettingsPage() {
           ),
           smtpPass: '', // never pre-fill password field
         }));
+        if (d.rateCard) setRateCard(d.rateCard as RateCard);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -78,7 +85,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/user/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ ...settings, rateCard }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to save');
       setSaved(true);
@@ -142,6 +149,7 @@ export default function SettingsPage() {
     { id: 'email', label: 'Email & SMTP', icon: Mail },
     { id: 'payment', label: 'Bank & Payment', icon: Landmark },
     { id: 'goals', label: 'Goals', icon: Target },
+    { id: 'ratecard', label: 'Rate Card', icon: Receipt },
   ];
 
   return (
@@ -214,6 +222,17 @@ export default function SettingsPage() {
               <div>
                 <label className={labelCls}>Tagline <span className="text-gray-600 font-normal">(shown in email signature)</span></label>
                 <input className={inputCls} value={settings.tagline} onChange={(e) => set('tagline', e.target.value)} placeholder="e.g. Building digital front doors for Nigerian businesses" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Job Title <span className="text-gray-600 font-normal">(email signature)</span></label>
+                  <input className={inputCls} value={settings.jobTitle} onChange={(e) => set('jobTitle', e.target.value)} placeholder="e.g. Team Lead - Website Development" />
+                </div>
+                <div>
+                  <label className={labelCls}>Website <span className="text-gray-600 font-normal">(email signature)</span></label>
+                  <input className={inputCls} value={settings.website} onChange={(e) => set('website', e.target.value)} placeholder="e.g. www.harzotech.com" />
+                </div>
               </div>
 
               {/* Replay onboarding */}
@@ -408,6 +427,19 @@ export default function SettingsPage() {
                   </p>
                 )}
               </div>
+            </>
+          )}
+
+          {/* ── RATE CARD TAB ── */}
+          {tab === 'ratecard' && (
+            <>
+              <div className="pb-4 border-b border-white/8">
+                <p className="text-white font-semibold text-sm">Rate Card</p>
+                <p className="text-gray-500 text-xs mt-1">
+                  Your pricing, packages, and terms — used in AI-generated proposals and outreach.
+                </p>
+              </div>
+              <RateCardTab rateCard={rateCard} onChange={setRateCard} />
             </>
           )}
 

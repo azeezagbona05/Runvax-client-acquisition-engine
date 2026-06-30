@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { checkAndIncrementAI } from '@/lib/usage';
+import { checkAndIncrementAI, logTokenUsage } from '@/lib/usage';
 import { Business } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -64,6 +64,12 @@ Create TWO sections in your response:
     });
 
     const text = completion.choices[0]?.message?.content ?? '';
+
+    // Log token usage fire-and-forget
+    if (usage.userId && completion.usage) {
+      void logTokenUsage(usage.userId, 'openai', completion.usage.prompt_tokens, completion.usage.completion_tokens);
+    }
+
     return NextResponse.json({ prompt: text });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';

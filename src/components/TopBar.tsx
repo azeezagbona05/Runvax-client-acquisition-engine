@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
-import { Search, Bell, ChevronRight } from 'lucide-react';
+import { Search, Bell, ChevronRight, Zap } from 'lucide-react';
 import type { SavedProspect } from '@/types';
 
 function todayStr(): string {
@@ -74,16 +74,28 @@ export default function TopBar() {
     );
   }
 
+  const remaining = usage?.searchesRemaining;
+  const unlimited = usage != null && usage.searchesLimit === null;
+
   const dueProspects = prospects
     .map((p) => ({ p, steps: dueSteps(p) }))
     .filter((x) => x.steps.length > 0);
-  const notifCount = dueProspects.length;
+
+  // Quota alert: warn at ≤3 searches left (not for unlimited plans)
+  const quotaAlert =
+    !unlimited && remaining != null && remaining <= 3
+      ? remaining === 0
+        ? { msg: "You've used all your searches for today. Resets at midnight.", color: 'red' as const }
+        : remaining === 1
+        ? { msg: "Only 1 search left today — upgrade to keep going.", color: 'red' as const }
+        : { msg: `Only ${remaining} searches left today. Upgrade for more.`, color: 'orange' as const }
+      : null;
+
+  const notifCount = dueProspects.length + (quotaAlert ? 1 : 0);
 
   const initials = session.user.name?.[0]?.toUpperCase() ?? session.user.email?.[0]?.toUpperCase() ?? '?';
 
   // Searches-left pill state
-  const remaining = usage?.searchesRemaining;
-  const unlimited = usage != null && usage.searchesLimit === null;
   const pillColor =
     unlimited                       ? 'text-purple-300 bg-purple-600/15 border-purple-500/25' :
     remaining == null               ? 'text-gray-400 bg-white/5 border-white/10' :
@@ -125,9 +137,12 @@ export default function TopBar() {
         {showNotif && (
           <div className="absolute right-0 top-full mt-2 w-80 bg-gray-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
             <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between">
-              <span className="text-sm font-bold text-white">Follow-ups due</span>
-              <span className="text-[11px] text-gray-500">{notifCount} pending</span>
+              <span className="text-sm font-bold text-white">Notifications</span>
+              {notifCount > 0 && (
+                <span className="text-[11px] text-gray-500">{notifCount} unread</span>
+              )}
             </div>
+
             {notifCount === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Bell className="w-7 h-7 text-gray-600 mx-auto mb-2" />
@@ -135,6 +150,26 @@ export default function TopBar() {
               </div>
             ) : (
               <div className="max-h-72 overflow-y-auto">
+
+                {/* Quota warning */}
+                {quotaAlert && (
+                  <Link
+                    href="/pricing"
+                    onClick={() => setShowNotif(false)}
+                    className="flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 ${quotaAlert.color === 'red' ? 'bg-red-500/15 text-red-400' : 'bg-orange-500/15 text-orange-400'}`}>
+                      <Zap className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-semibold ${quotaAlert.color === 'red' ? 'text-red-400' : 'text-orange-400'}`}>Search quota low</p>
+                      <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">{quotaAlert.msg}</p>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-gray-600 flex-shrink-0 mt-0.5" />
+                  </Link>
+                )}
+
+                {/* Follow-ups */}
                 {dueProspects.slice(0, 6).map(({ p, steps }) => (
                   <Link
                     key={p.business.id}
@@ -154,6 +189,7 @@ export default function TopBar() {
                 ))}
               </div>
             )}
+
             <Link
               href="/pipeline"
               onClick={() => setShowNotif(false)}
