@@ -3,16 +3,23 @@ import nodemailer from 'nodemailer';
 import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
 import { getEffectiveProfile } from '@/lib/userProfile';
+import { requireFeature } from '@/lib/usage';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const { to, subject, body, fromName } = await req.json() as {
-    to: string; subject: string; body: string; fromName?: string;
+  const { to, subject, body, fromName, bulk } = await req.json() as {
+    to: string; subject: string; body: string; fromName?: string; bulk?: boolean;
   };
 
   if (!to || !subject || !body) {
     return NextResponse.json({ error: 'Missing required fields: to, subject, body' }, { status: 400 });
+  }
+
+  // Bulk (Email Blast) is a Pro feature; single direct sends stay open to all plans.
+  if (bulk) {
+    const gate = await requireFeature(req, 'emailBlast');
+    if (!gate.ok) return gate.error!;
   }
 
   // Try user's custom SMTP first, fall back to platform SMTP

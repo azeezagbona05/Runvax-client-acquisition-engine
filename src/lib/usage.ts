@@ -2,6 +2,41 @@ import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from './prisma';
 import { getPlanConfig } from './plans';
+import { FeatureId, FEATURE_LABELS } from './features';
+
+export interface FeatureCheckResult {
+  ok: boolean;
+  error?: NextResponse;
+  plan?: string;
+}
+
+/**
+ * Gate an API route behind a plan feature. Returns a 401 if not signed in and a
+ * 402 (code FEATURE_LOCKED) if the user's plan doesn't include the feature.
+ */
+export async function requireFeature(req: NextRequest, feature: FeatureId): Promise<FeatureCheckResult> {
+  const token = await getToken({ req });
+  const userId = (token?.id ?? token?.sub) as string | undefined;
+  if (!userId) {
+    return { ok: false, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const plan = (token?.plan as string) ?? 'free';
+  const planConfig = await getPlanConfig(plan);
+  if (!planConfig.features.includes(feature)) {
+    return {
+      ok: false,
+      error: NextResponse.json({
+        error: `${FEATURE_LABELS[feature]} is available on Pro and Agency plans. Upgrade to unlock it.`,
+        code: 'FEATURE_LOCKED',
+        feature,
+        plan,
+      }, { status: 402 }),
+    };
+  }
+
+  return { ok: true, plan };
+}
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];

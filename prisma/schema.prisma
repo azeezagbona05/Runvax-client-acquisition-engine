@@ -220,6 +220,8 @@ model PlanConfig {
   resultsPerSearch Int
   aiCallsPerDay    Int
   maxProspects     Int
+  // Comma-separated feature ids the plan unlocks. NULL = fall back to code defaults.
+  features         String?  @db.Text
   updatedAt        DateTime @updatedAt
 }
 

@@ -136,6 +136,9 @@ Your messages:
 ✅ Show the prospect you actually looked at their business
 ✅ Educate without preaching — one sharp insight, delivered naturally
 ✅ Position the offer as a DIGITAL FRONT DOOR / digital experience centre — NEVER as "just a website"
+✅ When you use the phrase "digital front door", always write it exactly as "digital front door (website)" so the prospect understands it means a real website
+✅ Whenever you mention AI tools, AI search, or being found/recommended by AI, ALWAYS name concrete examples in brackets: "(like ChatGPT, Claude, Google AI)" — never say "AI tools" on its own
+✅ VARY every single message — never reuse the same opening line, sentence shapes, emojis, or structure between prospects. Each message must read as individually hand-written, never a fill-in-the-blank template
 ✅ Have a soft, curious CTA — opening a conversation, not closing a sale
 ✅ Sound like a human wrote them, not a template
 ✅ Never use phrases like "I hope this message finds you well", "My name is X and I...", "Are you interested in..."
@@ -157,26 +160,32 @@ ${frameworkGuide}
 
 ${business.reviewCount ? `IMPORTANT: This business has ${business.reviewCount} Google reviews (${business.rating}/5). OPEN by acknowledging this specific number as earned trust, then reveal the gap — that trust has no digital front door to land on. Use the real number.` : `This business has few/no Google reviews — focus on visibility and being found, not on review count.`}
 
+First, silently work out the 4-6 features a ${business.category} website most needs — chosen specifically to DISMANTLE this prospect's likely objections ("it's too expensive", "I already have Instagram/Facebook", "I'm too busy", "I don't really need one", "I get clients by referral"). Make every feature concrete and category-specific (e.g. for real estate: live property listings with photos, WhatsApp enquiry button, virtual tour gallery, mortgage/price calculator, lead-capture form, mobile-first design, Google + AI visibility). You will use these in the checklist below.
+
 Write TWO outreach messages using the ${framework} framework:
 
 ---WHATSAPP---
-[WhatsApp message — MAX 100 words. Structure it in SHORT paragraphs (1-2 sentences each), separated by blank lines.
+[WhatsApp message — MAX 130 words. Structure it in SHORT paragraphs (1-2 sentences each), separated by blank lines. Treat the structure as a LOOSE guide — vary your opening, phrasing and flow so it never feels templated.
 
 FORMATTING RULES — apply these exactly:
 • Use *asterisks* for bold: wrap key stats, the business name, and the core value proposition in *bold*
 • Use _underscores_ for italic: wrap emotional or soft phrases in _italic_
 • Each paragraph = one idea. Never write a wall of text.
 • 1-2 emojis maximum, placed naturally (not at the start of every line)
+• Include a SHORT checklist of 3 of the most objection-busting features, each on its own line starting with "✅ " (keep each to ~4 words)
 • End with a soft CTA question on its own line, in _italic_
 
-Example structure:
+Loose example (vary it every time):
 Hi [name] 👋
 
-*[Specific observation about their business.]*
+*[Specific observation about their business — e.g. their real review count as earned trust.]*
 
-_[Emotional consequence — what they're losing.]_
+_[Emotional consequence — what they're quietly losing.]_
 
-*[Your solution — one sentence, bold the key offer.]*
+*Your digital front door (website) would give you:*
+✅ [feature 1]
+✅ [feature 2]
+✅ [feature 3]
 
 _[Soft CTA question?]_]
 
@@ -184,7 +193,9 @@ _[Soft CTA question?]_]
 [Subject line — max 8 words. Intriguing, specific, not salesy. No "Check this out" or "Quick question".]
 
 ---EMAIL-BODY---
-[Email — MAX 200 words. Use the ${framework} framework fully. Short paragraphs with ONE idea each. Use *bold* for the most important phrase in the email (the core insight or the offer). Use _italic_ for one emotional line. Open with a hook specific to their business. Weave in 1-2 of the 2026 digital presence concepts (GEO/AIEO/SEO) naturally. End with ONE clear, low-friction CTA.]
+[Email — MAX 230 words. Use the ${framework} framework fully. Short paragraphs with ONE idea each. Use *bold* for the most important phrase. Use _italic_ for one emotional line. Open with a hook specific to their business. Weave in the 2026 digital presence concepts (being found by AI like ChatGPT, Claude, Google AI / GEO / SEO) naturally.
+
+Include a clear checklist titled something like "Here's what your new site would include:" with 4-6 features (each line starting with "✅ "), tailored to a ${business.category} business and chosen to directly answer their likely objections. End with ONE clear, low-friction CTA.]
 
 SENDER IDENTITY (use this in signatures and closing):
 - Name / Agency: ${profile.businessName} (${profile.senderName})
@@ -199,7 +210,8 @@ For WhatsApp, do NOT add a formal signature — just end naturally.`;
   try {
     const completion = await client.chat.completions.create({
       model: 'gpt-4o',
-      max_tokens: 1000,
+      max_tokens: 1100,
+      temperature: 0.9, // more variation so messages don't all read the same
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

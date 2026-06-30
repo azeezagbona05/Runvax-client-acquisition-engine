@@ -27,12 +27,8 @@ export async function POST(req: NextRequest) {
 
   const resetUrl = `${getAppUrl()}/auth/reset-password?token=${token}`;
 
-  // Use the user's own business name as the sender name if available
-  const settings = await prisma.userSettings.findUnique({
-    where: { userId: user.id },
-    select: { businessName: true, senderName: true },
-  });
-  const senderName = settings?.businessName || settings?.senderName || user.name || getAppName();
+  // Transactional email from us — always send as the app brand.
+  const senderName = getAppName();
 
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT ?? 587);

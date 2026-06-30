@@ -5,15 +5,21 @@ import {
   X, MapPin, Phone, Globe, Star, Clock, Loader2, Sparkles,
   ExternalLink, MessageCircle, FileText, AlertTriangle,
   Bookmark, BookmarkX, TrendingUp, MessageSquare, Mail, ShieldCheck, ShieldX, ShieldQuestion,
-  Copy, Check, Wand2,
+  Copy, Check, Wand2, Lock,
 } from 'lucide-react';
 import { Business } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
+import { useUpgrade } from '@/context/UpgradeContext';
+import { useFeature } from '@/context/PlanFeaturesContext';
 import { scoreProspect, scoreLabel, estimatePrice, formatPrice } from '@/lib/scoring';
 import OutreachModal from './OutreachModal';
 import ProposalModal from './ProposalModal';
 import WeaknessModal from './WeaknessModal';
 import ConversationPanel from './ConversationPanel';
+
+// Demo-site preview is built but hidden for now — flip to true to re-enable.
+// Backend (/api/demo, /demo/[slug], DemoSite model) remains in place.
+const SHOW_DEMO = false;
 
 type DrawerTab = 'details' | 'outreach' | 'conversation';
 
@@ -38,6 +44,9 @@ interface Props {
 
 export default function BusinessDrawer({ business, onClose, onGenerate, generating, generateError }: Props) {
   const { isSaved, save, remove, get, updateStage, updateNotes, setReminder, clearReminder } = useProspects();
+  const { triggerUpgrade } = useUpgrade();
+  const canProposal = useFeature('proposals');
+  const canWeakness = useFeature('weaknessAnalysis');
   const saved = isSaved(business.id);
   const prospect = get(business.id);
 
@@ -218,50 +227,54 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
             <div className="space-y-3">
               <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Choose an action</p>
 
-              {/* Flagship: instant demo website */}
-              <button
-                onClick={generateDemo}
-                disabled={demoLoading}
-                className="w-full flex items-center gap-3 px-4 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-900/30 disabled:opacity-60"
-              >
-                {demoLoading ? <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" /> : <Wand2 className="w-5 h-5 flex-shrink-0" />}
-                <div className="text-left">
-                  <div className="font-bold">{demoLoading ? 'Building their website…' : 'Build Demo Website'}</div>
-                  <div className="text-xs text-white/70 mt-0.5">Instant live preview from their Google data — pitch &ldquo;here&apos;s your site&rdquo;</div>
-                </div>
-              </button>
+              {/* Flagship: instant demo website (hidden behind SHOW_DEMO flag) */}
+              {SHOW_DEMO && (
+                <>
+                  <button
+                    onClick={generateDemo}
+                    disabled={demoLoading}
+                    className="w-full flex items-center gap-3 px-4 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-900/30 disabled:opacity-60"
+                  >
+                    {demoLoading ? <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" /> : <Wand2 className="w-5 h-5 flex-shrink-0" />}
+                    <div className="text-left">
+                      <div className="font-bold">{demoLoading ? 'Building their website…' : 'Build Demo Website'}</div>
+                      <div className="text-xs text-white/70 mt-0.5">Instant live preview from their Google data — pitch &ldquo;here&apos;s your site&rdquo;</div>
+                    </div>
+                  </button>
 
-              {demoError && (
-                <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl px-4 py-3">{demoError}</div>
-              )}
+                  {demoError && (
+                    <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl px-4 py-3">{demoError}</div>
+                  )}
 
-              {demoUrl && (
-                <div className="bg-purple-950/30 border border-purple-500/25 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center gap-2 text-purple-300">
-                    <Check className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-[11px] font-bold uppercase tracking-widest">Demo site ready</span>
-                  </div>
-                  <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="block text-xs text-purple-300 hover:text-purple-200 break-all underline">
-                    {demoUrl}
-                  </a>
-                  <div className="grid grid-cols-3 gap-2">
-                    <a href={demoUrl} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 transition-colors">
-                      <ExternalLink className="w-3.5 h-3.5" /> Open
-                    </a>
-                    <button onClick={copyDemo}
-                      className={`flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg transition-colors ${
-                        demoCopied ? 'bg-green-600 text-white' : 'bg-white/10 hover:bg-white/20 text-gray-200'
-                      }`}>
-                      {demoCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      {demoCopied ? 'Copied' : 'Copy'}
-                    </button>
-                    <button onClick={shareDemoWhatsApp}
-                      className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/20 transition-colors">
-                      <MessageCircle className="w-3.5 h-3.5" /> Send
-                    </button>
-                  </div>
-                </div>
+                  {demoUrl && (
+                    <div className="bg-purple-950/30 border border-purple-500/25 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-purple-300">
+                        <Check className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-[11px] font-bold uppercase tracking-widest">Demo site ready</span>
+                      </div>
+                      <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="block text-xs text-purple-300 hover:text-purple-200 break-all underline">
+                        {demoUrl}
+                      </a>
+                      <div className="grid grid-cols-3 gap-2">
+                        <a href={demoUrl} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 transition-colors">
+                          <ExternalLink className="w-3.5 h-3.5" /> Open
+                        </a>
+                        <button onClick={copyDemo}
+                          className={`flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg transition-colors ${
+                            demoCopied ? 'bg-green-600 text-white' : 'bg-white/10 hover:bg-white/20 text-gray-200'
+                          }`}>
+                          {demoCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          {demoCopied ? 'Copied' : 'Copy'}
+                        </button>
+                        <button onClick={shareDemoWhatsApp}
+                          className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/20 transition-colors">
+                          <MessageCircle className="w-3.5 h-3.5" /> Send
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <button
@@ -275,12 +288,12 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                 </div>
               </button>
               <button
-                onClick={() => setShowProposal(true)}
+                onClick={() => canProposal ? setShowProposal(true) : triggerUpgrade('feature', 'AI Proposals')}
                 className="w-full flex items-center gap-3 px-4 py-4 bg-purple-600/15 hover:bg-purple-600/25 text-purple-400 border border-purple-500/20 rounded-xl text-sm font-semibold transition-colors"
               >
-                <FileText className="w-5 h-5 flex-shrink-0" />
+                {canProposal ? <FileText className="w-5 h-5 flex-shrink-0" /> : <Lock className="w-5 h-5 flex-shrink-0" />}
                 <div className="text-left">
-                  <div className="font-bold">Generate Proposal</div>
+                  <div className="font-bold flex items-center gap-2">Generate Proposal {!canProposal && <span className="text-[10px] font-bold uppercase tracking-wide bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">Pro</span>}</div>
                   <div className="text-xs text-purple-400/60 mt-0.5">Full project proposal with pricing</div>
                 </div>
               </button>
@@ -293,8 +306,8 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                   >
                     {generating ? <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" /> : <Sparkles className="w-5 h-5 flex-shrink-0" />}
                     <div className="text-left">
-                      <div className="font-bold">Generate Lovable Website Prompt</div>
-                      <div className="text-xs text-orange-400/60 mt-0.5">AI prompt to build their website</div>
+                      <div className="font-bold">Generate Website Prompt</div>
+                      <div className="text-xs text-orange-400/60 mt-0.5">AI build prompt from their business info</div>
                     </div>
                   </button>
                   {generateError && (
@@ -306,12 +319,12 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
               )}
               {business.hasWebsite && (
                 <button
-                  onClick={() => setShowWeakness(true)}
+                  onClick={() => canWeakness ? setShowWeakness(true) : triggerUpgrade('feature', 'Website Weakness Analysis')}
                   className="w-full flex items-center gap-3 px-4 py-4 bg-yellow-600/15 hover:bg-yellow-600/25 text-yellow-400 border border-yellow-500/20 rounded-xl text-sm font-semibold transition-colors"
                 >
-                  <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                  {canWeakness ? <AlertTriangle className="w-5 h-5 flex-shrink-0" /> : <Lock className="w-5 h-5 flex-shrink-0" />}
                   <div className="text-left">
-                    <div className="font-bold">Website Weakness Report</div>
+                    <div className="font-bold flex items-center gap-2">Website Weakness Report {!canWeakness && <span className="text-[10px] font-bold uppercase tracking-wide bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded">Pro</span>}</div>
                     <div className="text-xs text-yellow-400/60 mt-0.5">Analyse what&apos;s wrong with their site</div>
                   </div>
                 </button>

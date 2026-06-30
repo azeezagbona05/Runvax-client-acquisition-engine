@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark } from 'lucide-react';
+import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark, RotateCcw } from 'lucide-react';
 
 interface Settings {
   // Goals
@@ -88,6 +88,19 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const replayOnboarding = async () => {
+    try {
+      await fetch('/api/user/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onboardingDone: false }),
+      });
+      localStorage.removeItem('aip_quests_hidden');
+      localStorage.removeItem('aip_quests_done');
+    } catch { /* */ }
+    window.location.assign('/'); // home triggers the onboarding wizard
   };
 
   const testSmtp = async () => {
@@ -201,6 +214,21 @@ export default function SettingsPage() {
               <div>
                 <label className={labelCls}>Tagline <span className="text-gray-600 font-normal">(shown in email signature)</span></label>
                 <input className={inputCls} value={settings.tagline} onChange={(e) => set('tagline', e.target.value)} placeholder="e.g. Building digital front doors for Nigerian businesses" />
+              </div>
+
+              {/* Replay onboarding */}
+              <div className="border-t border-white/8 pt-4 flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="text-sm font-semibold text-white">Onboarding tour</div>
+                  <div className="text-xs text-gray-500">Restart the &ldquo;Find your first client&rdquo; walkthrough.</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={replayOnboarding}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 rounded-xl text-sm font-bold transition-colors flex-shrink-0"
+                >
+                  <RotateCcw className="w-4 h-4" /> Replay onboarding
+                </button>
               </div>
             </>
           )}

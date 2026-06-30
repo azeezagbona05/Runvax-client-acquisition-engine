@@ -51,6 +51,23 @@ input[type='range'] {
   @apply w-full accent-purple-500 cursor-pointer;
 }
 
+/* ── Celebration confetti (onboarding "first win") ── */
+@keyframes confetti-fall {
+  0%   { transform: translateY(-12vh) rotate(0deg);   opacity: 1; }
+  100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+}
+.confetti-piece {
+  position: fixed;
+  top: 0;
+  width: 8px;
+  height: 14px;
+  will-change: transform, opacity;
+  animation: confetti-fall linear forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece { display: none; }
+}
+
 /* ── Auth background — subtle slow drift ── */
 @keyframes auth-drift {
   0%, 100% { transform: translate(0, 0); }

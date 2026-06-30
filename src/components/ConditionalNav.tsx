@@ -5,6 +5,8 @@ import Nav from './Nav';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import OnboardingGate from './OnboardingGate';
+import QuestTracker from './QuestTracker';
+import CoachHint from './CoachHint';
 import { SidebarProvider, useSidebar } from '@/context/SidebarContext';
 
 function AppShell({ children }: { children: React.ReactNode }) {
@@ -26,8 +28,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
         ].join(' ')}
       >
         {!isAuth && <TopBar />}
+        {!isAuth && <CoachHint />}
         {children}
       </div>
+      {!isAuth && <QuestTracker />}
     </>
   );
 }

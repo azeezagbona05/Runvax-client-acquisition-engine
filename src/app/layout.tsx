@@ -4,6 +4,7 @@ import './globals.css';
 import { ProspectsProvider } from '@/context/ProspectsContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { UpgradeProvider } from '@/context/UpgradeContext';
+import { PlanFeaturesProvider } from '@/context/PlanFeaturesContext';
 import ConditionalNav from '@/components/ConditionalNav';
 import AuthProvider from '@/components/AuthProvider';
 import InstallBanner from '@/components/InstallBanner';
@@ -65,12 +66,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <ThemeProvider>
             <ProspectsProvider>
-              <UpgradeProvider>
-                <ConditionalNav>
-                  {children}
-                </ConditionalNav>
-                <InstallBanner />
-              </UpgradeProvider>
+              <PlanFeaturesProvider>
+                <UpgradeProvider>
+                  <ConditionalNav>
+                    {children}
+                  </ConditionalNav>
+                  <InstallBanner />
+                </UpgradeProvider>
+              </PlanFeaturesProvider>
             </ProspectsProvider>
           </ThemeProvider>
         </AuthProvider>

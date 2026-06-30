@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { Search, MapPin, Loader2, Clock, Sparkles } from 'lucide-react';
 import { SearchFormData } from '@/types';
 import { getSearchHistory, getBestTimeStatus, SearchHistoryEntry } from '@/lib/searchHistory';
@@ -189,12 +190,11 @@ const TIER_CONFIG = {
 interface SearchFormProps {
   onSearch: (data: SearchFormData) => void;
   loading: boolean;
-  onBrief?: () => void;
-  /** Show the stats row + Quick Industry / Recent Searches panels (landing state only) */
+  /** Show the Quick Industry / Recent Searches panels (landing state only) */
   landing?: boolean;
 }
 
-export default function SearchForm({ onSearch, loading, onBrief, landing = true }: SearchFormProps) {
+export default function SearchForm({ onSearch, loading, landing = true }: SearchFormProps) {
   const [industry, setIndustry] = useState('');
   const [country, setCountry] = useState('NG');
   const [location, setLocation] = useState('');
@@ -341,12 +341,10 @@ export default function SearchForm({ onSearch, loading, onBrief, landing = true 
             <span className={`font-semibold ${timeStatus.color}`}>{timeStatus.label}</span>
             <span className="text-gray-600">· {selectedCountry.flag} {selectedCountry.name}</span>
           </div>
-          {onBrief && (
-            <button onClick={onBrief}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-purple-600/15 hover:bg-purple-600/25 text-purple-400 border border-purple-500/20 font-semibold transition-colors">
-              <Sparkles className="w-3.5 h-3.5" /> Market Intelligence Brief
-            </button>
-          )}
+          <Link href="/market-brief"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-purple-600/15 hover:bg-purple-600/25 text-purple-400 border border-purple-500/20 font-semibold transition-colors">
+            <Sparkles className="w-3.5 h-3.5" /> Market Intelligence Brief
+          </Link>
         </div>
 
         {/* Form */}

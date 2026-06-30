@@ -118,7 +118,7 @@ export default function DashboardPage() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 sm:py-24 text-center">
         <div className="text-6xl mb-4">📊</div>
-        <h1 className="text-2xl font-black text-white mb-2">Dashboard</h1>
+        <h1 className="text-2xl font-black text-white mb-2">Analytics</h1>
         <p className="text-gray-400 mb-6">Save some prospects to see your stats here</p>
         <Link href="/" className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-bold px-6 py-3 rounded-xl transition-colors">
           Start Prospecting →
@@ -131,7 +131,7 @@ export default function DashboardPage() {
     <div className="max-w-6xl mx-auto px-4 py-4 sm:py-8 space-y-5 sm:space-y-8">
 
       <div>
-        <h1 className="text-2xl font-black text-white mb-1">Dashboard</h1>
+        <h1 className="text-2xl font-black text-white mb-1">Analytics</h1>
         <p className="text-gray-500 text-sm">Your AI Prospect Finder stats at a glance</p>
       </div>
 

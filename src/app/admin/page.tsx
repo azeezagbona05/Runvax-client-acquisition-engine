@@ -9,6 +9,7 @@ import {
   Infinity as InfinityIcon, Plus, Trash2, X, AlertTriangle,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
+import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
 
 interface AdminUser {
   id: string; name: string | null; email: string | null; plan: string;
@@ -47,6 +48,39 @@ interface PlanRow {
   resultsPerSearch: number;
   aiCallsPerDay: number;
   maxProspects: number;
+  features: FeatureId[];
+}
+
+function FeatureToggles({ value, onChange }: { value: FeatureId[]; onChange: (v: FeatureId[]) => void }) {
+  const toggle = (f: FeatureId) =>
+    onChange(value.includes(f) ? value.filter((x) => x !== f) : [...value, f]);
+  return (
+    <div>
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Features unlocked</p>
+      <div className="space-y-1.5">
+        {ALL_FEATURES.map((f) => {
+          const on = value.includes(f);
+          return (
+            <button
+              key={f}
+              type="button"
+              onClick={() => toggle(f)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border text-sm font-semibold text-left transition-colors ${
+                on
+                  ? 'bg-purple-600/15 border-purple-500/30 text-purple-200'
+                  : 'bg-gray-800/50 border-white/8 text-gray-500 hover:border-white/20'
+              }`}
+            >
+              <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${on ? 'bg-purple-600' : 'border border-white/20'}`}>
+                {on && <Check className="w-3 h-3 text-white" />}
+              </span>
+              {FEATURE_LABELS[f]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 const PLAN_META: Record<string, { color: string; border: string }> = {
@@ -98,6 +132,7 @@ function PlanCard({ row, onSaved, onDeleted }: { row: PlanRow; onSaved: (r: Plan
     resultsPerSearch: row.resultsPerSearch,
     aiCallsPerDay:    row.aiCallsPerDay,
     maxProspects:     row.maxProspects,
+    features:         row.features ?? [],
   });
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
@@ -214,6 +249,8 @@ function PlanCard({ row, onSaved, onDeleted }: { row: PlanRow; onSaved: (r: Plan
       <LimitField label="AI calls per day"    value={fields.aiCallsPerDay}    onChange={(v) => setF('aiCallsPerDay')(v)} />
       <LimitField label="Max saved prospects" value={fields.maxProspects}     onChange={(v) => setF('maxProspects')(v)} />
 
+      <FeatureToggles value={fields.features} onChange={(v) => setFields((f) => ({ ...f, features: v }))} />
+
       <button
         onClick={handleSave}
         disabled={saving}
@@ -236,6 +273,7 @@ const EMPTY_PLAN = {
 
 function CreatePlanModal({ onCreated, onClose }: { onCreated: (r: PlanRow) => void; onClose: () => void }) {
   const [fields, setFields] = useState(EMPTY_PLAN);
+  const [features, setFeatures] = useState<FeatureId[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
@@ -259,7 +297,7 @@ function CreatePlanModal({ onCreated, onClose }: { onCreated: (r: PlanRow) => vo
       const res = await fetch('/api/admin/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...fields, price: fields.price.trim() || null }),
+        body: JSON.stringify({ ...fields, price: fields.price.trim() || null, features }),
       });
       const data = await res.json() as PlanRow & { error?: string };
       if (!res.ok) { setErr(data.error ?? 'Failed to create plan'); return; }
@@ -335,6 +373,10 @@ function CreatePlanModal({ onCreated, onClose }: { onCreated: (r: PlanRow) => vo
             <LimitField label="Results per search"  value={fields.resultsPerSearch}  onChange={(v) => setF('resultsPerSearch')(v)} />
             <LimitField label="AI calls per day"    value={fields.aiCallsPerDay}    onChange={(v) => setF('aiCallsPerDay')(v)} />
             <LimitField label="Max saved prospects" value={fields.maxProspects}     onChange={(v) => setF('maxProspects')(v)} />
+          </div>
+
+          <div className="border-t border-white/8 pt-4">
+            <FeatureToggles value={features} onChange={setFeatures} />
           </div>
 
           <div className="flex gap-3 pt-1">

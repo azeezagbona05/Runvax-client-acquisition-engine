@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { checkAndIncrementAI } from '@/lib/usage';
+import { checkAndIncrementAI, requireFeature } from '@/lib/usage';
 import { Business } from '@/types';
 import { getEffectiveProfile } from '@/lib/userProfile';
 
@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });
   }
+
+  const gate = await requireFeature(req, 'weaknessAnalysis');
+  if (!gate.ok) return gate.error!;
 
   const usage = await checkAndIncrementAI(req);
   if (!usage.ok) return usage.error!;

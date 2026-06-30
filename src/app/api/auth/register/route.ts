@@ -39,8 +39,9 @@ export async function POST(req: NextRequest) {
 
   // Send verification email (fire-and-forget — don't block registration)
   const verifyUrl = `${getAppUrl()}/api/auth/verify-email?token=${token}`;
-  // At registration there are no UserSettings yet — use the name they registered with
-  const senderName = name || getAppName();
+  // Transactional email from us — always send as the app brand, never the
+  // registrant's own name.
+  const senderName = getAppName();
   try {
     const smtpPort = Number(process.env.SMTP_PORT ?? 587);
     const transporter = nodemailer.createTransport({

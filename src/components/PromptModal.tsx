@@ -41,7 +41,7 @@ export default function PromptModal({ prompt, businessName, onClose, onRegenerat
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <Sparkles className="w-5 h-5 text-purple-400" />
-              <h2 className="font-black text-white text-lg">Lovable Website Prompt</h2>
+              <h2 className="font-black text-white text-lg">Website Prompt</h2>
             </div>
             <p className="text-sm text-gray-500">
               For: <span className="text-purple-300 font-medium">{businessName}</span>
@@ -68,9 +68,9 @@ export default function PromptModal({ prompt, businessName, onClose, onRegenerat
             <p className="text-blue-300 font-semibold text-sm mb-1.5">📋 How to use this prompt:</p>
             <ol className="text-blue-200/60 text-xs space-y-1 list-decimal list-inside">
               <li>Click <strong className="text-blue-200/80">Copy Prompt</strong> below</li>
-              <li>Open <a href="https://lovable.dev" target="_blank" rel="noopener" className="underline hover:text-blue-200">lovable.dev</a> and start a new project</li>
+              <li>Open your AI website builder — <a href="https://lovable.dev" target="_blank" rel="noopener" className="underline hover:text-blue-200">Lovable</a>, <a href="https://bolt.new" target="_blank" rel="noopener" className="underline hover:text-blue-200">Bolt</a>, or <a href="https://v0.dev" target="_blank" rel="noopener" className="underline hover:text-blue-200">v0</a> — and start a new project</li>
               <li>Paste the prompt into the chat and press Enter</li>
-              <li>Lovable builds the full React website in seconds</li>
+              <li>The builder generates the full website in seconds</li>
               <li>Refine sections, then share the live preview link with your client</li>
             </ol>
           </div>
@@ -105,7 +105,7 @@ export default function PromptModal({ prompt, businessName, onClose, onRegenerat
               className="flex items-center gap-2 px-4 py-3.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 font-semibold rounded-xl transition-colors border border-orange-500/25 text-sm"
             >
               <ExternalLink className="w-4 h-4" />
-              Lovable
+              Builder
             </a>
           </div>
         </div>

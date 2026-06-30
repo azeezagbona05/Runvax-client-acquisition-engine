@@ -3,14 +3,13 @@
 import { useState, useCallback } from 'react';
 import {
   Phone, Star, MessageCircle, StickyNote, Bell, ChevronRight, ChevronLeft,
-  Trash2, Plus, Download, Zap, CheckSquare, Square, X,
+  Trash2, Download, Zap, CheckSquare, Square, X,
 } from 'lucide-react';
 import { useProspects } from '@/context/ProspectsContext';
 import { SavedProspect, ProspectStage } from '@/types';
 import { scoreLabel, formatPrice } from '@/lib/scoring';
 import { whatsappLink } from '@/lib/phone';
 import Link from 'next/link';
-import ManualProspectModal from '@/components/ManualProspectModal';
 import ProspectDetailModal from '@/components/ProspectDetailModal';
 import BulkOutreachModal from '@/components/BulkOutreachModal';
 
@@ -186,7 +185,6 @@ function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onT
 export default function PipelinePage() {
   const { prospects, updateStage } = useProspects();
   const [activeStages, setActiveStages] = useState<ProspectStage[]>(STAGES.map((s) => s.id));
-  const [showManual, setShowManual] = useState(false);
   const [detailProspect, setDetailProspect] = useState<SavedProspect | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<ProspectStage | null>(null);
@@ -232,16 +230,12 @@ export default function PipelinePage() {
       <div className="max-w-3xl mx-auto px-4 py-12 sm:py-24 text-center">
         <div className="text-6xl mb-4">📋</div>
         <h1 className="text-2xl font-black text-white mb-2">Pipeline Empty</h1>
-        <p className="text-gray-400 mb-4">Save prospects from the search page, or add them manually</p>
+        <p className="text-gray-400 mb-4">Save prospects from the search page to build your pipeline</p>
         <div className="flex items-center justify-center gap-3 flex-wrap">
           <Link href="/" className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-bold px-6 py-3 rounded-xl transition-colors">
             Go to Search →
           </Link>
-          <button onClick={() => setShowManual(true)} className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold px-6 py-3 rounded-xl transition-colors border border-white/15">
-            <Plus className="w-4 h-4" /> Add Manually
-          </button>
         </div>
-        {showManual && <ManualProspectModal onClose={() => setShowManual(false)} />}
       </div>
     );
   }
@@ -251,7 +245,6 @@ export default function PipelinePage() {
 
   return (
     <div className="min-h-dvh bg-gray-950">
-      {showManual && <ManualProspectModal onClose={() => setShowManual(false)} />}
       {detailProspect && !selectMode && <ProspectDetailModal prospect={detailProspect} onClose={() => setDetailProspect(null)} />}
       {showBulk && <BulkOutreachModal prospects={selectedProspects} onClose={() => setShowBulk(false)} />}
 
@@ -281,13 +274,6 @@ export default function PipelinePage() {
                   >
                     <Download className="w-4 h-4" />
                     <span className="hidden sm:inline">Export CSV</span>
-                  </button>
-                  <button
-                    onClick={() => setShowManual(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/35 text-purple-300 border border-purple-500/30 rounded-xl text-sm font-bold transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span className="hidden sm:inline">Add</span>
                   </button>
                 </>
               ) : (

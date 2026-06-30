@@ -186,6 +186,7 @@ export default function BulkEmailModal({ businesses, onClose }: Props) {
             to: email,
             subject: mergeField(subject, r.business),
             body: mergeField(body, r.business),
+            bulk: true,
           }),
         });
         const json = await res.json();

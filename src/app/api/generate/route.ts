@@ -34,11 +34,11 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'system',
-          content: `You are an expert web designer who creates detailed website briefs for Lovable.dev, an AI website builder that uses React + Tailwind. Your prompts are specific, actionable, and produce beautiful, conversion-optimised websites for local businesses. Always include Nigerian context when the business appears to be Nigerian (naira prices, WhatsApp CTAs, local cultural elements).`,
+          content: `You are an expert web designer who writes detailed website build prompts for AI website builders (such as Lovable, Bolt, v0, and Cursor) that use React + Tailwind. Your prompts are specific, actionable, and produce beautiful, conversion-optimised websites for local businesses. Adapt to the business's location: use the right currency and a WhatsApp/contact CTA, and reflect local cultural context (e.g. naira & WhatsApp for Nigeria, USD for the US, GBP for the UK).`,
         },
         {
           role: 'user',
-          content: `Generate a complete, detailed Lovable.dev website prompt for this local business that has NO website yet.
+          content: `Generate a complete, detailed website build prompt for this local business that has NO website yet. Base every detail on the real business information below.
 
 BUSINESS DETAILS:
 - Name: ${business.name}
@@ -54,8 +54,8 @@ ${reviewsText}
 
 Create TWO sections in your response:
 
----LOVABLE PROMPT---
-(Write the exact prompt to paste into Lovable.dev. Be highly specific: include the business name, exact color scheme with hex codes, all pages and their sections, content for the hero, features, testimonials, CTA buttons, WhatsApp button with the phone number, footer content, and design style. Make it 350-500 words. Write it as a direct instruction to Lovable, starting with "Build a professional website for [Business Name]...")
+---WEBSITE PROMPT---
+(Write the exact prompt to paste into an AI website builder like Lovable, Bolt, or v0. Be highly specific: include the business name, exact color scheme with hex codes, all pages and their sections, content for the hero, services, testimonials drawn from the real reviews, CTA buttons, a contact/WhatsApp button with the phone number, opening hours, footer content, and design style. Make it 350-500 words. Write it as a direct instruction to the builder, starting with "Build a professional website for [Business Name]...")
 
 ---WEBSITE STRATEGY---
 (3-5 bullet points explaining the design and content choices made for this specific business type. Keep it brief.)`,

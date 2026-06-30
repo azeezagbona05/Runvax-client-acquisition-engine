@@ -169,7 +169,7 @@ export default function TopBar() {
       <Link
         href="/settings"
         title="Profile & settings"
-        className="pointer-events-auto w-10 h-10 flex items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-orange-500 text-white text-sm font-black backdrop-blur-md hover:opacity-90 transition-opacity"
+        className="pointer-events-auto w-10 h-10 flex items-center justify-center rounded-xl bg-blue-600 text-white text-sm font-black backdrop-blur-md hover:opacity-90 transition-opacity"
       >
         {initials}
       </Link>

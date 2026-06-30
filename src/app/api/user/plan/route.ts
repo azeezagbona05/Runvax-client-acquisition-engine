@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { getPlan } from '@/lib/plans';
+import { getPlanConfig } from '@/lib/plans';
 import { getUsageToday } from '@/lib/usage';
 
 export const dynamic = 'force-dynamic';
@@ -13,15 +13,16 @@ export async function GET() {
 
   const userId = session.user.id;
   const userPlan = (session.user as { plan?: string }).plan ?? 'free';
-  const planConfig = getPlan(userPlan);
 
-  const [savedCount, aiUsedToday] = await Promise.all([
+  const [planConfig, savedCount, aiUsedToday] = await Promise.all([
+    getPlanConfig(userPlan),
     prisma.prospect.count({ where: { userId } }),
     getUsageToday(userId),
   ]);
 
   return NextResponse.json({
     plan: userPlan,
+    features: planConfig.features,
     planConfig: {
       name: planConfig.name,
       aiCallsPerDay: planConfig.aiCallsPerDay === Infinity ? null : planConfig.aiCallsPerDay,

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import UpgradeModal from '@/components/UpgradeModal';
+import { FEATURE_LABELS, FeatureId } from '@/lib/features';
 
 type UpgradeReason = 'ai_limit' | 'prospect_limit' | 'feature';
 
@@ -20,8 +21,13 @@ export function useUpgrade() {
 export function useHandleAIResponse() {
   const { triggerUpgrade } = useUpgrade();
   return useCallback(
-    (res: Response, json: { code?: string; error?: string }): boolean | 'auth' => {
+    (res: Response, json: { code?: string; error?: string; feature?: string }): boolean | 'auth' => {
       if (res.status === 401) return 'auth';
+      if (json.code === 'FEATURE_LOCKED') {
+        const name = json.feature ? FEATURE_LABELS[json.feature as FeatureId] : undefined;
+        triggerUpgrade('feature', name);
+        return true;
+      }
       if (res.status === 402 || json.code === 'LIMIT_REACHED') {
         triggerUpgrade('ai_limit');
         return true;

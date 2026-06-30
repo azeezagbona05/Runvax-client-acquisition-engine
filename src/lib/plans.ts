@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { FeatureId, defaultFeaturesFor, resolveFeatures } from './features';
 
 export type PlanId = 'free' | 'pro' | 'agency';
 
@@ -10,6 +11,7 @@ export interface PlanConfig {
   searchesPerDay: number;
   resultsPerSearch: number;
   maxProspects: number;
+  features: FeatureId[];
   badge: string;
   badgeClass: string;
   highlight: boolean;
@@ -25,6 +27,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     searchesPerDay: 5,
     resultsPerSearch: 20,
     maxProspects: 30,
+    features: defaultFeaturesFor('free'),
     badge: 'FREE',
     badgeClass: 'bg-gray-700 text-gray-300',
     highlight: false,
@@ -37,6 +40,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     searchesPerDay: 20,
     resultsPerSearch: 60,
     maxProspects: Infinity,
+    features: defaultFeaturesFor('pro'),
     badge: 'PRO',
     badgeClass: 'bg-purple-600 text-white',
     highlight: true,
@@ -49,6 +53,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     searchesPerDay: Infinity,
     resultsPerSearch: Infinity,
     maxProspects: Infinity,
+    features: defaultFeaturesFor('agency'),
     badge: 'AGENCY',
     badgeClass: 'bg-orange-500 text-white',
     highlight: false,
@@ -80,6 +85,7 @@ export async function getPlanConfig(planId: string): Promise<PlanConfig> {
         searchesPerDay: Infinity,
         resultsPerSearch: Infinity,
         maxProspects: Infinity,
+        features: defaultFeaturesFor(planId),
         badge: (row.name || planId).toUpperCase(),
         badgeClass: 'bg-gray-700 text-gray-300',
         highlight: false,
@@ -90,6 +96,7 @@ export async function getPlanConfig(planId: string): Promise<PlanConfig> {
         searchesPerDay:   dbToVal(row.searchesPerDay),
         resultsPerSearch: dbToVal(row.resultsPerSearch),
         maxProspects:     dbToVal(row.maxProspects),
+        features:         resolveFeatures(planId, row.features),
       };
       cache.set(planId, { config, exp: Date.now() + CACHE_TTL });
       return config;

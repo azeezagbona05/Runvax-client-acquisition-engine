@@ -6,9 +6,8 @@ import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
 import {
-  Search, Columns3, BarChart3, Plus, Sun, Moon, Zap, Settings, MailWarning,
+  Search, Columns3, BarChart3, Sun, Moon, Zap, Settings, MailWarning, Sparkles,
 } from 'lucide-react';
-import ManualProspectModal from './ManualProspectModal';
 import { useTheme } from '@/context/ThemeContext';
 
 export default function Nav() {
@@ -16,7 +15,6 @@ export default function Nav() {
   const { prospects } = useProspects();
   const { theme, toggle } = useTheme();
   const { data: session } = useSession();
-  const [showManual, setShowManual] = useState(false);
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   const handleResend = useCallback(async () => {
@@ -39,9 +37,10 @@ export default function Nav() {
   const userPlan = (session?.user as { plan?: string })?.plan ?? 'free';
 
   const tabs = [
-    { href: '/',          icon: Search,   label: 'Search' },
+    { href: '/market-brief', icon: Sparkles, label: 'Brief' },
+    { href: '/',          icon: Search,   label: 'Find' },
     { href: '/pipeline',  icon: Columns3, label: 'Pipeline',  badge: savedCount },
-    { href: '/dashboard', icon: BarChart3, label: 'Dashboard', badge: wonCount > 0 ? wonCount : undefined, badgeColor: 'bg-green-500' },
+    { href: '/dashboard', icon: BarChart3, label: 'Analytics', badge: wonCount > 0 ? wonCount : undefined, badgeColor: 'bg-green-500' },
     { href: '/settings',  icon: Settings, label: 'Settings' },
   ];
 
@@ -88,12 +87,6 @@ export default function Nav() {
             >
               {theme === 'dark' ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-purple-400" />}
             </button>
-            <button
-              onClick={() => setShowManual(true)}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-purple-600/20 text-purple-300 border border-purple-500/25"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </header>
@@ -134,7 +127,6 @@ export default function Nav() {
         </div>
       </nav>
 
-      {showManual && <ManualProspectModal onClose={() => setShowManual(false)} />}
     </>
   );
 }

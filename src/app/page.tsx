@@ -9,7 +9,6 @@ import BusinessGrid from '@/components/BusinessGrid';
 import BusinessDrawer from '@/components/BusinessDrawer';
 import PromptModal from '@/components/PromptModal';
 import QuickFireModal from '@/components/QuickFireModal';
-import DailyBriefModal from '@/components/DailyBriefModal';
 import BulkEmailModal from '@/components/BulkEmailModal';
 import { Business, SearchFormData } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
@@ -17,6 +16,7 @@ import { useUpgrade } from '@/context/UpgradeContext';
 import { useSession } from 'next-auth/react';
 import { saveToHistory, getBestTimeStatus } from '@/lib/searchHistory';
 import { scoreProspect } from '@/lib/scoring';
+import { useFeature } from '@/context/PlanFeaturesContext';
 
 type FilterMode = 'all' | 'no-website' | 'new';
 
@@ -39,6 +39,7 @@ export default function Home() {
   const { data: session } = useSession();
   const { isSaved, get } = useProspects();
   const { triggerUpgrade } = useUpgrade();
+  const canEmailBlast = useFeature('emailBlast');
 
   const [businesses, setBusinesses]   = useState<Business[]>([]);
   const [loading, setLoading]         = useState(false);
@@ -47,6 +48,7 @@ export default function Home() {
   const [filter, setFilter]           = useState<FilterMode>('all');
   const [page, setPage]               = useState(0);
   const [searchMeta, setSearchMeta]   = useState<SearchMeta | null>(null);
+  const [lastSearch, setLastSearch]   = useState<{ industry: string; location: string } | null>(null);
 
   const [phoneOnly, setPhoneOnly]           = useState(false);
   const [reviewedOnly, setReviewedOnly]     = useState(false);
@@ -57,7 +59,6 @@ export default function Home() {
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [generating, setGenerating]         = useState(false);
   const [showQuickFire, setShowQuickFire]   = useState(false);
-  const [showBrief, setShowBrief]           = useState(false);
   const [showBulkEmail, setShowBulkEmail]   = useState(false);
   const [guestGate, setGuestGate]           = useState(false);
   const [guestStats, setGuestStats]         = useState({ total: 0, noWebsite: 0, location: '' });
@@ -78,6 +79,27 @@ export default function Home() {
   }, [session]);
 
   const timeStatus = getBestTimeStatus();
+
+  // Hydrate results carried over from the onboarding "first client" search (no re-fetch).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('aip_onboarding_results');
+      if (!raw) return;
+      sessionStorage.removeItem('aip_onboarding_results');
+      const d = JSON.parse(raw) as {
+        businesses: Business[];
+        meta: SearchMeta;
+        unlimited: boolean;
+        industry: string;
+        location: string;
+      };
+      if (!d.businesses?.length) return;
+      setBusinesses(d.businesses);
+      setSearchMeta({ ...d.meta, resultsLimit: d.unlimited ? Infinity : (d.meta.resultsLimit ?? 20) });
+      setLastSearch({ industry: d.industry, location: d.location });
+      setHasSearched(true);
+    } catch { /* */ }
+  }, []);
 
   const handleSearch = async (data: SearchFormData) => {
     // Only block the API call for guests who already used their free search.
@@ -133,6 +155,8 @@ export default function Home() {
         resultsLimit:      json.unlimitedResults ? Infinity : (json.resultsLimit ?? 20),
       });
 
+      setLastSearch({ industry: data.industry, location: data.location || 'this area' });
+
       void saveToHistory({
         industry: data.industry,
         location: data.location || 'GPS',
@@ -180,6 +204,13 @@ export default function Home() {
   const noWebsiteCount = businesses.filter((b) => !b.hasWebsite).length;
   const newCount = businesses.filter((b) => !isSaved(b.id)).length;
   const hotCount = businesses.filter((b) => scoreProspect(b) >= 8).length;
+
+  // Opportunity density — % of the returned set that has no website
+  const noWebsiteRate = businesses.length > 0 ? Math.round((noWebsiteCount / businesses.length) * 100) : 0;
+  const density =
+    noWebsiteRate >= 60 ? { label: '🔥 High opportunity density', cls: 'bg-orange-500/15 border-orange-500/30 text-orange-400' } :
+    noWebsiteRate >= 35 ? { label: '✅ Good opportunity density',  cls: 'bg-green-500/15 border-green-500/25 text-green-400' } :
+                          { label: 'Lower density here',           cls: 'bg-white/5 border-white/10 text-gray-400' };
 
   const sorted = [...businesses].sort((a, b) => {
     if (sortByScore) {
@@ -236,7 +267,7 @@ export default function Home() {
   return (
     <div className="min-h-dvh bg-gray-950 text-white">
 
-      <SearchForm onSearch={handleSearch} loading={loading} onBrief={() => setShowBrief(true)} landing={!hasSearched} />
+      <SearchForm onSearch={handleSearch} loading={loading} landing={!hasSearched} />
 
       {hasSearched && (
         <main className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
@@ -311,6 +342,22 @@ export default function Home() {
             </div>
           )}
 
+          {/* Opportunity density banner */}
+          {!guestGate && !loading && !error && businesses.length > 0 && lastSearch && (
+            <div className="mb-5 flex items-center gap-3 flex-wrap bg-gray-800/60 border border-white/8 rounded-2xl px-4 py-3">
+              <span className="text-2xl leading-none">🎯</span>
+              <p className="text-sm text-gray-300 flex-1 min-w-0">
+                Of the top <strong className="text-white">{businesses.length}</strong>{' '}
+                <strong className="text-white">{lastSearch.industry.toLowerCase()}</strong> in{' '}
+                <strong className="text-white">{lastSearch.location.split(',')[0]}</strong>,{' '}
+                <strong className="text-orange-400">{noWebsiteRate}% have no website</strong>.
+              </p>
+              <span className={`text-xs font-bold px-3 py-1.5 rounded-full border whitespace-nowrap ${density.cls}`}>
+                {density.label}
+              </span>
+            </div>
+          )}
+
           {!guestGate && !loading && !error && businesses.length > 0 && (
             <div className="flex items-center gap-3 mb-6 flex-wrap">
 
@@ -359,10 +406,13 @@ export default function Home() {
                   </button>
                 )}
                 <button
-                  onClick={() => setShowBulkEmail(true)}
+                  onClick={() => {
+                    if (!canEmailBlast) { triggerUpgrade('feature', 'Email Blast'); return; }
+                    setShowBulkEmail(true);
+                  }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 transition-colors"
                 >
-                  <Mail className="w-3.5 h-3.5" /> Email Blast ({emailBlastTargets.length})
+                  {canEmailBlast ? <Mail className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} Email Blast ({emailBlastTargets.length})
                 </button>
                 <button onClick={() => handleFilterChange('all')}
                   className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
@@ -513,15 +563,6 @@ export default function Home() {
       )}
       {showBulkEmail && (
         <BulkEmailModal businesses={emailBlastTargets} onClose={() => setShowBulkEmail(false)} />
-      )}
-      {showBrief && (
-        <DailyBriefModal
-          onStart={(industry, location) => {
-            setShowBrief(false);
-            handleSearch({ industry, location, radius: 5, query: `${industry} in ${location}` });
-          }}
-          onDismiss={() => setShowBrief(false)}
-        />
       )}
     </div>
   );

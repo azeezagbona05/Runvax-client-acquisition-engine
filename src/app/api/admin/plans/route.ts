@@ -3,6 +3,13 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { PLANS, valToDb, clearPlanCache } from '@/lib/plans';
+import { FeatureId, resolveFeatures, serializeFeatures } from '@/lib/features';
+
+// Replace each row's raw `features` CSV with its resolved FeatureId[] so the
+// admin UI always receives a concrete list (defaults applied when unset).
+function withFeatures<T extends { planId: string; features: string | null }>(row: T) {
+  return { ...row, features: resolveFeatures(row.planId, row.features) };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +36,7 @@ async function ensureDefaults() {
         resultsPerSearch: valToDb(d.resultsPerSearch),
         aiCallsPerDay:    valToDb(d.aiCallsPerDay),
         maxProspects:     valToDb(d.maxProspects),
+        features:         serializeFeatures(d.features),
       },
       update: {}, // never overwrite existing admin edits
     });
@@ -42,7 +50,7 @@ export async function GET() {
   }
   await ensureDefaults();
   const rows = await prisma.planConfig.findMany({ orderBy: { updatedAt: 'asc' } });
-  return NextResponse.json(rows);
+  return NextResponse.json(rows.map(withFeatures));
 }
 
 export async function POST(req: NextRequest) {
@@ -60,6 +68,7 @@ export async function POST(req: NextRequest) {
     resultsPerSearch: number;
     aiCallsPerDay: number;
     maxProspects: number;
+    features?: FeatureId[];
   };
 
   const planId = body.planId?.trim().toLowerCase().replace(/\s+/g, '-');
@@ -79,9 +88,10 @@ export async function POST(req: NextRequest) {
       resultsPerSearch: valToDb(body.resultsPerSearch ?? 20),
       aiCallsPerDay:    valToDb(body.aiCallsPerDay ?? 15),
       maxProspects:     valToDb(body.maxProspects ?? 30),
+      features:         Array.isArray(body.features) ? serializeFeatures(body.features) : null,
     },
   });
 
   clearPlanCache();
-  return NextResponse.json(row, { status: 201 });
+  return NextResponse.json(withFeatures(row), { status: 201 });
 }

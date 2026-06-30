@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Copy, Check, RefreshCw, MessageCircle, Mail, Loader2, Send, Lock } from 'lucide-react';
+import { X, RefreshCw, MessageCircle, Mail, Loader2, Send, Lock } from 'lucide-react';
 import { Business } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
 import type { OutreachFramework } from '@/app/api/outreach/route';
 import { whatsappLink } from '@/lib/phone';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
+import EditablePitch from './EditablePitch';
 
 interface Props {
   business: Business;
@@ -134,34 +135,6 @@ function renderWhatsApp(text: string): React.ReactNode {
   });
 }
 
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(text); }
-    catch {
-      const el = document.createElement('textarea');
-      el.value = text;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
-  return (
-    <button
-      onClick={copy}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-        copied ? 'bg-green-600 text-white' : 'bg-white/10 hover:bg-white/20 text-gray-300'
-      }`}
-    >
-      {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-      {copied ? 'Copied!' : 'Copy'}
-    </button>
-  );
-}
-
 export default function OutreachModal({ business, onClose }: Props) {
   const router = useRouter();
   const { markOutreachSent, incrementToday, updateStage, isSaved, save } = useProspects();
@@ -251,6 +224,15 @@ export default function OutreachModal({ business, onClose }: Props) {
   const whatsappUrl = business.phone
     ? whatsappLink(business, data?.whatsapp)
     : null;
+
+  const updateData = (patch: Partial<OutreachData>) => setData((d) => (d ? { ...d, ...patch } : d));
+  const pitchContext = {
+    name: business.name,
+    category: business.category,
+    reviewCount: business.reviewCount,
+    rating: business.rating,
+    city: business.address?.split(',')[0],
+  };
 
   const selectedFw = FRAMEWORKS.find((f) => f.id === framework)!;
 
@@ -383,17 +365,20 @@ export default function OutreachModal({ business, onClose }: Props) {
             {/* WhatsApp tab */}
             {data && tab === 'whatsapp' && (
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp Message</h3>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5 inline-block border ${selectedFw.activeColor}`}>
-                      {selectedFw.label} Framework
-                    </span>
-                  </div>
-                  <CopyButton text={data.whatsapp} />
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp Message</h3>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-block border ${selectedFw.activeColor}`}>
+                    {selectedFw.label}
+                  </span>
                 </div>
-                <div className={`bg-green-950/40 border border-green-500/20 rounded-xl p-4 text-green-100 text-sm leading-loose transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
-                  {renderWhatsApp(data.whatsapp)}
+                <div className={`transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
+                  <EditablePitch
+                    value={data.whatsapp}
+                    onChange={(v) => updateData({ whatsapp: v })}
+                    kind="whatsapp"
+                    context={pitchContext}
+                    preview={renderWhatsApp}
+                  />
                 </div>
                 <div className="flex gap-2 mt-3">
                   {whatsappUrl && (
@@ -421,26 +406,29 @@ export default function OutreachModal({ business, onClose }: Props) {
             {data && tab === 'email' && (
               <div className="space-y-3">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Subject Line</h3>
-                    <CopyButton text={data.emailSubject} />
-                  </div>
-                  <div className="bg-blue-950/40 border border-blue-500/20 rounded-xl p-3 text-blue-100 text-sm font-semibold">
-                    {data.emailSubject}
-                  </div>
+                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Subject Line</h3>
+                  <input
+                    type="text"
+                    value={data.emailSubject}
+                    onChange={(e) => updateData({ emailSubject: e.target.value })}
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2.5 text-gray-100 text-sm font-semibold focus:outline-none focus:border-purple-500/60 transition-colors"
+                  />
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div>
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Email Body</h3>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5 inline-block border ${selectedFw.activeColor}`}>
-                        {selectedFw.label}
-                      </span>
-                    </div>
-                    <CopyButton text={`Subject: ${data.emailSubject}\n\n${data.emailBody}`} />
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Email Body</h3>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-block border ${selectedFw.activeColor}`}>
+                      {selectedFw.label}
+                    </span>
                   </div>
-                  <div className={`bg-blue-950/20 border border-blue-500/15 rounded-xl p-4 text-gray-300 text-sm leading-relaxed whitespace-pre-wrap transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
-                    {data.emailBody}
+                  <div className={`transition-all ${signupGate ? 'blur-sm select-none pointer-events-none' : ''}`}>
+                    <EditablePitch
+                      value={data.emailBody}
+                      onChange={(v) => updateData({ emailBody: v })}
+                      kind="email"
+                      context={pitchContext}
+                      minHeight={180}
+                    />
                   </div>
                 </div>
                 {/* Direct send */}

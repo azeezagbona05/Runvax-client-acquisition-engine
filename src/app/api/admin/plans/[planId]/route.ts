@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { valToDb, clearPlanCache } from '@/lib/plans';
+import { FeatureId, resolveFeatures, serializeFeatures } from '@/lib/features';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,7 @@ export async function PATCH(
     resultsPerSearch?: number;
     aiCallsPerDay?: number;
     maxProspects?: number;
+    features?: FeatureId[];
   };
 
   const data: Record<string, unknown> = {};
@@ -41,6 +43,7 @@ export async function PATCH(
   if (body.resultsPerSearch !== undefined) data.resultsPerSearch = valToDb(body.resultsPerSearch);
   if (body.aiCallsPerDay    !== undefined) data.aiCallsPerDay    = valToDb(body.aiCallsPerDay);
   if (body.maxProspects     !== undefined) data.maxProspects     = valToDb(body.maxProspects);
+  if (Array.isArray(body.features))        data.features         = serializeFeatures(body.features);
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
@@ -59,7 +62,7 @@ export async function PATCH(
   });
 
   clearPlanCache();
-  return NextResponse.json(row);
+  return NextResponse.json({ ...row, features: resolveFeatures(planId, row.features) });
 }
 
 export async function DELETE(

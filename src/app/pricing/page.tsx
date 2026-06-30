@@ -4,90 +4,95 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Check, Zap, Building2, Sparkles, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Check, Zap, Building2, Sparkles, Loader2, CheckCircle, AlertCircle, LucideIcon } from 'lucide-react';
+import { ALL_FEATURES, FeatureId } from '@/lib/features';
 
-const PLANS = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: null,
-    priceNote: 'No credit card needed',
-    icon: Sparkles,
-    iconClass: 'text-gray-400',
-    cardClass: 'border-white/10',
-    badgeClass: 'bg-gray-700 text-gray-300',
-    ctaClass: 'bg-white/10 hover:bg-white/15 text-white',
-    features: [
-      '5 searches/day · 20 results per search',
-      '15 AI messages per day',
-      'Save up to 30 prospects',
-      'AI outreach (WhatsApp + Email)',
-      'AI reply suggestions',
-      'Pipeline view',
-      'Export to CSV',
-    ],
-    locked: [
-      'Email blast (bulk send)',
-      'AI proposals',
-      'Market intelligence briefs',
-      'Website weakness analysis',
-      'Unlimited prospects',
-    ],
+// ── Plan config fetched from /api/plans (admin-editable, DB-backed) ──
+interface ApiPlan {
+  planId: string;
+  name: string;
+  price: string | null;
+  priceNote: string;
+  searchesPerDay: number | null;   // null = unlimited
+  resultsPerSearch: number | null;
+  aiCallsPerDay: number | null;
+  maxProspects: number | null;
+  features: FeatureId[];
+  highlight: boolean;
+}
+
+// Static presentation (icons, colors, always-on bullets) keyed by plan id. Only
+// the limits, price and gateable features come from the DB.
+interface Presentation {
+  icon: LucideIcon;
+  iconClass: string;
+  cardClass: string;
+  badgeClass: string;
+  ctaClass: string;
+  alwaysOn: string[];
+}
+
+const PRESENTATION: Record<string, Presentation> = {
+  free: {
+    icon: Sparkles, iconClass: 'text-gray-400', cardClass: 'border-white/10',
+    badgeClass: 'bg-gray-700 text-gray-300', ctaClass: 'bg-white/10 hover:bg-white/15 text-white',
+    alwaysOn: ['AI outreach (WhatsApp + Email)', 'AI reply suggestions', 'Pipeline view', 'Export to CSV'],
   },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: '₦9,999',
-    priceNote: 'per month · cancel anytime',
-    icon: Zap,
-    iconClass: 'text-purple-400',
-    cardClass: 'border-purple-500/50 ring-1 ring-purple-500/30',
-    badgeClass: 'bg-purple-600 text-white',
-    ctaClass: 'bg-purple-600 hover:bg-purple-700 text-white',
-    highlight: true,
-    features: [
-      '20 searches/day · 60 results per search',
-      '200 AI messages per day',
-      'Unlimited saved prospects',
-      'AI outreach (WhatsApp + Email)',
-      'AI reply suggestions',
-      'Email blast — reach 100 businesses fast',
-      'AI proposals (PDF-ready)',
-      'Market intelligence briefs',
-      'Website weakness analysis',
-      'Pipeline + Dashboard',
-      'Export to CSV',
-    ],
-    locked: [],
+  pro: {
+    icon: Zap, iconClass: 'text-purple-400', cardClass: 'border-purple-500/50 ring-1 ring-purple-500/30',
+    badgeClass: 'bg-purple-600 text-white', ctaClass: 'bg-purple-600 hover:bg-purple-700 text-white',
+    alwaysOn: ['AI outreach (WhatsApp + Email)', 'AI reply suggestions', 'Pipeline + Dashboard', 'Export to CSV'],
   },
-  {
-    id: 'agency',
-    name: 'Agency',
-    price: '₦24,999',
-    priceNote: 'per month · cancel anytime',
-    icon: Building2,
-    iconClass: 'text-orange-400',
-    cardClass: 'border-orange-500/30',
-    badgeClass: 'bg-orange-500 text-white',
-    ctaClass: 'bg-orange-500 hover:bg-orange-600 text-white',
-    features: [
-      'Unlimited searches · unlimited results',
-      'Unlimited AI messages',
-      'Unlimited saved prospects',
-      'Everything in Pro',
-      'Priority support',
-      'Early access to new features',
-    ],
-    locked: [],
+  agency: {
+    icon: Building2, iconClass: 'text-orange-400', cardClass: 'border-orange-500/30',
+    badgeClass: 'bg-orange-500 text-white', ctaClass: 'bg-orange-500 hover:bg-orange-600 text-white',
+    alwaysOn: ['Everything in Pro', 'Priority support', 'Early access to new features'],
   },
+};
+
+const DEFAULT_PRESENTATION: Presentation = {
+  icon: Sparkles, iconClass: 'text-gray-400', cardClass: 'border-white/10',
+  badgeClass: 'bg-gray-700 text-gray-300', ctaClass: 'bg-white/10 hover:bg-white/15 text-white',
+  alwaysOn: [],
+};
+
+// Marketing bullet text for each gateable feature (unlocked = green check, locked = strikethrough).
+const FEATURE_BULLET: Record<FeatureId, string> = {
+  emailBlast: 'Email blast (bulk send)',
+  proposals: 'AI proposals (PDF-ready)',
+  marketBrief: 'Market intelligence briefs',
+  weaknessAnalysis: 'Website weakness analysis',
+};
+
+// Sensible defaults shown instantly while the live config loads (and if it fails).
+const FALLBACK_PLANS: ApiPlan[] = [
+  { planId: 'free',   name: 'Free',   price: null,      priceNote: 'No credit card needed', searchesPerDay: 5,  resultsPerSearch: 20,   aiCallsPerDay: 15,   maxProspects: 30,   features: [],                 highlight: false },
+  { planId: 'pro',    name: 'Pro',    price: '₦9,999',  priceNote: 'per month',             searchesPerDay: 20, resultsPerSearch: 60,   aiCallsPerDay: 200,  maxProspects: null, features: [...ALL_FEATURES],  highlight: true  },
+  { planId: 'agency', name: 'Agency', price: '₦24,999', priceNote: 'per month',             searchesPerDay: null, resultsPerSearch: null, aiCallsPerDay: null, maxProspects: null, features: [...ALL_FEATURES], highlight: false },
 ];
+
+function limitBullets(p: ApiPlan): string[] {
+  const searches  = p.searchesPerDay   == null ? 'Unlimited searches'         : `${p.searchesPerDay} searches/day`;
+  const results   = p.resultsPerSearch == null ? 'unlimited results'          : `${p.resultsPerSearch} results per search`;
+  const ai        = p.aiCallsPerDay    == null ? 'Unlimited AI messages'      : `${p.aiCallsPerDay} AI messages/day`;
+  const prospects = p.maxProspects     == null ? 'Unlimited saved prospects'  : `Save up to ${p.maxProspects} prospects`;
+  return [`${searches} · ${results}`, ai, prospects];
+}
 
 function PricingContent() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const currentPlan = (session?.user as { plan?: string })?.plan ?? 'free';
+  const [plans, setPlans] = useState<ApiPlan[]>(FALLBACK_PLANS);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/plans')
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((data: ApiPlan[]) => { if (Array.isArray(data) && data.length) setPlans(data); })
+      .catch(() => { /* keep fallback */ });
+  }, []);
 
   useEffect(() => {
     if (searchParams.get('upgraded') === '1') {
@@ -124,6 +129,12 @@ function PricingContent() {
     }
   };
 
+  // For the comparison table — look up the three core plans by id.
+  const byId = (id: string) => plans.find((p) => p.planId === id);
+  const corePlans = ['free', 'pro', 'agency'].map(byId).filter((p): p is ApiPlan => !!p);
+  const cell = (n: number | null) => (n == null ? 'Unlimited' : String(n));
+  const feat = (p: ApiPlan | undefined, f: FeatureId) => (p?.features.includes(f) ? '✓' : '—');
+
   return (
     <div className="min-h-screen bg-gray-950 py-16 px-4">
       <div className="max-w-5xl mx-auto">
@@ -152,15 +163,20 @@ function PricingContent() {
 
         {/* Plan cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {PLANS.map((plan) => {
-            const Icon = plan.icon;
-            const isCurrent = currentPlan === plan.id;
-            const isLoading = loadingPlan === plan.id;
+          {plans.map((plan) => {
+            const pres = PRESENTATION[plan.planId] ?? DEFAULT_PRESENTATION;
+            const Icon = pres.icon;
+            const isCurrent = currentPlan === plan.planId;
+            const isLoading = loadingPlan === plan.planId;
+
+            const unlocked = ALL_FEATURES.filter((f) => plan.features.includes(f)).map((f) => FEATURE_BULLET[f]);
+            const locked = ALL_FEATURES.filter((f) => !plan.features.includes(f)).map((f) => FEATURE_BULLET[f]);
+            const bullets = [...limitBullets(plan), ...pres.alwaysOn, ...unlocked];
 
             return (
               <div
-                key={plan.id}
-                className={`relative bg-gray-900 rounded-2xl border p-6 flex flex-col ${plan.cardClass} ${plan.highlight ? 'md:-mt-4 md:-mb-4 md:py-10' : ''}`}
+                key={plan.planId}
+                className={`relative bg-gray-900 rounded-2xl border p-6 flex flex-col ${pres.cardClass} ${plan.highlight ? 'md:-mt-4 md:-mb-4 md:py-10' : ''}`}
               >
                 {plan.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -171,8 +187,8 @@ function PricingContent() {
                 )}
 
                 <div className="flex items-center gap-2 mb-4">
-                  <Icon className={`w-5 h-5 ${plan.iconClass}`} />
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${plan.badgeClass}`}>
+                  <Icon className={`w-5 h-5 ${pres.iconClass}`} />
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pres.badgeClass}`}>
                     {plan.name.toUpperCase()}
                   </span>
                 </div>
@@ -192,13 +208,13 @@ function PricingContent() {
                 </div>
 
                 <ul className="space-y-2.5 mb-6 flex-1">
-                  {plan.features.map((f) => (
+                  {bullets.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm text-gray-300">
                       <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
                       {f}
                     </li>
                   ))}
-                  {plan.locked.map((f) => (
+                  {locked.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm text-gray-600 line-through">
                       <span className="w-4 h-4 flex-shrink-0 mt-0.5 text-center text-xs">—</span>
                       {f}
@@ -211,18 +227,18 @@ function PricingContent() {
                   <div className="w-full text-center py-2.5 rounded-xl text-sm font-bold bg-white/5 text-gray-400 border border-white/10">
                     Current plan
                   </div>
-                ) : plan.id === 'free' ? (
+                ) : plan.planId === 'free' ? (
                   <Link
                     href="/"
-                    className={`w-full text-center py-2.5 rounded-xl text-sm font-bold transition-colors ${plan.ctaClass}`}
+                    className={`w-full text-center py-2.5 rounded-xl text-sm font-bold transition-colors ${pres.ctaClass}`}
                   >
                     Get started free
                   </Link>
                 ) : (
                   <button
                     disabled={isLoading || !!loadingPlan}
-                    onClick={() => handleUpgrade(plan.id)}
-                    className={`w-full py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-60 ${plan.ctaClass}`}
+                    onClick={() => handleUpgrade(plan.planId)}
+                    className={`w-full py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-60 ${pres.ctaClass}`}
                   >
                     {isLoading
                       ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</>
@@ -256,19 +272,19 @@ function PricingContent() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {[
-                  ['Searches per day', '5', '20', 'Unlimited'],
-                  ['Results per search', '20', '60', 'Unlimited'],
-                  ['AI messages/day', '15', '200', 'Unlimited'],
-                  ['Saved prospects', '30', 'Unlimited', 'Unlimited'],
+                  ['Searches per day',   ...corePlans.map((p) => cell(p.searchesPerDay))],
+                  ['Results per search', ...corePlans.map((p) => cell(p.resultsPerSearch))],
+                  ['AI messages/day',    ...corePlans.map((p) => cell(p.aiCallsPerDay))],
+                  ['Saved prospects',    ...corePlans.map((p) => cell(p.maxProspects))],
                   ['WhatsApp outreach AI', '✓', '✓', '✓'],
                   ['Email outreach AI', '✓', '✓', '✓'],
                   ['AI reply suggestions', '✓', '✓', '✓'],
                   ['Pipeline tracking', '✓', '✓', '✓'],
                   ['CSV export', '✓', '✓', '✓'],
-                  ['Email blast', '—', '✓', '✓'],
-                  ['AI proposals', '—', '✓', '✓'],
-                  ['Market intelligence briefs', '—', '✓', '✓'],
-                  ['Website weakness analysis', '—', '✓', '✓'],
+                  ['Email blast',                ...corePlans.map((p) => feat(p, 'emailBlast'))],
+                  ['AI proposals',               ...corePlans.map((p) => feat(p, 'proposals'))],
+                  ['Market intelligence briefs', ...corePlans.map((p) => feat(p, 'marketBrief'))],
+                  ['Website weakness analysis',  ...corePlans.map((p) => feat(p, 'weaknessAnalysis'))],
                   ['Priority support', '—', '—', '✓'],
                 ].map(([feature, free, pro, agency]) => (
                   <tr key={feature} className="hover:bg-white/[0.02]">
@@ -285,8 +301,8 @@ function PricingContent() {
 
         <p className="text-center text-gray-500 text-sm">
           Questions? Email{' '}
-          <a href="mailto:softlineazeez123@gmail.com" className="text-purple-400 hover:underline">
-            softlineazeez123@gmail.com
+          <a href="mailto:info@beamai.net" className="text-purple-400 hover:underline">
+            info@beamai.net
           </a>
         </p>
       </div>

@@ -32,12 +32,9 @@ export async function POST(req: NextRequest) {
 
   const verifyUrl = `${getAppUrl()}/api/auth/verify-email?token=${token}`;
 
-  // Use the user's own business name as the sender name if available
-  const settings = await prisma.userSettings.findUnique({
-    where: { userId: user.id },
-    select: { businessName: true, senderName: true },
-  });
-  const senderName = settings?.businessName || settings?.senderName || user.name || getAppName();
+  // Transactional email from us — always send as the app brand, never the
+  // user's own business/sender identity (that's only for their outreach).
+  const senderName = getAppName();
 
   try {
     const smtpPort = Number(process.env.SMTP_PORT ?? 587);

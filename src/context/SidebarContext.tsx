@@ -10,7 +10,8 @@ interface SidebarCtx {
 const SidebarContext = createContext<SidebarCtx>({ collapsed: false, toggle: () => {} });
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+  // Collapsed by default — opens via the top toggle (no auto-collapse)
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
     try {
