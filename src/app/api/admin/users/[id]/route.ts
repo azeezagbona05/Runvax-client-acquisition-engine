@@ -14,19 +14,50 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { plan } = await req.json() as { plan: string };
-  if (!plan || !VALID_PLANS.includes(plan)) {
-    return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+  const body = await req.json() as {
+    plan?: string;
+    searchLimitOverride?: number | null;
+    blockedLocations?: string[] | null;
+    blockedCountries?: string[] | null;
+    isSuspended?: boolean;
+  };
+
+  const updateData: Record<string, unknown> = {};
+
+  if (body.plan !== undefined) {
+    if (!VALID_PLANS.includes(body.plan)) {
+      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+    }
+    updateData.plan = body.plan;
+    updateData.planExpiresAt = body.plan === 'free'
+      ? null
+      : new Date(Date.now() + 35 * 24 * 60 * 60 * 1000);
   }
 
-  const planExpiresAt = plan === 'free'
-    ? null
-    : new Date(Date.now() + 35 * 24 * 60 * 60 * 1000); // +35 days for paid plans
+  if ('searchLimitOverride' in body) {
+    updateData.searchLimitOverride = body.searchLimitOverride ?? null;
+  }
+
+  if ('blockedLocations' in body) {
+    updateData.blockedLocations = body.blockedLocations && body.blockedLocations.length > 0
+      ? JSON.stringify(body.blockedLocations)
+      : null;
+  }
+
+  if ('blockedCountries' in body) {
+    updateData.blockedCountries = body.blockedCountries && body.blockedCountries.length > 0
+      ? JSON.stringify(body.blockedCountries)
+      : null;
+  }
+
+  if ('isSuspended' in body) {
+    updateData.isSuspended = !!body.isSuspended;
+  }
 
   const user = await prisma.user.update({
     where: { id: params.id },
-    data: { plan, planExpiresAt },
-    select: { id: true, email: true, plan: true, planExpiresAt: true },
+    data: updateData,
+    select: { id: true, email: true, plan: true, planExpiresAt: true, searchLimitOverride: true, blockedLocations: true, blockedCountries: true, isSuspended: true },
   });
 
   return NextResponse.json(user);

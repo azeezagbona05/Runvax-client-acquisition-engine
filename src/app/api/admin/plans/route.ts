@@ -5,10 +5,17 @@ import { prisma } from '@/lib/prisma';
 import { PLANS, valToDb, clearPlanCache } from '@/lib/plans';
 import { FeatureId, resolveFeatures, serializeFeatures } from '@/lib/features';
 
-// Replace each row's raw `features` CSV with its resolved FeatureId[] so the
-// admin UI always receives a concrete list (defaults applied when unset).
-function withFeatures<T extends { planId: string; features: string | null }>(row: T) {
-  return { ...row, features: resolveFeatures(row.planId, row.features) };
+// Resolve features CSV → FeatureId[] and parse allowedLocations JSON → string[]
+function withFeatures<T extends { planId: string; features: string | null; allowedLocations?: string | null; allowedCountries?: string | null }>(row: T) {
+  let allowedLocations: string[] | null = null;
+  if (row.allowedLocations) {
+    try { allowedLocations = JSON.parse(row.allowedLocations) as string[]; } catch { allowedLocations = null; }
+  }
+  let allowedCountries: string[] | null = null;
+  if (row.allowedCountries) {
+    try { allowedCountries = JSON.parse(row.allowedCountries) as string[]; } catch { allowedCountries = null; }
+  }
+  return { ...row, features: resolveFeatures(row.planId, row.features), allowedLocations, allowedCountries };
 }
 
 export const dynamic = 'force-dynamic';

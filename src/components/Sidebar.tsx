@@ -19,6 +19,12 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const { theme, toggle: toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
+  // `collapsed` is the pinned state (set by the toggle). When collapsed, the
+  // sidebar still expands on hover (peek) and re-collapses on mouse leave.
+  // `rail` = the visually-collapsed (narrow) state.
+  const rail = collapsed && !hovered && !menuOpen;
 
   const savedCount  = prospects.length;
   const wonCount    = prospects.filter((p) => p.stage === 'won').length;
@@ -45,13 +51,15 @@ export default function Sidebar() {
     <>
       {/* Desktop sidebar — hidden below lg */}
       <aside
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         className={`sidebar-dark hidden lg:flex flex-col fixed left-0 top-0 h-screen z-40 border-r border-white/[0.06] transition-all duration-300 ease-in-out overflow-hidden ${
-          collapsed ? 'w-16' : 'w-60'
-        }`}
+          rail ? 'w-16' : 'w-60'
+        } ${collapsed && !rail ? 'shadow-2xl shadow-black/40' : ''}`}
       >
         {/* Top: logo + sidebar toggle */}
-        <div className={`flex items-center h-16 px-3 border-b border-white/[0.06] flex-shrink-0 ${collapsed ? 'justify-center' : 'justify-between'}`}>
-          {!collapsed && (
+        <div className={`flex items-center h-16 px-3 border-b border-white/[0.06] flex-shrink-0 ${rail ? 'justify-center' : 'justify-between'}`}>
+          {!rail && (
             <div className="flex items-center gap-2.5 min-w-0 pl-1">
               <img src="/logo.svg" alt="" className="w-8 h-8 flex-shrink-0" />
               <div className="min-w-0">
@@ -77,26 +85,26 @@ export default function Sidebar() {
               <Link
                 key={href}
                 href={href}
-                title={collapsed ? label : undefined}
+                title={rail ? label : undefined}
                 className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group whitespace-nowrap ${
                   active
                     ? 'bg-purple-600/20 text-purple-300'
                     : 'text-gray-400 hover:text-white hover:bg-white/8'
-                } ${collapsed ? 'justify-center' : ''}`}
+                } ${rail ? 'justify-center' : ''}`}
               >
                 <Icon className={`w-5 h-5 flex-shrink-0 transition-transform duration-150 ${active ? 'scale-110' : 'group-hover:scale-105'}`} />
-                {!collapsed && <span>{label}</span>}
+                {!rail && <span>{label}</span>}
 
                 {badge != null && badge > 0 && (
                   <span className={`${
-                    collapsed ? 'absolute top-0.5 right-0.5' : 'ml-auto'
+                    rail ? 'absolute top-0.5 right-0.5' : 'ml-auto'
                   } min-w-[18px] h-[18px] ${badgeColor} text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 leading-none`}>
                     {badge > 99 ? '99+' : badge}
                   </span>
                 )}
 
                 {/* Tooltip when collapsed */}
-                {collapsed && (
+                {rail && (
                   <span className="absolute left-full ml-3 px-2.5 py-1.5 bg-gray-800 border border-white/10 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 shadow-xl z-50">
                     {label}
                   </span>
@@ -113,13 +121,13 @@ export default function Sidebar() {
           {session?.user && (
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              title={collapsed ? session.user.name ?? 'Account' : undefined}
-              className={`w-full flex items-center gap-2.5 px-1.5 py-1.5 rounded-xl hover:bg-white/8 transition-colors ${collapsed ? 'justify-center' : ''}`}
+              title={rail ? session.user.name ?? 'Account' : undefined}
+              className={`w-full flex items-center gap-2.5 px-1.5 py-1.5 rounded-xl hover:bg-white/8 transition-colors ${rail ? 'justify-center' : ''}`}
             >
               <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-[11px] font-black text-white flex-shrink-0">
                 {initials}
               </div>
-              {!collapsed && (
+              {!rail && (
                 <>
                   <div className="flex-1 min-w-0 text-left">
                     <div className="text-xs font-semibold text-white truncate leading-tight">{session.user.name}</div>
@@ -136,15 +144,15 @@ export default function Sidebar() {
             <div className="space-y-1.5">
               <Link
                 href="/auth/signin"
-                title={collapsed ? 'Log in' : undefined}
+                title={rail ? 'Log in' : undefined}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition-colors whitespace-nowrap ${
-                  collapsed ? 'justify-center' : ''
+                  rail ? 'justify-center' : ''
                 }`}
               >
                 <LogIn className="w-4 h-4 flex-shrink-0" />
-                {!collapsed && <span>Log in</span>}
+                {!rail && <span>Log in</span>}
               </Link>
-              {!collapsed && (
+              {!rail && (
                 <Link
                   href="/auth/signup"
                   className="block text-center text-[11px] text-gray-500 hover:text-gray-300 transition-colors py-1"
@@ -154,15 +162,15 @@ export default function Sidebar() {
               )}
               <button
                 onClick={toggleTheme}
-                title={collapsed ? 'Toggle theme' : undefined}
+                title={rail ? 'Toggle theme' : undefined}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/8 transition-colors whitespace-nowrap ${
-                  collapsed ? 'justify-center' : ''
+                  rail ? 'justify-center' : ''
                 }`}
               >
                 {theme === 'dark'
                   ? <Sun className="w-4 h-4 text-yellow-400 flex-shrink-0" />
                   : <Moon className="w-4 h-4 text-purple-400 flex-shrink-0" />}
-                {!collapsed && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
+                {!rail && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
               </button>
             </div>
           )}

@@ -33,6 +33,8 @@ export async function PATCH(
     aiCallsPerDay?: number;
     maxProspects?: number;
     features?: FeatureId[];
+    allowedLocations?: string[] | null;
+    allowedCountries?: string[] | null;
   };
 
   const data: Record<string, unknown> = {};
@@ -44,6 +46,10 @@ export async function PATCH(
   if (body.aiCallsPerDay    !== undefined) data.aiCallsPerDay    = valToDb(body.aiCallsPerDay);
   if (body.maxProspects     !== undefined) data.maxProspects     = valToDb(body.maxProspects);
   if (Array.isArray(body.features))        data.features         = serializeFeatures(body.features);
+  if ('allowedLocations' in body)          data.allowedLocations = body.allowedLocations?.length
+    ? JSON.stringify(body.allowedLocations) : null;
+  if ('allowedCountries' in body)          data.allowedCountries = body.allowedCountries?.length
+    ? JSON.stringify(body.allowedCountries) : null;
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });

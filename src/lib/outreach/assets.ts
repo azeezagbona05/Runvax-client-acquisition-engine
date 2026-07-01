@@ -7,35 +7,38 @@ import type { SenderProfile } from './types';
 
 // ─── Opener pool — rotate, never repeat the same one twice in a row ───────────
 
-export const OPENER_POOL = `OPENER — pick ONE of the following and use it exactly as the opening line.
-Choose based on what sounds most natural for this specific business and city.
+export const OPENER_POOL = `OPENER — every message starts with a soft greeting on its own line, then ONE observation sentence.
 Never use the same opener twice for different messages in the same session.
 
-Options:
-1. "Hi [shortName], I found your business while searching on Google."
-2. "I was looking at local [industry] businesses in [city] and your listing caught my attention."
-3. "Your Google profile came up when I was browsing [industry] businesses in [city]."
-4. "I noticed [shortName] while looking at [industry] listings in [city] today."
-5. "I came across [shortName] on Google — [reviewCount] reviews is genuinely impressive."
-6. "I was doing some research on [industry] businesses in [city] and found your listing."
-7. "Your business stood out while I was looking at [industry] businesses in [city]."
-8. "I found [shortName] on Google while searching for [industry] businesses in [city]."
+Greeting (always first line):
+"Hi [shortName]!"
 
-Use the real data. Replace [shortName], [industry], [city], [reviewCount] with actual values.`;
+Then immediately follow with ONE of these observation sentences (pick the most natural fit):
+1. "I came across your business on Google today."
+2. "I was browsing [industry] businesses in [city] and your listing caught my attention."
+3. "Your Google profile came up when I was looking at [industry] businesses in [city]."
+4. "I found you on Google while searching for [industry] businesses in [city]."
+5. "I was doing some research on [industry] businesses in [city] and came across your listing."
+6. "Your business stood out to me while I was looking at [industry] listings in [city]."
+7. "I was checking out [industry] businesses in [city] and noticed your profile."
+8. "I came across your listing on Google while browsing [industry] businesses in [city]."
+
+Use the real data. Replace [shortName], [industry], [city] with actual values.
+No hyphens or dashes anywhere in the greeting or opener line.`;
 
 // ─── CTA pool — rotate across messages ───────────────────────────────────────
 
-export const CTA_POOL = `CALL TO ACTION — pick ONE from the list below. Vary it — never use the same CTA for every message.
+export const CTA_POOL = `CALL TO ACTION — pick ONE from the list below. Vary it, never use the same CTA for every message.
 
 Options:
 1. "Would you be open to seeing a quick concept?"
 2. "Would you like me to show you what that could look like?"
-3. "I had a few ideas — would you be open to hearing them?"
-4. "Can I send you something I think you'd find useful?"
+3. "I had a few ideas. Would you be open to hearing them?"
+4. "Can I send you something I think you would find useful?"
 5. "Would it be okay if I shared a quick idea with you?"
-6. "I actually put a few ideas together — mind if I send them over?"
+6. "I actually put a few ideas together. Mind if I send them over?"
 
-The CTA goes on its own line at the end. One question only. No stacking.`;
+The CTA goes on its own line at the end. One question only. No stacking. No hyphens or dashes.`;
 
 // ─── Conversation style rules ─────────────────────────────────────────────────
 
@@ -70,9 +73,9 @@ Pattern: [search scenario] → [what they find] → [what's missing] → [conseq
 
 Example for a beauty salon:
 "When someone searches for a salon in Lagos and finds your Google profile,
-they can see your reviews — but there's no website to click through to.
-That means they can't check your services, see your prices, or book an appointment
-without calling. A lot of people don't call. They just move on."
+they can see your reviews but there is no website to click through to.
+That means they cannot check your services, see your prices, or book an appointment
+without calling. A lot of people do not call. They just move on."
 
 Adapt this pattern to the specific industry and city in the prospect data.
 Make the consequence feel real, not dramatic.`;
@@ -92,14 +95,25 @@ If no competitor is provided, skip this section entirely.`;
 // ─── Sender identity ──────────────────────────────────────────────────────────
 
 export function senderIdentity(profile: SenderProfile): string {
+  const sigLines = [
+    profile.senderName,
+    profile.jobTitle || null,
+    profile.businessName,
+    profile.website || null,
+  ].filter(Boolean).join('\n');
+
   return `SENDER:
-Sign the email as ${profile.senderName} from ${profile.businessName}.
+Email signature (use exactly, on separate lines at the end of the email body):
+${sigLines}
+
 WhatsApp: no signature, no sign-off — the message ends after the CTA question.`;
 }
 
 // ─── Hard bans ────────────────────────────────────────────────────────────────
 
 export const HARD_BANS = `NEVER USE:
+• Hyphens or em dashes (-, —) anywhere in the message. Not mid-sentence, not in lists, not in CTAs.
+  Instead of "I noticed something — here is what I mean" write "I noticed something. Here is what I mean."
 • "I hope this message finds you well"
 • "My name is X and I..."
 • "Are you interested in..."
@@ -110,4 +124,4 @@ export const HARD_BANS = `NEVER USE:
 • Unfilled placeholders like [INSERT NAME] — use real data only
 • Fabricated statistics or results
 • Competitor tool names (Apollo, ZoomInfo, HubSpot, etc.)
-• The full Google business name if it has a parenthetical — strip to short name only`;
+• The full Google business name if it has a parenthetical. Strip to short name only`;

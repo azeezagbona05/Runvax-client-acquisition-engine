@@ -10,6 +10,7 @@ import {
   MapPin, Activity, Ban, Save, ShieldOff,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
+import BehaviorPanel from './BehaviorPanel';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
 
 interface SearchActivity {
@@ -667,7 +668,7 @@ export default function AdminPage() {
   const router = useRouter();
   const [stats, setStats]       = useState<Stats | null>(null);
   const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<'users' | 'payments' | 'revenue' | 'plans' | 'costs'>('users');
+  const [tab, setTab]           = useState<'users' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs'>('users');
   const [costSince, setCostSince] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Users filter state
@@ -900,6 +901,7 @@ export default function AdminPage() {
         <div className="flex gap-1 border-b border-white/8 overflow-x-auto">
           {([
             ['users',    `Users (${users.length})`],
+            ['behaviour', 'Behaviour'],
             ['payments', `Payments (${payments.length})`],
             ['revenue',  'Revenue by Month'],
             ['plans',    'Plan Limits'],
@@ -918,6 +920,9 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+
+        {/* ── BEHAVIOUR TAB ── */}
+        {tab === 'behaviour' && <BehaviorPanel />}
 
         {/* ── USERS TAB ── */}
         {tab === 'users' && (

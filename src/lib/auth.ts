@@ -20,7 +20,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
@@ -28,9 +28,19 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.password) return null;
+        if (user.isSuspended) return null;
 
         const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) return null;
+
+        // Record the IP from this sign-in (fire-and-forget)
+        const ip =
+          (((req as { headers?: Record<string, string> }).headers?.['x-forwarded-for'] ?? '').split(',')[0].trim()) ||
+          (req as { headers?: Record<string, string> }).headers?.['x-real-ip'] ||
+          null;
+        if (ip) {
+          void prisma.user.update({ where: { id: user.id }, data: { lastSeenIp: ip } }).catch(() => {});
+        }
 
         const isAdmin = ADMIN_EMAILS.includes((user.email ?? '').toLowerCase());
         return { id: user.id, email: user.email, name: user.name, plan: user.plan, emailVerified: user.emailVerified, isAdmin };

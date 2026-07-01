@@ -131,6 +131,13 @@ export default function Home() {
         setError(json.error || 'Daily search limit reached. Upgrade for more searches.');
         return;
       }
+      if (res.status === 403 && (
+        json.code === 'LOCATION_BLOCKED' || json.code === 'LOCATION_NOT_ALLOWED' ||
+        json.code === 'COUNTRY_BLOCKED' || json.code === 'COUNTRY_NOT_ALLOWED'
+      )) {
+        setError(json.error || 'This search is not available on your account.');
+        return;
+      }
       if (!res.ok) throw new Error(json.error || 'Search failed');
 
       const results: Business[] = json.businesses || [];

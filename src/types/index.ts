@@ -30,6 +30,7 @@ export interface Business {
 export interface SearchFormData {
   industry: string;
   location: string;
+  country?: string;
   lat?: number;
   lng?: number;
   radius: number;

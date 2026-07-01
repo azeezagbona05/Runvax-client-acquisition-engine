@@ -22,9 +22,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
   }
 
+  const registrationIp =
+    (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() ||
+    req.headers.get('x-real-ip') ||
+    null;
+
   const hashed = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
-    data: { name, email, password: hashed, plan: 'free' },
+    data: { name, email, password: hashed, plan: 'free', registrationIp },
   });
 
   // Create verification token (24hr expiry)

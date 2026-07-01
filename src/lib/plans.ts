@@ -15,6 +15,8 @@ export interface PlanConfig {
   badge: string;
   badgeClass: string;
   highlight: boolean;
+  allowedLocations?: string | null;  // raw JSON string from DB
+  allowedCountries?: string | null;  // raw JSON string from DB
 }
 
 // Hardcoded defaults — used as fallback when DB row is missing
@@ -97,6 +99,8 @@ export async function getPlanConfig(planId: string): Promise<PlanConfig> {
         resultsPerSearch: dbToVal(row.resultsPerSearch),
         maxProspects:     dbToVal(row.maxProspects),
         features:         resolveFeatures(planId, row.features),
+        allowedLocations: row.allowedLocations ?? null,
+        allowedCountries: row.allowedCountries ?? null,
       };
       cache.set(planId, { config, exp: Date.now() + CACHE_TTL });
       return config;

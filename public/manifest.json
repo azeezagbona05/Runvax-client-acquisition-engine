@@ -1,31 +1,21 @@
 {
-  "name": "AI Prospect Finder",
+  "id": "/",
+  "name": "ProspectAI",
   "short_name": "ProspectAI",
-  "description": "Find local businesses that need a website. Generate AI-powered outreach instantly.",
+  "description": "Find local businesses that need a website. Generate AI-powered cold emails, WhatsApp messages, and proposals instantly.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#030712",
   "theme_color": "#030712",
   "orientation": "portrait-primary",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
-  ],
-  "categories": ["business", "productivity"]
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/logo.svg",     "sizes": "any",     "type": "image/svg+xml", "purpose": "any" }
+  ]
 }

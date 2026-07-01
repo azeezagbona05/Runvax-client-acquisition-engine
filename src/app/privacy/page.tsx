@@ -13,7 +13,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-white font-bold text-lg mb-3">1. Who We Are</h2>
-          <p>AI Prospect Finder is operated by BeamAI. We are based in Lagos, Nigeria. Contact: <a href="mailto:info@beamai.net" className="text-purple-400 hover:underline">info@beamai.net</a>.</p>
+          <p>ProspectAI is operated by BeamAI. We are based in Lagos, Nigeria. Contact: <a href="mailto:info@beamai.net" className="text-purple-400 hover:underline">info@beamai.net</a>.</p>
         </section>
 
         <section>
