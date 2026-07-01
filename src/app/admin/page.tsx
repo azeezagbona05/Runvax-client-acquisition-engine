@@ -88,7 +88,7 @@ function FeatureToggles({ value, onChange }: { value: FeatureId[]; onChange: (v:
     onChange(value.includes(f) ? value.filter((x) => x !== f) : [...value, f]);
   return (
     <div>
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Features unlocked</p>
+      <p className="text-xs font-bold text-gray-600 uppercase tracking-widest mb-2">Features unlocked</p>
       <div className="space-y-1.5">
         {ALL_FEATURES.map((f) => {
           const on = value.includes(f);
@@ -99,8 +99,8 @@ function FeatureToggles({ value, onChange }: { value: FeatureId[]; onChange: (v:
               onClick={() => toggle(f)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border text-sm font-semibold text-left transition-colors ${
                 on
-                  ? 'bg-purple-600/15 border-purple-500/30 text-purple-200'
-                  : 'bg-gray-800/50 border-white/8 text-gray-500 hover:border-white/20'
+                  ? 'bg-purple-100 border-purple-400 text-purple-800'
+                  : 'bg-gray-100 border-gray-200 text-gray-400 hover:border-gray-300'
               }`}
             >
               <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${on ? 'bg-purple-600' : 'border border-white/20'}`}>
@@ -131,14 +131,14 @@ function LimitField({ label, value, onChange }: { label: string; value: number; 
           type="button"
           onClick={() => onChange(isUnlimited ? 10 : -1)}
           className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
-            isUnlimited ? 'bg-purple-600/20 text-purple-300 border-purple-500/30' : 'text-gray-600 border-white/10 hover:border-white/25'
+            isUnlimited ? 'bg-purple-100 text-purple-700 border-purple-400' : 'text-gray-500 border-gray-300 hover:border-gray-400'
           }`}
         >
           <InfinityIcon className="w-3 h-3" /> {isUnlimited ? 'Unlimited' : 'Set unlimited'}
         </button>
       </div>
       {isUnlimited ? (
-        <div className="w-full bg-gray-800/50 border border-white/8 rounded-xl px-4 py-2.5 text-sm text-purple-400 font-bold flex items-center gap-2">
+        <div className="w-full bg-purple-50 border border-purple-300 rounded-xl px-4 py-2.5 text-sm text-purple-700 font-bold flex items-center gap-2">
           <InfinityIcon className="w-4 h-4" /> Unlimited
         </div>
       ) : (
