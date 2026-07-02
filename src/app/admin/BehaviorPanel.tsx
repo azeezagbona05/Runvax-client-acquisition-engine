@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Users, Phone, Trophy, Wallet, Search, MapPin, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+import { Loader2, Users, Phone, Trophy, Wallet, Search, MapPin, TrendingUp, TrendingDown, BarChart3, X } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
 
 type Range = 'week' | 'month' | 'year' | 'all';
@@ -58,6 +58,7 @@ export default function BehaviorPanel() {
   const [range, setRange] = useState<Range>('month');
   const [data, setData] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -67,14 +68,28 @@ export default function BehaviorPanel() {
       .finally(() => setLoading(false));
   }, [range]);
 
-  const maxSearchInd = Math.max(1, ...(data?.searchedIndustries.map((s) => s.count) ?? [1]));
-  const maxSearchArea = Math.max(1, ...(data?.searchedAreas.map((s) => s.count) ?? [1]));
-  const maxSaved = Math.max(1, ...(data?.industries.map((s) => s.saved) ?? [1]));
+  const q = filter.toLowerCase().trim();
+
+  const filteredIndustries = q
+    ? (data?.searchedIndustries ?? []).filter((s) => s.key.toLowerCase().includes(q))
+    : (data?.searchedIndustries ?? []);
+
+  const filteredAreas = q
+    ? (data?.searchedAreas ?? []).filter((s) => s.key.toLowerCase().includes(q))
+    : (data?.searchedAreas ?? []);
+
+  const filteredFunnel = q
+    ? (data?.industries ?? []).filter((s) => s.key.toLowerCase().includes(q))
+    : (data?.industries ?? []);
+
+  const maxSearchInd  = Math.max(1, ...filteredIndustries.map((s) => s.count));
+  const maxSearchArea = Math.max(1, ...filteredAreas.map((s) => s.count));
+  const maxSaved      = Math.max(1, ...filteredFunnel.map((s) => s.saved));
 
   return (
     <div className="space-y-6">
-      {/* Range toggle */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Controls row */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
         <div className="flex gap-1 bg-gray-900 border border-white/10 rounded-xl p-1">
           {RANGES.map((r) => (
             <button key={r.id} onClick={() => setRange(r.id)}
@@ -82,6 +97,23 @@ export default function BehaviorPanel() {
               {r.label}
             </button>
           ))}
+        </div>
+        {/* Keyword filter */}
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter by industry or area…"
+            className="w-full bg-gray-900 border border-white/10 rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+          />
+          {filter && (
+            <button onClick={() => setFilter('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         {loading && <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />}
       </div>
@@ -108,8 +140,8 @@ export default function BehaviorPanel() {
               <h3 className="font-black text-white mb-1 flex items-center gap-2"><Search className="w-4 h-4 text-purple-400" /> Most-searched industries</h3>
               <p className="text-[11px] text-gray-600 mb-4">What categories people are hunting for</p>
               <div className="space-y-2.5">
-                {data.searchedIndustries.length === 0 && <p className="text-sm text-gray-600">Not enough data.</p>}
-                {data.searchedIndustries.map((s) => (
+                {filteredIndustries.length === 0 && <p className="text-sm text-gray-500">{q ? `No results for "${filter}"` : 'Not enough data.'}</p>}
+                {filteredIndustries.map((s) => (
                   <div key={s.key}>
                     <div className="flex items-center justify-between text-sm mb-1"><span className="text-gray-300 truncate">{s.key}</span><span className="text-gray-500 font-bold flex-shrink-0 ml-2">{s.count}</span></div>
                     <Bar value={s.count} max={maxSearchInd} />
@@ -121,8 +153,8 @@ export default function BehaviorPanel() {
               <h3 className="font-black text-white mb-1 flex items-center gap-2"><MapPin className="w-4 h-4 text-orange-400" /> Most-searched areas</h3>
               <p className="text-[11px] text-gray-600 mb-4">Where the attention is going</p>
               <div className="space-y-2.5">
-                {data.searchedAreas.length === 0 && <p className="text-sm text-gray-600">Not enough data.</p>}
-                {data.searchedAreas.map((s) => (
+                {filteredAreas.length === 0 && <p className="text-sm text-gray-500">{q ? `No results for "${filter}"` : 'Not enough data.'}</p>}
+                {filteredAreas.map((s) => (
                   <div key={s.key}>
                     <div className="flex items-center justify-between text-sm mb-1"><span className="text-gray-300 truncate">{s.key}</span><span className="text-gray-500 font-bold flex-shrink-0 ml-2">{s.count}</span></div>
                     <Bar value={s.count} max={maxSearchArea} color="bg-orange-500" />
@@ -149,10 +181,10 @@ export default function BehaviorPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.industries.length === 0 && (
-                    <tr><td colSpan={6} className="py-4 text-gray-600 text-center">No saved prospects in this period yet.</td></tr>
+                  {filteredFunnel.length === 0 && (
+                    <tr><td colSpan={6} className="py-4 text-gray-500 text-center">{q ? `No results for "${filter}"` : 'No saved prospects in this period yet.'}</td></tr>
                   )}
-                  {data.industries.map((ind) => (
+                  {filteredFunnel.map((ind) => (
                     <tr key={ind.key} className="border-t border-white/5">
                       <td className="py-2.5 pr-3 text-gray-200 font-medium">{ind.key}</td>
                       <td className="py-2.5 pr-3">

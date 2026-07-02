@@ -83,9 +83,36 @@ export default function OutreachModal({ business, onClose }: Props) {
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [signupGate, setSignupGate] = useState(false);
+  const [findingEmail, setFindingEmail] = useState(false);
+  const [emailNotFound, setEmailNotFound] = useState(false);
   const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (lockTimer.current) clearTimeout(lockTimer.current); }, []);
+
+  // Auto-find email when email tab opens with no email
+  useEffect(() => {
+    if (tab !== 'email' || recipientEmail || findingEmail) return;
+    setEmailNotFound(false);
+    setFindingEmail(true);
+    fetch('/api/enrich-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        website: business.website,
+        name: business.name,
+        location: business.address,
+        phone: business.phone,
+      }),
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.email) setRecipientEmail(json.email);
+        else setEmailNotFound(true);
+      })
+      .catch(() => setEmailNotFound(true))
+      .finally(() => setFindingEmail(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   const showDemoAndLock = () => {
     const city = business.address?.split(',')[0] ?? 'your area';
@@ -329,22 +356,33 @@ export default function OutreachModal({ business, onClose }: Props) {
                 <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-4 space-y-3">
                   <p className="text-[11px] font-bold text-blue-400 uppercase tracking-widest">Send Directly via SMTP</p>
                   <div className="flex gap-2">
-                    <input
-                      type="email"
-                      value={recipientEmail}
-                      onChange={(e) => { setRecipientEmail(e.target.value); setSendResult(null); }}
-                      placeholder="recipient@email.com"
-                      className="flex-1 bg-gray-800 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500"
-                    />
+                    <div className="relative flex-1">
+                      <input
+                        type="email"
+                        value={recipientEmail}
+                        onChange={(e) => { setRecipientEmail(e.target.value); setSendResult(null); setEmailNotFound(false); }}
+                        placeholder={findingEmail ? '' : 'recipient@email.com'}
+                        disabled={findingEmail}
+                        className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500"
+                      />
+                      {findingEmail && (
+                        <div className="absolute inset-0 flex items-center px-3 gap-2 text-gray-500 text-sm pointer-events-none">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Finding email…
+                        </div>
+                      )}
+                    </div>
                     <button
                       onClick={sendEmailDirectly}
-                      disabled={sending}
+                      disabled={sending || findingEmail}
                       className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 text-white font-bold rounded-xl text-sm transition-colors whitespace-nowrap"
                     >
                       {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                       {sending ? 'Sending…' : 'Send Now'}
                     </button>
                   </div>
+                  {emailNotFound && (
+                    <p className="text-xs text-gray-600">📭 No email found automatically — enter it manually above.</p>
+                  )}
                   {sendResult && (
                     <p className={`text-xs font-semibold ${sendResult.ok ? 'text-green-400' : 'text-red-400'}`}>
                       {sendResult.ok ? '✅ ' : '❌ '}{sendResult.msg}

@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { MapPin, Phone, Star, Globe, Bookmark, Copy, Check, MessageCircle, Loader2 } from 'lucide-react';
+import {
+  MapPin, Phone, Star, Globe, Bookmark, Copy, Check,
+  MessageCircle, Loader2, X, ExternalLink, CheckCircle, XCircle,
+} from 'lucide-react';
 import { Business } from '@/types';
 import { scoreProspect, scoreLabel } from '@/lib/scoring';
 import { useProspects } from '@/context/ProspectsContext';
@@ -29,6 +32,9 @@ const STAGE_META: Record<string, { label: string; color: string }> = {
   lost:       { label: '❌ Lost',       color: 'text-red-400 bg-red-500/15 border-red-500/30' },
 };
 
+type WaStep = 'preview' | 'confirm';
+interface WaState { step: WaStep; msg: string; link: string }
+
 export default function BusinessCard({ business, onClick }: Props) {
   const { isSaved, save, remove, get, markOutreachSent, updateStage, incrementToday } = useProspects();
   const saved = isSaved(business.id);
@@ -41,6 +47,8 @@ export default function BusinessCard({ business, onClick }: Props) {
 
   const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [waState, setWaState] = useState<WaState | null>(null);
+  const [editedMsg, setEditedMsg] = useState('');
 
   const copyPhone = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -68,7 +76,6 @@ export default function BusinessCard({ business, onClick }: Props) {
         body: JSON.stringify({ business, competitors: business.competitors }),
       });
       const json = await res.json();
-      // Use AI message if available, fall back to template if API fails
       msg = (res.ok && json.whatsapp) ? json.whatsapp : buildQuickWAMessage(business);
     } catch {
       msg = buildQuickWAMessage(business);
@@ -78,157 +85,268 @@ export default function BusinessCard({ business, onClick }: Props) {
 
     const link = whatsappLink(business, msg);
     if (!link) return;
-    window.open(link, '_blank');
-    if (!saved) save(business);
-    markOutreachSent(business.id, msg, 'whatsapp');
-    updateStage(business.id, 'contacted');
-    incrementToday();
+    setEditedMsg(msg);
+    setWaState({ step: 'preview', msg, link });
+  };
+
+  const openWhatsApp = () => {
+    if (!waState) return;
+    // Rebuild link with the (possibly edited) message
+    const finalMsg = editedMsg || waState.msg;
+    const finalLink = whatsappLink(business, finalMsg) ?? waState.link;
+    window.open(finalLink, '_blank');
+    setWaState({ step: 'confirm', msg: finalMsg, link: finalLink });
+  };
+
+  const confirmDelivery = (delivered: boolean) => {
+    if (!waState) return;
+    if (delivered) {
+      if (!saved) save(business);
+      markOutreachSent(business.id, waState.msg, 'whatsapp');
+      updateStage(business.id, 'contacted');
+      incrementToday();
+    }
+    setWaState(null);
+  };
+
+  const closeWa = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setWaState(null);
   };
 
   return (
-    <div
-      onClick={onClick}
-      className={`relative bg-gray-900 border rounded-2xl p-4 cursor-pointer hover:bg-gray-800/60 transition-all group flex flex-col gap-3 ${
-        saved
-          ? 'border-blue-500/30 opacity-85 hover:opacity-100 hover:border-blue-400/50'
-          : 'border-white/10 hover:border-purple-500/40'
-      }`}
-    >
-      {/* Stage banner */}
-      {stageMeta && (
-        <div className={`text-[10px] font-bold px-2 py-1 rounded-lg border inline-flex items-center gap-1 w-fit ${stageMeta.color}`}>
-          {stageMeta.label}
-        </div>
-      )}
-
-      {/* Top row: category badge + website status */}
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20 truncate max-w-[55%]">
-          {business.category}
-        </span>
-        {socialOnly ? (
-          <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/20 flex items-center gap-1 flex-shrink-0">
-            📱 Social Only
-          </span>
-        ) : business.hasWebsite ? (
-          <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/15 flex items-center gap-1 flex-shrink-0">
-            <Globe className="w-3 h-3" /> Has Site
-          </span>
-        ) : (
-          <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25 flex-shrink-0">
-            🎯 No Website
-          </span>
+    <>
+      <div
+        onClick={onClick}
+        className={`relative bg-gray-900 border rounded-2xl p-4 cursor-pointer hover:bg-gray-800/60 transition-all group flex flex-col gap-3 ${
+          saved
+            ? 'border-blue-500/30 opacity-85 hover:opacity-100 hover:border-blue-400/50'
+            : 'border-white/10 hover:border-purple-500/40'
+        }`}
+      >
+        {/* Stage banner */}
+        {stageMeta && (
+          <div className={`text-[10px] font-bold px-2 py-1 rounded-lg border inline-flex items-center gap-1 w-fit ${stageMeta.color}`}>
+            {stageMeta.label}
+          </div>
         )}
-      </div>
 
-      {/* Name */}
-      <h3 className="font-bold text-white text-[15px] leading-snug line-clamp-2 group-hover:text-purple-300 transition-colors -mt-1">
-        {business.name}
-      </h3>
-
-      {/* Address */}
-      {business.address && (
-        <div className="flex items-start gap-2 text-gray-500 text-xs">
-          <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-          <span className="line-clamp-1">{business.address}</span>
-        </div>
-      )}
-
-      {/* Phone + copy */}
-      {business.phone ? (
-        <div className="flex items-center gap-2 text-xs">
-          <Phone className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-          <span className="text-gray-400 flex-1">{business.phone}</span>
-          <button
-            onClick={copyPhone}
-            title="Copy number"
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
-              copied ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-gray-600 hover:text-gray-300 hover:bg-white/10'
-            }`}
-          >
-            {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 text-xs text-gray-600">
-          <Phone className="w-3.5 h-3.5" /> No phone listed
-        </div>
-      )}
-
-      {/* Rating + last review */}
-      {business.rating ? (
-        <div className="flex items-center gap-1.5 text-xs">
-          <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-          <span className="text-white font-semibold">{business.rating}</span>
-          {business.reviewCount && <span className="text-gray-600">({business.reviewCount} reviews)</span>}
-          {business.lastReviewDate && (
-            <span className="text-gray-600 ml-1">· last {business.lastReviewDate}</span>
-          )}
-        </div>
-      ) : null}
-
-      {/* Data quality signals */}
-      {(business.hoursComplete === false || !business.phone) && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {business.hoursComplete === false && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
-              ⏰ No hours listed
+        {/* Top row: category badge + website status */}
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20 truncate max-w-[55%]">
+            {business.category}
+          </span>
+          {socialOnly ? (
+            <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/20 flex items-center gap-1 flex-shrink-0">
+              📱 Social Only
+            </span>
+          ) : business.hasWebsite ? (
+            <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/15 flex items-center gap-1 flex-shrink-0">
+              <Globe className="w-3 h-3" /> Has Site
+            </span>
+          ) : (
+            <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25 flex-shrink-0">
+              🎯 No Website
             </span>
           )}
         </div>
-      )}
 
-      {/* Bottom: score + actions */}
-      <div className="mt-auto pt-3 border-t border-white/5 flex items-center gap-2">
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${scoreColor}`}>
-          {scoreText} {score}/10
-        </span>
+        {/* Name */}
+        <h3 className="font-bold text-white text-[15px] leading-snug line-clamp-2 group-hover:text-purple-300 transition-colors -mt-1">
+          {business.name}
+        </h3>
 
-        <div className="flex items-center gap-1 ml-auto">
-          {/* WhatsApp quick-send */}
-          {business.phone && (
-            <button
-              onClick={quickWhatsApp}
-              disabled={generating}
-              title={generating ? 'Writing message…' : 'Send WhatsApp message'}
-              className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors disabled:opacity-60 disabled:cursor-wait"
-            >
-              {generating
-                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Writing…</>
-                : <><MessageCircle className="w-3.5 h-3.5" /> WhatsApp</>
-              }
-            </button>
-          )}
+        {/* Address */}
+        {business.address && (
+          <div className="flex items-start gap-2 text-gray-500 text-xs">
+            <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span className="line-clamp-1">{business.address}</span>
+          </div>
+        )}
 
-          {/* Save/Remove */}
-          {!saved ? (
+        {/* Phone + copy */}
+        {business.phone ? (
+          <div className="flex items-center gap-2 text-xs">
+            <Phone className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <span className="text-gray-400 flex-1">{business.phone}</span>
             <button
-              onClick={toggleSave}
-              title="Save to pipeline"
-              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border bg-white/5 text-gray-500 border-white/10 hover:text-white hover:bg-white/10 transition-colors"
+              onClick={copyPhone}
+              title="Copy number"
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+                copied ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-gray-600 hover:text-gray-300 hover:bg-white/10'
+              }`}
             >
-              <Bookmark className="w-3.5 h-3.5" />
+              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              {copied ? 'Copied' : 'Copy'}
             </button>
-          ) : (
-            <button
-              onClick={toggleSave}
-              title="Remove from pipeline"
-              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
-            >
-              <Bookmark className="w-3.5 h-3.5 fill-red-400" />
-            </button>
-          )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs text-gray-600">
+            <Phone className="w-3.5 h-3.5" /> No phone listed
+          </div>
+        )}
+
+        {/* Rating + last review */}
+        {business.rating ? (
+          <div className="flex items-center gap-1.5 text-xs">
+            <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+            <span className="text-white font-semibold">{business.rating}</span>
+            {business.reviewCount && <span className="text-gray-600">({business.reviewCount} reviews)</span>}
+            {business.lastReviewDate && (
+              <span className="text-gray-600 ml-1">· last {business.lastReviewDate}</span>
+            )}
+          </div>
+        ) : null}
+
+        {/* Data quality signals */}
+        {(business.hoursComplete === false || !business.phone) && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {business.hoursComplete === false && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                ⏰ No hours listed
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Bottom: score + actions */}
+        <div className="mt-auto pt-3 border-t border-white/5 flex items-center gap-2">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${scoreColor}`}>
+            {scoreText} {score}/10
+          </span>
+
+          <div className="flex items-center gap-1 ml-auto">
+            {/* WhatsApp quick-send */}
+            {business.phone && (
+              <button
+                onClick={quickWhatsApp}
+                disabled={generating}
+                title={generating ? 'Writing message…' : 'Preview & send WhatsApp'}
+                className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors disabled:opacity-60 disabled:cursor-wait"
+              >
+                {generating
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Writing…</>
+                  : <><MessageCircle className="w-3.5 h-3.5" /> WhatsApp</>
+                }
+              </button>
+            )}
+
+            {/* Save/Remove */}
+            {!saved ? (
+              <button
+                onClick={toggleSave}
+                title="Save to pipeline"
+                className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border bg-white/5 text-gray-500 border-white/10 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Bookmark className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                onClick={toggleSave}
+                title="Remove from pipeline"
+                className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+              >
+                <Bookmark className="w-3.5 h-3.5 fill-red-400" />
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Best time dot — only on no-website prospects */}
+        {!business.hasWebsite && (
+          <div className="absolute top-3 right-3 hidden group-hover:flex items-center gap-1.5 bg-gray-900/90 border border-white/10 rounded-full px-2 py-0.5 text-[10px] pointer-events-none">
+            <span className={`w-1.5 h-1.5 rounded-full ${timeStatus.dot}`} />
+            <span className={timeStatus.color}>{timeStatus.label}</span>
+          </div>
+        )}
       </div>
 
-      {/* Best time dot — only on no-website prospects */}
-      {!business.hasWebsite && (
-        <div className="absolute top-3 right-3 hidden group-hover:flex items-center gap-1.5 bg-gray-900/90 border border-white/10 rounded-full px-2 py-0.5 text-[10px] pointer-events-none">
-          <span className={`w-1.5 h-1.5 rounded-full ${timeStatus.dot}`} />
-          <span className={timeStatus.color}>{timeStatus.label}</span>
+      {/* ── WhatsApp Preview + Delivery Confirmation Modal ── */}
+      {waState && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => closeWa()}
+        >
+          <div
+            className="w-full max-w-md bg-gray-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {waState.step === 'preview' ? (
+              <>
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 pt-5">
+                  <div>
+                    <h3 className="font-bold text-white text-sm">WhatsApp Message</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">{business.name} · {business.phone}</p>
+                  </div>
+                  <button onClick={() => closeWa()} className="text-gray-500 hover:text-white transition-colors p-1">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Editable message */}
+                <div className="px-5">
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1.5">
+                    Preview &amp; edit before sending
+                  </p>
+                  <textarea
+                    value={editedMsg}
+                    onChange={(e) => setEditedMsg(e.target.value)}
+                    rows={9}
+                    className="w-full bg-green-950/30 border border-green-500/20 rounded-xl px-3 py-3 text-sm text-gray-200 leading-relaxed resize-none focus:outline-none focus:border-green-500/40 font-[inherit]"
+                  />
+                </div>
+
+                {/* Action */}
+                <div className="px-5 pb-5">
+                  <button
+                    onClick={openWhatsApp}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-sm transition-colors"
+                  >
+                    <MessageCircle className="w-4 h-4" /> Open WhatsApp
+                    <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Delivery confirmation */}
+                <div className="px-5 pt-6 text-center">
+                  <div className="w-12 h-12 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center mx-auto mb-3">
+                    <MessageCircle className="w-5 h-5 text-green-400" />
+                  </div>
+                  <p className="text-white font-bold">Was it delivered?</p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    If the number isn&apos;t on WhatsApp, we won&apos;t mark it as contacted
+                  </p>
+                </div>
+
+                <div className="flex gap-3 px-5 pb-5">
+                  <button
+                    onClick={() => confirmDelivery(true)}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600/20 border border-green-500/30 text-green-400 font-bold text-sm hover:bg-green-600/30 transition-colors"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Yes, sent!
+                  </button>
+                  <button
+                    onClick={() => confirmDelivery(false)}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-bold text-sm hover:bg-red-500/20 transition-colors"
+                  >
+                    <XCircle className="w-4 h-4" /> Not on WA
+                  </button>
+                </div>
+
+                <button
+                  onClick={openWhatsApp}
+                  className="text-xs text-gray-600 hover:text-gray-400 transition-colors text-center pb-4"
+                >
+                  Reopen WhatsApp ↗
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

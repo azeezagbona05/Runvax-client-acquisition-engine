@@ -53,6 +53,7 @@ export default function Home() {
   const [phoneOnly, setPhoneOnly]           = useState(false);
   const [reviewedOnly, setReviewedOnly]     = useState(false);
   const [sortByScore, setSortByScore]       = useState(false);
+  const [showContacted, setShowContacted]   = useState(false);
 
   const [selected, setSelected]             = useState<Business | null>(null);
   const [detailLoading, setDetailLoading]   = useState(false);
@@ -110,6 +111,7 @@ export default function Home() {
         searchMeta: (SearchMeta & { unlimited?: boolean }) | null;
         lastSearch: { industry: string; location: string } | null;
         phoneOnly: boolean; reviewedOnly: boolean; sortByScore: boolean;
+        showContacted: boolean;
       };
       if (!d.businesses?.length) return;
       setBusinesses(d.businesses);
@@ -126,6 +128,7 @@ export default function Home() {
       setPhoneOnly(d.phoneOnly ?? false);
       setReviewedOnly(d.reviewedOnly ?? false);
       setSortByScore(d.sortByScore ?? false);
+      setShowContacted(d.showContacted ?? false);
     } catch { /* */ }
   }, []);
 
@@ -145,9 +148,10 @@ export default function Home() {
         phoneOnly,
         reviewedOnly,
         sortByScore,
+        showContacted,
       }));
     } catch { /* storage full */ }
-  }, [businesses, hasSearched, filter, page, searchMeta, lastSearch, phoneOnly, reviewedOnly, sortByScore]);
+  }, [businesses, hasSearched, filter, page, searchMeta, lastSearch, phoneOnly, reviewedOnly, sortByScore, showContacted]);
 
   const handleSearch = async (data: SearchFormData) => {
     // Only block the API call for guests who already used their free search.
@@ -276,12 +280,21 @@ export default function Home() {
     return aStage - bStage;
   });
 
+  const CONTACTED_STAGES = new Set(['contacted', 'interested', 'proposal', 'won', 'lost']);
+  const isContacted = (b: Business) => {
+    const stage = get(b.id)?.stage;
+    return !!stage && CONTACTED_STAGES.has(stage);
+  };
+
+  const contactedCount = sorted.filter(isContacted).length;
+
   const primaryFiltered =
     filter === 'no-website' ? sorted.filter((b) => !b.hasWebsite) :
     filter === 'new'        ? sorted.filter((b) => !isSaved(b.id)) :
     sorted;
 
   const filtered = primaryFiltered
+    .filter((b) => showContacted || !isContacted(b))
     .filter((b) => !phoneOnly || !!b.phone)
     .filter((b) => !reviewedOnly || (b.reviewCount != null && b.reviewCount > 0));
 
@@ -506,6 +519,15 @@ export default function Home() {
                     sortByScore ? 'bg-red-700 text-red-200 border border-red-600/50' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
                   🔥 Hot first {hotCount > 0 && `(${hotCount})`}
                 </button>
+                {contactedCount > 0 && (
+                  <button
+                    onClick={() => setShowContacted((v) => !v)}
+                    title="Toggle visibility of already-contacted businesses"
+                    className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                      showContacted ? 'bg-yellow-600/30 text-yellow-300 border border-yellow-500/40' : 'bg-white/5 text-gray-600 hover:text-gray-400 border border-white/8'}`}>
+                    📱 {showContacted ? 'Hide' : 'Show'} contacted ({contactedCount})
+                  </button>
+                )}
               </div>
             </div>
           )}
