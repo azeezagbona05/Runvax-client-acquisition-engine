@@ -69,7 +69,6 @@ export default function Home() {
   useEffect(() => {
     try {
       if (session) {
-        // Logged-in user — clear any stale guest flag so it never blocks them
         localStorage.removeItem('aip_guest_used');
         setGuestExhausted(false);
       } else {
@@ -80,26 +79,75 @@ export default function Home() {
 
   const timeStatus = getBestTimeStatus();
 
-  // Hydrate results carried over from the onboarding "first client" search (no re-fetch).
+  // Restore search results when navigating back from another page.
   useEffect(() => {
+    // Onboarding results take priority — check that key first.
     try {
       const raw = sessionStorage.getItem('aip_onboarding_results');
+      if (raw) {
+        sessionStorage.removeItem('aip_onboarding_results');
+        const d = JSON.parse(raw) as {
+          businesses: Business[]; meta: SearchMeta; unlimited: boolean;
+          industry: string; location: string;
+        };
+        if (d.businesses?.length) {
+          setBusinesses(d.businesses);
+          setSearchMeta({ ...d.meta, resultsLimit: d.unlimited ? Infinity : (d.meta.resultsLimit ?? 20) });
+          setLastSearch({ industry: d.industry, location: d.location });
+          setHasSearched(true);
+          return;
+        }
+      }
+    } catch { /* */ }
+
+    // Restore previous search state (set by the save effect below).
+    try {
+      const raw = sessionStorage.getItem('aip_search_state');
       if (!raw) return;
-      sessionStorage.removeItem('aip_onboarding_results');
       const d = JSON.parse(raw) as {
-        businesses: Business[];
-        meta: SearchMeta;
-        unlimited: boolean;
-        industry: string;
-        location: string;
+        businesses: Business[]; hasSearched: boolean;
+        filter: FilterMode; page: number;
+        searchMeta: (SearchMeta & { unlimited?: boolean }) | null;
+        lastSearch: { industry: string; location: string } | null;
+        phoneOnly: boolean; reviewedOnly: boolean; sortByScore: boolean;
       };
       if (!d.businesses?.length) return;
       setBusinesses(d.businesses);
-      setSearchMeta({ ...d.meta, resultsLimit: d.unlimited ? Infinity : (d.meta.resultsLimit ?? 20) });
-      setLastSearch({ industry: d.industry, location: d.location });
-      setHasSearched(true);
+      setHasSearched(d.hasSearched ?? true);
+      setFilter(d.filter ?? 'all');
+      setPage(d.page ?? 0);
+      if (d.searchMeta) {
+        setSearchMeta({
+          ...d.searchMeta,
+          resultsLimit: d.searchMeta.unlimited ? Infinity : (d.searchMeta.resultsLimit ?? 20),
+        });
+      }
+      setLastSearch(d.lastSearch ?? null);
+      setPhoneOnly(d.phoneOnly ?? false);
+      setReviewedOnly(d.reviewedOnly ?? false);
+      setSortByScore(d.sortByScore ?? false);
     } catch { /* */ }
   }, []);
+
+  // Persist search state whenever results or view options change.
+  useEffect(() => {
+    if (!hasSearched || businesses.length === 0) return;
+    try {
+      sessionStorage.setItem('aip_search_state', JSON.stringify({
+        businesses,
+        hasSearched,
+        filter,
+        page,
+        searchMeta: searchMeta
+          ? { ...searchMeta, unlimited: searchMeta.resultsLimit === Infinity, resultsLimit: searchMeta.resultsLimit === Infinity ? null : searchMeta.resultsLimit }
+          : null,
+        lastSearch,
+        phoneOnly,
+        reviewedOnly,
+        sortByScore,
+      }));
+    } catch { /* storage full */ }
+  }, [businesses, hasSearched, filter, page, searchMeta, lastSearch, phoneOnly, reviewedOnly, sortByScore]);
 
   const handleSearch = async (data: SearchFormData) => {
     // Only block the API call for guests who already used their free search.
