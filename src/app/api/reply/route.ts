@@ -63,6 +63,42 @@ const REPLY_CONTEXTS: Record<ReplyType, string> = {
 - Timeline: 7-8 days, 2-3 brief conversations, rest is on you
 - The time they spend explaining their business to you pays off in a website that saves them from explaining it to every new customer forever`,
 
+  said_okay_thanks: `They replied "Okay", "Thanks", "Okay thank you", or a similarly polite but non-committal response. This is NOT a no — it's a soft stall or a pleasantry. Strategy:
+- Don't treat it as rejection — they responded, which means they're not hostile
+- Gently clarify without pressure: something like "Happy to help anytime 😊 — just curious, is a website something you've ever thought about for the business?"
+- Keep it light and friendly — you're probing, not pushing
+- One soft question to reopen the door without being pushy
+- If they've replied warmly, the relationship is still open`,
+
+  said_send_info: `They said "Send me more info", "Send details", "Tell me more" or similar. This is a BUYING SIGNAL — they're curious. Strategy:
+- Don't dump everything at once — send a focused, punchy summary
+- Lead with what's most relevant to THEIR business specifically
+- Include: what you'd build for them, rough timeline, price range, and one example or social proof
+- End with a soft close: "Does that sound like what you had in mind?"
+- Make it easy to say yes — don't overwhelm them with too much information`,
+
+  said_call_me: `They said "Call me", "Give me a call", "Ring me", or "Call me back". This is a positive signal — they're open but prefer talking. Strategy:
+- Respond immediately, warmly — "Of course! What time works best for you today?"
+- If you're in Nigeria and they're local, WhatsApp voice call is fine to offer
+- Get a specific time to avoid the "I'll call you and they won't answer" loop
+- Keep the message short — don't pitch again, just confirm the call logistics
+- Suggest a specific time to anchor: "Would 3pm or 5pm today work, or is tomorrow better?"`,
+
+  objection_already_has_website: `They say "I already have a website." Don't back down — this is a pivot opportunity. Strategy:
+- First: validate — "That's great, having a website already puts you ahead of many businesses"
+- Then probe: "When was it last updated?" / "Is it showing up on Google when people search for [category] in [city]?"
+- Many existing websites are outdated, slow, or not mobile-friendly — that's your opening
+- Offer a free quick audit: "I can take a look and tell you in 2 minutes how it's performing — no charge"
+- Reframe your value: not replacement, but improvement/optimisation`,
+
+  objection_who_are_you: `They're asking "Who are you?", "How did you get my number?", "Who gave you my number?" — they're surprised by cold contact. Stay calm, warm, professional. Strategy:
+- Don't be defensive — be completely transparent and friendly
+- Explain briefly how you found them (e.g. Google Maps, business listing, directory)
+- Pivot quickly to value: you weren't randomly calling — you specifically found THEIR business
+- Compliment something genuine about their business to show you did your research
+- Defuse with humour if appropriate — "I know it's a bit unexpected! I'll be brief..."
+- This person now knows you're real — don't waste the attention, re-pitch concisely`,
+
   not_interested: `They said no or not interested. This is NOT game over. Strategy:
 - Thank them gracefully, no guilt trip
 - Leave the door open with class — "I completely understand"

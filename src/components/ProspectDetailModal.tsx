@@ -21,14 +21,27 @@ const STAGES: Array<{ id: ProspectStage; icon: string; label: string; color: str
 ];
 
 const REPLY_OPTIONS: { id: ReplyType; label: string; active: string }[] = [
-  { id: 'interested',          label: '🤝 Interested',       active: 'bg-orange-500/20 text-orange-300 border-orange-500/40' },
-  { id: 'asked_price',         label: '💰 Asked price',      active: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40' },
-  { id: 'said_think_about_it', label: '🤔 Think about it',   active: 'bg-blue-500/20 text-blue-300 border-blue-500/40' },
-  { id: 'objection_instagram', label: '📱 Has Instagram',    active: 'bg-purple-500/20 text-purple-300 border-purple-500/40' },
-  { id: 'objection_expensive', label: '💸 Too expensive',    active: 'bg-red-500/20 text-red-300 border-red-500/40' },
-  { id: 'objection_no_time',   label: '⏰ No time',          active: 'bg-gray-500/20 text-gray-300 border-gray-500/40' },
-  { id: 'no_reply',            label: '🔕 No reply yet',     active: 'bg-gray-600/20 text-gray-400 border-gray-600/40' },
-  { id: 'custom',              label: '✏️ Custom',           active: 'bg-white/10 text-white border-white/25' },
+  // Positive / warm
+  { id: 'interested',                   label: '🤝 Interested',        active: 'bg-orange-500/20 text-orange-300 border-orange-500/40' },
+  { id: 'asked_price',                  label: '💰 Asked price',       active: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40' },
+  { id: 'asked_examples',               label: '👀 Wants examples',    active: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' },
+  { id: 'said_send_info',               label: '📤 Send me info',      active: 'bg-teal-500/20 text-teal-300 border-teal-500/40' },
+  { id: 'said_call_me',                 label: '📞 Call me',           active: 'bg-green-500/20 text-green-300 border-green-500/40' },
+  // Soft stalls
+  { id: 'said_okay_thanks',             label: '😊 Okay thanks',       active: 'bg-blue-500/20 text-blue-300 border-blue-500/40' },
+  { id: 'said_think_about_it',          label: '🤔 Think about it',    active: 'bg-blue-500/20 text-blue-300 border-blue-500/40' },
+  { id: 'no_reply',                     label: '🔕 No reply yet',      active: 'bg-gray-600/20 text-gray-400 border-gray-600/40' },
+  // Objections
+  { id: 'objection_expensive',          label: '💸 Too expensive',     active: 'bg-red-500/20 text-red-300 border-red-500/40' },
+  { id: 'objection_no_time',            label: '⏰ No time',           active: 'bg-gray-500/20 text-gray-300 border-gray-500/40' },
+  { id: 'objection_instagram',          label: '📱 Has Instagram',     active: 'bg-purple-500/20 text-purple-300 border-purple-500/40' },
+  { id: 'objection_referrals',          label: '🗣️ Gets referrals',   active: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' },
+  { id: 'objection_already_has_website',label: '🌐 Has website',       active: 'bg-violet-500/20 text-violet-300 border-violet-500/40' },
+  { id: 'objection_who_are_you',        label: '❓ Who are you?',      active: 'bg-amber-500/20 text-amber-300 border-amber-500/40' },
+  // Closed
+  { id: 'not_interested',               label: '🚫 Not interested',    active: 'bg-red-700/20 text-red-400 border-red-700/40' },
+  // Freeform
+  { id: 'custom',                       label: '✏️ Custom',            active: 'bg-white/10 text-white border-white/25' },
 ];
 
 type Tab = 'reply' | 'proposal' | 'info';
