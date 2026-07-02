@@ -67,6 +67,9 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
 
   const [tab, setTab] = useState<Tab>('reply');
 
+  // Last sent message — gives the AI context of what we said to the prospect
+  const lastSent = [...conversations].reverse().find((c) => c.type === 'sent' || c.type === 'ai_response');
+
   // Reply tab
   const [theirMsg, setTheirMsg] = useState('');
   const [replyType, setReplyType] = useState<ReplyType | null>(null);
@@ -87,7 +90,13 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
       const res = await fetch('/api/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, replyType, theirMessage: theirMsg, channel: 'whatsapp' }),
+        body: JSON.stringify({
+          business,
+          replyType,
+          theirMessage: theirMsg,
+          ourLastMessage: lastSent?.content,
+          channel: 'whatsapp',
+        }),
       });
       const json = await res.json();
       if (json.message) setAiReply(json.message);
@@ -198,6 +207,19 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
           {/* ── REPLY TAB ── */}
           {tab === 'reply' && (
             <div className="p-4 space-y-4">
+
+              {/* Last message we sent — gives context for what prospect is replying to */}
+              {lastSent && (
+                <div className="bg-white/[0.03] border border-white/8 rounded-xl p-3">
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1.5">
+                    Your last message to them
+                  </p>
+                  <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-wrap line-clamp-4">
+                    {lastSent.content}
+                  </p>
+                  <p className="text-[10px] text-gray-700 mt-1">{timeAgo(lastSent.timestamp)}</p>
+                </div>
+              )}
 
               {/* Conversation history */}
               {conversations.length > 0 && (
