@@ -264,47 +264,47 @@ export default function BusinessCard({ business, onClick }: Props) {
       {/* ── WhatsApp Preview + Delivery Confirmation Modal ── */}
       {waState && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-sm"
           onClick={() => closeWa()}
         >
           <div
-            className="w-full max-w-md bg-gray-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 overflow-hidden"
+            className="w-full max-w-2xl bg-gray-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {waState.step === 'preview' ? (
               <>
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 pt-5">
+                <div className="flex items-center justify-between px-6 pt-6 pb-3">
                   <div>
-                    <h3 className="font-bold text-white text-sm">WhatsApp Message</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">{business.name} · {business.phone}</p>
+                    <h3 className="font-bold text-white text-base">WhatsApp Message</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">{business.name} · {business.phone}</p>
                   </div>
                   <button onClick={() => closeWa()} className="text-gray-500 hover:text-white transition-colors p-1">
-                    <X className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Editable message */}
-                <div className="px-5">
-                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1.5">
+                <div className="px-6 pb-2">
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-2">
                     Preview &amp; edit before sending
                   </p>
                   <textarea
                     value={editedMsg}
                     onChange={(e) => setEditedMsg(e.target.value)}
-                    rows={9}
-                    className="w-full bg-green-950/30 border border-green-500/20 rounded-xl px-3 py-3 text-sm text-gray-200 leading-relaxed resize-none focus:outline-none focus:border-green-500/40 font-[inherit]"
+                    rows={12}
+                    className="w-full bg-green-950/30 border border-green-500/20 rounded-xl px-4 py-4 text-base text-gray-100 leading-7 resize-none focus:outline-none focus:border-green-500/40 font-[inherit]"
                   />
                 </div>
 
                 {/* Action */}
-                <div className="px-5 pb-5">
+                <div className="px-6 pb-6 pt-2">
                   <button
                     onClick={openWhatsApp}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-sm transition-colors"
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-base transition-colors"
                   >
-                    <MessageCircle className="w-4 h-4" /> Open WhatsApp
-                    <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+                    <MessageCircle className="w-5 h-5" /> Open WhatsApp
+                    <ExternalLink className="w-4 h-4 opacity-70" />
                   </button>
                 </div>
               </>
