@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -12,6 +12,7 @@ import {
 import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
+import { AREAS, TIER_CONFIG } from '@/lib/areas';
 
 interface SearchActivity {
   industry: string; location: string; totalCount: number;
@@ -88,7 +89,7 @@ function FeatureToggles({ value, onChange }: { value: FeatureId[]; onChange: (v:
     onChange(value.includes(f) ? value.filter((x) => x !== f) : [...value, f]);
   return (
     <div>
-      <p className="text-xs font-bold text-gray-600 uppercase tracking-widest mb-2">Features unlocked</p>
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Features unlocked</p>
       <div className="space-y-1.5">
         {ALL_FEATURES.map((f) => {
           const on = value.includes(f);
@@ -99,11 +100,11 @@ function FeatureToggles({ value, onChange }: { value: FeatureId[]; onChange: (v:
               onClick={() => toggle(f)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border text-sm font-semibold text-left transition-colors ${
                 on
-                  ? 'bg-purple-100 border-purple-400 text-purple-800'
-                  : 'bg-gray-100 border-gray-200 text-gray-400 hover:border-gray-300'
+                  ? 'bg-purple-600/15 border-purple-500/30 text-purple-200'
+                  : 'bg-white/[0.03] border-white/8 text-gray-300 hover:border-white/20 hover:bg-white/[0.06]'
               }`}
             >
-              <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${on ? 'bg-purple-600' : 'border border-white/20'}`}>
+              <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${on ? 'bg-purple-600' : 'bg-white/10 border border-white/20'}`}>
                 {on && <Check className="w-3 h-3 text-white" />}
               </span>
               {FEATURE_LABELS[f]}
@@ -131,14 +132,14 @@ function LimitField({ label, value, onChange }: { label: string; value: number; 
           type="button"
           onClick={() => onChange(isUnlimited ? 10 : -1)}
           className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
-            isUnlimited ? 'bg-purple-100 text-purple-700 border-purple-400' : 'text-gray-500 border-gray-300 hover:border-gray-400'
+            isUnlimited ? 'bg-purple-600/15 text-purple-300 border-purple-500/30' : 'text-gray-400 border-white/15 hover:border-white/30'
           }`}
         >
           <InfinityIcon className="w-3 h-3" /> {isUnlimited ? 'Unlimited' : 'Set unlimited'}
         </button>
       </div>
       {isUnlimited ? (
-        <div className="w-full bg-purple-50 border border-purple-300 rounded-xl px-4 py-2.5 text-sm text-purple-700 font-bold flex items-center gap-2">
+        <div className="w-full bg-purple-600/10 border border-purple-500/25 rounded-xl px-4 py-2.5 text-sm text-purple-300 font-bold flex items-center gap-2">
           <InfinityIcon className="w-4 h-4" /> Unlimited
         </div>
       ) : (
@@ -156,29 +157,89 @@ function LocationTagInput({
   label, values, onChange, placeholder, variant = 'block',
 }: { label: string; values: string[]; onChange: (v: string[]) => void; placeholder: string; variant?: 'block' | 'allow' }) {
   const [input, setInput] = useState('');
-  const add = () => {
-    const v = input.trim();
-    if (v && !values.includes(v)) onChange([...values, v]);
+  const [showSug, setShowSug] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const matched = input.trim()
+    ? AREAS.filter(
+        (a) =>
+          (a.name.toLowerCase().includes(input.toLowerCase()) ||
+           a.city.toLowerCase().includes(input.toLowerCase())) &&
+          !values.includes(a.name)
+      )
+    : [];
+
+  const grouped = (['high', 'mid', 'budget'] as const)
+    .map((tier) => ({ tier, areas: matched.filter((a) => a.tier === tier).slice(0, 5) }))
+    .filter((g) => g.areas.length > 0);
+
+  const addValue = (v: string) => {
+    const trimmed = v.trim();
+    if (trimmed && !values.includes(trimmed)) onChange([...values, trimmed]);
     setInput('');
+    setShowSug(false);
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); addValue(input); }
+    if (e.key === 'Escape') setShowSug(false);
+  };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setShowSug(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const tagCls = variant === 'allow'
     ? 'bg-green-500/15 text-green-300 border-green-500/20'
     : 'bg-red-500/15 text-red-300 border-red-500/20';
   const icon = variant === 'allow'
     ? <MapPin className="w-3 h-3" />
     : <Ban className="w-3 h-3" />;
+
   return (
-    <div>
+    <div ref={wrapRef}>
       <p className="text-xs font-bold text-gray-400 mb-1.5">{label}</p>
-      <div className="flex gap-2 mb-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
-          placeholder={placeholder}
-          className="flex-1 bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
-        />
-        <button type="button" onClick={add}
+      <div className="relative flex gap-2 mb-2">
+        <div className="relative flex-1">
+          <input
+            value={input}
+            onChange={(e) => { setInput(e.target.value); setShowSug(true); }}
+            onFocus={() => { if (input.trim()) setShowSug(true); }}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+          />
+          {showSug && grouped.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
+              {grouped.map(({ tier, areas }) => (
+                <div key={tier}>
+                  <div className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest border-b border-white/5 ${TIER_CONFIG[tier].color} bg-white/[0.02]`}>
+                    {TIER_CONFIG[tier].label}
+                  </div>
+                  {areas.map((area) => (
+                    <button
+                      key={area.name}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); addValue(area.name); }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-purple-600/20 transition-colors border-b border-white/5 last:border-0 flex items-start justify-between gap-3"
+                    >
+                      <div>
+                        <div className="text-sm text-gray-200 font-medium">{area.name}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5">{area.note}</div>
+                      </div>
+                      <span className={`flex-shrink-0 w-2 h-2 rounded-full mt-1.5 ${TIER_CONFIG[tier].dot}`} />
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <button type="button" onClick={() => addValue(input)}
           className="px-3 py-2 bg-purple-600/20 border border-purple-500/30 text-purple-300 text-xs font-bold rounded-xl hover:bg-purple-600/30 transition-colors">
           Add
         </button>
@@ -253,13 +314,13 @@ function UserRestrictionsPanel({ user, onUpdated, duplicateIp }: {
   };
 
   return (
-    <div className="bg-gray-950/60 border-t border-white/5 px-4 py-4 space-y-4">
+    <div className="bg-gray-950 border-t border-white/8 px-4 py-4 space-y-4">
 
       {/* IP addresses + suspend toggle */}
       <div className="flex flex-wrap gap-3 items-start justify-between">
         <div className="flex flex-wrap gap-3 items-start">
           <div>
-            <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Registration IP</p>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Registration IP</p>
             <span className={`text-xs font-mono px-2.5 py-1 rounded-lg border ${duplicateIp ? 'bg-red-500/15 text-red-300 border-red-500/25' : 'bg-white/[0.04] text-gray-300 border-white/8'}`}>
               {user.registrationIp ?? '—'}
               {duplicateIp && <span className="ml-1.5 text-red-400 font-bold">⚠ duplicate</span>}
@@ -267,7 +328,7 @@ function UserRestrictionsPanel({ user, onUpdated, duplicateIp }: {
           </div>
           {user.lastSeenIp && user.lastSeenIp !== user.registrationIp && (
             <div>
-              <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Last Seen IP</p>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Last Seen IP</p>
               <span className="text-xs font-mono px-2.5 py-1 rounded-lg border bg-white/[0.04] text-gray-300 border-white/8">
                 {user.lastSeenIp}
               </span>
@@ -293,16 +354,16 @@ function UserRestrictionsPanel({ user, onUpdated, duplicateIp }: {
       {/* Search activity */}
       {user.searchHistory.length > 0 ? (
         <div>
-          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <Activity className="w-3 h-3" /> Search Activity
           </p>
           <div className="flex flex-wrap gap-1.5">
             {user.searchHistory.map((h, i) => (
               <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/[0.04] border border-white/8 rounded-xl text-xs">
                 <span className="text-white font-semibold">{h.industry}</span>
-                <span className="text-gray-600">·</span>
+                <span className="text-gray-500">·</span>
                 <span className="text-gray-400">{h.location.split(',')[0]}</span>
-                <span className="text-gray-600 text-[10px]">×{h.totalCount}</span>
+                <span className="text-gray-500 text-[10px]">×{h.totalCount}</span>
                 {h.noWebsiteCount > 0 && (
                   <span className="text-orange-400 text-[10px] font-bold">{h.noWebsiteCount}🎯</span>
                 )}
@@ -311,7 +372,7 @@ function UserRestrictionsPanel({ user, onUpdated, duplicateIp }: {
           </div>
         </div>
       ) : (
-        <p className="text-xs text-gray-600 flex items-center gap-1.5">
+        <p className="text-xs text-gray-400 flex items-center gap-1.5">
           <Activity className="w-3 h-3" /> No searches yet
         </p>
       )}
@@ -663,6 +724,28 @@ function monthLabel(iso: string) {
   return new Date(iso + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 }
 
+// ── Bot-risk scoring (client-side heuristics) ────────────────────────────────
+function botScore(u: AdminUser): number {
+  let score = 0;
+  const name = u.name ?? '';
+  // Garbled name: no spaces, long, very low vowel ratio (random chars)
+  if (name.length > 10 && !name.includes(' ')) {
+    const vowels = (name.match(/[aeiouAEIOU]/g) ?? []).length;
+    if (vowels / name.length < 0.25) score += 3;
+    else score += 1;
+  }
+  // Email local part looks generated: many dots or long digit runs
+  const local = (u.email ?? '').split('@')[0];
+  if ((local.match(/\./g) ?? []).length >= 3) score += 2;
+  if (/\d{4,}/.test(local)) score += 1;
+  // Unverified email
+  if (!u.emailVerified) score += 1;
+  // Zero activity
+  if (u._count.prospects === 0 && u.searchHistory.length === 0) score += 1;
+  // Duplicate IP
+  return score;
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -673,7 +756,12 @@ export default function AdminPage() {
 
   // Users filter state
   const [search, setSearch]         = useState('');
-  const [planFilter, setPlanFilter] = useState<Plan | 'all'>('all');
+  const [planFilter, setPlanFilter] = useState<Plan | 'all' | 'suspicious'>('all');
+
+  // API Costs filter state
+  const [costsSearch, setCostsSearch]     = useState('');
+  const [costsPlan, setCostsPlan]         = useState<Plan | 'all'>('all');
+  const [costsSort, setCostsSort]         = useState<'cost' | 'searches' | 'ai'>('cost');
 
   // Plan config state
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
@@ -719,6 +807,18 @@ export default function AdminPage() {
       .finally(() => setLoading(false));
   };
 
+  // Admin panel must always render in dark mode regardless of user theme preference
+  useEffect(() => {
+    const html = document.documentElement;
+    const wasLight = html.classList.contains('light');
+    html.classList.remove('light');
+    html.classList.add('dark');
+    return () => {
+      html.classList.remove('dark');
+      if (wasLight) html.classList.add('light');
+    };
+  }, []);
+
   useEffect(() => {
     if (status === 'unauthenticated') { router.replace('/admin/login'); return; }
     if (status !== 'authenticated') return;
@@ -762,6 +862,7 @@ export default function AdminPage() {
   const filteredUsers = useMemo(() => {
     if (!stats) return [];
     return stats.users.filter((u) => {
+      if (planFilter === 'suspicious') return botScore(u) >= 4;
       const matchesPlan = planFilter === 'all' || u.plan === planFilter;
       const q = search.toLowerCase();
       const matchesSearch = !q
@@ -770,6 +871,11 @@ export default function AdminPage() {
       return matchesPlan && matchesSearch;
     });
   }, [stats, search, planFilter]);
+
+  const suspiciousCount = useMemo(
+    () => (stats?.users ?? []).filter((u) => botScore(u) >= 4).length,
+    [stats]
+  );
 
   // IPs that appear on more than one account — flags potential multi-registration
   const duplicateIpSet = useMemo(() => {
@@ -953,6 +1059,18 @@ export default function AdminPage() {
                     {p === 'all' ? `All (${users.length})` : `${p} (${byPlan[p] ?? 0})`}
                   </button>
                 ))}
+                {suspiciousCount > 0 && (
+                  <button
+                    onClick={() => setPlanFilter('suspicious')}
+                    className={`text-xs font-bold px-3 py-2 rounded-xl border transition-colors ${
+                      planFilter === 'suspicious'
+                        ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                        : 'text-red-400 border-red-500/20 hover:bg-red-500/10'
+                    }`}
+                  >
+                    🤖 Suspicious ({suspiciousCount})
+                  </button>
+                )}
               </div>
             </div>
 
@@ -975,16 +1093,27 @@ export default function AdminPage() {
                     {filteredUsers.map((u) => {
                       const isExpanded = expandedUser === u.id;
                       const hasRestrictions = u.searchLimitOverride != null || !!u.blockedLocations || u.isSuspended;
+                      const risk = botScore(u);
+                      const isDupIp = !!(u.registrationIp && duplicateIpSet.has(u.registrationIp));
                       return (
                         <>
-                          <tr key={u.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${isExpanded ? 'bg-white/[0.03]' : ''} ${u.isSuspended ? 'bg-red-500/[0.04]' : ''}`}>
+                          <tr key={u.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${isExpanded ? 'bg-white/[0.03]' : ''} ${u.isSuspended ? 'bg-red-500/[0.04]' : risk >= 4 ? 'bg-orange-500/[0.03]' : ''}`}>
                             <td className="px-4 py-3">
-                              <div className="font-semibold text-white flex items-center gap-1.5">
+                              <div className="font-semibold text-white flex items-center gap-1.5 flex-wrap">
                                 {u.name ?? '—'}
                                 {u.isSuspended && (
                                   <span className="flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
                                     <ShieldOff className="w-2.5 h-2.5" /> SUSPENDED
                                   </span>
+                                )}
+                                {risk >= 6 && !u.isSuspended && (
+                                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20">🤖 HIGH RISK</span>
+                                )}
+                                {risk >= 4 && risk < 6 && !u.isSuspended && (
+                                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 border border-orange-500/20">⚠ SUSPICIOUS</span>
+                                )}
+                                {isDupIp && !u.isSuspended && (
+                                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400 border border-yellow-500/20">⚡ DUP IP</span>
                                 )}
                               </div>
                               <div className="text-xs text-gray-500">{u.email}</div>
@@ -1048,7 +1177,7 @@ export default function AdminPage() {
                               <td colSpan={8} className="p-0">
                                 <UserRestrictionsPanel
                                   user={u}
-                                  duplicateIp={!!(u.registrationIp && duplicateIpSet.has(u.registrationIp))}
+                                  duplicateIp={isDupIp}
                                   onUpdated={(updates) => {
                                     setStats((prev) => {
                                       if (!prev) return prev;
@@ -1307,7 +1436,7 @@ export default function AdminPage() {
         {/* ── API COSTS TAB ── */}
         {tab === 'costs' && (() => {
           const costByUser = stats.costByUser ?? {};
-          const rows = users.map((u) => ({
+          const allRows = users.map((u) => ({
             user: u,
             cost: costByUser[u.id] ?? {
               aiCalls: 0, searchCount: 0,
@@ -1316,31 +1445,79 @@ export default function AdminPage() {
               googlePlacesReqs: 0,
               openaiCostUsd: 0, geminiCostUsd: 0, googleCostUsd: 0, totalCostUsd: 0,
             },
-          })).sort((a, b) => b.cost.totalCostUsd - a.cost.totalCostUsd);
+          }));
 
-          const grandTotal = rows.reduce((s, r) => s + r.cost.totalCostUsd, 0);
-          const totalOpenai = rows.reduce((s, r) => s + r.cost.openaiCostUsd, 0);
-          const totalGemini = rows.reduce((s, r) => s + r.cost.geminiCostUsd, 0);
-          const totalGoogle = rows.reduce((s, r) => s + r.cost.googleCostUsd, 0);
+          const rows = allRows
+            .filter((r) => {
+              const q = costsSearch.toLowerCase();
+              const matchSearch = !q
+                || (r.user.name ?? '').toLowerCase().includes(q)
+                || (r.user.email ?? '').toLowerCase().includes(q);
+              const matchPlan = costsPlan === 'all' || r.user.plan === costsPlan;
+              return matchSearch && matchPlan;
+            })
+            .sort((a, b) => {
+              if (costsSort === 'searches') return b.cost.searchCount - a.cost.searchCount;
+              if (costsSort === 'ai') return b.cost.aiCalls - a.cost.aiCalls;
+              return b.cost.totalCostUsd - a.cost.totalCostUsd;
+            });
+
+          const grandTotal = allRows.reduce((s, r) => s + r.cost.totalCostUsd, 0);
+          const totalOpenai = allRows.reduce((s, r) => s + r.cost.openaiCostUsd, 0);
+          const totalGemini = allRows.reduce((s, r) => s + r.cost.geminiCostUsd, 0);
+          const totalGoogle = allRows.reduce((s, r) => s + r.cost.googleCostUsd, 0);
 
           const fmt = (n: number) => `$${n.toFixed(4)}`;
           const fmtBig = (n: number) => `$${n.toFixed(2)}`;
 
           return (
             <div className="space-y-4">
-              {/* Date filter */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-500">Tracking from</span>
-                <input
-                  type="date"
-                  value={costSince}
-                  onChange={(e) => {
-                    setCostSince(e.target.value);
-                    loadStats(e.target.value);
-                  }}
-                  className="bg-gray-800 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500/60"
-                />
-                <span className="text-xs text-gray-600">— only usage on or after this date is counted</span>
+              {/* Filters row */}
+              <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+                {/* Date */}
+                <div className="flex items-center gap-2 bg-gray-900 border border-white/10 rounded-xl px-3 py-2">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">From</span>
+                  <input
+                    type="date"
+                    value={costSince}
+                    onChange={(e) => { setCostSince(e.target.value); loadStats(e.target.value); }}
+                    className="bg-transparent text-sm text-white focus:outline-none"
+                  />
+                </div>
+                {/* Search */}
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                  <input
+                    type="text"
+                    value={costsSearch}
+                    onChange={(e) => setCostsSearch(e.target.value)}
+                    placeholder="Search user…"
+                    className="w-full bg-gray-900 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
+                {/* Plan filter */}
+                <div className="flex gap-1.5 flex-wrap items-center">
+                  {(['all', 'free', 'pro', 'agency'] as const).map((p) => (
+                    <button key={p} onClick={() => setCostsPlan(p)}
+                      className={`text-xs font-bold px-3 py-2 rounded-xl border capitalize transition-colors ${
+                        costsPlan === p ? 'bg-purple-600/20 text-purple-300 border-purple-500/30' : 'text-gray-500 border-white/8 hover:text-gray-300 hover:border-white/20'
+                      }`}>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                {/* Sort */}
+                <div className="flex gap-1.5 items-center">
+                  <span className="text-xs text-gray-600">Sort:</span>
+                  {([['cost', 'Total $'], ['searches', 'Searches'], ['ai', 'AI calls']] as const).map(([val, label]) => (
+                    <button key={val} onClick={() => setCostsSort(val)}
+                      className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border transition-colors ${
+                        costsSort === val ? 'bg-purple-600/20 text-purple-300 border-purple-500/30' : 'text-gray-500 border-white/8 hover:text-gray-300'
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Cost summary cards */}
