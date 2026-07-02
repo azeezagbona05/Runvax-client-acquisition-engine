@@ -224,6 +224,17 @@ export default function PipelinePage() {
     setDragOverStage(null);
   }, [draggingId, updateStage]);
 
+  const matchesSearch = (p: SavedProspect) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      p.business.name.toLowerCase().includes(q) ||
+      (p.business.category ?? '').toLowerCase().includes(q) ||
+      (p.business.address ?? '').toLowerCase().includes(q) ||
+      (p.business.phone ?? '').includes(q)
+    );
+  };
+
   const selectedProspects = prospects.filter((p) => selectedIds.has(p.business.id));
 
   if (prospects.length === 0) {
@@ -310,7 +321,7 @@ export default function PipelinePage() {
           {/* Stage filters */}
           <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
             {STAGES.map((s) => {
-              const count = prospects.filter((p) => p.stage === s.id && (!search || p.business.name.toLowerCase().includes(search.toLowerCase()) || (p.business.category ?? '').toLowerCase().includes(search.toLowerCase()) || (p.business.address ?? '').toLowerCase().includes(search.toLowerCase()))).length;
+              const count = prospects.filter((p) => p.stage === s.id && matchesSearch(p)).length;
               const active = activeStages.includes(s.id);
               return (
                 <button key={s.id} onClick={() => toggleStage(s.id)}
@@ -329,13 +340,7 @@ export default function PipelinePage() {
       <div className="overflow-x-auto snap-x snap-mandatory sm:snap-none" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 min-w-max max-w-[1600px] mx-auto">
           {STAGES.filter((s) => activeStages.includes(s.id)).map((stage) => {
-            const q = search.toLowerCase();
-            const stageProspects = prospects.filter((p) =>
-              p.stage === stage.id &&
-              (!q || p.business.name.toLowerCase().includes(q) ||
-                (p.business.category ?? '').toLowerCase().includes(q) ||
-                (p.business.address ?? '').toLowerCase().includes(q))
-            );
+            const stageProspects = prospects.filter((p) => p.stage === stage.id && matchesSearch(p));
             const stageValue = stageProspects.reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0);
             const isDragTarget = !selectMode && dragOverStage === stage.id;
 
