@@ -144,6 +144,9 @@ model UserSettings {
   // Rate card — JSON blob storing packages, maintenance plans, add-ons, and payment terms
   rateCard     Json?
 
+  // Portfolio — array of { url, description } website examples
+  portfolio    Json?
+
   // Onboarding
   onboardingDone Boolean @default(false)
 

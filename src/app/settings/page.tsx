@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark, RotateCcw, Receipt } from 'lucide-react';
+import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark, RotateCcw, Receipt, Globe, Plus, Trash2 } from 'lucide-react';
 import RateCardTab from '@/components/RateCardTab';
 import { DEFAULT_RATE_CARD } from '@/lib/rateCard';
 import type { RateCard } from '@/lib/rateCard';
@@ -41,7 +41,15 @@ const DEFAULTS: Settings = {
   bankName: '', bankAccount: '', bankAcctName: '', paymentLink: '',
 };
 
-type Tab = 'profile' | 'email' | 'payment' | 'goals' | 'ratecard';
+interface PortfolioItem {
+  url: string;
+  description: string;
+  title?: string;
+  favicon?: string;
+  category?: string;
+}
+
+type Tab = 'profile' | 'email' | 'payment' | 'goals' | 'ratecard' | 'portfolio';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -56,6 +64,10 @@ export default function SettingsPage() {
   const [showPass, setShowPass] = useState(false);
   const [hasExistingPass, setHasExistingPass] = useState(false);
   const [rateCard, setRateCard] = useState<RateCard>(DEFAULT_RATE_CARD);
+  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [fetchingSet, setFetchingSet] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     fetch('/api/user/settings')
@@ -70,6 +82,7 @@ export default function SettingsPage() {
           smtpPass: '', // never pre-fill password field
         }));
         if (d.rateCard) setRateCard(d.rateCard as RateCard);
+        if (Array.isArray(d.portfolio)) setPortfolioItems(d.portfolio as PortfolioItem[]);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -85,7 +98,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/user/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...settings, rateCard }),
+        body: JSON.stringify({ ...settings, rateCard, portfolio: portfolioItems }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to save');
       setSaved(true);
@@ -133,6 +146,34 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchMeta = async (i: number, url: string) => {
+    if (!url.trim()) return;
+    setFetchingSet((prev) => new Set(Array.from(prev).concat(i)));
+    try {
+      const res = await fetch('/api/scrape-meta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json() as { title?: string; favicon?: string; category?: string; error?: string };
+      if (res.ok) {
+        setPortfolioItems((prev) => prev.map((p, idx) =>
+          idx === i ? { ...p, title: data.title || p.title, favicon: data.favicon, category: data.category } : p
+        ));
+      }
+    } catch { /* silent */ }
+    finally {
+      setFetchingSet((prev) => { const s = new Set(prev); s.delete(i); return s; });
+    }
+  };
+
+  const fetchAllMeta = async () => {
+    const toFetch = portfolioItems
+      .map((p, i) => ({ p, i }))
+      .filter(({ p }) => p.url && !p.title);
+    await Promise.all(toFetch.map(({ i, p }) => fetchMeta(i, p.url)));
+  };
+
   const inputCls = 'w-full bg-gray-800/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60 transition-colors';
   const labelCls = 'block text-xs font-semibold text-gray-400 mb-1.5';
 
@@ -150,11 +191,12 @@ export default function SettingsPage() {
     { id: 'payment', label: 'Bank & Payment', icon: Landmark },
     { id: 'goals', label: 'Goals', icon: Target },
     { id: 'ratecard', label: 'Rate Card', icon: Receipt },
+    { id: 'portfolio', label: 'Portfolio', icon: Globe },
   ];
 
   return (
     <div className="min-h-dvh bg-gray-950 py-4 sm:py-10 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
 
         {/* Header */}
         <div className="mb-8">
@@ -442,6 +484,197 @@ export default function SettingsPage() {
               <RateCardTab rateCard={rateCard} onChange={setRateCard} />
             </>
           )}
+
+          {/* ── PORTFOLIO TAB ── */}
+          {tab === 'portfolio' && (() => {
+            const withIdx = portfolioItems.map((item, i) => ({ ...item, idx: i }));
+            const grouped = withIdx.reduce((acc, item) => {
+              const cat = item.category || '';
+              if (!acc[cat]) acc[cat] = [];
+              acc[cat].push(item);
+              return acc;
+            }, {} as Record<string, typeof withIdx>);
+            const sortedCats = Object.keys(grouped).filter(Boolean).sort();
+            const uncategorised = grouped[''] ?? [];
+            const needsScan = portfolioItems.some((p) => p.url && !p.title);
+            const isAnyFetching = fetchingSet.size > 0;
+
+            const renderCard = (item: typeof withIdx[number]) => (
+              <div key={item.idx} className="bg-white/[0.03] border border-white/8 rounded-xl p-4 space-y-3">
+                {/* Header row: favicon + title + category badge + delete */}
+                <div className="flex items-center gap-2.5">
+                  {item.favicon && (
+                    <img
+                      src={item.favicon}
+                      alt=""
+                      className="w-5 h-5 rounded-sm flex-shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  )}
+                  {fetchingSet.has(item.idx) ? (
+                    <Loader2 className="w-4 h-4 text-purple-400 animate-spin flex-shrink-0" />
+                  ) : null}
+                  <span className="text-xs font-semibold text-white truncate flex-1">
+                    {item.title || `Website ${item.idx + 1}`}
+                  </span>
+                  {item.category && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 flex-shrink-0">
+                      {item.category}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPortfolioItems((prev) => prev.filter((_, idx) => idx !== item.idx))}
+                    className="text-gray-600 hover:text-red-400 transition-colors p-1 flex-shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* URL */}
+                <div>
+                  <label className={labelCls}>Website URL</label>
+                  <input
+                    className={inputCls}
+                    value={item.url}
+                    onChange={(e) => setPortfolioItems((prev) => prev.map((p, idx) => idx === item.idx ? { ...p, url: e.target.value } : p))}
+                    onBlur={(e) => {
+                      const url = e.target.value.trim();
+                      if (url && !portfolioItems[item.idx]?.title) fetchMeta(item.idx, url);
+                    }}
+                    placeholder="e.g. www.clientwebsite.com"
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className={labelCls}>Brief description <span className="text-gray-600 font-normal">(optional)</span></label>
+                  <input
+                    className={inputCls}
+                    value={item.description}
+                    onChange={(e) => setPortfolioItems((prev) => prev.map((p, idx) => idx === item.idx ? { ...p, description: e.target.value } : p))}
+                    placeholder="e.g. Restaurant website with online menu and reservations"
+                  />
+                </div>
+              </div>
+            );
+
+            return (
+              <>
+                <div className="pb-4 border-b border-white/8 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-white font-semibold text-sm">Your Portfolio</p>
+                    <p className="text-gray-500 text-xs mt-1">
+                      Websites you&apos;ve built — auto-detected by category from each site&apos;s metadata.
+                    </p>
+                  </div>
+                  {needsScan && !isAnyFetching && (
+                    <button
+                      type="button"
+                      onClick={fetchAllMeta}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold transition-colors flex-shrink-0"
+                    >
+                      <Globe className="w-3.5 h-3.5" /> Scan all
+                    </button>
+                  )}
+                  {isAnyFetching && (
+                    <span className="flex items-center gap-1.5 text-purple-400 text-xs flex-shrink-0">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning…
+                    </span>
+                  )}
+                </div>
+
+                {portfolioItems.length === 0 && (
+                  <div className="text-center py-8 text-gray-600 text-sm">No portfolio websites yet. Add one below.</div>
+                )}
+
+                {/* Grouped by category */}
+                <div className="space-y-5">
+                  {sortedCats.map((cat) => (
+                    <div key={cat}>
+                      <p className="text-[11px] font-bold text-purple-400 uppercase tracking-widest mb-2">{cat}</p>
+                      <div className="space-y-2">{grouped[cat].map(renderCard)}</div>
+                    </div>
+                  ))}
+
+                  {/* Items not yet scanned */}
+                  {uncategorised.length > 0 && (
+                    <div>
+                      {sortedCats.length > 0 && (
+                        <p className="text-[11px] font-bold text-gray-600 uppercase tracking-widest mb-2">Not scanned yet</p>
+                      )}
+                      <div className="space-y-2">{uncategorised.map(renderCard)}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Add / Bulk buttons */}
+                {bulkMode ? (
+                  <div className="space-y-2">
+                    <label className={labelCls}>Paste URLs — one per line</label>
+                    <textarea
+                      rows={6}
+                      value={bulkText}
+                      onChange={(e) => setBulkText(e.target.value)}
+                      placeholder={`www.client1.com\nwww.client2.com\nwww.client3.com`}
+                      className={inputCls + ' resize-none'}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newItems = bulkText
+                            .split('\n')
+                            .map((line) => line.trim())
+                            .filter((line) => line.length > 0)
+                            .map((url) => ({ url, description: '' }));
+                          if (newItems.length > 0) {
+                            setPortfolioItems((prev) => {
+                              const updated = [...prev, ...newItems];
+                              // kick off meta fetch for the newly added items
+                              const startIdx = prev.length;
+                              newItems.forEach((item, offset) => fetchMeta(startIdx + offset, item.url));
+                              return updated;
+                            });
+                          }
+                          setBulkText('');
+                          setBulkMode(false);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-colors"
+                      >
+                        <Plus className="w-4 h-4" /> Add all
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setBulkMode(false); setBulkText(''); }}
+                        className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-400 rounded-xl text-sm font-semibold transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPortfolioItems((prev) => [...prev, { url: '', description: '' }])}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 border-dashed rounded-xl text-sm font-semibold transition-colors flex-1 justify-center"
+                    >
+                      <Plus className="w-4 h-4" /> Add website
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBulkMode(true)}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 hover:text-purple-300 border border-purple-500/30 rounded-xl text-sm font-semibold transition-colors"
+                    >
+                      Bulk add
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
 
           {/* Save button */}
           <div className="pt-4 border-t border-white/8 flex items-center gap-3">

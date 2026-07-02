@@ -4,6 +4,13 @@ import { prisma } from '@/lib/prisma';
 import { rateCardSummary } from '@/lib/rateCard';
 import type { RateCard } from '@/lib/rateCard';
 
+export interface PortfolioEntry {
+  url: string;
+  description: string;
+  title?: string;
+  category?: string;
+}
+
 export interface EffectiveProfile {
   senderName: string;
   businessName: string;
@@ -19,6 +26,10 @@ export interface EffectiveProfile {
   bankAcctName: string;
   paymentLink: string;
   rateCardSummary: string;
+  depositPct: number;
+  validityDays: number;
+  revisionRounds: number;
+  portfolio: PortfolioEntry[];
 }
 
 const DEFAULT_EMAIL = 'info@beamai.net';
@@ -32,6 +43,7 @@ async function getDefaultProfile(): Promise<EffectiveProfile> {
     where: { email: DEFAULT_EMAIL },
     include: { settings: true },
   });
+  const defaultRc = defaultUser?.settings?.rateCard as unknown as RateCard | null;
   _defaultCache = {
     senderName: defaultUser?.settings?.senderName ?? 'BeamAI Team',
     businessName: defaultUser?.settings?.businessName ?? 'BeamAI',
@@ -46,9 +58,11 @@ async function getDefaultProfile(): Promise<EffectiveProfile> {
     bankAccount: defaultUser?.settings?.bankAccount ?? '',
     bankAcctName: defaultUser?.settings?.bankAcctName ?? '',
     paymentLink: defaultUser?.settings?.paymentLink ?? '',
-    rateCardSummary: defaultUser?.settings?.rateCard
-      ? rateCardSummary(defaultUser.settings.rateCard as unknown as RateCard)
-      : '',
+    rateCardSummary: defaultRc ? rateCardSummary(defaultRc) : '',
+    depositPct: defaultRc?.paymentTerms?.depositPct ?? 50,
+    validityDays: defaultRc?.paymentTerms?.validityDays ?? 14,
+    revisionRounds: defaultRc?.paymentTerms?.revisionRounds ?? 2,
+    portfolio: (defaultUser?.settings?.portfolio as PortfolioEntry[] | null) ?? [],
   };
   return _defaultCache;
 }
@@ -63,6 +77,7 @@ export async function getEffectiveProfile(): Promise<EffectiveProfile> {
     where: { userId: session.user.id },
   });
 
+  const userRc = s?.rateCard as unknown as RateCard | null;
   return {
     senderName: s?.senderName || defaults.senderName,
     businessName: s?.businessName || defaults.businessName,
@@ -77,8 +92,10 @@ export async function getEffectiveProfile(): Promise<EffectiveProfile> {
     bankAccount: s?.bankAccount || defaults.bankAccount,
     bankAcctName: s?.bankAcctName || defaults.bankAcctName,
     paymentLink: s?.paymentLink || defaults.paymentLink,
-    rateCardSummary: s?.rateCard
-      ? rateCardSummary(s.rateCard as unknown as RateCard)
-      : defaults.rateCardSummary,
+    rateCardSummary: userRc ? rateCardSummary(userRc) : defaults.rateCardSummary,
+    depositPct: userRc?.paymentTerms?.depositPct ?? defaults.depositPct,
+    validityDays: userRc?.paymentTerms?.validityDays ?? defaults.validityDays,
+    revisionRounds: userRc?.paymentTerms?.revisionRounds ?? defaults.revisionRounds,
+    portfolio: (s?.portfolio as PortfolioEntry[] | null) ?? defaults.portfolio,
   };
 }

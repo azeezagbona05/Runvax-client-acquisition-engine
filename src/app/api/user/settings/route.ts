@@ -57,30 +57,38 @@ export async function PATCH(req: NextRequest) {
     paymentLink?: string;
     onboardingDone?: boolean;
     rateCard?: unknown;
+    portfolio?: unknown;
   };
 
+  // Strip auto-managed / identity fields so Prisma uses regular CreateInput (not Unchecked),
+  // and filter placeholder password so we never overwrite a saved password with empty.
+  const SKIP = new Set(['id', 'userId', 'updatedAt', 'createdAt']);
   const data = Object.fromEntries(
     Object.entries(body).filter(([k, v]) => {
       if (v === undefined) return false;
-      // Don't overwrite the saved password with an empty/placeholder value
+      if (SKIP.has(k)) return false;
       if (k === 'smtpPass' && (!v || v === '••••••••')) return false;
       return true;
     })
   );
 
-  const settings = await prisma.userSettings.upsert({
-    where: { userId: session.user.id },
-    create: {
-      userId: session.user.id,
-      dailyGoal: body.dailyGoal ?? 10,
-      avgDealValue: body.avgDealValue ?? 300000,
-      closeRatePct: body.closeRatePct ?? 10,
-      ...data,
-    },
-    update: data,
-  });
+  try {
+    const settings = await prisma.userSettings.upsert({
+      where: { userId: session.user.id },
+      create: {
+        userId: session.user.id,
+        dailyGoal: body.dailyGoal ?? 10,
+        avgDealValue: body.avgDealValue ?? 300000,
+        closeRatePct: body.closeRatePct ?? 10,
+        ...data,
+      },
+      update: data,
+    });
 
-  // Don't return smtpPass in response
-  const { smtpPass: _, ...safe } = settings;
-  return NextResponse.json({ ...safe, smtpPass: settings.smtpPass ? '••••••••' : null });
+    const { smtpPass: _, ...safe } = settings;
+    return NextResponse.json({ ...safe, smtpPass: settings.smtpPass ? '••••••••' : null });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Database error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

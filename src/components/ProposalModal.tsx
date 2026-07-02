@@ -4,7 +4,9 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle } from 'lucide-react';
 import { Business } from '@/types';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
-import { estimatePrice } from '@/lib/scoring';
+import { estimatePrice, } from '@/lib/scoring';
+import { formatPrice } from '@/lib/rateCard';
+import type { WebsitePackage } from '@/lib/rateCard';
 
 interface Props {
   business: Business;
@@ -17,6 +19,7 @@ export default function ProposalModal({ business, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [proposal, setProposal] = useState('');
   const [coverMessage, setCoverMessage] = useState('');
+  const [agentMeta, setAgentMeta] = useState<{ name: string; phone: string; email: string; website: string; tagline: string; city: string } | null>(null);
   const [error, setError] = useState('');
   const [yourName, setYourName] = useState('');
   const [yourPhone, setYourPhone] = useState('');
@@ -26,20 +29,30 @@ export default function ProposalModal({ business, onClose }: Props) {
   const [timeline, setTimeline] = useState('7–8 business days');
   const [copied, setCopied] = useState(false);
   const [coverCopied, setCoverCopied] = useState(false);
+  const [packages, setPackages] = useState<WebsitePackage[]>([]);
+  const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const handleAIResponse = useHandleAIResponse();
 
-  // Pre-fill from saved profile settings
+  // Pre-fill from saved profile settings + load rate card packages
   useEffect(() => {
     fetch('/api/user/settings')
       .then((r) => r.json())
-      .then((s: { businessName?: string; senderName?: string; whatsapp?: string; website?: string }) => {
+      .then((s: { businessName?: string; senderName?: string; whatsapp?: string; website?: string; rateCard?: { packages?: WebsitePackage[] } }) => {
         if (s.businessName || s.senderName) setYourName(s.businessName ?? s.senderName ?? '');
         if (s.whatsapp) setYourPhone(s.whatsapp);
         if (s.website) setYourWebsite(s.website);
+        if (s.rateCard?.packages?.length) setPackages(s.rateCard.packages);
       })
       .catch(() => {});
   }, []);
+
+  const selectPackage = (pkg: WebsitePackage) => {
+    setSelectedPkgId(pkg.id);
+    setPriceFrom(formatPrice(pkg.priceMin, pkg.currency));
+    setPriceTo(formatPrice(pkg.priceMax, pkg.currency));
+    setTimeline(pkg.timeline);
+  };
 
   const generate = async () => {
     setLoading(true);
@@ -55,6 +68,7 @@ export default function ProposalModal({ business, onClose }: Props) {
       if (!res.ok) throw new Error(json.error || 'Failed');
       setProposal(json.proposal);
       setCoverMessage(json.coverMessage ?? '');
+      if (json.agentMeta) setAgentMeta(json.agentMeta);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed');
     } finally {
@@ -79,23 +93,98 @@ export default function ProposalModal({ business, onClose }: Props) {
   const handlePrint = () => {
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(`
-      <html><head><title>Proposal — ${business.name}</title>
-      <style>
-        body { font-family: Georgia, serif; max-width: 760px; margin: 40px auto; color: #1a1a1a; line-height: 1.6; }
-        h1 { color: #4f2d8a; font-size: 24px; border-bottom: 3px solid #f97316; padding-bottom: 10px; }
-        h2 { color: #4f2d8a; font-size: 16px; margin-top: 24px; }
-        h3 { font-size: 14px; color: #333; }
-        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-        th { background: #f3f0ff; color: #4f2d8a; padding: 8px 12px; text-align: left; }
-        td { padding: 8px 12px; border-bottom: 1px solid #eee; }
-        strong { color: #4f2d8a; }
-        hr { border: none; border-top: 2px solid #f97316; margin: 20px 0; }
-        ul, ol { margin: 8px 0; padding-left: 20px; }
-        li { margin-bottom: 4px; }
-        @media print { body { margin: 20px; } }
-      </style></head>
-      <body>${renderMarkdown(proposal)}</body></html>`);
+    const agent = agentMeta;
+    const today = new Date().toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' });
+    win.document.write(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Proposal — ${business.name}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1a1a2e; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* ── TOP HEADER ── */
+  .top-bar { background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 60%, #f97316 100%); padding: 36px 48px 28px; color: #fff; }
+  .top-bar .doc-type { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; opacity: .75; margin-bottom: 8px; }
+  .top-bar .client-name { font-size: 30px; font-weight: 800; line-height: 1.1; margin-bottom: 14px; }
+  .top-bar .meta-row { display: flex; gap: 28px; font-size: 12px; opacity: .85; flex-wrap: wrap; }
+  .top-bar .meta-row span::before { content: ''; margin-right: 6px; opacity: .6; }
+
+  /* ── BODY ── */
+  .body { max-width: 760px; margin: 0 auto; padding: 36px 48px 20px; }
+
+  h1 { color: #4c1d95; font-size: 18px; font-weight: 800; margin-top: 28px; margin-bottom: 10px; padding-bottom: 7px; border-bottom: 2.5px solid #f97316; }
+  h2 { color: #4c1d95; font-size: 15px; font-weight: 700; margin-top: 22px; margin-bottom: 8px; }
+  h3 { font-size: 13px; font-weight: 700; color: #333; margin-top: 14px; margin-bottom: 6px; }
+  p { font-size: 13.5px; line-height: 1.75; color: #444; margin-bottom: 10px; }
+  ul, ol { padding-left: 20px; margin: 8px 0 14px; }
+  li { font-size: 13.5px; line-height: 1.65; color: #444; margin-bottom: 5px; }
+  strong { color: #1a1a2e; }
+  em { color: #666; }
+  hr { border: none; border-top: 1.5px solid #ede9fe; margin: 22px 0; }
+  a { color: #7c3aed; text-decoration: none; }
+
+  /* ── TABLES ── */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 13px; border-radius: 8px; overflow: hidden; }
+  thead tr { background: #4c1d95; color: #fff; }
+  thead td, thead th { padding: 11px 14px; font-weight: 700; text-align: left; }
+  tbody tr:nth-child(even) { background: #f5f3ff; }
+  tbody tr:hover { background: #ede9fe; }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid #ede9fe; color: #333; }
+
+  /* ── PRICE BADGE ── */
+  .price-badge { display: inline-block; background: linear-gradient(135deg, #4c1d95, #7c3aed); color: #fff; padding: 10px 22px; border-radius: 50px; font-size: 15px; font-weight: 800; margin: 12px 0; letter-spacing: .3px; }
+
+  /* ── GUARANTEE BOX ── */
+  .guarantee { background: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #166534; }
+  .guarantee strong { color: #166534; }
+
+  /* ── FOOTER ── */
+  .footer { background: #1a1a2e; color: #fff; padding: 24px 48px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 32px; }
+  .footer-left .agency { font-weight: 800; font-size: 15px; margin-bottom: 6px; }
+  .footer-left .contacts { font-size: 12px; line-height: 1.9; opacity: .85; }
+  .footer-right { text-align: right; }
+  .footer-right .tagline { font-size: 11px; opacity: .55; max-width: 180px; line-height: 1.5; }
+  .footer-right .date { font-size: 11px; opacity: .4; margin-top: 6px; }
+
+  @media print {
+    body { font-size: 12px; }
+    .top-bar { -webkit-print-color-adjust: exact; }
+    .footer { -webkit-print-color-adjust: exact; }
+    thead tr { -webkit-print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="doc-type">Website Development Proposal</div>
+  <div class="client-name">${business.name}</div>
+  <div class="meta-row">
+    <span>Prepared by ${agent?.name || yourName || ''}</span>
+    <span>${today}</span>
+    <span>${business.address || business.category || ''}</span>
+  </div>
+</div>
+
+<div class="body">
+  ${renderMarkdown(proposal)}
+</div>
+
+<div class="footer">
+  <div class="footer-left">
+    <div class="agency">${agent?.name || yourName || ''}</div>
+    <div class="contacts">
+      ${agent?.phone || yourPhone ? `📱 ${agent?.phone || yourPhone}<br>` : ''}
+      ${agent?.email ? `✉️ ${agent.email}<br>` : ''}
+      ${agent?.website || yourWebsite ? `🌐 ${agent?.website || yourWebsite}` : ''}
+    </div>
+  </div>
+  <div class="footer-right">
+    <div class="tagline">${agent?.tagline || ''}</div>
+    <div class="date">Generated ${today}</div>
+  </div>
+</div>
+
+</body></html>`);
     win.document.close();
     win.print();
   };
@@ -154,14 +243,40 @@ export default function ProposalModal({ business, onClose }: Props) {
                 />
               </div>
 
-              {/* Row 3: Price From + Price To */}
+              {/* Row 3: Package selector */}
+              {packages.length > 0 && (
+                <div>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5">Select Package</label>
+                  <div className={`grid gap-2 ${packages.length <= 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    {packages.map((pkg) => (
+                      <button
+                        key={pkg.id}
+                        type="button"
+                        onClick={() => selectPackage(pkg)}
+                        className={`text-left p-2.5 rounded-xl border transition-all ${
+                          selectedPkgId === pkg.id
+                            ? 'border-purple-500 bg-purple-500/15 ring-1 ring-purple-500/30'
+                            : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8'
+                        }`}
+                      >
+                        <div className="text-[11px] font-bold text-white leading-tight">{pkg.name}</div>
+                        <div className="text-[10px] text-purple-300 mt-1">{formatPrice(pkg.priceMin, pkg.currency)} – {formatPrice(pkg.priceMax, pkg.currency)}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5">{pkg.timeline} · {pkg.pages}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-gray-600 mt-1.5">Price and timeline auto-fill from the selected package — edit below if needed.</p>
+                </div>
+              )}
+
+              {/* Row 4: Price From + Price To */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[11px] text-gray-500 font-semibold block mb-1">Price From</label>
                   <input
                     type="text"
                     value={priceFrom}
-                    onChange={(e) => setPriceFrom(e.target.value)}
+                    onChange={(e) => { setPriceFrom(e.target.value); setSelectedPkgId(null); }}
                     placeholder="e.g. ₦150,000"
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
                   />
@@ -171,14 +286,14 @@ export default function ProposalModal({ business, onClose }: Props) {
                   <input
                     type="text"
                     value={priceTo}
-                    onChange={(e) => setPriceTo(e.target.value)}
+                    onChange={(e) => { setPriceTo(e.target.value); setSelectedPkgId(null); }}
                     placeholder="e.g. ₦400,000"
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
               </div>
 
-              {/* Row 4: Timeline */}
+              {/* Row 5: Timeline */}
               <div>
                 <label className="text-[11px] text-gray-500 font-semibold block mb-1">Delivery Timeline</label>
                 <input
