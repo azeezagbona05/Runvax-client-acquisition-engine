@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Loader2, RefreshCw, Printer, Copy, Check } from 'lucide-react';
+import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle } from 'lucide-react';
 import { Business } from '@/types';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 
@@ -13,10 +13,13 @@ interface Props {
 export default function ProposalModal({ business, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [proposal, setProposal] = useState('');
+  const [coverMessage, setCoverMessage] = useState('');
   const [error, setError] = useState('');
   const [yourName, setYourName] = useState('');
   const [yourPhone, setYourPhone] = useState('');
+  const [yourWebsite, setYourWebsite] = useState('');
   const [copied, setCopied] = useState(false);
+  const [coverCopied, setCoverCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const handleAIResponse = useHandleAIResponse();
 
@@ -24,9 +27,10 @@ export default function ProposalModal({ business, onClose }: Props) {
   useEffect(() => {
     fetch('/api/user/settings')
       .then((r) => r.json())
-      .then((s: { businessName?: string; senderName?: string; whatsapp?: string }) => {
+      .then((s: { businessName?: string; senderName?: string; whatsapp?: string; website?: string }) => {
         if (s.businessName || s.senderName) setYourName(s.businessName ?? s.senderName ?? '');
         if (s.whatsapp) setYourPhone(s.whatsapp);
+        if (s.website) setYourWebsite(s.website);
       })
       .catch(() => {});
   }, []);
@@ -38,12 +42,13 @@ export default function ProposalModal({ business, onClose }: Props) {
       const res = await fetch('/api/proposal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, yourName, yourPhone }),
+        body: JSON.stringify({ business, yourName, yourPhone, yourWebsite }),
       });
       const json = await res.json();
       if (handleAIResponse(res, json)) return;
       if (!res.ok) throw new Error(json.error || 'Failed');
       setProposal(json.proposal);
+      setCoverMessage(json.coverMessage ?? '');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed');
     } finally {
@@ -90,7 +95,7 @@ export default function ProposalModal({ business, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
       <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl">
 
         <div className="flex items-center justify-between p-5 border-b border-white/10 flex-shrink-0">
@@ -131,6 +136,16 @@ export default function ProposalModal({ business, onClose }: Props) {
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 font-semibold block mb-1">Your Website (optional)</label>
+                  <input
+                    type="text"
+                    value={yourWebsite}
+                    onChange={(e) => setYourWebsite(e.target.value)}
+                    placeholder="e.g. www.prowebnigeria.com"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
               </div>
               {error && <p className="text-red-400 text-sm">{error}</p>}
               <button
@@ -150,11 +165,39 @@ export default function ProposalModal({ business, onClose }: Props) {
           )}
 
           {proposal && (
-            <div ref={contentRef} className="prose prose-invert prose-sm max-w-none">
-              <div
-                className="bg-white/[0.03] border border-white/8 rounded-xl p-5 text-gray-300 text-sm leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(proposal) }}
-              />
+            <div className="space-y-4">
+              {/* Cover message — send this first on WhatsApp */}
+              {coverMessage && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <MessageCircle className="w-3.5 h-3.5" /> Send this on WhatsApp first
+                  </p>
+                  <div className="bg-green-950/30 border border-green-500/20 rounded-xl px-4 py-3 text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
+                    {coverMessage}
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(coverMessage).catch(() => {});
+                      setCoverCopied(true);
+                      setTimeout(() => setCoverCopied(false), 2500);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                      coverCopied ? 'bg-green-600 text-white' : 'bg-green-600/20 hover:bg-green-600/35 text-green-400 border border-green-500/30'
+                    }`}
+                  >
+                    {coverCopied ? <><Check className="w-4 h-4" /> Copied!</> : <><Copy className="w-4 h-4" /> Copy Cover Message</>}
+                  </button>
+                </div>
+              )}
+
+              {/* Full proposal */}
+              <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Full Proposal</p>
+              <div ref={contentRef} className="prose prose-invert prose-sm max-w-none">
+                <div
+                  className="bg-white/[0.03] border border-white/8 rounded-xl p-5 text-gray-300 text-sm leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(proposal) }}
+                />
+              </div>
             </div>
           )}
         </div>

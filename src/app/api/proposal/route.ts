@@ -8,10 +8,11 @@ import { getEffectiveProfile } from '@/lib/userProfile';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const { business, yourName, yourPhone }: {
+  const { business, yourName, yourPhone, yourWebsite }: {
     business: Business;
     yourName?: string;
     yourPhone?: string;
+    yourWebsite?: string;
   } = await req.json();
 
   if (!process.env.OPENAI_API_KEY) {
@@ -42,7 +43,7 @@ Client business:
 - About: ${business.description || 'N/A'}
 
 Your company: ${yourName || profile.businessName} (${profile.senderName})
-Contact: ${yourPhone || profile.whatsapp} | ${profile.replyEmail}
+Contact: ${yourPhone || profile.whatsapp} | ${profile.replyEmail}${yourWebsite ? ` | ${yourWebsite}` : ''}
 City: ${profile.city}
 Tagline: ${profile.tagline}
 Services offered: ${profile.services}

@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import {
   X, Star, Phone, Globe, MapPin, MessageCircle,
-  Trash2, FileText, Loader2, Copy, Check,
+  Trash2, FileText, Copy, Check, Loader2,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
+import ProposalModal from './ProposalModal';
 import { useProspects } from '@/context/ProspectsContext';
 import { SavedProspect, ProspectStage, ReplyType } from '@/types';
 import { scoreLabel, formatPrice } from '@/lib/scoring';
@@ -118,42 +119,7 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
   };
 
   // Proposal tab
-  const [proposal, setProposal] = useState('');
-  const [coverMessage, setCoverMessage] = useState('');
-  const [loadingProposal, setLoadingProposal] = useState(false);
-  const [proposalCopied, setProposalCopied] = useState(false);
-  const [coverCopied, setCoverCopied] = useState(false);
-
-  const generateProposal = async () => {
-    setLoadingProposal(true);
-    try {
-      const res = await fetch('/api/proposal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business }),
-      });
-      const json = await res.json();
-      if (json.proposal) {
-        setProposal(json.proposal);
-        setCoverMessage(json.coverMessage ?? '');
-        updateStage(business.id, 'proposal');
-      }
-    } catch { /* */ } finally {
-      setLoadingProposal(false);
-    }
-  };
-
-  const copyProposal = () => {
-    navigator.clipboard.writeText(proposal).catch(() => {});
-    setProposalCopied(true);
-    setTimeout(() => setProposalCopied(false), 2500);
-  };
-
-  const copyCover = () => {
-    navigator.clipboard.writeText(coverMessage).catch(() => {});
-    setCoverCopied(true);
-    setTimeout(() => setCoverCopied(false), 2500);
-  };
+  const [showProposalModal, setShowProposalModal] = useState(false);
 
   const handleDelete = async () => {
     if (!confirm(`Remove ${business.name} from pipeline?`)) return;
@@ -331,87 +297,20 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
 
           {/* ── PROPOSAL TAB ── */}
           {tab === 'proposal' && (
-            <div className="p-4 space-y-4">
-              {!proposal ? (
-                <div className="text-center py-10">
-                  <div className="text-5xl mb-3">📄</div>
-                  <p className="text-gray-200 font-bold mb-1">Generate a proposal</p>
-                  <p className="text-gray-500 text-sm mb-6 max-w-xs mx-auto leading-relaxed">
-                    AI writes a full web design proposal for {business.name} — with pricing, timeline and payment terms.
-                  </p>
-                  <button
-                    onClick={generateProposal}
-                    disabled={loadingProposal}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:bg-gray-800 text-white font-bold text-sm transition-colors"
-                  >
-                    {loadingProposal
-                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
-                      : <><FileText className="w-4 h-4" /> Generate Proposal</>}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Proposal ready · Stage → Proposal</p>
-                    <button
-                      onClick={generateProposal}
-                      disabled={loadingProposal}
-                      className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
-                    >
-                      {loadingProposal ? 'Regenerating…' : '↺ Redo'}
-                    </button>
-                  </div>
-
-                  {/* Cover message — send this with the proposal */}
-                  {coverMessage && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest">
-                        1. Send this message first
-                      </p>
-                      <div className="bg-green-950/30 border border-green-500/20 rounded-xl px-4 py-3 text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
-                        {coverMessage}
-                      </div>
-                      <button
-                        onClick={copyCover}
-                        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors ${
-                          coverCopied
-                            ? 'bg-green-600/20 text-green-400 border border-green-500/30'
-                            : 'bg-green-600 hover:bg-green-500 text-white'
-                        }`}
-                      >
-                        {coverCopied
-                          ? <><Check className="w-4 h-4" /> Copied!</>
-                          : <><Copy className="w-4 h-4" /> Copy Cover Message</>}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Full proposal */}
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-                      2. Then share the full proposal
-                    </p>
-                    <textarea
-                      readOnly
-                      value={proposal}
-                      rows={14}
-                      className="w-full bg-white/[0.03] border border-white/8 rounded-xl px-3 py-3 text-xs text-gray-300 leading-relaxed font-mono resize-none focus:outline-none"
-                    />
-                    <button
-                      onClick={copyProposal}
-                      className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors ${
-                        proposalCopied
-                          ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
-                          : 'bg-purple-600 hover:bg-purple-500 text-white'
-                      }`}
-                    >
-                      {proposalCopied
-                        ? <><Check className="w-4 h-4" /> Copied!</>
-                        : <><Copy className="w-4 h-4" /> Copy Full Proposal</>}
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="p-4">
+              <div className="text-center py-10">
+                <div className="text-5xl mb-3">📄</div>
+                <p className="text-gray-200 font-bold mb-1">Generate a proposal</p>
+                <p className="text-gray-500 text-sm mb-6 max-w-xs mx-auto leading-relaxed">
+                  AI writes a full web design proposal for {business.name} — with pricing, timeline, payment terms, and a WhatsApp cover message.
+                </p>
+                <button
+                  onClick={() => setShowProposalModal(true)}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-colors"
+                >
+                  <FileText className="w-4 h-4" /> Generate Proposal
+                </button>
+              </div>
             </div>
           )}
 
@@ -518,6 +417,10 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
           )}
         </div>
       </div>
+
+      {showProposalModal && (
+        <ProposalModal business={business} onClose={() => setShowProposalModal(false)} />
+      )}
     </div>
   );
 }
