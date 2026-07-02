@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle } from 'lucide-react';
 import { Business } from '@/types';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
+import { estimatePrice } from '@/lib/scoring';
 
 interface Props {
   business: Business;
@@ -11,6 +12,8 @@ interface Props {
 }
 
 export default function ProposalModal({ business, onClose }: Props) {
+  const estimated = estimatePrice(business.category, business.categoryTypes);
+
   const [loading, setLoading] = useState(false);
   const [proposal, setProposal] = useState('');
   const [coverMessage, setCoverMessage] = useState('');
@@ -18,6 +21,9 @@ export default function ProposalModal({ business, onClose }: Props) {
   const [yourName, setYourName] = useState('');
   const [yourPhone, setYourPhone] = useState('');
   const [yourWebsite, setYourWebsite] = useState('');
+  const [priceFrom, setPriceFrom] = useState('₦' + estimated.min.toLocaleString('en-NG'));
+  const [priceTo, setPriceTo] = useState('₦' + estimated.max.toLocaleString('en-NG'));
+  const [timeline, setTimeline] = useState('7–8 business days');
   const [copied, setCopied] = useState(false);
   const [coverCopied, setCoverCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -42,7 +48,7 @@ export default function ProposalModal({ business, onClose }: Props) {
       const res = await fetch('/api/proposal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, yourName, yourPhone, yourWebsite }),
+        body: JSON.stringify({ business, yourName, yourPhone, yourWebsite, priceFrom, priceTo, timeline }),
       });
       const json = await res.json();
       if (handleAIResponse(res, json)) return;
@@ -143,6 +149,40 @@ export default function ProposalModal({ business, onClose }: Props) {
                     value={yourWebsite}
                     onChange={(e) => setYourWebsite(e.target.value)}
                     placeholder="e.g. www.prowebnigeria.com"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
+
+                {/* Pricing */}
+                <div>
+                  <label className="text-xs text-gray-500 font-semibold block mb-1">Price From</label>
+                  <input
+                    type="text"
+                    value={priceFrom}
+                    onChange={(e) => setPriceFrom(e.target.value)}
+                    placeholder="e.g. ₦150,000"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-semibold block mb-1">Price To</label>
+                  <input
+                    type="text"
+                    value={priceTo}
+                    onChange={(e) => setPriceTo(e.target.value)}
+                    placeholder="e.g. ₦400,000"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
+
+                {/* Timeline */}
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 font-semibold block mb-1">Delivery Timeline</label>
+                  <input
+                    type="text"
+                    value={timeline}
+                    onChange={(e) => setTimeline(e.target.value)}
+                    placeholder="e.g. 7–8 business days"
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
                   />
                 </div>

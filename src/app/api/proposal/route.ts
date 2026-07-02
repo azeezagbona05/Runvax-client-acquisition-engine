@@ -8,11 +8,14 @@ import { getEffectiveProfile } from '@/lib/userProfile';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const { business, yourName, yourPhone, yourWebsite }: {
+  const { business, yourName, yourPhone, yourWebsite, priceFrom, priceTo, timeline }: {
     business: Business;
     yourName?: string;
     yourPhone?: string;
     yourWebsite?: string;
+    priceFrom?: string;
+    priceTo?: string;
+    timeline?: string;
   } = await req.json();
 
   if (!process.env.OPENAI_API_KEY) {
@@ -28,9 +31,10 @@ export async function POST(req: NextRequest) {
   const profile = await getEffectiveProfile();
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const price = estimatePrice(business.category, business.categoryTypes);
-  const priceMin = '₦' + price.min.toLocaleString('en-NG');
-  const priceMax = '₦' + price.max.toLocaleString('en-NG');
+  const estimated = estimatePrice(business.category, business.categoryTypes);
+  const priceMin = priceFrom || ('₦' + estimated.min.toLocaleString('en-NG'));
+  const priceMax = priceTo   || ('₦' + estimated.max.toLocaleString('en-NG'));
+  const deliveryTimeline = timeline || '7–8 business days';
 
   const prompt = `You are a professional Nigerian web development agency writing a compelling one-page business proposal.
 
@@ -101,7 +105,7 @@ Write a professional, persuasive one-page website development proposal. Structur
 | Phase 3 | Review & revisions | Day 7 |
 | Phase 4 | Launch & handover | Day 7–8 |
 
-✅ **Website ready in 7–8 business days.**
+✅ **Website ready in ${deliveryTimeline}.**
 
 ## Payment Terms
 
@@ -143,7 +147,7 @@ If you are not satisfied with the initial design concept, we redesign it **at no
     const firstName = business.name.split(' ')[0];
     const coverMessage = `Hi ${firstName}! 😊
 
-I've put together a personalised website proposal for *${business.name}* — it covers exactly what I'd build for you, the timeline, and investment details.
+I've put together a personalised website proposal for *${business.name}* — it covers exactly what I'd build for you, the investment (${priceMin} – ${priceMax}), and delivery timeline (${deliveryTimeline}).
 
 I've kept it clear and straightforward so you can go through it at your own pace. Feel free to ask me anything after you've had a look.
 
