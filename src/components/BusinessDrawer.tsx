@@ -284,7 +284,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                 <MessageCircle className="w-5 h-5 flex-shrink-0" />
                 <div className="text-left">
                   <div className="font-bold">Cold Outreach Message</div>
-                  <div className="text-xs text-green-400/60 mt-0.5">PAS · AIDA · SPIN · 4Ps · HSO · FAB · BAB · Story</div>
+                  <div className="text-xs text-green-400/60 mt-0.5">AI-written WhatsApp &amp; email message</div>
                 </div>
               </button>
               <button
