@@ -114,83 +114,86 @@ export default function ProposalModal({ business, onClose }: Props) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {!proposal && !loading && (
-            <div className="space-y-4">
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
-                <p className="text-purple-300 text-sm font-semibold mb-1">📄 Professional Proposal</p>
-                <p className="text-gray-400 text-xs">Claude writes a branded, print-ready proposal for this client. Add your details below.</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
+
+              {/* Row 1: Name + Phone */}
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-gray-500 font-semibold block mb-1">Your Name / Agency</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1">Your Name / Agency</label>
                   <input
                     type="text"
                     value={yourName}
                     onChange={(e) => setYourName(e.target.value)}
                     placeholder="e.g. ProWeb Nigeria"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 font-semibold block mb-1">Your WhatsApp / Phone</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1">Your WhatsApp / Phone</label>
                   <input
                     type="text"
                     value={yourPhone}
                     onChange={(e) => setYourPhone(e.target.value)}
                     placeholder="e.g. +234 801 234 5678"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
-                <div className="col-span-2">
-                  <label className="text-xs text-gray-500 font-semibold block mb-1">Your Website (optional)</label>
-                  <input
-                    type="text"
-                    value={yourWebsite}
-                    onChange={(e) => setYourWebsite(e.target.value)}
-                    placeholder="e.g. www.prowebnigeria.com"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
-                  />
-                </div>
+              </div>
 
-                {/* Pricing */}
+              {/* Row 2: Website */}
+              <div>
+                <label className="text-[11px] text-gray-500 font-semibold block mb-1">Your Website (optional)</label>
+                <input
+                  type="text"
+                  value={yourWebsite}
+                  onChange={(e) => setYourWebsite(e.target.value)}
+                  placeholder="e.g. www.prowebnigeria.com"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+
+              {/* Row 3: Price From + Price To */}
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-gray-500 font-semibold block mb-1">Price From</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1">Price From</label>
                   <input
                     type="text"
                     value={priceFrom}
                     onChange={(e) => setPriceFrom(e.target.value)}
                     placeholder="e.g. ₦150,000"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 font-semibold block mb-1">Price To</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1">Price To</label>
                   <input
                     type="text"
                     value={priceTo}
                     onChange={(e) => setPriceTo(e.target.value)}
                     placeholder="e.g. ₦400,000"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
-                  />
-                </div>
-
-                {/* Timeline */}
-                <div className="col-span-2">
-                  <label className="text-xs text-gray-500 font-semibold block mb-1">Delivery Timeline</label>
-                  <input
-                    type="text"
-                    value={timeline}
-                    onChange={(e) => setTimeline(e.target.value)}
-                    placeholder="e.g. 7–8 business days"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
               </div>
+
+              {/* Row 4: Timeline */}
+              <div>
+                <label className="text-[11px] text-gray-500 font-semibold block mb-1">Delivery Timeline</label>
+                <input
+                  type="text"
+                  value={timeline}
+                  onChange={(e) => setTimeline(e.target.value)}
+                  placeholder="e.g. 7–8 business days"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+
               {error && <p className="text-red-400 text-sm">{error}</p>}
               <button
                 onClick={generate}
-                className="w-full bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-500 hover:to-orange-400 text-white font-bold py-3.5 rounded-xl transition-all"
+                className="w-full bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-500 hover:to-orange-400 text-white font-bold py-3 rounded-xl transition-all"
               >
                 Generate Proposal
               </button>
