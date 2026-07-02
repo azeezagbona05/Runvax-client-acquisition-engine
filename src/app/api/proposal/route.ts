@@ -137,8 +137,21 @@ If you are not satisfied with the initial design concept, we redesign it **at no
 
     const text = completion.choices[0]?.message?.content ?? '';
     const match = text.match(/---PROPOSAL---([\s\S]*?)$/);
+    const proposal = match?.[1]?.trim() ?? text.trim();
 
-    return NextResponse.json({ proposal: match?.[1]?.trim() ?? text.trim() });
+    const firstName = business.name.split(' ')[0];
+    const coverMessage = `Hi ${firstName}! 😊
+
+I've put together a personalised website proposal for *${business.name}* — it covers exactly what I'd build for you, the timeline, and investment details.
+
+I've kept it clear and straightforward so you can go through it at your own pace. Feel free to ask me anything after you've had a look.
+
+Looking forward to hearing from you! 🙏
+
+— ${profile.senderName}
+📱 ${profile.whatsapp}`;
+
+    return NextResponse.json({ proposal, coverMessage });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed';
     return NextResponse.json({ error: message }, { status: 500 });

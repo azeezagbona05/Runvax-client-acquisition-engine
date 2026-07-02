@@ -119,8 +119,10 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
 
   // Proposal tab
   const [proposal, setProposal] = useState('');
+  const [coverMessage, setCoverMessage] = useState('');
   const [loadingProposal, setLoadingProposal] = useState(false);
   const [proposalCopied, setProposalCopied] = useState(false);
+  const [coverCopied, setCoverCopied] = useState(false);
 
   const generateProposal = async () => {
     setLoadingProposal(true);
@@ -133,6 +135,7 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
       const json = await res.json();
       if (json.proposal) {
         setProposal(json.proposal);
+        setCoverMessage(json.coverMessage ?? '');
         updateStage(business.id, 'proposal');
       }
     } catch { /* */ } finally {
@@ -144,6 +147,12 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
     navigator.clipboard.writeText(proposal).catch(() => {});
     setProposalCopied(true);
     setTimeout(() => setProposalCopied(false), 2500);
+  };
+
+  const copyCover = () => {
+    navigator.clipboard.writeText(coverMessage).catch(() => {});
+    setCoverCopied(true);
+    setTimeout(() => setCoverCopied(false), 2500);
   };
 
   const handleDelete = async () => {
@@ -341,7 +350,7 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
                   </button>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Proposal ready · Stage → Proposal</p>
                     <button
@@ -352,24 +361,55 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
                       {loadingProposal ? 'Regenerating…' : '↺ Redo'}
                     </button>
                   </div>
-                  <textarea
-                    readOnly
-                    value={proposal}
-                    rows={15}
-                    className="w-full bg-white/[0.03] border border-white/8 rounded-xl px-3 py-3 text-xs text-gray-300 leading-relaxed font-mono resize-none focus:outline-none"
-                  />
-                  <button
-                    onClick={copyProposal}
-                    className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors ${
-                      proposalCopied
-                        ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
-                        : 'bg-purple-600 hover:bg-purple-500 text-white'
-                    }`}
-                  >
-                    {proposalCopied
-                      ? <><Check className="w-4 h-4" /> Copied!</>
-                      : <><Copy className="w-4 h-4" /> Copy Proposal</>}
-                  </button>
+
+                  {/* Cover message — send this with the proposal */}
+                  {coverMessage && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest">
+                        1. Send this message first
+                      </p>
+                      <div className="bg-green-950/30 border border-green-500/20 rounded-xl px-4 py-3 text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
+                        {coverMessage}
+                      </div>
+                      <button
+                        onClick={copyCover}
+                        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors ${
+                          coverCopied
+                            ? 'bg-green-600/20 text-green-400 border border-green-500/30'
+                            : 'bg-green-600 hover:bg-green-500 text-white'
+                        }`}
+                      >
+                        {coverCopied
+                          ? <><Check className="w-4 h-4" /> Copied!</>
+                          : <><Copy className="w-4 h-4" /> Copy Cover Message</>}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Full proposal */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                      2. Then share the full proposal
+                    </p>
+                    <textarea
+                      readOnly
+                      value={proposal}
+                      rows={14}
+                      className="w-full bg-white/[0.03] border border-white/8 rounded-xl px-3 py-3 text-xs text-gray-300 leading-relaxed font-mono resize-none focus:outline-none"
+                    />
+                    <button
+                      onClick={copyProposal}
+                      className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-colors ${
+                        proposalCopied
+                          ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
+                          : 'bg-purple-600 hover:bg-purple-500 text-white'
+                      }`}
+                    >
+                      {proposalCopied
+                        ? <><Check className="w-4 h-4" /> Copied!</>
+                        : <><Copy className="w-4 h-4" /> Copy Full Proposal</>}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
