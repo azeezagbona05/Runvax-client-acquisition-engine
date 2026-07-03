@@ -155,10 +155,16 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
-      const data = await res.json() as { title?: string; favicon?: string; category?: string; error?: string };
+      const data = await res.json() as { title?: string; metaDesc?: string; favicon?: string; category?: string; error?: string };
       if (res.ok) {
         setPortfolioItems((prev) => prev.map((p, idx) =>
-          idx === i ? { ...p, title: data.title || p.title, favicon: data.favicon, category: data.category } : p
+          idx === i ? {
+            ...p,
+            title: data.title || p.title,
+            favicon: data.favicon,
+            category: data.category,
+            description: p.description || data.metaDesc || '',
+          } : p
         ));
       }
     } catch { /* silent */ }
