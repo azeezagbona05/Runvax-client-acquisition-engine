@@ -47,6 +47,8 @@ export default function BusinessCard({ business, onClick }: Props) {
 
   const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [msgCopied, setMsgCopied] = useState(false);
   const [waState, setWaState] = useState<WaState | null>(null);
   const [editedMsg, setEditedMsg] = useState('');
 
@@ -112,6 +114,29 @@ export default function BusinessCard({ business, onClick }: Props) {
   const closeWa = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setWaState(null);
+  };
+
+  const copyWAMessage = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!business.phone || copying || generating) return;
+    setCopying(true);
+    let msg: string;
+    try {
+      const res = await fetch('/api/outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business, competitors: business.competitors }),
+      });
+      const json = await res.json();
+      msg = (res.ok && json.whatsapp) ? json.whatsapp : buildQuickWAMessage(business);
+    } catch {
+      msg = buildQuickWAMessage(business);
+    } finally {
+      setCopying(false);
+    }
+    navigator.clipboard.writeText(msg).catch(() => {});
+    setMsgCopied(true);
+    setTimeout(() => setMsgCopied(false), 2500);
   };
 
   return (
@@ -220,13 +245,34 @@ export default function BusinessCard({ business, onClick }: Props) {
             {business.phone && (
               <button
                 onClick={quickWhatsApp}
-                disabled={generating}
+                disabled={generating || copying}
                 title={generating ? 'Writing message…' : 'Preview & send WhatsApp'}
                 className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors disabled:opacity-60 disabled:cursor-wait"
               >
                 {generating
                   ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Writing…</>
                   : <><MessageCircle className="w-3.5 h-3.5" /> WhatsApp</>
+                }
+              </button>
+            )}
+
+            {/* Copy cover message */}
+            {business.phone && (
+              <button
+                onClick={copyWAMessage}
+                disabled={copying || generating}
+                title={msgCopied ? 'Copied!' : 'Copy outreach message to clipboard'}
+                className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border transition-colors disabled:opacity-60 disabled:cursor-wait ${
+                  msgCopied
+                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                    : 'bg-white/5 text-gray-500 border-white/10 hover:text-gray-300 hover:border-white/20'
+                }`}
+              >
+                {copying
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : msgCopied
+                  ? <><Check className="w-3.5 h-3.5" /> Copied!</>
+                  : <><Copy className="w-3.5 h-3.5" /> Copy msg</>
                 }
               </button>
             )}

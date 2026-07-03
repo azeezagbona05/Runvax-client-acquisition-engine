@@ -3,10 +3,10 @@
 import { useState, useCallback } from 'react';
 import {
   Phone, Star, MessageCircle, StickyNote, Bell, ChevronRight, ChevronLeft,
-  Trash2, Download, Zap, CheckSquare, Square, X, Search,
+  Trash2, Download, Zap, CheckSquare, Square, X, Search, Check,
 } from 'lucide-react';
 import { useProspects } from '@/context/ProspectsContext';
-import { SavedProspect, ProspectStage } from '@/types';
+import { SavedProspect, ProspectStage, ReplyType } from '@/types';
 import { scoreLabel, formatPrice } from '@/lib/scoring';
 import { whatsappLink } from '@/lib/phone';
 import Link from 'next/link';
@@ -55,6 +55,17 @@ function hasDueStepToday(prospect: SavedProspect) {
   return prospect.followUpSequence.some((s) => !s.sentAt && s.dueDate === todayStr());
 }
 
+const QUICK_REPLIES: { id: ReplyType; label: string; stageTarget?: ProspectStage }[] = [
+  { id: 'interested',        label: '🤝 Interested',     stageTarget: 'interested' },
+  { id: 'asked_price',       label: '💰 Asked price',    stageTarget: 'interested' },
+  { id: 'said_send_info',    label: '📤 Send info',      stageTarget: 'interested' },
+  { id: 'said_call_me',      label: '📞 Call me',        stageTarget: 'interested' },
+  { id: 'said_okay_thanks',  label: '😊 Okay thanks' },
+  { id: 'said_think_about_it', label: '🤔 Think about it' },
+  { id: 'objection_expensive', label: '💸 Too expensive' },
+  { id: 'not_interested',    label: '🚫 Not interested', stageTarget: 'lost' },
+];
+
 interface PipelineCardProps {
   prospect: SavedProspect;
   onOpen: () => void;
@@ -65,10 +76,42 @@ interface PipelineCardProps {
 }
 
 function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onToggleSelect }: PipelineCardProps) {
-  const { updateStage, remove } = useProspects();
-  const { business, stage, score, estimatedPrice, notes, reminderDate, reminderNote, outreachSentAt } = prospect;
+  const { updateStage, remove, addConversationEntry } = useProspects();
+  const { business, stage, score, estimatedPrice, notes, reminderDate, reminderNote, outreachSentAt, conversations } = prospect;
   const { color: scoreColor } = scoreLabel(score);
   const idx = stageIdx(stage);
+  const [showLog, setShowLog] = useState(false);
+  const [loggedId, setLoggedId] = useState<string | null>(null);
+
+  // Follow-up nudge: compute days since last contact
+  const contactDates = [
+    outreachSentAt,
+    ...(conversations ?? [])
+      .filter((c) => c.framework !== 'proposal')
+      .map((c) => c.timestamp),
+  ].filter(Boolean) as string[];
+  const lastContactDate = contactDates.length > 0
+    ? contactDates.reduce((latest, d) => (d > latest ? d : latest))
+    : null;
+  const sinceContact = lastContactDate ? daysSince(lastContactDate) : null;
+  const needsFollowUp = sinceContact !== null && sinceContact >= 3 && stage !== 'won' && stage !== 'lost';
+
+  const logReply = async (opt: typeof QUICK_REPLIES[number]) => {
+    setLoggedId(opt.id);
+    void addConversationEntry(business.id, {
+      type: 'received',
+      channel: 'whatsapp',
+      content: opt.label,
+      replyType: opt.id,
+    });
+    if (opt.stageTarget) {
+      const targetIdx = STAGES.findIndex((s) => s.id === opt.stageTarget);
+      if (opt.stageTarget === 'lost' || targetIdx > idx) {
+        void updateStage(business.id, opt.stageTarget);
+      }
+    }
+    setTimeout(() => { setLoggedId(null); setShowLog(false); }, 1200);
+  };
 
   const movePrev = (e: React.MouseEvent) => { e.stopPropagation(); if (idx > 0) updateStage(business.id, STAGES[idx - 1].id); };
   const moveNext = (e: React.MouseEvent) => { e.stopPropagation(); if (idx < STAGES.length - 1) updateStage(business.id, STAGES[idx + 1].id); };
@@ -113,6 +156,16 @@ function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onT
         </div>
       )}
 
+      {needsFollowUp && !dueToday && (
+        <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full w-fit border ${
+          sinceContact! >= 7
+            ? 'text-red-400 bg-red-500/10 border-red-500/20'
+            : 'text-orange-400 bg-orange-500/10 border-orange-500/20'
+        }`}>
+          ⏰ {sinceContact}d no follow-up
+        </div>
+      )}
+
       <div className="flex items-start gap-2 justify-between">
         <h4 className={`text-sm font-bold leading-snug line-clamp-2 flex-1 ${selectMode && !selected ? 'text-gray-300' : 'text-white'} ${selectMode ? 'pr-5' : ''}`}>{business.name}</h4>
         {!selectMode && (
@@ -153,7 +206,11 @@ function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onT
           </span>
         )}
         {outreachSentAt && <span className="text-[10px] text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">✉ Sent</span>}
-        <span className="text-[10px] text-gray-600 ml-auto">{daysSince(prospect.savedAt)}d ago</span>
+        <span className={`text-[10px] ml-auto ${needsFollowUp ? 'text-orange-400' : 'text-gray-600'}`}>
+          {lastContactDate
+            ? `${sinceContact}d since contact`
+            : `${daysSince(prospect.savedAt)}d saved`}
+        </span>
       </div>
 
       {reminderNote && (
@@ -163,20 +220,56 @@ function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onT
       )}
 
       {!selectMode && (
-        <div className="flex items-center gap-1 pt-1 border-t border-white/5">
-          <button onClick={(e) => { e.stopPropagation(); movePrev(e); }} disabled={idx === 0}
-            className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
-            <ChevronLeft className="w-3 h-3" />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); moveNext(e); }} disabled={idx === STAGES.length - 1}
-            className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
-            <ChevronRight className="w-3 h-3" />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); remove(business.id); }}
-            className="ml-auto text-[10px] px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors">
-            <Trash2 className="w-3 h-3" />
-          </button>
-        </div>
+        <>
+          <div className="flex items-center gap-1 pt-1 border-t border-white/5">
+            <button onClick={(e) => { e.stopPropagation(); movePrev(e); }} disabled={idx === 0}
+              className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
+              <ChevronLeft className="w-3 h-3" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); moveNext(e); }} disabled={idx === STAGES.length - 1}
+              className="flex items-center gap-0.5 text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 disabled:opacity-30 transition-colors">
+              <ChevronRight className="w-3 h-3" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowLog((v) => !v); }}
+              className={`flex items-center gap-0.5 text-[10px] px-2 py-1 rounded border transition-colors ${
+                showLog
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                  : 'bg-white/5 hover:bg-white/15 text-gray-400 border-white/10'
+              }`}
+            >
+              📝 Log
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); remove(business.id); }}
+              className="ml-auto text-[10px] px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors">
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+
+          {/* Quick reply log panel */}
+          {showLog && (
+            <div className="pt-1 border-t border-white/5" onClick={(e) => e.stopPropagation()}>
+              <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest mb-1.5">They replied…</p>
+              <div className="grid grid-cols-2 gap-1">
+                {QUICK_REPLIES.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={(e) => { e.stopPropagation(); void logReply(opt); }}
+                    className={`text-[10px] font-semibold px-2 py-1.5 rounded-lg border text-left transition-all ${
+                      loggedId === opt.id
+                        ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                        : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-200'
+                    }`}
+                  >
+                    {loggedId === opt.id
+                      ? <span className="flex items-center gap-1"><Check className="w-2.5 h-2.5" /> Logged</span>
+                      : opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

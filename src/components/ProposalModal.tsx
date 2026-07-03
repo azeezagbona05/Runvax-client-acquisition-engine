@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle } from 'lucide-react';
 import { Business } from '@/types';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
+import { useProspects } from '@/context/ProspectsContext';
 import { estimatePrice, } from '@/lib/scoring';
 import { formatPrice } from '@/lib/rateCard';
 import type { WebsitePackage } from '@/lib/rateCard';
@@ -33,6 +34,7 @@ export default function ProposalModal({ business, onClose }: Props) {
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const handleAIResponse = useHandleAIResponse();
+  const { addConversationEntry } = useProspects();
 
   // Pre-fill from saved profile settings + load rate card packages
   useEffect(() => {
@@ -69,6 +71,18 @@ export default function ProposalModal({ business, onClose }: Props) {
       setProposal(json.proposal);
       setCoverMessage(json.coverMessage ?? '');
       if (json.agentMeta) setAgentMeta(json.agentMeta);
+      void addConversationEntry(business.id, {
+        type: 'ai_response',
+        channel: 'note',
+        framework: 'proposal',
+        content: JSON.stringify({
+          proposal: json.proposal,
+          coverMessage: json.coverMessage ?? '',
+          priceFrom,
+          priceTo,
+          timeline,
+        }),
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed');
     } finally {

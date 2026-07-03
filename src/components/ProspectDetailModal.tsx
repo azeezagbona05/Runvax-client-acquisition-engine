@@ -112,7 +112,12 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
     setReplyCopied(true);
     setTimeout(() => setReplyCopied(false), 2500);
     await addConversationEntry(business.id, { type: 'sent', channel: 'whatsapp', content: aiReply });
-    if (replyType === 'interested' && stageIdx < 2) updateStage(business.id, 'interested');
+    const WARM = ['interested', 'asked_price', 'asked_examples', 'said_send_info', 'said_call_me'];
+    if (replyType && WARM.includes(replyType) && stageIdx < 2) {
+      void updateStage(business.id, 'interested');
+    } else if (replyType === 'not_interested') {
+      void updateStage(business.id, 'lost');
+    }
     setTheirMsg('');
     setReplyType(null);
     setAiReply('');
@@ -120,6 +125,8 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
 
   // Proposal tab
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [expandedProposal, setExpandedProposal] = useState<string | null>(null);
+  const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
 
   const handleDelete = async () => {
     if (!confirm(`Remove ${business.name} from pipeline?`)) return;
@@ -296,23 +303,92 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
           )}
 
           {/* ── PROPOSAL TAB ── */}
-          {tab === 'proposal' && (
-            <div className="p-4">
-              <div className="text-center py-10">
-                <div className="text-5xl mb-3">📄</div>
-                <p className="text-gray-200 font-bold mb-1">Generate a proposal</p>
-                <p className="text-gray-500 text-sm mb-6 max-w-xs mx-auto leading-relaxed">
-                  AI writes a full web design proposal for {business.name} — with pricing, timeline, payment terms, and a WhatsApp cover message.
-                </p>
-                <button
-                  onClick={() => setShowProposalModal(true)}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-colors"
-                >
-                  <FileText className="w-4 h-4" /> Generate Proposal
-                </button>
+          {tab === 'proposal' && (() => {
+            const history = [...conversations]
+              .filter((c) => c.framework === 'proposal')
+              .reverse();
+            return (
+              <div className="p-4 space-y-3">
+                {/* Past proposals */}
+                {history.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                      Past Proposals ({history.length})
+                    </p>
+                    {history.map((entry) => {
+                      let parsed: { proposal?: string; coverMessage?: string; priceFrom?: string; priceTo?: string; timeline?: string } | null = null;
+                      try { parsed = JSON.parse(entry.content); } catch { /* */ }
+                      const isExpanded = expandedProposal === entry.id;
+                      return (
+                        <div key={entry.id} className="bg-white/[0.03] border border-white/8 rounded-xl overflow-hidden">
+                          <div className="flex items-center gap-3 px-3 py-2.5">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-white truncate">
+                                {parsed?.priceFrom && parsed?.priceTo ? `${parsed.priceFrom} – ${parsed.priceTo}` : 'Proposal'}
+                              </p>
+                              <p className="text-[10px] text-gray-500">
+                                {timeAgo(entry.timestamp)}{parsed?.timeline ? ` · ${parsed.timeline}` : ''}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {parsed?.coverMessage && (
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(parsed!.coverMessage!).catch(() => {});
+                                    setCopiedHistoryId(entry.id);
+                                    setTimeout(() => setCopiedHistoryId(null), 2500);
+                                  }}
+                                  title="Copy cover message"
+                                  className={`p-1.5 rounded-lg border transition-colors ${
+                                    copiedHistoryId === entry.id
+                                      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                                      : 'bg-white/5 text-gray-500 border-white/10 hover:text-gray-300'
+                                  }`}
+                                >
+                                  {copiedHistoryId === entry.id
+                                    ? <Check className="w-3 h-3" />
+                                    : <Copy className="w-3 h-3" />}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setExpandedProposal(isExpanded ? null : entry.id)}
+                                className="text-[10px] font-bold px-2 py-1 rounded-lg border bg-white/5 text-gray-500 border-white/10 hover:text-gray-300 transition-colors"
+                              >
+                                {isExpanded ? 'Hide' : 'View'}
+                              </button>
+                            </div>
+                          </div>
+                          {isExpanded && parsed?.proposal && (
+                            <div className="border-t border-white/8 p-3 text-xs text-gray-300 leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
+                              {parsed.proposal}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Generate new proposal */}
+                <div className="text-center py-5">
+                  <div className="text-4xl mb-3">📄</div>
+                  <p className="text-gray-200 font-bold mb-1">
+                    {history.length > 0 ? 'Generate another proposal' : 'Generate a proposal'}
+                  </p>
+                  <p className="text-gray-500 text-sm mb-4 max-w-xs mx-auto leading-relaxed">
+                    AI writes a full proposal for {business.name} — with pricing, timeline, payment terms, and a WhatsApp cover message.
+                  </p>
+                  <button
+                    onClick={() => setShowProposalModal(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-colors"
+                  >
+                    <FileText className="w-4 h-4" />
+                    {history.length > 0 ? 'New Proposal' : 'Generate Proposal'}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ── INFO TAB ── */}
           {tab === 'info' && (
