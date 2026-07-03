@@ -9,9 +9,10 @@ interface Props {
   loading: boolean;
   error: string | null;
   onSelect: (b: Business) => void;
+  competitors?: string[];
 }
 
-export default function BusinessGrid({ businesses, loading, error, onSelect }: Props) {
+export default function BusinessGrid({ businesses, loading, error, onSelect, competitors }: Props) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-28 gap-4 text-center">
@@ -48,7 +49,7 @@ export default function BusinessGrid({ businesses, loading, error, onSelect }: P
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {businesses.map((b) => (
-        <BusinessCard key={b.id} business={b} onClick={() => onSelect(b)} />
+        <BusinessCard key={b.id} business={b} onClick={() => onSelect(b)} competitors={competitors} />
       ))}
     </div>
   );

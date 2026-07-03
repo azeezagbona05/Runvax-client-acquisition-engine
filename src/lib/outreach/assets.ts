@@ -7,38 +7,43 @@ import type { SenderProfile } from './types';
 
 // ─── Opener pool — rotate, never repeat the same one twice in a row ───────────
 
-export const OPENER_POOL = `OPENER — every message starts with a soft greeting on its own line, then ONE observation sentence.
-Never use the same opener twice for different messages in the same session.
+export const OPENER_POOL = `OPENER — every message starts with a greeting, then ONE direct observation about THIS business.
+Start from their data, not from how you found them.
 
 Greeting (always first line):
 "Hi [shortName]!"
 
-Then immediately follow with ONE of these observation sentences (pick the most natural fit):
-1. "I came across your business on Google today."
-2. "I was browsing [industry] businesses in [city] and your listing caught my attention."
-3. "Your Google profile came up when I was looking at [industry] businesses in [city]."
-4. "I found you on Google while searching for [industry] businesses in [city]."
-5. "I was doing some research on [industry] businesses in [city] and came across your listing."
-6. "Your business stood out to me while I was looking at [industry] listings in [city]."
-7. "I was checking out [industry] businesses in [city] and noticed your profile."
-8. "I came across your listing on Google while browsing [industry] businesses in [city]."
+Then immediately ONE observation sentence. Lead with their specific facts:
 
-Use the real data. Replace [shortName], [industry], [city] with actual values.
-No hyphens or dashes anywhere in the greeting or opener line.`;
+If reviewCount is available (use real number):
+1. "Noticed you have [reviewCount] Google reviews but no website yet."
+2. "Saw [shortName] on Google — [reviewCount] reviews and no website for people to land on."
+3. "[reviewCount] Google reviews and no website. That caught my attention."
 
-// ─── CTA pool — rotate across messages ───────────────────────────────────────
+If no reviews:
+4. "Came across [shortName] on Google — no website showing yet."
+5. "Saw [shortName] on Google but no website linked to the profile."
 
-export const CTA_POOL = `CALL TO ACTION — pick ONE from the list below. Vary it, never use the same CTA for every message.
+NEVER start with:
+"I found you", "I was browsing", "I came across", "I was checking out", "I was doing research",
+"Your listing caught my attention", "Your business stood out to me" — these are spam patterns.
+
+Use real data only. No hyphens or dashes in the opener.`;
+
+// ─── CTA pool — yes/no filter questions ──────────────────────────────────────
+
+export const CTA_POOL = `CALL TO ACTION — pick ONE from the list below. These are yes/no filter questions.
+They are designed to get a genuine reply from serious buyers, not a polite brush-off.
 
 Options:
-1. "Would you be open to seeing a quick concept?"
-2. "Would you like me to show you what that could look like?"
-3. "I had a few ideas. Would you be open to hearing them?"
-4. "Can I send you something I think you would find useful?"
-5. "Would it be okay if I shared a quick idea with you?"
-6. "I actually put a few ideas together. Mind if I send them over?"
+1. "Is this something you're thinking about for the business?"
+2. "Is a website something you've been considering?"
+3. "Is this on your radar for [shortName]?"
 
-The CTA goes on its own line at the end. One question only. No stacking. No hyphens or dashes.`;
+The CTA goes on its own line at the end. One question only. No stacking.
+Do NOT promise free work, say "ready today", or add urgency phrases.
+Do NOT use "Would you be open to", "Can I send you", "Would it be okay if".
+No hyphens or dashes.`;
 
 // ─── Conversation style rules ─────────────────────────────────────────────────
 
@@ -64,33 +69,46 @@ Rules:
 
 // ─── Concrete observation pattern ─────────────────────────────────────────────
 
-export const OBSERVATION_PATTERN = `THE OBSERVATION — how to show the gap concretely:
+export const OBSERVATION_PATTERN = `THE OBSERVATION — add ONE short consequence sentence after the opener.
+The opener already stated the core fact (X reviews, no website). Do not repeat it.
 
-Do not say "you're losing customers" or "competitors are winning."
-Instead: describe the actual customer journey that breaks.
+Just add the consequence: what happens to a potential customer because of the gap.
 
-Pattern: [search scenario] → [what they find] → [what's missing] → [consequence]
+Pattern: "Without one, [potential customers can't do X] without calling. Many don't make that call."
 
-Example for a beauty salon:
-"When someone searches for a salon in Lagos and finds your Google profile,
-they can see your reviews but there is no website to click through to.
-That means they cannot check your services, see your prices, or book an appointment
-without calling. A lot of people do not call. They just move on."
+Examples by industry:
+• Restaurant: "Without one, people can't check the menu or prices before coming in. Many just pick somewhere else."
+• Real Estate: "Without one, buyers can't browse listings or book a viewing without calling. A lot of people skip that step."
+• Salon: "Without one, potential clients can't check services or book an appointment. Most move on to somewhere they can."
+• Clinic: "Without one, patients can't see your services or book without calling. Many prefer not to."
+• Construction: "Without one, potential clients can't see your past work before reaching out. Some won't bother."
 
-Adapt this pattern to the specific industry and city in the prospect data.
-Make the consequence feel real, not dramatic.`;
+Keep it to 2 sentences maximum. Make it real, not dramatic. No exaggeration.`;
 
 // ─── Competitor angle ─────────────────────────────────────────────────────────
 
-export const COMPETITOR_ANGLE = `COMPETITOR ANGLE — only use this when a competitor name is provided:
+export const COMPETITOR_ANGLE = `COMPETITOR ANGLE — this is the HOOK. Use it when competitorWithSite is provided.
 
-If competitorWithSite is set, add one natural sentence after the observation:
-"I also noticed [competitor] nearby has a website where customers can browse and book directly."
+Place it as the SECOND sentence, immediately after the opening observation — not buried later.
 
-Do NOT say competitors are "beating" them or "winning." Just state the fact neutrally.
-Then follow with: "I think [shortName]'s reputation deserves that same presence."
+After the opener, add this competitor sentence on the same line or the very next line:
+"[competitorWithSite] nearby already has one — [describe what their customers can do with it, inferred from their industry]."
 
-If no competitor is provided, skip this section entirely.`;
+Industry-specific examples of what to say customers can do:
+• Restaurant/Food: "customers check the menu before coming in"
+• Real Estate: "buyers browse listings and book viewings online"
+• Hotel/Hospitality: "guests check availability and book directly"
+• Salon/Beauty: "clients see prices and book appointments"
+• Clinic/Healthcare: "patients book consultations without calling"
+• Retail/Shop: "customers browse products and order online"
+• Construction: "clients see past projects and request quotes"
+• School/Tutoring: "parents see fees and enroll their children"
+
+Then on a new line: "I think [shortName]'s reputation deserves that same presence."
+
+Do NOT say they are losing, falling behind, or that the competitor is winning.
+Just state the fact. The contrast does the work.
+If no competitor is provided, skip this section entirely and go straight to the observation.`;
 
 // ─── Sender identity ──────────────────────────────────────────────────────────
 

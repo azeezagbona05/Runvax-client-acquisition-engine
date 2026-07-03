@@ -15,6 +15,7 @@ import { buildQuickWAMessage } from '@/lib/waMessage';
 interface Props {
   business: Business;
   onClick: () => void;
+  competitors?: string[];
 }
 
 function isSocialOnly(b: Business): boolean {
@@ -35,7 +36,7 @@ const STAGE_META: Record<string, { label: string; color: string }> = {
 type WaStep = 'preview' | 'confirm';
 interface WaState { step: WaStep; msg: string; link: string }
 
-export default function BusinessCard({ business, onClick }: Props) {
+export default function BusinessCard({ business, onClick, competitors }: Props) {
   const { isSaved, save, remove, get, markOutreachSent, updateStage, incrementToday } = useProspects();
   const saved = isSaved(business.id);
   const prospect = get(business.id);
@@ -75,7 +76,7 @@ export default function BusinessCard({ business, onClick }: Props) {
       const res = await fetch('/api/outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, competitors: business.competitors }),
+        body: JSON.stringify({ business, competitors: competitors ?? business.competitors }),
       });
       const json = await res.json();
       msg = (res.ok && json.whatsapp) ? json.whatsapp : buildQuickWAMessage(business);
@@ -125,7 +126,7 @@ export default function BusinessCard({ business, onClick }: Props) {
       const res = await fetch('/api/outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, competitors: business.competitors }),
+        body: JSON.stringify({ business, competitors: competitors ?? business.competitors }),
       });
       const json = await res.json();
       msg = (res.ok && json.whatsapp) ? json.whatsapp : buildQuickWAMessage(business);

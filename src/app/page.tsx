@@ -325,6 +325,12 @@ export default function Home() {
     !!b.website && /instagram\.com|facebook\.com|tiktok\.com|twitter\.com|x\.com/.test(b.website);
   const emailBlastTargets = businesses.filter((b) => !b.hasWebsite || isSocialOnly(b));
 
+  // Real competitor names from the same search — businesses that have genuine websites
+  const competitorNames = businesses
+    .filter((b) => b.hasWebsite && !isSocialOnly(b))
+    .slice(0, 3)
+    .map((b) => b.name);
+
   // Searches remaining badge color
   const remainingColor =
     searchMeta?.searchesRemaining == null ? '' :
@@ -539,14 +545,14 @@ export default function Home() {
                 <span className="text-[11px] font-bold text-red-400 uppercase tracking-widest">🔥 Hottest Leads</span>
                 <span className="text-[10px] text-gray-600">Score 8–10 · pitch these first</span>
               </div>
-              <BusinessGrid businesses={hotLeads} loading={false} error={null} onSelect={handleSelect} />
+              <BusinessGrid businesses={hotLeads} loading={false} error={null} onSelect={handleSelect} competitors={competitorNames} />
               <div className="border-t border-white/8 mt-6 mb-2" />
               <p className="text-[11px] text-gray-600 mb-4">All results below</p>
             </div>
           )}
 
           {!guestGate && (
-            <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} />
+            <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} competitors={competitorNames} />
           )}
 
           {/* Pagination */}
