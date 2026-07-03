@@ -176,7 +176,7 @@ export default function SettingsPage() {
   const fetchAllMeta = async () => {
     const toFetch = portfolioItems
       .map((p, i) => ({ p, i }))
-      .filter(({ p }) => p.url && !p.title);
+      .filter(({ p }) => p.url && (!p.title || !p.description));
     await Promise.all(toFetch.map(({ i, p }) => fetchMeta(i, p.url)));
   };
 
@@ -502,7 +502,7 @@ export default function SettingsPage() {
             }, {} as Record<string, typeof withIdx>);
             const sortedCats = Object.keys(grouped).filter(Boolean).sort();
             const uncategorised = grouped[''] ?? [];
-            const needsScan = portfolioItems.some((p) => p.url && !p.title);
+            const needsScan = portfolioItems.some((p) => p.url && (!p.title || !p.description));
             const isAnyFetching = fetchingSet.size > 0;
 
             const renderCard = (item: typeof withIdx[number]) => (
@@ -546,7 +546,8 @@ export default function SettingsPage() {
                     onChange={(e) => setPortfolioItems((prev) => prev.map((p, idx) => idx === item.idx ? { ...p, url: e.target.value } : p))}
                     onBlur={(e) => {
                       const url = e.target.value.trim();
-                      if (url && !portfolioItems[item.idx]?.title) fetchMeta(item.idx, url);
+                      const cur = portfolioItems[item.idx];
+                      if (url && (!cur?.title || !cur?.description)) fetchMeta(item.idx, url);
                     }}
                     placeholder="e.g. www.clientwebsite.com"
                   />
