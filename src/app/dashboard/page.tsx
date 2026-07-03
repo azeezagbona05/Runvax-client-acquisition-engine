@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useProspects } from '@/context/ProspectsContext';
 import { formatPrice } from '@/lib/scoring';
 import { ProspectStage, Business } from '@/types';
-import { Bell, Target, TrendingUp, Trophy, Flame, Users, MessageCircle, Zap } from 'lucide-react';
+import { Bell, Target, TrendingUp, Trophy, Flame, Users, MessageCircle, Zap, BarChart2, Reply } from 'lucide-react';
 import Link from 'next/link';
 import { getTopIndustries } from '@/lib/searchHistory';
 import { whatsappLink } from '@/lib/phone';
@@ -113,6 +113,46 @@ export default function DashboardPage() {
     .filter((p) => p.reminderDate && p.stage !== 'won' && p.stage !== 'lost')
     .sort((a, b) => new Date(a.reminderDate!).getTime() - new Date(b.reminderDate!).getTime())
     .slice(0, 5);
+
+  // ── Analytics ────────────────────────────────────────────
+  const OUTREACHED_STAGES = new Set(['contacted', 'interested', 'proposal', 'won', 'lost']);
+  const REPLIED_STAGES    = new Set(['interested', 'proposal', 'won', 'lost']);
+
+  const outreachedProspects = prospects.filter((p) => OUTREACHED_STAGES.has(p.stage));
+  const repliedProspects    = prospects.filter((p) => REPLIED_STAGES.has(p.stage));
+  const replyRate  = outreachedProspects.length > 0 ? Math.round((repliedProspects.length / outreachedProspects.length) * 100) : 0;
+  const winRate    = outreachedProspects.length > 0 ? Math.round((wonCount / outreachedProspects.length) * 100) : 0;
+
+  const wonProspects = prospects.filter((p) => p.stage === 'won' && (p.estimatedPrice?.min ?? 0) > 0);
+  const avgWonDeal = wonProspects.length > 0
+    ? Math.round(wonProspects.reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0) / wonProspects.length)
+    : 0;
+
+  // Category breakdown — only prospects that have been outreached
+  interface CatStat { contacted: number; replied: number; won: number; totalValue: number; }
+  const catMap = outreachedProspects.reduce<Record<string, CatStat>>((acc, p) => {
+    const cat = p.business.category?.split('/')?.[0]?.trim() || 'Other';
+    if (!acc[cat]) acc[cat] = { contacted: 0, replied: 0, won: 0, totalValue: 0 };
+    acc[cat].contacted++;
+    if (REPLIED_STAGES.has(p.stage)) acc[cat].replied++;
+    if (p.stage === 'won') {
+      acc[cat].won++;
+      acc[cat].totalValue += p.estimatedPrice?.min ?? 0;
+    }
+    return acc;
+  }, {});
+
+  const categoryRows = Object.entries(catMap)
+    .map(([cat, s]) => ({
+      cat,
+      contacted: s.contacted,
+      replyRate: Math.round((s.replied / s.contacted) * 100),
+      winRate: Math.round((s.won / s.contacted) * 100),
+      avgDeal: s.won > 0 ? Math.round(s.totalValue / s.won) : 0,
+      won: s.won,
+    }))
+    .sort((a, b) => b.replyRate - a.replyRate || b.contacted - a.contacted)
+    .slice(0, 8);
 
   if (prospects.length === 0) {
     return (
@@ -267,6 +307,108 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* ── OUTREACH FUNNEL ── */}
+      {outreachedProspects.length > 0 && (
+        <div className="bg-gray-900 border border-white/10 rounded-2xl p-5">
+          <h2 className="font-black text-white mb-5 flex items-center gap-2">
+            <Reply className="w-5 h-5 text-blue-400" /> Outreach Funnel
+          </h2>
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="bg-white/[0.04] rounded-xl p-4 text-center">
+              <div className="text-2xl font-black text-white">{outreachedProspects.length}</div>
+              <div className="text-[11px] text-gray-500 mt-1 font-semibold uppercase tracking-widest">Outreached</div>
+            </div>
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-center">
+              <div className="text-2xl font-black text-blue-400">{replyRate}%</div>
+              <div className="text-[11px] text-gray-500 mt-1 font-semibold uppercase tracking-widest">Reply Rate</div>
+              <div className="text-[10px] text-gray-600 mt-0.5">{repliedProspects.length} replied</div>
+            </div>
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
+              <div className="text-2xl font-black text-green-400">{winRate}%</div>
+              <div className="text-[11px] text-gray-500 mt-1 font-semibold uppercase tracking-widest">Close Rate</div>
+              <div className="text-[10px] text-gray-600 mt-0.5">{wonCount} won</div>
+            </div>
+          </div>
+          {/* Visual funnel bars */}
+          <div className="space-y-2">
+            {[
+              { label: 'Outreached', count: outreachedProspects.length, color: 'bg-gray-500', pct: 100 },
+              { label: 'Replied', count: repliedProspects.length, color: 'bg-blue-500', pct: replyRate },
+              { label: 'Proposal sent', count: prospects.filter(p => ['proposal','won'].includes(p.stage)).length, color: 'bg-purple-500', pct: outreachedProspects.length > 0 ? Math.round((prospects.filter(p => ['proposal','won'].includes(p.stage)).length / outreachedProspects.length) * 100) : 0 },
+              { label: 'Won', count: wonCount, color: 'bg-green-500', pct: winRate },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center gap-3">
+                <span className="text-xs text-gray-500 w-28 flex-shrink-0">{row.label}</span>
+                <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                  <div className={`h-full ${row.color} rounded-full transition-all`} style={{ width: `${row.pct}%` }} />
+                </div>
+                <span className="text-xs font-bold text-gray-400 w-8 text-right">{row.count}</span>
+              </div>
+            ))}
+          </div>
+          {avgWonDeal > 0 && (
+            <div className="mt-4 pt-4 border-t border-white/8 flex items-center justify-between text-sm">
+              <span className="text-gray-500">Average won deal size</span>
+              <span className="font-black text-green-400">{formatPrice(avgWonDeal)}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── CATEGORY CONVERSION LEADERBOARD ── */}
+      {categoryRows.length > 0 && (
+        <div className="bg-gray-900 border border-white/10 rounded-2xl p-5">
+          <h2 className="font-black text-white mb-4 flex items-center gap-2">
+            <BarChart2 className="w-5 h-5 text-orange-400" /> Category Performance
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">Which business categories reply and convert best from your outreach</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/8">
+                  <th className="text-left text-[11px] text-gray-500 font-semibold pb-2 pr-3">Category</th>
+                  <th className="text-right text-[11px] text-gray-500 font-semibold pb-2 px-2">Contacted</th>
+                  <th className="text-right text-[11px] text-gray-500 font-semibold pb-2 px-2">Reply %</th>
+                  <th className="text-right text-[11px] text-gray-500 font-semibold pb-2 px-2">Win %</th>
+                  <th className="text-right text-[11px] text-gray-500 font-semibold pb-2 pl-2">Avg Deal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categoryRows.map((row, i) => (
+                  <tr key={row.cat} className="border-b border-white/[0.05] hover:bg-white/[0.02] transition-colors">
+                    <td className="py-2.5 pr-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-gray-600 w-4">#{i + 1}</span>
+                        <span className="text-white font-semibold text-xs truncate max-w-[140px]">{row.cat}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-2 text-right text-gray-400 text-xs">{row.contacted}</td>
+                    <td className="py-2.5 px-2 text-right">
+                      <span className={`text-xs font-bold ${row.replyRate >= 30 ? 'text-green-400' : row.replyRate >= 10 ? 'text-yellow-400' : 'text-gray-500'}`}>
+                        {row.replyRate}%
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-2 text-right">
+                      <span className={`text-xs font-bold ${row.winRate > 0 ? 'text-purple-400' : 'text-gray-600'}`}>
+                        {row.winRate > 0 ? `${row.winRate}%` : '—'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pl-2 text-right text-xs text-gray-400">
+                      {row.avgDeal > 0 ? formatPrice(row.avgDeal) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {categoryRows.length > 0 && (
+            <p className="text-[10px] text-gray-600 mt-3">
+              💡 Focus on <span className="text-orange-400 font-semibold">{categoryRows[0].cat}</span> — your highest reply rate category.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Daily outreach queue + industry tracker */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
