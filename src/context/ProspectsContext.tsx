@@ -18,6 +18,8 @@ interface Ctx {
   setReminder: (businessId: string, date: string, note: string) => Promise<void>;
   clearReminder: (businessId: string) => Promise<void>;
   setFollowUpSequence: (businessId: string, steps: FollowUpStep[]) => Promise<void>;
+  generateSequence: (businessId: string) => Promise<{ error?: string }>;
+  updateSequenceStep: (businessId: string, stepId: string, status: 'sent' | 'skipped') => Promise<void>;
   markOutreachSent: (businessId: string, content: string, channel: ConversationChannel, framework?: string) => Promise<void>;
   addConversationEntry: (businessId: string, entry: Omit<ConversationEntry, 'id' | 'timestamp'>) => Promise<void>;
   isSaved: (businessId: string) => boolean;
@@ -148,6 +150,36 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
     await patch(businessId, { followUpSequence: steps });
   }, [patch]);
 
+  const generateSequence = useCallback(async (businessId: string): Promise<{ error?: string }> => {
+    const id = dbIdByBizId(businessId);
+    if (!id) return { error: 'Prospect not found' };
+    const res = await fetch(`/api/prospects/${id}/sequence`, { method: 'POST' });
+    const data = await res.json() as { steps?: FollowUpStep[]; error?: string };
+    if (!res.ok) return { error: data.error ?? 'Failed to generate' };
+    setProspects((prev) => prev.map((p) =>
+      p.business.id === businessId ? { ...p, followUpSequence: data.steps } : p
+    ));
+    return {};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospects]);
+
+  const updateSequenceStep = useCallback(async (businessId: string, stepId: string, status: 'sent' | 'skipped') => {
+    const id = dbIdByBizId(businessId);
+    if (!id) return;
+    const res = await fetch(`/api/prospects/${id}/sequence`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stepId, status }),
+    });
+    const data = await res.json() as { steps?: FollowUpStep[] };
+    if (res.ok && data.steps) {
+      setProspects((prev) => prev.map((p) =>
+        p.business.id === businessId ? { ...p, followUpSequence: data.steps } : p
+      ));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospects]);
+
   const addConversationEntry = useCallback(async (
     businessId: string,
     entry: Omit<ConversationEntry, 'id' | 'timestamp'>,
@@ -235,7 +267,8 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
   return (
     <ProspectsContext.Provider value={{
       prospects, loading, save, remove, updateStage, updateNotes,
-      setReminder, clearReminder, setFollowUpSequence, markOutreachSent, addConversationEntry,
+      setReminder, clearReminder, setFollowUpSequence, generateSequence, updateSequenceStep,
+      markOutreachSent, addConversationEntry,
       isSaved, get, settings, updateSettings, dailyLogs, incrementToday, todayCount,
     }}>
       {children}

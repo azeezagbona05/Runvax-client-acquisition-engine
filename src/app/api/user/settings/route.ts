@@ -22,12 +22,17 @@ export async function GET() {
       smtpHost: null, smtpPort: null, smtpUser: null,
       smtpPass: null, smtpFrom: null,
       bankName: null, bankAccount: null, bankAcctName: null, paymentLink: null,
+      waPhoneNumberId: null, waAccessToken: null, waTemplateName: null,
     });
   }
 
-  // Never return the raw password — mask it
-  const { smtpPass: _, ...safe } = settings;
-  return NextResponse.json({ ...safe, smtpPass: settings.smtpPass ? '••••••••' : null });
+  // Mask sensitive fields before sending to client
+  const { smtpPass: _, waAccessToken: __, ...safe } = settings;
+  return NextResponse.json({
+    ...safe,
+    smtpPass: settings.smtpPass ? '••••••••' : null,
+    waAccessToken: settings.waAccessToken ? '••••••••' : null,
+  });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -58,6 +63,9 @@ export async function PATCH(req: NextRequest) {
     onboardingDone?: boolean;
     rateCard?: unknown;
     portfolio?: unknown;
+    waPhoneNumberId?: string;
+    waAccessToken?: string;
+    waTemplateName?: string;
   };
 
   // Strip auto-managed / identity fields so Prisma uses regular CreateInput (not Unchecked),
@@ -68,6 +76,7 @@ export async function PATCH(req: NextRequest) {
       if (v === undefined) return false;
       if (SKIP.has(k)) return false;
       if (k === 'smtpPass' && (!v || v === '••••••••')) return false;
+      if (k === 'waAccessToken' && (!v || v === '••••••••')) return false;
       return true;
     })
   );

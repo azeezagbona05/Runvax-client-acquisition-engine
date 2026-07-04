@@ -91,6 +91,7 @@ model Prospect {
   reminderDate     String?
   reminderNote     String?
   followUpSequence Json?
+  source           String?        // 'manual' | 'auto-prospect'
   conversations    Conversation[]
 
   @@unique([userId, businessId])
@@ -149,6 +150,14 @@ model UserSettings {
 
   // Onboarding
   onboardingDone Boolean @default(false)
+
+  // WhatsApp Business API
+  waPhoneNumberId  String?
+  waAccessToken    String?  @db.Text
+  waTemplateName   String?
+  wabaId           String?
+  waDisplayPhone   String?
+  waTemplateStatus String?
 
   updatedAt    DateTime @updatedAt
 }
@@ -264,4 +273,61 @@ model DemoSite {
 
   @@unique([userId, businessId])
   @@index([userId])
+}
+
+// Search result cache — avoids repeat Google Places API calls within 7 days
+model SearchCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique
+  query     String   @db.Text
+  country   String   @default("NG")
+  radius    Int      @default(5)
+  results   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Proprietary African SMB intelligence database — the moat
+// Every business ever returned from Google Places is cached here.
+// Outcome data (contacted, converted, deal values) accumulates across all users anonymously.
+model CachedBusiness {
+  id             String   @id @default(cuid())
+  placeId        String   @unique
+  name           String
+  category       String
+  address        String?
+  city           String?
+  country        String   @default("NG")
+  phone          String?
+  website        String?  @db.Text
+  hasWebsite     Boolean  @default(false)
+  rating         Float?
+  reviewCount    Int?
+  // Rich detail fields — populated on first drawer open, cached for 7 days
+  description      String?   @db.Text
+  openingHours     Json?
+  categoryTypes    Json?
+  reviews          Json?
+  competitors      Json?
+  detailsRefreshedAt DateTime?
+
+  // PageSpeed Insights — mobile + desktop performance scores 0-100, checked on demand
+  psiScore        Int?
+  psiDesktopScore Int?
+  psiDetails      Json?
+  psiScreenshot   String?  @db.MediumText
+  psiCheckedAt    DateTime?
+
+  // Aggregate outcome data (anonymized, accumulated across all users)
+  timesSearched  Int      @default(1)
+  timesContacted Int      @default(0)
+  timesConverted Int      @default(0)
+  totalDealValue Int      @default(0)
+  firstSeenAt    DateTime @default(now())
+  lastSeenAt     DateTime @updatedAt
+
+  @@index([country, city])
+  @@index([category])
+  @@index([hasWebsite])
 }

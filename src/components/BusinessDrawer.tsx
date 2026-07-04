@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X, MapPin, Phone, Globe, Star, Clock, Loader2, Sparkles,
   ExternalLink, MessageCircle, FileText, AlertTriangle,
   Bookmark, BookmarkX, TrendingUp, MessageSquare, Mail, ShieldCheck, ShieldX, ShieldQuestion,
   Copy, Check, Wand2, Lock,
 } from 'lucide-react';
-import { Business } from '@/types';
+import { Business, PsiDetails } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
 import { useUpgrade } from '@/context/UpgradeContext';
 import { useFeature } from '@/context/PlanFeaturesContext';
@@ -16,12 +16,14 @@ import OutreachModal from './OutreachModal';
 import ProposalModal from './ProposalModal';
 import WeaknessModal from './WeaknessModal';
 import ConversationPanel from './ConversationPanel';
+import AITeamPanel from './AITeamPanel';
+import ReplyPanel from './ReplyPanel';
 
 // Demo-site preview is built but hidden for now — flip to true to re-enable.
 // Backend (/api/demo, /demo/[slug], DemoSite model) remains in place.
 const SHOW_DEMO = false;
 
-type DrawerTab = 'details' | 'outreach' | 'conversation';
+type DrawerTab = 'details' | 'outreach' | 'conversation' | 'team' | 'reply';
 
 type ProspectStage = 'found' | 'contacted' | 'interested' | 'proposal' | 'won' | 'lost';
 
@@ -34,15 +36,18 @@ const STAGES: Array<{ id: ProspectStage; icon: string; label: string; color: str
   { id: 'lost',       icon: '❌', label: 'Lost',      color: 'bg-red-500/20 text-red-300 border-red-500/30' },
 ];
 
+interface PsiMetrics { fcp?: string; lcp?: string; tbt?: string; cls?: string; si?: string; }
+
 interface Props {
   business: Business;
   onClose: () => void;
   onGenerate: () => void;
   generating: boolean;
   generateError?: string | null;
+  onPsiScore?: (placeId: string, score: number, desktopScore: number | null) => void;
 }
 
-export default function BusinessDrawer({ business, onClose, onGenerate, generating, generateError }: Props) {
+export default function BusinessDrawer({ business, onClose, onGenerate, generating, generateError, onPsiScore }: Props) {
   const { isSaved, save, remove, get, updateStage, updateNotes, setReminder, clearReminder } = useProspects();
   const { triggerUpgrade } = useUpgrade();
   const canProposal = useFeature('proposals');
@@ -64,6 +69,48 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
   const [demoError, setDemoError] = useState<string | null>(null);
   const [demoCopied, setDemoCopied] = useState(false);
+  const [psiScore, setPsiScore] = useState<number | null>(business.psiScore ?? null);
+  const [psiDesktopScore, setPsiDesktopScore] = useState<number | null>(business.psiDesktopScore ?? null);
+  const [psiDetails, setPsiDetails] = useState<PsiDetails | null>(business.psiDetails ?? null);
+  const [psiScreenshot, setPsiScreenshot] = useState<string | null>(null);
+  const [psiMetrics, setPsiMetrics] = useState<PsiMetrics | null>(null);
+  const [psiLoading, setPsiLoading] = useState(false);
+  const [psiError, setPsiError] = useState<string | null>(null);
+
+  const SOCIAL_HOSTS = ['instagram.com', 'facebook.com', 'twitter.com', 'tiktok.com', 'linkedin.com'];
+  const isSocialWebsite = business.website
+    ? SOCIAL_HOSTS.some((h) => business.website!.includes(h))
+    : false;
+
+  const checkPsi = async () => {
+    if (!business.website || isSocialWebsite || psiLoading) return;
+    setPsiLoading(true);
+    setPsiError(null);
+    try {
+      const res = await fetch(`/api/pagespeed?placeId=${business.id}&url=${encodeURIComponent(business.website)}`);
+      const data = await res.json() as { score?: number; desktopScore?: number; details?: PsiDetails; metrics?: PsiMetrics; screenshotData?: string; error?: string };
+      if (!res.ok || data.error) { setPsiError(data.error ?? 'Check failed'); return; }
+      if (data.score != null) {
+        setPsiScore(data.score);
+        if (data.desktopScore != null) setPsiDesktopScore(data.desktopScore);
+        if (data.details) setPsiDetails(data.details);
+        if (data.screenshotData) setPsiScreenshot(data.screenshotData);
+        if (data.metrics) setPsiMetrics(data.metrics);
+        onPsiScore?.(business.id, data.score, data.desktopScore ?? null);
+      }
+    } catch (err: unknown) {
+      setPsiError(err instanceof Error ? err.message : 'Request failed');
+    } finally { setPsiLoading(false); }
+  };
+
+  // Auto-trigger PSI when details tab opens for a website business with no score yet
+  useEffect(() => {
+    if (activeTab === 'details' && business.hasWebsite && !isSocialWebsite && psiScore == null && !psiLoading) {
+      checkPsi();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, business.id]);
+
   const [emailVerifying, setEmailVerifying] = useState(false);
   const [emailVerified, setEmailVerified] = useState<'valid' | 'invalid' | 'unknown' | null>(
     business.emailVerified ?? null
@@ -199,7 +246,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 flex-shrink-0">
-          {(['details', 'outreach', 'conversation'] as const).map((tabId) => (
+          {(['details', 'outreach', 'reply', 'team', 'conversation'] as const).map((tabId) => (
             <button
               key={tabId}
               onClick={() => setActiveTab(tabId)}
@@ -209,7 +256,11 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                   : 'text-gray-600 border-transparent hover:text-gray-400'
               }`}
             >
-              {tabId === 'details' ? 'Details' : tabId === 'outreach' ? 'Outreach' : 'Convo'}
+              {tabId === 'details'   ? 'Details'
+               : tabId === 'outreach'     ? 'Outreach'
+               : tabId === 'reply'        ? '💬 Reply'
+               : tabId === 'team'         ? '🤖 Team'
+               : 'Convo'}
               {tabId === 'conversation' && conversationCount > 0 && (
                 <span className="bg-purple-500/20 text-purple-300 text-[9px] font-black px-1.5 py-0.5 rounded-full">
                   {conversationCount}
@@ -221,6 +272,20 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+          {/* ── REPLY INTELLIGENCE TAB ── */}
+          {activeTab === 'reply' && (
+            <ReplyPanel
+              business={business}
+              currentStage={prospect?.stage}
+              onStageChange={() => {/* stage update triggers re-render via context */}}
+            />
+          )}
+
+          {/* ── AI TEAM TAB ── */}
+          {activeTab === 'team' && (
+            <AITeamPanel business={business} psiDetails={psiDetails} />
+          )}
 
           {/* ── OUTREACH TAB ── */}
           {activeTab === 'outreach' && (
@@ -387,14 +452,76 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
 
           {/* Status banner */}
           {business.hasWebsite ? (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 flex items-center gap-3">
-              <Globe className="w-5 h-5 text-green-400 flex-shrink-0" />
-              <div className="min-w-0">
-                <div className="text-green-400 font-bold text-sm">Has a Website</div>
-                <a href={business.website} target="_blank" rel="noopener noreferrer" className="text-green-300/60 text-xs hover:underline truncate block">
-                  {business.website}
-                </a>
+            <div className="space-y-3">
+              <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 flex items-center gap-3">
+                <Globe className="w-5 h-5 text-green-400 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-green-400 font-bold text-sm">Has a Website</div>
+                  <a href={business.website} target="_blank" rel="noopener noreferrer" className="text-green-300/60 text-xs hover:underline truncate block">
+                    {business.website}
+                  </a>
+                </div>
               </div>
+
+              {/* PageSpeed Insights panel */}
+              {!isSocialWebsite && (
+                <div className={`border rounded-xl p-4 ${
+                  psiScore == null ? 'bg-white/[0.02] border-white/8' :
+                  psiScore >= 90   ? 'bg-green-500/8 border-green-500/20' :
+                  psiScore >= 50   ? 'bg-yellow-500/8 border-yellow-500/20' :
+                                     'bg-red-500/8 border-red-500/20'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Mobile Speed Score</span>
+                    {psiLoading
+                      ? <span className="text-[11px] text-gray-500 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Checking…</span>
+                      : psiScore == null
+                      ? <button onClick={checkPsi} className="text-[11px] text-blue-400 hover:text-blue-300 font-bold transition-colors">Check now</button>
+                      : <button onClick={checkPsi} className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors">Recheck</button>
+                    }
+                  </div>
+
+                  {psiScore != null && (
+                    <>
+                      <div className="flex gap-4 mb-3">
+                        {[
+                          { label: '📱 Mobile', score: psiScore },
+                          ...(psiDesktopScore != null ? [{ label: '🖥 Desktop', score: psiDesktopScore }] : []),
+                        ].map(({ label, score: s }) => (
+                          <div key={label}>
+                            <div className="text-[10px] text-gray-500 mb-0.5">{label}</div>
+                            <div className="flex items-end gap-1">
+                              <span className={`text-2xl font-black ${
+                                s >= 90 ? 'text-green-400' : s >= 50 ? 'text-yellow-400' : 'text-red-400'
+                              }`}>{s}</span>
+                              <span className="text-gray-600 text-xs mb-0.5">/100</span>
+                              <span className="text-xs mb-0.5 ml-0.5">
+                                {s >= 90 ? '⚡' : s >= 50 ? '🐢' : '🐌'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {psiMetrics && (
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          {psiMetrics.fcp && <div className="flex justify-between"><span className="text-gray-500">First Paint</span><span className="text-gray-300 font-mono">{psiMetrics.fcp}</span></div>}
+                          {psiMetrics.lcp && <div className="flex justify-between"><span className="text-gray-500">Largest Paint</span><span className="text-gray-300 font-mono">{psiMetrics.lcp}</span></div>}
+                          {psiMetrics.tbt && <div className="flex justify-between"><span className="text-gray-500">Blocking Time</span><span className="text-gray-300 font-mono">{psiMetrics.tbt}</span></div>}
+                          {psiMetrics.si  && <div className="flex justify-between"><span className="text-gray-500">Speed Index</span><span className="text-gray-300 font-mono">{psiMetrics.si}</span></div>}
+                        </div>
+                      )}
+                      {psiScore < 50 && (
+                        <div className="mt-3 pt-3 border-t border-red-500/20">
+                          <p className="text-[11px] text-red-300/80 leading-relaxed">
+                            💡 <strong>Pitch angle:</strong> &ldquo;Your website loads too slowly on mobile — most of your customers are leaving before they even see your menu.&rdquo;
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {psiError && <p className="text-[11px] text-red-400 mt-1">{psiError}</p>}
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-orange-500/10 border border-orange-500/25 rounded-xl p-4 flex items-center gap-3">
@@ -641,7 +768,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
 
       {showOutreach && <OutreachModal business={business} onClose={() => setShowOutreach(false)} />}
       {showProposal && <ProposalModal business={business} onClose={() => setShowProposal(false)} />}
-      {showWeakness && <WeaknessModal business={business} onClose={() => setShowWeakness(false)} />}
+      {showWeakness && <WeaknessModal business={business} psiDetails={psiDetails} psiScreenshot={psiScreenshot} onClose={() => setShowWeakness(false)} />}
     </>
   );
 }

@@ -8,6 +8,7 @@ import { PlanFeaturesProvider } from '@/context/PlanFeaturesContext';
 import ConditionalNav from '@/components/ConditionalNav';
 import AuthProvider from '@/components/AuthProvider';
 import InstallBanner from '@/components/InstallBanner';
+import WaDailyCounter from '@/components/WaDailyCounter';
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from '@/lib/seo';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -354,6 +355,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     {children}
                   </ConditionalNav>
                   <InstallBanner />
+                  <WaDailyCounter />
                 </UpgradeProvider>
               </PlanFeaturesProvider>
             </ProspectsProvider>

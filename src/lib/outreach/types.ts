@@ -55,6 +55,7 @@ export interface ProspectContext {
   competitorWithSite?: string;
   followupStep?: 1 | 2 | 3;
   forceFrameworkId?: string;
+  timeOfDay?: 'morning' | 'afternoon' | 'evening';
   // nullable — outreach often runs on unsaved search results
   prospectId?: string;
   userId?: string;

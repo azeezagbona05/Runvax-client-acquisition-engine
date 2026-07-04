@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Zap, Mail, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Square, Send, X } from 'lucide-react';
 
 import SearchForm from '@/components/SearchForm';
 import BusinessGrid from '@/components/BusinessGrid';
@@ -18,7 +18,7 @@ import { saveToHistory, getBestTimeStatus } from '@/lib/searchHistory';
 import { scoreProspect } from '@/lib/scoring';
 import { useFeature } from '@/context/PlanFeaturesContext';
 
-type FilterMode = 'all' | 'no-website' | 'new';
+type FilterMode = 'all' | 'no-website' | 'slow-site' | 'new';
 
 const STAGE_SORT_ORDER: Record<string, number> = {
   found: 2, contacted: 3, interested: 3, proposal: 4, won: 5, lost: 5,
@@ -37,7 +37,7 @@ interface SearchMeta {
 export default function Home() {
   const router = useRouter();
   const { data: session } = useSession();
-  const { isSaved, get } = useProspects();
+  const { isSaved, get, prospects, settings } = useProspects();
   const { triggerUpgrade } = useUpgrade();
   const canEmailBlast = useFeature('emailBlast');
 
@@ -54,6 +54,10 @@ export default function Home() {
   const [reviewedOnly, setReviewedOnly]     = useState(false);
   const [sortByScore, setSortByScore]       = useState(false);
   const [showContacted, setShowContacted]   = useState(false);
+  const [selectMode, setSelectMode]         = useState(false);
+  const [selectedIds, setSelectedIds]       = useState<Set<string>>(new Set());
+  const [bulkSending, setBulkSending]       = useState(false);
+  const [bulkProgress, setBulkProgress]     = useState<{ done: number; total: number } | null>(null);
 
   const [selected, setSelected]             = useState<Business | null>(null);
   const [detailLoading, setDetailLoading]   = useState(false);
@@ -64,6 +68,18 @@ export default function Home() {
   const [guestGate, setGuestGate]           = useState(false);
   const [guestStats, setGuestStats]         = useState({ total: 0, noWebsite: 0, location: '' });
   const [generateError, setGenerateError]   = useState<string | null>(null);
+
+  const [cacheInfo, setCacheInfo] = useState<{ cachedAt: string } | null>(null);
+  const [lastSearchData, setLastSearchData] = useState<SearchFormData | null>(null);
+
+  // Load-more context: tracks the base centre + direction for grid-shift searches
+  const [loadMoreCtx, setLoadMoreCtx] = useState<{
+    baseLat: number; baseLng: number; radius: number;
+    query: string; location: string; country?: string;
+    direction: number;  // 0–7, cycles through N NE E SE S SW W NW
+  } | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
 
   // Track whether this guest has used their one free search
   const [guestExhausted, setGuestExhausted] = useState(false);
@@ -153,7 +169,8 @@ export default function Home() {
     } catch { /* storage full */ }
   }, [businesses, hasSearched, filter, page, searchMeta, lastSearch, phoneOnly, reviewedOnly, sortByScore, showContacted]);
 
-  const handleSearch = async (data: SearchFormData) => {
+  const handleSearch = async (data: SearchFormData, forceRefresh = false) => {
+    setLastSearchData(data);
     // Only block the API call for guests who already used their free search.
     // Never block logged-in users, even if localStorage has the old guest flag.
     if (!session && guestExhausted && businesses.length > 0) {
@@ -164,17 +181,21 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setBusinesses([]);
+    setLoadMoreCtx(null);
+    setSeenIds(new Set());
     setGuestGate(false);  // always reset gate on a fresh search
     setHasSearched(true);
     setSelected(null);
     setGeneratedPrompt(null);
+    setCacheInfo(null);
     setPage(0);
+    setShowContacted(false);
 
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, forceRefresh: forceRefresh || undefined }),
       });
       const json = await res.json();
 
@@ -194,6 +215,23 @@ export default function Home() {
 
       const results: Business[] = json.businesses || [];
       setBusinesses(results);
+      setSeenIds(new Set(results.map((b) => b.id)));
+
+      // Compute centroid from returned results so Load More works even without GPS input
+      const withLocation = results.filter((b) => b.location);
+      if (withLocation.length > 0) {
+        const avgLat = withLocation.reduce((s, b) => s + b.location!.latitude, 0) / withLocation.length;
+        const avgLng = withLocation.reduce((s, b) => s + b.location!.longitude, 0) / withLocation.length;
+        setLoadMoreCtx({
+          baseLat: data.lat ?? avgLat,
+          baseLng: data.lng ?? avgLng,
+          radius: data.radius ?? 5,
+          query: data.query,
+          location: data.location ?? '',
+          country: data.country,
+          direction: 0,
+        });
+      }
 
       if (json.isGuest) {
         // Show results blurred behind signup gate
@@ -205,14 +243,18 @@ export default function Home() {
         return; // skip search history + meta for guests
       }
 
-      setSearchMeta({
-        searchesRemaining: json.searchesRemaining ?? null,
-        searchesUsed:      json.searchesUsed      ?? null,
-        searchesLimit:     json.searchesLimit     ?? null,
-        plan:              json.plan              ?? 'free',
-        // Unlimited plans (agency) send a flag — Infinity can't survive JSON
-        resultsLimit:      json.unlimitedResults ? Infinity : (json.resultsLimit ?? 20),
-      });
+      if (json.cached) {
+        setCacheInfo({ cachedAt: json.cachedAt });
+      } else {
+        setCacheInfo(null);
+        setSearchMeta({
+          searchesRemaining: json.searchesRemaining ?? null,
+          searchesUsed:      json.searchesUsed      ?? null,
+          searchesLimit:     json.searchesLimit     ?? null,
+          plan:              json.plan              ?? 'free',
+          resultsLimit:      json.unlimitedResults ? Infinity : (json.resultsLimit ?? 20),
+        });
+      }
 
       setLastSearch({ industry: data.industry, location: data.location || 'this area' });
 
@@ -227,6 +269,50 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 8 compass directions: N NE E SE S SW W NW (repeated for 3 rings)
+  const DIRECTIONS = [
+    [1, 0], [0.707, 0.707], [0, 1], [-0.707, 0.707],
+    [-1, 0], [-0.707, -0.707], [0, -1], [0.707, -0.707],
+  ] as const;
+  // Ring offsets: inner 0.5×, middle 1.0×, outer 1.5× — 24 total load-mores
+  const RING_OFFSETS = [0.5, 1.0, 1.5] as const;
+
+  const handleLoadMore = async () => {
+    if (!loadMoreCtx || loadingMore) return;
+    setLoadingMore(true);
+
+    const { baseLat, baseLng, radius, query, location, country, direction } = loadMoreCtx;
+    const ring = Math.floor(direction / 8);
+    const offsetKm = radius * RING_OFFSETS[Math.min(ring, 2)];
+    const latPerKm = 1 / 111;
+    const lngPerKm = 1 / (111 * Math.cos(baseLat * Math.PI / 180));
+    const [dLat, dLng] = DIRECTIONS[direction % 8];
+    const newLat = baseLat + dLat * offsetKm * latPerKm;
+    const newLng = baseLng + dLng * offsetKm * lngPerKm;
+
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, lat: newLat, lng: newLng, radius, location, country }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Load more failed');
+
+      const fresh: Business[] = (json.businesses || []).filter(
+        (b: Business) => !seenIds.has(b.id)
+      );
+
+      if (fresh.length > 0) {
+        setBusinesses((prev) => [...prev, ...fresh]);
+        setSeenIds((prev) => { const s = new Set(prev); fresh.forEach((b) => s.add(b.id)); return s; });
+      }
+
+      setLoadMoreCtx((prev) => prev ? { ...prev, direction: direction + 1 } : null);
+    } catch { /* silently fail — show button again */ }
+    finally { setLoadingMore(false); }
   };
 
   const handleSelect = async (business: Business) => {
@@ -288,9 +374,12 @@ export default function Home() {
 
   const contactedCount = sorted.filter(isContacted).length;
 
+  const slowSiteCount = sorted.filter((b) => b.hasWebsite && b.psiScore != null && b.psiScore < 50).length;
+
   const primaryFiltered =
-    filter === 'no-website' ? sorted.filter((b) => !b.hasWebsite) :
-    filter === 'new'        ? sorted.filter((b) => !isSaved(b.id)) :
+    filter === 'no-website'  ? sorted.filter((b) => !b.hasWebsite) :
+    filter === 'slow-site'   ? sorted.filter((b) => b.hasWebsite && b.psiScore != null && b.psiScore < 50) :
+    filter === 'new'         ? sorted.filter((b) => !isSaved(b.id)) :
     sorted;
 
   const filtered = primaryFiltered
@@ -310,6 +399,56 @@ export default function Home() {
   const resultsLimit    = searchMeta?.resultsLimit ?? Infinity;
   const maxAllowedPages = resultsLimit === Infinity ? totalPages : Math.ceil(resultsLimit / PER_PAGE);
   const nextLocked      = page >= maxAllowedPages - 1 && totalPages > maxAllowedPages;
+
+  // Due reminders
+  const today = new Date().toISOString().slice(0, 10);
+  const dueReminders = prospects.filter(
+    (p) => p.reminderDate && p.reminderDate.slice(0, 10) <= today && !['won', 'lost'].includes(p.stage)
+  );
+
+  // CSV export
+  const exportCSV = () => {
+    const headers = ['Name', 'Category', 'Address', 'Phone', 'Website', 'Rating', 'Reviews', 'Score', 'Stage'];
+    const rows = filtered.map((b) => {
+      const stage = get(b.id)?.stage ?? '';
+      return [b.name, b.category, b.address, b.phone ?? '', b.website ?? '',
+        b.rating ?? '', b.reviewCount ?? '', scoreProspect(b), stage]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `prospects-${lastSearch?.location ?? 'export'}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  // Bulk send
+  const waApiConnected = !!(settings.waPhoneNumberId && settings.waTemplateStatus === 'APPROVED');
+  const toggleSelect = (id: string) => setSelectedIds((prev) => {
+    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+  });
+  const selectAll = () => setSelectedIds(new Set(filtered.filter((b) => b.phone).map((b) => b.id)));
+  const handleBulkSend = async () => {
+    const targets = filtered.filter((b) => selectedIds.has(b.id) && b.phone);
+    if (!targets.length) return;
+    setBulkSending(true);
+    setBulkProgress({ done: 0, total: targets.length });
+    for (let i = 0; i < targets.length; i++) {
+      const b = targets[i];
+      await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: b.phone, businessName: b.name }),
+      });
+      setBulkProgress({ done: i + 1, total: targets.length });
+      if (i < targets.length - 1) await new Promise((r) => setTimeout(r, 3000));
+    }
+    setBulkSending(false);
+    setBulkProgress(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
 
   const handleFilterChange = (f: FilterMode) => { setFilter(f); setPage(0); };
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -407,12 +546,51 @@ export default function Home() {
             </div>
           )}
 
+          {/* Due reminders strip */}
+          {!guestGate && session && dueReminders.length > 0 && (
+            <div className="mb-4 bg-orange-500/10 border border-orange-500/25 rounded-xl px-4 py-3">
+              <p className="text-orange-400 font-bold text-xs mb-2">⏰ {dueReminders.length} follow-up{dueReminders.length > 1 ? 's' : ''} due today</p>
+              <div className="flex flex-wrap gap-2">
+                {dueReminders.slice(0, 5).map((p) => (
+                  <button
+                    key={p.business.id}
+                    onClick={() => handleSelect(p.business)}
+                    className="text-xs bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                  >
+                    {p.business.name}
+                    {p.reminderNote && <span className="text-orange-400/60 ml-1">· {p.reminderNote}</span>}
+                  </button>
+                ))}
+                {dueReminders.length > 5 && (
+                  <span className="text-xs text-orange-400/60 self-center">+{dueReminders.length - 5} more in pipeline</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Search quota badge */}
           {!guestGate && searchMeta && searchMeta.searchesLimit !== null && (
             <div className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border mb-4 ${remainingColor}`}>
               {searchMeta.searchesRemaining === 0
                 ? '🔒 No searches left today — upgrade to continue'
                 : `🔍 ${searchMeta.searchesRemaining} of ${searchMeta.searchesLimit} searches left today`}
+            </div>
+          )}
+
+          {/* Cached results banner */}
+          {!guestGate && !loading && cacheInfo && businesses.length > 0 && (
+            <div className="mb-4 flex items-center justify-between gap-3 px-4 py-2.5 bg-indigo-900/20 border border-indigo-500/25 rounded-xl text-xs text-indigo-300">
+              <span>
+                Cached results from{' '}
+                <strong className="text-indigo-200">{Math.round((Date.now() - new Date(cacheInfo.cachedAt).getTime()) / (1000 * 60 * 60 * 24))} days ago</strong>
+                {' '}· your search quota was not used
+              </span>
+              <button
+                onClick={() => lastSearchData && handleSearch(lastSearchData, true)}
+                className="font-bold text-indigo-200 hover:text-white underline underline-offset-2 whitespace-nowrap transition-colors"
+              >
+                Refresh from Google
+              </button>
             </div>
           )}
 
@@ -503,6 +681,14 @@ export default function Home() {
                     filter === 'new' ? 'bg-green-600 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
                   ✨ New ({newCount})
                 </button>
+                {slowSiteCount > 0 && (
+                  <button onClick={() => handleFilterChange('slow-site')}
+                    title="Businesses with a website scoring under 50/100 on Google PageSpeed — strong pitch opportunity"
+                    className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                      filter === 'slow-site' ? 'bg-red-600 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
+                    🐌 Slow Site ({slowSiteCount})
+                  </button>
+                )}
                 <span className="text-gray-700 text-xs hidden sm:inline">|</span>
                 <button
                   onClick={() => setPhoneOnly((v) => !v)}
@@ -530,13 +716,58 @@ export default function Home() {
                     onClick={() => setShowContacted((v) => !v)}
                     title="Toggle visibility of already-contacted businesses"
                     className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                      showContacted ? 'bg-yellow-600/30 text-yellow-300 border border-yellow-500/40' : 'bg-white/5 text-gray-600 hover:text-gray-400 border border-white/8'}`}>
+                      showContacted ? 'bg-white/5 text-gray-500 hover:text-gray-300 border border-white/8' : 'bg-yellow-600/30 text-yellow-300 border border-yellow-500/40'}`}>
                     📱 {showContacted ? 'Hide' : 'Show'} contacted ({contactedCount})
+                  </button>
+                )}
+                <span className="text-gray-700 text-xs hidden sm:inline">|</span>
+                <button
+                  onClick={exportCSV}
+                  title="Export current results to CSV"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-white/8 text-gray-400 hover:bg-white/15 hover:text-gray-200 border border-white/10 transition-colors">
+                  <Download className="w-3.5 h-3.5" /> CSV
+                </button>
+                {waApiConnected && (
+                  <button
+                    onClick={() => { setSelectMode((v) => !v); setSelectedIds(new Set()); }}
+                    title="Select businesses to bulk-send WhatsApp messages"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                      selectMode ? 'bg-green-600/30 text-green-300 border-green-500/40' : 'bg-white/8 text-gray-400 hover:bg-white/15 border-white/10'}`}>
+                    <CheckSquare className="w-3.5 h-3.5" /> {selectMode ? 'Cancel select' : 'Bulk send'}
                   </button>
                 )}
               </div>
             </div>
           )}
+
+          {/* Auto-prospect queue banner */}
+          {(() => {
+            const queued = prospects.filter(
+              (p) => p.source === 'auto-prospect' && p.stage === 'found' && !p.outreachSentAt
+            );
+            if (queued.length === 0) return null;
+            return (
+              <div className="mb-6 bg-purple-900/20 border border-purple-500/25 rounded-2xl px-5 py-4 flex items-start gap-4">
+                <div className="w-8 h-8 bg-purple-600/30 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-base">🤖</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">
+                    Auto Prospecting Agent found {queued.length} new prospect{queued.length !== 1 ? 's' : ''} for you
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    These are in your Pipeline → review and contact them when ready. Nothing was sent automatically.
+                  </p>
+                </div>
+                <a
+                  href="/pipeline"
+                  className="flex-shrink-0 text-xs font-bold px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl transition-colors"
+                >
+                  View in Pipeline
+                </a>
+              </div>
+            );
+          })()}
 
           {/* Hot leads pinned strip */}
           {!guestGate && hotLeads.length > 0 && (
@@ -551,8 +782,50 @@ export default function Home() {
             </div>
           )}
 
+          {selectMode && !guestGate && (
+            <div className="flex items-center justify-between gap-3 mb-3 px-1">
+              <span className="text-sm text-gray-400">
+                {selectedIds.size} selected · {filtered.filter((b) => b.phone).length} with phone
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={selectAll} className="text-xs text-green-400 hover:text-green-300 font-bold underline underline-offset-2 transition-colors">
+                  Select all with phone
+                </button>
+                <button onClick={() => setSelectedIds(new Set())} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">Clear</button>
+              </div>
+            </div>
+          )}
+
           {!guestGate && (
-            <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} competitors={competitorNames} />
+            <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} competitors={competitorNames} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
+          )}
+
+          {/* Bulk send action bar */}
+          {selectMode && selectedIds.size > 0 && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 border border-green-500/40 shadow-2xl rounded-2xl px-5 py-3">
+              {bulkSending && bulkProgress ? (
+                <>
+                  <div className="w-32 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
+                  </div>
+                  <span className="text-sm text-green-400 font-bold">{bulkProgress.done}/{bulkProgress.total} sent…</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm text-white font-semibold">{selectedIds.size} selected</span>
+                  <button
+                    onClick={handleBulkSend}
+                    disabled={bulkSending}
+                    className="flex items-center gap-1.5 text-sm font-bold px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5" /> Send all via WA API
+                  </button>
+                  <button onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} className="text-gray-500 hover:text-gray-300 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
           )}
 
           {/* Pagination */}
@@ -620,6 +893,45 @@ export default function Home() {
               )}
             </div>
           )}
+
+          {/* Load more from area — 3-ring grid-shift search (24 total directions) */}
+          {!guestGate && !loading && !error && session && loadMoreCtx && loadMoreCtx.direction < 24 && (
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <div className="flex items-center gap-3">
+                <div className="h-px w-16 bg-white/8" />
+                <span className="text-xs text-gray-600">
+                  {businesses.length} businesses found · want more?
+                </span>
+                <div className="h-px w-16 bg-white/8" />
+              </div>
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="flex items-center gap-2 px-5 py-2.5 bg-purple-600/15 hover:bg-purple-600/25 border border-purple-500/25 hover:border-purple-500/40 text-purple-300 font-bold text-sm rounded-xl transition-all disabled:opacity-60"
+              >
+                {loadingMore ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Searching nearby area…
+                  </>
+                ) : (
+                  <>
+                    ＋ Load more from this area
+                    <span className="text-[10px] text-purple-400/60 font-normal">
+                      ({24 - loadMoreCtx.direction} searches left · ring {Math.floor(loadMoreCtx.direction / 8) + 1}/3)
+                    </span>
+                  </>
+                )}
+              </button>
+              <p className="text-[11px] text-gray-700">
+                {['inner', 'middle', 'outer'][Math.min(Math.floor(loadMoreCtx.direction / 8), 2)]} ring ·{' '}
+                {['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'][loadMoreCtx.direction % 8]}
+              </p>
+            </div>
+          )}
         </main>
       )}
 
@@ -630,6 +942,10 @@ export default function Home() {
           onGenerate={handleGenerate}
           generating={generating || detailLoading}
           generateError={generateError}
+          onPsiScore={(placeId, score, desktopScore) => {
+            setSelected((prev) => prev ? { ...prev, psiScore: score, psiDesktopScore: desktopScore ?? undefined } : prev);
+            setBusinesses((prev) => prev.map((b) => b.id === placeId ? { ...b, psiScore: score, psiDesktopScore: desktopScore ?? undefined } : b));
+          }}
         />
       )}
       {generatedPrompt && selected && (

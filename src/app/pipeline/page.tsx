@@ -1,17 +1,19 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Phone, Star, MessageCircle, StickyNote, Bell, ChevronRight, ChevronLeft,
-  Trash2, Download, Zap, CheckSquare, Square, X, Search, Check,
+  Trash2, Download, Zap, CheckSquare, Square, X, Search, Check, Calendar,
 } from 'lucide-react';
 import { useProspects } from '@/context/ProspectsContext';
 import { SavedProspect, ProspectStage, ReplyType } from '@/types';
 import { scoreLabel, formatPrice } from '@/lib/scoring';
 import { whatsappLink } from '@/lib/phone';
+import { useWaPaceTimer } from '@/lib/waRateLimit';
 import Link from 'next/link';
 import ProspectDetailModal from '@/components/ProspectDetailModal';
 import BulkOutreachModal from '@/components/BulkOutreachModal';
+import FollowUpSequenceModal from '@/components/FollowUpSequenceModal';
 
 type Stage = { id: ProspectStage; icon: string; label: string; headerColor: string; bg: string };
 
@@ -23,6 +25,8 @@ const STAGES: Stage[] = [
   { id: 'won',        icon: '🏆', label: 'Won',        headerColor: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20' },
   { id: 'lost',       icon: '❌', label: 'Lost',       headerColor: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20' },
 ];
+
+const CARDS_PER_COL = 8;
 
 function stageIdx(id: ProspectStage) { return STAGES.findIndex((s) => s.id === id); }
 function daysSince(iso: string) { return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); }
@@ -73,10 +77,12 @@ interface PipelineCardProps {
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
+  onOpenSequence: () => void;
 }
 
-function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onToggleSelect }: PipelineCardProps) {
-  const { updateStage, remove, addConversationEntry } = useProspects();
+function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onToggleSelect, onOpenSequence }: PipelineCardProps) {
+  const { updateStage, remove, addConversationEntry, incrementToday } = useProspects();
+  const { recordSend } = useWaPaceTimer();
   const { business, stage, score, estimatedPrice, notes, reminderDate, reminderNote, outreachSentAt, conversations } = prospect;
   const { color: scoreColor } = scoreLabel(score);
   const idx = stageIdx(stage);
@@ -177,7 +183,7 @@ function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onT
 
       {business.phone && (
         <a href={whatsappLink(business) ?? '#'} target="_blank" rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); void incrementToday(); recordSend(); }}
           className="flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 transition-colors">
           <MessageCircle className="w-3 h-3" /> {business.phone}
         </a>
@@ -240,6 +246,22 @@ function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onT
             >
               📝 Log
             </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenSequence(); }}
+              className={`flex items-center gap-0.5 text-[10px] px-2 py-1 rounded border transition-colors ${
+                dueToday
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  : prospect.followUpSequence?.length
+                    ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                    : 'bg-white/5 hover:bg-white/15 text-gray-400 border-white/10'
+              }`}
+              title="Follow-up sequence"
+            >
+              <Calendar className="w-3 h-3" />
+              {prospect.followUpSequence?.length
+                ? `${prospect.followUpSequence.filter((s) => s.status === 'sent').length}/${prospect.followUpSequence.length}`
+                : 'Seq'}
+            </button>
             <button onClick={(e) => { e.stopPropagation(); remove(business.id); }}
               className="ml-auto text-[10px] px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors">
               <Trash2 className="w-3 h-3" />
@@ -280,11 +302,16 @@ export default function PipelinePage() {
   const [search, setSearch] = useState('');
   const [activeStages, setActiveStages] = useState<ProspectStage[]>(STAGES.map((s) => s.id));
   const [detailProspect, setDetailProspect] = useState<SavedProspect | null>(null);
+  const [sequenceProspect, setSequenceProspect] = useState<SavedProspect | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<ProspectStage | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulk, setShowBulk] = useState(false);
+  const [colPages, setColPages] = useState<Record<string, number>>({});
+
+  // Reset column pages whenever search changes so results start from the top
+  useEffect(() => { setColPages({}); }, [search]);
 
   const toggleStage = (id: ProspectStage) => {
     setActiveStages((prev) =>
@@ -351,6 +378,7 @@ export default function PipelinePage() {
   return (
     <div className="min-h-dvh bg-gray-950">
       {detailProspect && !selectMode && <ProspectDetailModal prospect={detailProspect} onClose={() => setDetailProspect(null)} />}
+      {sequenceProspect && <FollowUpSequenceModal prospect={sequenceProspect} onClose={() => setSequenceProspect(null)} />}
       {showBulk && <BulkOutreachModal prospects={selectedProspects} onClose={() => setShowBulk(false)} />}
 
       {/* Sub-header */}
@@ -429,6 +457,33 @@ export default function PipelinePage() {
         </div>
       </div>
 
+      {/* Due follow-ups banner */}
+      {(() => {
+        const dueProspects = prospects.filter(hasDueStepToday);
+        if (!dueProspects.length) return null;
+        return (
+          <div className="px-4 pt-3 max-w-[1600px] mx-auto">
+            <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <Zap className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span className="text-sm font-bold text-amber-300">
+                  {dueProspects.length} follow-up{dueProspects.length > 1 ? 's' : ''} due today
+                </span>
+                <span className="text-xs text-amber-400/60 hidden sm:inline">
+                  — {dueProspects.map((p) => p.business.name.split(' ')[0]).slice(0, 3).join(', ')}{dueProspects.length > 3 ? ` +${dueProspects.length - 3}` : ''}
+                </span>
+              </div>
+              <button
+                onClick={() => setSequenceProspect(dueProspects[0])}
+                className="text-xs font-bold text-amber-400 hover:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
+              >
+                Start now →
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Kanban board */}
       <div className="overflow-x-auto snap-x snap-mandatory sm:snap-none" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 min-w-max max-w-[1600px] mx-auto">
@@ -436,6 +491,9 @@ export default function PipelinePage() {
             const stageProspects = prospects.filter((p) => p.stage === stage.id && matchesSearch(p));
             const stageValue = stageProspects.reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0);
             const isDragTarget = !selectMode && dragOverStage === stage.id;
+            const colPage = colPages[stage.id] ?? 1;
+            const visible = stageProspects.slice(0, colPage * CARDS_PER_COL);
+            const remaining = stageProspects.length - visible.length;
 
             return (
               <div
@@ -463,7 +521,7 @@ export default function PipelinePage() {
                   {stageProspects.length === 0 && !isDragTarget ? (
                     <div className="text-center py-8 text-gray-700 text-xs">Empty</div>
                   ) : (
-                    stageProspects.map((p) => (
+                    visible.map((p) => (
                       <PipelineCard
                         key={p.business.id}
                         prospect={p}
@@ -472,8 +530,27 @@ export default function PipelinePage() {
                         selectMode={selectMode}
                         selected={selectedIds.has(p.business.id)}
                         onToggleSelect={toggleSelect}
+                        onOpenSequence={() => setSequenceProspect(p)}
                       />
                     ))
+                  )}
+
+                  {remaining > 0 && (
+                    <button
+                      onClick={() => setColPages((prev) => ({ ...prev, [stage.id]: (prev[stage.id] ?? 1) + 1 }))}
+                      className="w-full py-2 text-[11px] font-semibold text-gray-500 hover:text-gray-300 bg-white/[0.03] hover:bg-white/[0.07] border border-white/8 rounded-xl transition-colors"
+                    >
+                      {remaining} more ↓
+                    </button>
+                  )}
+
+                  {colPage > 1 && remaining === 0 && stageProspects.length > CARDS_PER_COL && (
+                    <button
+                      onClick={() => setColPages((prev) => ({ ...prev, [stage.id]: 1 }))}
+                      className="w-full py-2 text-[11px] font-semibold text-gray-600 hover:text-gray-400 transition-colors"
+                    >
+                      ↑ Show less
+                    </button>
                   )}
                 </div>
               </div>

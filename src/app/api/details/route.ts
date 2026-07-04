@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPlaceDetails, searchPlaces } from '@/lib/google-places';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
+
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,6 +15,47 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Place ID required' }, { status: 400 });
     }
 
+    const sevenDaysAgo = new Date(Date.now() - CACHE_TTL_MS);
+
+    // ── Cache hit: return stored details if fresh ──
+    const cached = await prisma.cachedBusiness.findUnique({
+      where: { placeId },
+    });
+
+    if (
+      cached &&
+      cached.detailsRefreshedAt &&
+      cached.detailsRefreshedAt >= sevenDaysAgo
+    ) {
+      const cachedReviews = (cached.reviews as Record<string, unknown>[] | null) ?? [];
+      return NextResponse.json({
+        details: {
+          id: cached.placeId,
+          name: cached.name,
+          address: cached.address,
+          phone: cached.phone,
+          website: cached.website,
+          hasWebsite: cached.hasWebsite,
+          category: cached.category,
+          categoryTypes: cached.categoryTypes ?? [],
+          location: null,
+          rating: cached.rating,
+          reviewCount: cached.reviewCount,
+          status: null,
+          description: cached.description,
+          openingHours: cached.openingHours ?? [],
+          hoursComplete: Array.isArray(cached.openingHours) && (cached.openingHours as unknown[]).length >= 7,
+          lastReviewDate: cachedReviews.length > 0 ? (cachedReviews[0]?.time as string) || null : null,
+          competitors: cached.competitors ?? [],
+          reviews: cachedReviews,
+          psiScore: cached.psiScore ?? undefined,
+          psiDesktopScore: cached.psiDesktopScore ?? undefined,
+        },
+        cached: true,
+      });
+    }
+
+    // ── Cache miss: fetch from Google ──
     const place = await getPlaceDetails(placeId);
 
     const displayName = place.displayName as Record<string, string> | undefined;
@@ -33,7 +77,7 @@ export async function GET(req: NextRequest) {
 
     const weekdays = hours?.weekdayDescriptions || [];
 
-    // Competitor detection: search same category nearby, find ones WITH websites
+    // Competitor detection: search same category nearby
     let competitors: string[] = [];
     const loc = place.location as { latitude: number; longitude: number } | undefined;
     const catDisplay = (primaryType?.text || 'Business') as string;
@@ -57,7 +101,7 @@ export async function GET(req: NextRequest) {
             return dn?.text || 'Unknown';
           });
       } catch {
-        // competitor fetch is non-critical — ignore errors
+        // competitor fetch is non-critical
       }
     }
 
@@ -83,7 +127,45 @@ export async function GET(req: NextRequest) {
       reviews,
     };
 
-    return NextResponse.json({ details });
+    // ── Persist to CachedBusiness (upsert — creates row if not yet seen) ──
+    void prisma.cachedBusiness.upsert({
+      where: { placeId },
+      create: {
+        placeId,
+        name: details.name,
+        category: details.category,
+        address: details.address,
+        phone: details.phone as string | undefined,
+        website: details.website as string | undefined,
+        hasWebsite: details.hasWebsite,
+        rating: details.rating as number | undefined,
+        reviewCount: details.reviewCount as number | undefined,
+        description: details.description,
+        openingHours: weekdays as unknown as object[],
+        categoryTypes: details.categoryTypes as unknown as object[],
+        reviews: reviews as object[],
+        competitors,
+        detailsRefreshedAt: new Date(),
+      },
+      update: {
+        name: details.name,
+        category: details.category,
+        address: details.address,
+        phone: details.phone as string | undefined,
+        website: details.website as string | undefined,
+        hasWebsite: details.hasWebsite,
+        rating: details.rating as number | undefined,
+        reviewCount: details.reviewCount as number | undefined,
+        description: details.description,
+        openingHours: weekdays as unknown as object[],
+        categoryTypes: details.categoryTypes as unknown as object[],
+        reviews: reviews as object[],
+        competitors,
+        detailsRefreshedAt: new Date(),
+      },
+    }).catch(() => {});
+
+    return NextResponse.json({ details, cached: false });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('[/api/details]', msg);

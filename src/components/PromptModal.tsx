@@ -66,9 +66,9 @@ export default function PromptModal({ prompt, businessName, onClose, onRegenerat
         <div className="p-5 border-t border-white/10 flex-shrink-0 space-y-3">
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3.5">
             <p className="text-blue-300 font-semibold text-sm mb-1.5">📋 How to use this prompt:</p>
-            <ol className="text-blue-200/60 text-xs space-y-1 list-decimal list-inside">
-              <li>Click <strong className="text-blue-200/80">Copy Prompt</strong> below</li>
-              <li>Open your AI website builder — <a href="https://lovable.dev" target="_blank" rel="noopener" className="underline hover:text-blue-200">Lovable</a>, <a href="https://bolt.new" target="_blank" rel="noopener" className="underline hover:text-blue-200">Bolt</a>, or <a href="https://v0.dev" target="_blank" rel="noopener" className="underline hover:text-blue-200">v0</a> — and start a new project</li>
+            <ol className="text-gray-300 text-xs space-y-1.5 list-decimal list-inside">
+              <li>Click <strong className="text-white">Copy Prompt</strong> below</li>
+              <li>Open your AI website builder — <a href="https://lovable.dev" target="_blank" rel="noopener" className="text-blue-400 underline hover:text-blue-300">Lovable</a>, <a href="https://bolt.new" target="_blank" rel="noopener" className="text-blue-400 underline hover:text-blue-300">Bolt</a>, or <a href="https://v0.dev" target="_blank" rel="noopener" className="text-blue-400 underline hover:text-blue-300">v0</a> — and start a new project</li>
               <li>Paste the prompt into the chat and press Enter</li>
               <li>The builder generates the full website in seconds</li>
               <li>Refine sections, then share the live preview link with your client</li>

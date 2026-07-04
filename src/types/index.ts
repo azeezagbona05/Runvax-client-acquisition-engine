@@ -1,3 +1,62 @@
+export interface PsiAuditItem { id: string; title: string; savings?: string; }
+
+// ── AI Agent types ────────────────────────────────────────────────────────────
+export type AgentType = 'researcher' | 'strategist' | 'marketer' | 'copywriter' | 'builder';
+
+export interface ResearcherOutput {
+  ownerName: string | null;
+  businessAge: string;
+  socialMedia: { instagram?: string; facebook?: string; twitter?: string };
+  reviewSentiment: 'positive' | 'mixed' | 'negative' | 'unknown';
+  keyThemes: string[];
+  painPoints: string[];
+  opportunities: string[];
+  quickInsight: string;
+}
+
+export interface StrategistOutput {
+  recommendedChannel: 'whatsapp' | 'email' | 'call';
+  leadWith: string;
+  recommendedOffer: string;
+  expectedObjections: string[];
+  approachAngle: string;
+  urgencyTrigger: string;
+  winProbability: 'high' | 'medium' | 'low';
+}
+
+export interface MarketerOutput {
+  valueProposition: string;
+  keyBenefits: string[];
+  costOfInaction: string;
+  estimatedRoi: string;
+  positioning: string;
+}
+
+export interface CopywriterOutput {
+  whatsappOpener: string;
+  emailSubject: string;
+  emailBody: string;
+  followUp1: string;
+  followUp2: string;
+}
+
+export interface BuilderOutput {
+  pageStructure: string[];
+  keyFeatures: string[];
+  designStyle: string;
+  contentBrief: string;
+  websitePrompt: string;
+}
+
+export type AgentOutput = ResearcherOutput | StrategistOutput | MarketerOutput | CopywriterOutput | BuilderOutput;
+
+export interface PsiDetails {
+  categories: { performance: number; accessibility: number; bestPractices: number; seo: number };
+  opportunities: PsiAuditItem[];
+  failedAudits: PsiAuditItem[];
+  passedCount: number;
+}
+
 export interface Business {
   id: string;
   name: string;
@@ -19,6 +78,9 @@ export interface Business {
   lastReviewDate?: string;
   hoursComplete?: boolean;
   competitors?: string[];
+  psiScore?: number;
+  psiDesktopScore?: number;
+  psiDetails?: PsiDetails;
   reviews?: Array<{
     author: string;
     rating: number;
@@ -70,10 +132,13 @@ export interface ConversationEntry {
 }
 
 export interface FollowUpStep {
+  id: string;
   day: number;
   channel: 'whatsapp' | 'email';
   label: string;
+  message: string;
   dueDate: string;
+  status: 'pending' | 'sent' | 'skipped';
   sentAt?: string;
 }
 
@@ -89,6 +154,7 @@ export interface SavedProspect {
   outreachSentAt?: string;
   followUpSequence?: FollowUpStep[];
   conversations: ConversationEntry[];
+  source?: 'manual' | 'auto-prospect';
 }
 
 export interface DailyLog {
@@ -100,4 +166,9 @@ export interface AppSettings {
   dailyGoal: number;
   avgDealValue: number;
   closeRatePct: number;
+  waPhoneNumberId?: string;
+  waTemplateName?: string;
+  waTemplateStatus?: string;
+  waDisplayPhone?: string;
+  wabaId?: string;
 }

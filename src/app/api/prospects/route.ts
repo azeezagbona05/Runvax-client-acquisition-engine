@@ -19,6 +19,7 @@ type ProspectWithConversations = {
   score: number | null;
   outreachSentAt: Date | null;
   followUpSequence: unknown;
+  source: string | null;
   conversations: { content: string }[];
 };
 
@@ -37,6 +38,7 @@ function toSavedProspect(p: ProspectWithConversations): SavedProspect & { _dbId:
     score: p.score ?? 0,
     outreachSentAt: p.outreachSentAt?.toISOString(),
     followUpSequence: Array.isArray(p.followUpSequence) ? (p.followUpSequence as FollowUpStep[]) : undefined,
+    source: (p.source as 'manual' | 'auto-prospect' | null) ?? undefined,
     conversations: p.conversations.map((c) => {
       try { return JSON.parse(c.content) as ConversationEntry; } catch { return null; }
     }).filter(Boolean) as ConversationEntry[],

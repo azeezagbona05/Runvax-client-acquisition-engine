@@ -55,6 +55,35 @@ export function scoreProspect(business: Business): number {
   return Math.min(Math.round(score * 10) / 10, 10);
 }
 
+export interface ScoreReason { label: string; pts: number }
+
+export function scoreBreakdown(business: Business): ScoreReason[] {
+  const reasons: ScoreReason[] = [];
+
+  if (!business.hasWebsite) reasons.push({ label: 'No website', pts: 4 });
+
+  if (business.rating) {
+    if (business.rating >= 4.5)      reasons.push({ label: `Rating ${business.rating}★`, pts: 2 });
+    else if (business.rating >= 4.0) reasons.push({ label: `Rating ${business.rating}★`, pts: 1.5 });
+    else if (business.rating >= 3.5) reasons.push({ label: `Rating ${business.rating}★`, pts: 1 });
+    else                             reasons.push({ label: `Rating ${business.rating}★`, pts: 0.5 });
+  }
+
+  if (business.reviewCount) {
+    if (business.reviewCount >= 200)      reasons.push({ label: `${business.reviewCount} reviews`, pts: 1.5 });
+    else if (business.reviewCount >= 50)  reasons.push({ label: `${business.reviewCount} reviews`, pts: 1 });
+    else if (business.reviewCount >= 10)  reasons.push({ label: `${business.reviewCount} reviews`, pts: 0.5 });
+  }
+
+  if (business.phone)                    reasons.push({ label: 'Has phone number', pts: 0.5 });
+  if (business.status === 'OPERATIONAL') reasons.push({ label: 'Currently open', pts: 0.5 });
+  if (isHighValue(business.category, business.categoryTypes)) reasons.push({ label: 'High-value category', pts: 1 });
+  if (business.email)                    reasons.push({ label: 'Email found', pts: 0.5 });
+  if (business.hoursComplete === false)  reasons.push({ label: 'Hours not listed', pts: 0.5 });
+
+  return reasons;
+}
+
 export function scoreLabel(score: number): { label: string; color: string } {
   if (score >= 8) return { label: '🔥 Hot', color: 'text-red-400 bg-red-500/15 border-red-500/25' };
   if (score >= 6) return { label: '✅ Good', color: 'text-green-400 bg-green-500/15 border-green-500/25' };

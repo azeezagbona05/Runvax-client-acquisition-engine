@@ -134,7 +134,7 @@ export default function OutreachModal({ business, onClose }: Props) {
       const res = await fetch('/api/outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, competitors: business.competitors }),
+        body: JSON.stringify({ business, competitors: business.competitors, timeOfDay: (() => { const h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; })() }),
       });
       const json = await res.json();
       const handled = handleAIResponse(res, json);

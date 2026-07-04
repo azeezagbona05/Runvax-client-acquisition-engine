@@ -45,6 +45,30 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
   });
 
+  // Fire-and-forget: record outcome in the moat database when a deal is won
+  if (body.stage === 'won' && prospect.stage !== 'won') {
+    const bizData = prospect.businessData as Record<string, unknown>;
+    const placeId = (bizData?.id as string | undefined) ?? prospect.businessId;
+    const dealValue = (bizData?.estimatedPriceMin as number | undefined) ?? 0;
+    void prisma.cachedBusiness.updateMany({
+      where: { placeId },
+      data: {
+        timesConverted: { increment: 1 },
+        totalDealValue: { increment: dealValue },
+      },
+    }).catch(() => { /* not critical */ });
+  }
+
+  // Fire-and-forget: record first contact in moat database
+  if (body.stage === 'contacted' && prospect.stage === 'found') {
+    const bizData = prospect.businessData as Record<string, unknown>;
+    const placeId = (bizData?.id as string | undefined) ?? prospect.businessId;
+    void prisma.cachedBusiness.updateMany({
+      where: { placeId },
+      data: { timesContacted: { increment: 1 } },
+    }).catch(() => { /* not critical */ });
+  }
+
   return NextResponse.json({ ok: true, id: updated.id });
 }
 

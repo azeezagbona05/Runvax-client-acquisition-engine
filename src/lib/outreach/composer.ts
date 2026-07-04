@@ -113,6 +113,7 @@ If any check fails, rewrite first.`,
     channel: ctx.channel,
     intent: ctx.intent,
     priceBand,
+    timeOfDay: ctx.timeOfDay ?? null,
   }, null, 2);
 
   const rateCardBlock = ctx.intent === 'proposal' && profile.rateCardSummary

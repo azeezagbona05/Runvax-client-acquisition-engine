@@ -7,15 +7,22 @@ import type { SenderProfile } from './types';
 
 // ─── Opener pool — rotate, never repeat the same one twice in a row ───────────
 
-export const OPENER_POOL = `OPENER — every message starts with a greeting, then ONE direct observation about THIS business.
-Start from their data, not from how you found them.
+export const OPENER_POOL = `OPENER — two parts: a warm greeting, then ONE observation about this specific business.
 
-Greeting (always first line):
-"Hi [shortName]!"
+PART 1 — WARM GREETING (first line, always):
+Pick based on the timeOfDay field provided:
+• morning   → "Good morning [shortName]! Hope you're having a great start to the day."
+• afternoon → "Good afternoon [shortName]! Trust you're doing well today."
+• evening   → "Good evening [shortName]! Hope your day has been good."
+• not given → "Hi [shortName]! Hope you're doing well today."
 
-Then immediately ONE observation sentence. Lead with their specific facts:
+The greeting goes on its own line. It is warm and personal — not corporate.
+Do NOT use "I hope this message finds you well" — that is too formal and stiff.
 
-If reviewCount is available (use real number):
+PART 2 — OBSERVATION (after a blank line, on a new paragraph):
+Start from their data. One sentence. Lead with a specific fact.
+
+If reviewCount is available (use the real number):
 1. "Noticed you have [reviewCount] Google reviews but no website yet."
 2. "Saw [shortName] on Google — [reviewCount] reviews and no website for people to land on."
 3. "[reviewCount] Google reviews and no website. That caught my attention."
@@ -24,11 +31,11 @@ If no reviews:
 4. "Came across [shortName] on Google — no website showing yet."
 5. "Saw [shortName] on Google but no website linked to the profile."
 
-NEVER start with:
+NEVER begin the observation with:
 "I found you", "I was browsing", "I came across", "I was checking out", "I was doing research",
-"Your listing caught my attention", "Your business stood out to me" — these are spam patterns.
+"Your listing caught my attention", "Your business stood out to me" — these are spam openers.
 
-Use real data only. No hyphens or dashes in the opener.`;
+Use real data only. No hyphens or dashes.`;
 
 // ─── CTA pool — yes/no filter questions ──────────────────────────────────────
 

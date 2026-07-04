@@ -41,6 +41,7 @@ function businessToContext(
   business: Business,
   framework: OutreachFramework | undefined,
   competitors: string[] | undefined,
+  timeOfDay?: 'morning' | 'afternoon' | 'evening',
 ): ProspectContext {
   const leadScore = scoreProspect(business);
   const country = detectCountry(business.address ?? '');
@@ -63,6 +64,7 @@ function businessToContext(
     competitorWithSite: competitors?.[0],
     // Pass the UI picker value so the router uses the user's chosen framework.
     forceFrameworkId: framework,
+    timeOfDay,
   };
 }
 
@@ -71,13 +73,14 @@ export async function POST(req: NextRequest) {
     business,
     framework,
     competitors,
-  }: { business: Business; framework?: OutreachFramework; competitors?: string[] } = await req.json();
+    timeOfDay,
+  }: { business: Business; framework?: OutreachFramework; competitors?: string[]; timeOfDay?: 'morning' | 'afternoon' | 'evening' } = await req.json();
 
   const usage = await checkAndIncrementAI(req);
   if (!usage.ok) return usage.error!;
 
   const profile = await getEffectiveProfile();
-  const ctx = businessToContext(business, framework, competitors);
+  const ctx = businessToContext(business, framework, competitors, timeOfDay);
 
   try {
     const result = await generate(ctx, profile);

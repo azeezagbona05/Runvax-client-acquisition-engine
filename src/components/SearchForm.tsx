@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Search, MapPin, Loader2, Clock, Sparkles, ChevronDown, X } from 'lucide-react';
 import { SearchFormData } from '@/types';
 import { getSearchHistory, getBestTimeStatus, SearchHistoryEntry } from '@/lib/searchHistory';
-import { AREAS, TIER_CONFIG } from '@/lib/areas';
+import { AREAS, STATES, TIER_CONFIG, Area } from '@/lib/areas';
 
 const INDUSTRIES = [
   'Restaurants & Eateries', 'Beauty Salons & Spas', 'Barbers & Hair Salons',
@@ -19,71 +19,95 @@ const INDUSTRIES = [
 ];
 
 const COUNTRIES = [
-  { code: 'NG', name: 'Nigeria',       flag: '🇳🇬' },
-  { code: 'GH', name: 'Ghana',         flag: '🇬🇭' },
-  { code: 'KE', name: 'Kenya',         flag: '🇰🇪' },
-  { code: 'ZA', name: 'South Africa',  flag: '🇿🇦' },
-  { code: 'UG', name: 'Uganda',        flag: '🇺🇬' },
-  { code: 'TZ', name: 'Tanzania',      flag: '🇹🇿' },
-  { code: 'RW', name: 'Rwanda',        flag: '🇷🇼' },
-  { code: 'SN', name: 'Senegal',       flag: '🇸🇳' },
-  { code: 'CM', name: 'Cameroon',      flag: '🇨🇲' },
-  { code: 'US', name: 'United States', flag: '🇺🇸' },
+  { code: 'NG', name: 'Nigeria',        flag: '🇳🇬' },
+  { code: 'GH', name: 'Ghana',          flag: '🇬🇭' },
+  { code: 'KE', name: 'Kenya',          flag: '🇰🇪' },
+  { code: 'ZA', name: 'South Africa',   flag: '🇿🇦' },
+  { code: 'UG', name: 'Uganda',         flag: '🇺🇬' },
+  { code: 'TZ', name: 'Tanzania',       flag: '🇹🇿' },
+  { code: 'RW', name: 'Rwanda',         flag: '🇷🇼' },
+  { code: 'SN', name: 'Senegal',        flag: '🇸🇳' },
+  { code: 'CM', name: 'Cameroon',       flag: '🇨🇲' },
+  { code: 'US', name: 'United States',  flag: '🇺🇸' },
   { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
-  { code: 'CA', name: 'Canada',        flag: '🇨🇦' },
-  { code: 'OTHER', name: 'Other',      flag: '🌍' },
+  { code: 'CA', name: 'Canada',         flag: '🇨🇦' },
+  { code: 'OTHER', name: 'Other',       flag: '🌍' },
 ];
 
 interface SearchFormProps {
   onSearch: (data: SearchFormData) => void;
   loading: boolean;
-  /** Show the Quick Industry / Recent Searches panels (landing state only) */
   landing?: boolean;
 }
 
 export default function SearchForm({ onSearch, loading, landing = true }: SearchFormProps) {
-  const [industry, setIndustry] = useState('');
-  const [country, setCountry] = useState('NG');
-  const [location, setLocation] = useState('');
-  const [selectedTier, setSelectedTier] = useState<'high' | 'mid' | 'budget' | null>(null);
-  const [lat, setLat] = useState<number | undefined>();
-  const [lng, setLng] = useState<number | undefined>();
+  const [industry, setIndustry]           = useState('');
+  const [country, setCountry]             = useState('NG');
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [location, setLocation]           = useState('');
+  const [selectedTier, setSelectedTier]   = useState<'high' | 'mid' | 'budget' | null>(null);
+  const [lat, setLat]                     = useState<number | undefined>();
+  const [lng, setLng]                     = useState<number | undefined>();
   const radius = 5;
-  const [geoLoading, setGeoLoading] = useState(false);
-  const [showIndSug, setShowIndSug] = useState(false);
-  const [showLocSug, setShowLocSug] = useState(false);
-  const [history, setHistory] = useState<SearchHistoryEntry[]>([]);
-  const [timeStatus, setTimeStatus] = useState<ReturnType<typeof getBestTimeStatus>>({
+  const [geoLoading, setGeoLoading]       = useState(false);
+  const [showIndSug, setShowIndSug]       = useState(false);
+  const [showLocSug, setShowLocSug]       = useState(false);
+  const [history, setHistory]             = useState<SearchHistoryEntry[]>([]);
+  const [timeStatus, setTimeStatus]       = useState<ReturnType<typeof getBestTimeStatus>>({
     label: 'Checking…', color: 'text-gray-500', dot: 'bg-gray-500', level: 'decent',
   });
   const [industryError, setIndustryError] = useState('');
   const [locationError, setLocationError] = useState('');
-  const [geoError, setGeoError] = useState('');
+  const [geoError, setGeoError]           = useState('');
 
   const locationRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { getSearchHistory().then(setHistory); }, []);
-
-  // Recompute "best time to send" in the selected country's timezone
   useEffect(() => { setTimeStatus(getBestTimeStatus(country)); }, [country]);
 
   const selectedCountry = COUNTRIES.find((c) => c.code === country) ?? COUNTRIES[0];
-  const countryAreas = AREAS.filter((a) => a.country === country);
 
-  // Show all categories when the field is empty/focused, filter as the user types
+  // States/regions for this country
+  const countryStates = STATES.filter((s) => s.country === country);
+
+  // All areas for this country, optionally filtered by selected state
+  const stateCities = selectedState
+    ? (STATES.find((s) => s.code === selectedState)?.cities ?? [])
+    : null;
+
+  const countryAreas = AREAS.filter((a) => {
+    if (a.country !== country) return false;
+    if (stateCities) return stateCities.includes(a.city);
+    return true;
+  });
+
   const indSuggestions = industry.trim()
     ? INDUSTRIES.filter((s) => s.toLowerCase().includes(industry.toLowerCase()))
     : INDUSTRIES;
 
   const query = location.toLowerCase().trim();
   const matchedAreas = query
-    ? countryAreas.filter((a) => a.name.toLowerCase().includes(query) || a.city.toLowerCase().includes(query))
+    ? countryAreas.filter((a) =>
+        a.name.toLowerCase().includes(query) ||
+        a.city.toLowerCase().includes(query) ||
+        a.note.toLowerCase().includes(query),
+      )
     : countryAreas;
 
-  const groupedAreas = (['high', 'mid', 'budget'] as const).map((tier) => ({
-    tier,
-    areas: matchedAreas.filter((a) => a.tier === tier).slice(0, 4),
-  })).filter((g) => g.areas.length > 0);
+  // Browse mode (no query): group by LGA if areas have lga field, otherwise by city
+  // Search mode (has query): flat list, show tier hint + LGA badge
+  const browseGroups: { label: string; areas: Area[] }[] = [];
+  if (!query) {
+    const groupMap = new Map<string, Area[]>();
+    matchedAreas.forEach((a) => {
+      const key = a.lga ?? a.city;
+      if (!groupMap.has(key)) groupMap.set(key, []);
+      groupMap.get(key)!.push(a);
+    });
+    groupMap.forEach((areas, label) => browseGroups.push({ label, areas }));
+  }
+  // Keep alias for backward compat in JSX
+  const cityGroups = browseGroups;
 
   const runSearch = (ind: string, loc: string, lt?: number, ln?: number) => {
     if (!ind.trim() || (!loc.trim() && !lt)) return;
@@ -93,6 +117,17 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
 
   const handleCountryChange = (code: string) => {
     setCountry(code);
+    setSelectedState(null);
+    setLocation('');
+    setSelectedTier(null);
+    setLat(undefined);
+    setLng(undefined);
+    setLocationError('');
+    setTimeout(() => locationRef.current?.focus(), 50);
+  };
+
+  const handleStateChange = (stateCode: string | null) => {
+    setSelectedState(stateCode);
     setLocation('');
     setSelectedTier(null);
     setLat(undefined);
@@ -116,7 +151,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     else setTimeout(() => locationRef.current?.focus(), 50);
   };
 
-  const pickLocation = (area: typeof AREAS[0]) => {
+  const pickLocation = (area: Area) => {
     setLocation(area.name);
     setSelectedTier(area.tier);
     setLat(undefined); setLng(undefined);
@@ -132,7 +167,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
 
   const handleGeolocate = () => {
     setGeoError('');
-    if (!navigator.geolocation) { setGeoError('Geolocation is not supported by your browser.'); return; }
+    if (!navigator.geolocation) { setGeoError('Geolocation not supported by your browser.'); return; }
     setGeoLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -152,6 +187,13 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     return `${Math.floor(hrs / 24)}d ago`;
   }
 
+  const TIER_DOT: Record<string, string> = {
+    high: 'bg-yellow-400', mid: 'bg-blue-400', budget: 'bg-gray-500',
+  };
+  const TIER_TEXT: Record<string, string> = {
+    high: 'text-yellow-400', mid: 'text-blue-400', budget: 'text-gray-500',
+  };
+
   return (
     <>
     <div className="bg-gradient-to-br from-purple-950/60 via-gray-900 to-gray-950 border-b border-white/5">
@@ -167,7 +209,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
             <span className="bg-gradient-to-r from-purple-500 to-purple-400 bg-clip-text text-transparent">Need a Website</span>
           </h1>
           <p className="text-gray-400 text-sm md:text-base max-w-lg mx-auto">
-            Search any business type, in any city, worldwide. Find your next client in seconds.
+            Search any business type in any city worldwide. Find your next client in seconds.
           </p>
         </div>
 
@@ -198,10 +240,10 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
         {/* Form */}
         <form onSubmit={handleSubmit} className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-2xl p-5 md:p-6 space-y-4">
 
-          {/* Country selector row */}
+          {/* ── Step 1: Country ── */}
           <div>
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-              Country
+              1 · Country
             </label>
             <div className="flex gap-2 flex-wrap">
               {COUNTRIES.map((c) => (
@@ -226,12 +268,52 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
             </div>
           </div>
 
+          {/* ── Step 2: State / Region ── */}
+          {country !== 'OTHER' && countryStates.length > 0 && (
+            <div>
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                2 · State / Region
+              </label>
+              <div
+                className="flex gap-2 overflow-x-auto pb-1"
+                style={{ scrollbarWidth: 'none' }}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleStateChange(null)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    !selectedState
+                      ? 'bg-purple-600/30 border-purple-500/50 text-white'
+                      : 'bg-gray-800/60 border-white/10 text-gray-400 hover:border-purple-500/30 hover:text-gray-200'
+                  }`}
+                >
+                  All states
+                </button>
+                {countryStates.map((s) => (
+                  <button
+                    key={s.code}
+                    type="button"
+                    onClick={() => handleStateChange(s.code)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap ${
+                      selectedState === s.code
+                        ? 'bg-purple-600/30 border-purple-500/50 text-white'
+                        : 'bg-gray-800/60 border-white/10 text-gray-400 hover:border-purple-500/30 hover:text-gray-200'
+                    }`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 3: Industry + Area ── */}
           <div className="grid md:grid-cols-2 gap-4">
 
-            {/* Industry — searchable dropdown */}
+            {/* Industry */}
             <div className="relative">
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                Industry / Business Type
+                {country !== 'OTHER' && countryStates.length > 0 ? '3' : '2'} · Industry / Business Type
               </label>
               <div className="relative">
                 <input type="text" value={industry}
@@ -258,11 +340,6 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
               )}
               {showIndSug && indSuggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-20 max-h-60 overflow-y-auto">
-                  {industry.trim() && !INDUSTRIES.includes(industry) && (
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/5 bg-white/[0.02]">
-                      Suggestions
-                    </div>
-                  )}
                   {!industry.trim() && (
                     <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/5 bg-white/[0.02]">
                       All Categories
@@ -282,10 +359,10 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
               )}
             </div>
 
-            {/* Location */}
+            {/* Location / Area */}
             <div className="relative">
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center justify-between">
-                <span>Location / Area</span>
+                <span>{country !== 'OTHER' && countryStates.length > 0 ? '4' : '3'} · Area / Location</span>
                 {selectedTier && (
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${TIER_CONFIG[selectedTier].badge}`}>
                     {TIER_CONFIG[selectedTier].label}
@@ -294,10 +371,22 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
               </label>
               <div className="flex gap-2">
                 <input ref={locationRef} type="text" value={location}
-                  onChange={(e) => { setLocation(e.target.value); setSelectedTier(null); setLat(undefined); setLng(undefined); setShowLocSug(true); setLocationError(''); }}
+                  onChange={(e) => {
+                    setLocation(e.target.value);
+                    setSelectedTier(null);
+                    setLat(undefined); setLng(undefined);
+                    setShowLocSug(true);
+                    setLocationError('');
+                  }}
                   onFocus={() => setShowLocSug(true)}
                   onBlur={() => setTimeout(() => setShowLocSug(false), 200)}
-                  placeholder={country === 'OTHER' ? 'Type any city or area…' : `Type an area in ${selectedCountry.name}…`}
+                  placeholder={
+                    selectedState
+                      ? `Type an area in ${STATES.find(s => s.code === selectedState)?.name}…`
+                      : country === 'OTHER'
+                        ? 'Type any city or area…'
+                        : `Search areas in ${selectedCountry.name}…`
+                  }
                   className={`flex-1 bg-gray-800/80 border rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none transition-colors text-sm ${locationError ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-purple-500'}`}
                 />
                 <button type="button" onClick={handleGeolocate} disabled={geoLoading} title="Use GPS"
@@ -317,29 +406,60 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
                 </p>
               )}
 
-              {/* Smart location dropdown */}
-              {showLocSug && groupedAreas.length > 0 && (
-                <div className="absolute top-full left-0 right-[52px] mt-1 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden max-h-72 overflow-y-auto">
-                  {groupedAreas.map(({ tier, areas }) => (
-                    <div key={tier}>
-                      <div className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest border-b border-white/5 ${TIER_CONFIG[tier].color} bg-white/[0.02]`}>
-                        {TIER_CONFIG[tier].label}
+              {/* Area dropdown */}
+              {showLocSug && (query ? matchedAreas.length > 0 : cityGroups.length > 0) && (
+                <div className="absolute top-full left-0 right-[52px] mt-1 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden max-h-80 overflow-y-auto">
+
+                  {/* SEARCH MODE — flat results with tier badge + LGA hint */}
+                  {query && matchedAreas.map((area) => (
+                    <button key={`${area.lga ?? area.city}-${area.name}`} type="button" onMouseDown={() => pickLocation(area)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-purple-600/20 transition-colors border-b border-white/5 last:border-0 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm text-gray-200 font-medium truncate">{area.name}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5">
+                          {area.lga ? <span className="text-purple-400/70">{area.lga} · </span> : null}
+                          {area.note}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className={`w-1.5 h-1.5 rounded-full ${TIER_DOT[area.tier]}`} />
+                        <span className={`text-[10px] font-semibold ${TIER_TEXT[area.tier]}`}>
+                          {TIER_CONFIG[area.tier].label}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+
+                  {/* BROWSE MODE — grouped by LGA (when available) or city */}
+                  {!query && cityGroups.map(({ label, areas }) => (
+                    <div key={label}>
+                      <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-purple-400 border-b border-white/5 bg-purple-900/20 flex items-center gap-2">
+                        <span>{label}</span>
+                        <span className="text-gray-600 font-normal normal-case tracking-normal">
+                          {areas.length} area{areas.length !== 1 ? 's' : ''}
+                        </span>
                       </div>
                       {areas.map((area) => (
-                        <button key={area.name} type="button" onMouseDown={() => pickLocation(area)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-purple-600/20 transition-colors border-b border-white/5 last:border-0 flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-sm text-gray-200 font-medium">{area.name}</div>
+                        <button key={`${area.lga ?? area.city}-${area.name}`} type="button" onMouseDown={() => pickLocation(area)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-purple-600/20 transition-colors border-b border-white/5 last:border-0 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm text-gray-200 font-medium truncate">{area.name}</div>
                             <div className="text-[10px] text-gray-500 mt-0.5">{area.note}</div>
                           </div>
-                          <span className={`flex-shrink-0 w-2 h-2 rounded-full mt-1.5 ${TIER_CONFIG[tier].dot}`} />
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`w-1.5 h-1.5 rounded-full ${TIER_DOT[area.tier]}`} />
+                            <span className={`text-[10px] font-semibold ${TIER_TEXT[area.tier]}`}>
+                              {TIER_CONFIG[area.tier].label}
+                            </span>
+                          </div>
                         </button>
                       ))}
                     </div>
                   ))}
-                  {!query && (
+
+                  {!query && !selectedState && (
                     <div className="px-4 py-2.5 text-[11px] text-gray-600 border-t border-white/5">
-                      Type to search any area in {selectedCountry.name}
+                      Select a state above to narrow down · or type to search all of {selectedCountry.name}
                     </div>
                   )}
                 </div>
@@ -361,7 +481,6 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     {landing && (
     <div className="max-w-5xl mx-auto px-4 py-5 flex flex-col gap-6">
 
-      {/* Recent Searches — single row */}
       {history.length > 0 && (
         <div>
           <p className="text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-2.5">Recent Searches</p>
@@ -385,10 +504,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
         </div>
       )}
 
-      {/* SEO / AEO content strip — visible text for search engines and AI crawlers */}
       <div className="border-t border-white/5 pt-6 space-y-6">
-
-        {/* How it works */}
         <div>
           <h2 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-3">How It Works</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -405,8 +521,6 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
             ))}
           </div>
         </div>
-
-
       </div>
     </div>
     )}

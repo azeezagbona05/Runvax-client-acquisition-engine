@@ -1,11 +1,173 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark, RotateCcw, Receipt, Globe, Plus, Trash2 } from 'lucide-react';
+import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark, RotateCcw, Receipt, Globe, Plus, Trash2, MessageCircle, Wifi, Bot, Play, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react';
 import RateCardTab from '@/components/RateCardTab';
 import { DEFAULT_RATE_CARD } from '@/lib/rateCard';
 import type { RateCard } from '@/lib/rateCard';
+
+// ── Auto-Prospecting Settings ─────────────────────────────────────────────────
+
+interface AutoProspectConfig {
+  enabled: boolean;
+  industry: string;
+  location: string;
+  minRating: number;
+  noWebsiteOnly: boolean;
+}
+
+const AP_KEY = 'aip_auto_prospect_config';
+
+function AutoProspectingSettings() {
+  const [cfg, setCfg] = useState<AutoProspectConfig>({
+    enabled: false, industry: '', location: 'Lagos, Nigeria', minRating: 0, noWebsiteOnly: true,
+  });
+  const [running, setRunning]     = useState(false);
+  const [queueCount, setQueueCount] = useState<number | null>(null);
+  const [runMsg, setRunMsg]       = useState('');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(AP_KEY);
+      if (saved) setCfg(JSON.parse(saved) as AutoProspectConfig);
+    } catch { /* */ }
+    // Check how many prospects are queued for review
+    fetch('/api/prospects/queue-count').then(r => r.json()).then(d => {
+      if (typeof d.count === 'number') setQueueCount(d.count);
+    }).catch(() => { /* */ });
+  }, []);
+
+  const update = useCallback((patch: Partial<AutoProspectConfig>) => {
+    setCfg(prev => {
+      const next = { ...prev, ...patch };
+      try { localStorage.setItem(AP_KEY, JSON.stringify(next)); } catch { /* */ }
+      return next;
+    });
+  }, []);
+
+  const runNow = async () => {
+    if (!cfg.industry || !cfg.location) {
+      setRunMsg('Set an industry and location first.'); return;
+    }
+    setRunning(true); setRunMsg('');
+    try {
+      const res = await fetch('/api/prospects/auto-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          industry: cfg.industry,
+          location: cfg.location,
+          noWebsiteOnly: cfg.noWebsiteOnly,
+          minRating: cfg.minRating,
+        }),
+      });
+      const json = await res.json() as { found?: number; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'Failed');
+      const n = json.found ?? 0;
+      setQueueCount(prev => (prev ?? 0) + n);
+      setRunMsg(`Found ${n} new prospect${n !== 1 ? 's' : ''} — review them in the Find Prospects page.`);
+    } catch (e: unknown) {
+      setRunMsg(e instanceof Error ? e.message : 'Something went wrong');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const inputCls = 'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors';
+  const labelCls = 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5';
+
+  return (
+    <div className="space-y-4">
+      {/* Enable toggle */}
+      <button
+        onClick={() => update({ enabled: !cfg.enabled })}
+        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all ${
+          cfg.enabled
+            ? 'bg-purple-600/20 border-purple-500/40 text-white'
+            : 'bg-white/5 border-white/10 text-gray-400'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <Bot className={`w-5 h-5 ${cfg.enabled ? 'text-purple-400' : 'text-gray-600'}`} />
+          <div className="text-left">
+            <p className="text-sm font-bold">{cfg.enabled ? 'Auto Prospecting ON' : 'Auto Prospecting OFF'}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{cfg.enabled ? 'Agent is ready — click Run Now to find prospects' : 'Toggle on to enable'}</p>
+          </div>
+        </div>
+        {cfg.enabled
+          ? <ToggleRight className="w-6 h-6 text-purple-400 flex-shrink-0" />
+          : <ToggleLeft className="w-6 h-6 text-gray-600 flex-shrink-0" />}
+      </button>
+
+      {cfg.enabled && (
+        <div className="space-y-3 pl-1">
+          {/* Preferences */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Industry</label>
+              <input
+                className={inputCls}
+                value={cfg.industry}
+                onChange={(e) => update({ industry: e.target.value })}
+                placeholder="e.g. Restaurant, Hotel, Salon"
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Location</label>
+              <input
+                className={inputCls}
+                value={cfg.location}
+                onChange={(e) => update({ location: e.target.value })}
+                placeholder="e.g. Lagos, Nigeria"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={cfg.noWebsiteOnly}
+                onChange={(e) => update({ noWebsiteOnly: e.target.checked })}
+                className="w-4 h-4 rounded accent-purple-500"
+              />
+              <span className="text-sm text-gray-400">No-website businesses only</span>
+            </label>
+          </div>
+
+          {/* Queue status */}
+          {queueCount !== null && queueCount > 0 && (
+            <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3">
+              <RefreshCw className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+              <p className="text-sm text-yellow-300">
+                <span className="font-bold">{queueCount}</span> prospect{queueCount !== 1 ? 's' : ''} waiting for your review in Find Prospects
+              </p>
+            </div>
+          )}
+
+          {/* Run Now button */}
+          <button
+            onClick={runNow}
+            disabled={running}
+            className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white text-sm font-bold rounded-xl transition-colors"
+          >
+            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {running ? 'Searching…' : 'Run Now'}
+          </button>
+
+          {runMsg && (
+            <p className={`text-xs ${runMsg.includes('Found') ? 'text-green-400' : 'text-red-400'}`}>{runMsg}</p>
+          )}
+
+          <p className="text-[11px] text-gray-600 leading-relaxed">
+            Results are queued for your review — nothing is sent automatically. You approve each prospect before any outreach happens.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Settings {
   // Goals
@@ -32,13 +194,28 @@ interface Settings {
   bankAccount: string;
   bankAcctName: string;
   paymentLink: string;
+  // WhatsApp Business API
+  waPhoneNumberId: string;
+  waAccessToken: string;
+  waTemplateName: string;
+  wabaId: string;
+  waDisplayPhone: string;
+  waTemplateStatus: string;
 }
+
+const RECOMMENDED_TEMPLATE = `Hi {{1}},
+
+I noticed {{2}} doesn't have a website yet. Customers searching online may not be finding you.
+
+I help local businesses get a professional website. Is this something you're considering?`;
+
 
 const DEFAULTS: Settings = {
   dailyGoal: 10, avgDealValue: 300000, closeRatePct: 10,
   senderName: '', businessName: '', whatsapp: '', replyEmail: '', city: '', tagline: '', jobTitle: '', website: '',
   smtpHost: '', smtpPort: 587, smtpUser: '', smtpPass: '', smtpFrom: '',
   bankName: '', bankAccount: '', bankAcctName: '', paymentLink: '',
+  waPhoneNumberId: '', waAccessToken: '', waTemplateName: '', wabaId: '', waDisplayPhone: '', waTemplateStatus: '',
 };
 
 interface PortfolioItem {
@@ -49,7 +226,7 @@ interface PortfolioItem {
   category?: string;
 }
 
-type Tab = 'profile' | 'email' | 'payment' | 'goals' | 'ratecard' | 'portfolio';
+type Tab = 'profile' | 'email' | 'payment' | 'goals' | 'ratecard' | 'portfolio' | 'whatsapp-api';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -63,6 +240,19 @@ export default function SettingsPage() {
   const [testMsg, setTestMsg] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [hasExistingPass, setHasExistingPass] = useState(false);
+  const [showWaToken, setShowWaToken] = useState(false);
+  const [hasExistingWaToken, setHasExistingWaToken] = useState(false);
+  const [waTestMsg, setWaTestMsg] = useState('');
+  const [templateCopied, setTemplateCopied] = useState(false);
+
+  // New simplified WA wizard state
+  interface WaPhone { id: string; number: string; name: string; quality: string; status: string; wabaId: string; }
+  const [waPhones, setWaPhones] = useState<WaPhone[]>([]);
+  const [waConnecting, setWaConnecting] = useState(false);
+  const [waConnectError, setWaConnectError] = useState('');
+  const [waCreatingTemplate, setWaCreatingTemplate] = useState(false);
+  const [waTemplateError, setWaTemplateError] = useState('');
+  const [waCheckingStatus, setWaCheckingStatus] = useState(false);
   const [rateCard, setRateCard] = useState<RateCard>(DEFAULT_RATE_CARD);
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [bulkMode, setBulkMode] = useState(false);
@@ -74,12 +264,14 @@ export default function SettingsPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.smtpPass === '••••••••') setHasExistingPass(true);
+        if (d.waAccessToken === '••••••••') setHasExistingWaToken(true);
         setSettings((prev) => ({
           ...prev,
           ...Object.fromEntries(
             Object.entries(d).filter(([, v]) => v != null && v !== '')
           ),
-          smtpPass: '', // never pre-fill password field
+          smtpPass: '',     // never pre-fill password field
+          waAccessToken: '', // never pre-fill token field
         }));
         if (d.rateCard) setRateCard(d.rateCard as RateCard);
         if (Array.isArray(d.portfolio)) setPortfolioItems(d.portfolio as PortfolioItem[]);
@@ -146,6 +338,100 @@ export default function SettingsPage() {
     }
   };
 
+  const testWaConnection = async () => {
+    setTesting(true);
+    setWaTestMsg('');
+    try {
+      // Save credentials first so the test route can read them server-side
+      await fetch('/api/user/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+      if (settings.waAccessToken) setHasExistingWaToken(true);
+
+      const res = await fetch('/api/whatsapp/test', { method: 'POST' });
+      const data = await res.json() as { ok?: boolean; phone?: string; name?: string; quality?: string; error?: string };
+      if (res.ok && data.ok) {
+        const label = [data.phone, data.name].filter(Boolean).join(' · ');
+        setWaTestMsg(`✅ Connected: ${label}`);
+      } else {
+        setWaTestMsg(`❌ ${data.error ?? 'Connection failed'}`);
+      }
+    } catch {
+      setWaTestMsg('❌ Failed to reach Meta API');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  // ── New simplified WA wizard handlers ──
+  const waDetectNumbers = async () => {
+    if (!settings.waAccessToken) return;
+    setWaConnecting(true);
+    setWaConnectError('');
+    setWaPhones([]);
+    try {
+      const res = await fetch('/api/whatsapp/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: settings.waAccessToken }),
+      });
+      const data = await res.json() as { ok?: boolean; phones?: WaPhone[]; userName?: string; error?: string };
+      if (!res.ok || data.error) { setWaConnectError(data.error ?? 'Connection failed'); return; }
+      setWaPhones(data.phones ?? []);
+      if (settings.waAccessToken) setHasExistingWaToken(true);
+    } catch {
+      setWaConnectError('Could not reach Meta API. Check your internet connection.');
+    } finally {
+      setWaConnecting(false);
+    }
+  };
+
+  const waSelectPhone = async (phone: WaPhone) => {
+    const updated = { ...settings, waPhoneNumberId: phone.id, wabaId: phone.wabaId, waDisplayPhone: phone.number, waTemplateStatus: '' };
+    setSettings(updated);
+    setWaPhones([]);
+    await fetch('/api/user/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    });
+  };
+
+  const waCreateTemplate = async () => {
+    setWaCreatingTemplate(true);
+    setWaTemplateError('');
+    try {
+      const res = await fetch('/api/whatsapp/create-template', { method: 'POST' });
+      const data = await res.json() as { ok?: boolean; status?: string; existed?: boolean; error?: string };
+      if (!res.ok || data.error) { setWaTemplateError(data.error ?? 'Failed to create template'); return; }
+      setSettings((prev) => ({ ...prev, waTemplateName: 'beamai_outreach_v1', waTemplateStatus: data.status ?? 'PENDING' }));
+    } catch {
+      setWaTemplateError('Could not reach Meta API.');
+    } finally {
+      setWaCreatingTemplate(false);
+    }
+  };
+
+  const waRefreshStatus = async () => {
+    setWaCheckingStatus(true);
+    try {
+      const res = await fetch('/api/whatsapp/template-status');
+      const data = await res.json() as { status?: string | null; rejectedReason?: string };
+      if (data.status) setSettings((prev) => ({ ...prev, waTemplateStatus: data.status! }));
+    } catch { /* silent */ } finally {
+      setWaCheckingStatus(false);
+    }
+  };
+
+  // Auto-poll template status every 2 min while PENDING and WA tab is open
+  useEffect(() => {
+    if (tab !== 'whatsapp-api' || settings.waTemplateStatus !== 'PENDING') return;
+    const id = setInterval(waRefreshStatus, 2 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [tab, settings.waTemplateStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const fetchMeta = async (i: number, url: string) => {
     if (!url.trim()) return;
     setFetchingSet((prev) => new Set(Array.from(prev).concat(i)));
@@ -198,6 +484,7 @@ export default function SettingsPage() {
     { id: 'goals', label: 'Goals', icon: Target },
     { id: 'ratecard', label: 'Rate Card', icon: Receipt },
     { id: 'portfolio', label: 'Portfolio', icon: Globe },
+    { id: 'whatsapp-api', label: 'WA Business API', icon: MessageCircle },
   ];
 
   return (
@@ -475,6 +762,14 @@ export default function SettingsPage() {
                   </p>
                 )}
               </div>
+
+              {/* Auto Prospecting */}
+              <div className="pt-4 border-t border-white/8">
+                <p className="text-white font-semibold text-sm mb-1">Auto Prospecting Agent</p>
+                <p className="text-gray-500 text-xs mb-4">When enabled, a background agent will find new prospects using your saved search preferences. You review and approve before anything is sent — no API calls are wasted automatically.</p>
+
+                <AutoProspectingSettings />
+              </div>
             </>
           )}
 
@@ -682,6 +977,226 @@ export default function SettingsPage() {
             );
           })()}
 
+
+          {/* ── WHATSAPP BUSINESS API TAB ── */}
+          {tab === 'whatsapp-api' && (() => {
+            const waStep = !settings.waPhoneNumberId ? 1 : settings.waTemplateStatus !== 'APPROVED' ? 2 : 3;
+            const TEMPLATE_PREVIEW = "Hi! I noticed *[Business Name]* on Google Maps has no website yet. Customers searching online for your services can't find you easily. I help local businesses get professional websites quickly and affordably. Would you like to see what yours could look like?";
+
+            return (
+              <div className="space-y-5">
+
+                {/* Progress pills */}
+                <div className="flex items-center gap-2">
+                  {[
+                    { n: 1, label: 'Connect' },
+                    { n: 2, label: 'Template' },
+                    { n: 3, label: 'Ready' },
+                  ].map(({ n, label }, i, arr) => (
+                    <div key={n} className="flex items-center gap-2 flex-1">
+                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0 ${
+                        n < waStep  ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                        n === waStep ? 'bg-purple-600 text-white' :
+                        'bg-white/5 text-gray-600 border border-white/8'
+                      }`}>
+                        {n < waStep ? <CheckCircle className="w-3 h-3" /> : <span>{n}</span>}
+                        {label}
+                      </div>
+                      {i < arr.length - 1 && <div className={`flex-1 h-px ${n < waStep ? 'bg-green-500/30' : 'bg-white/8'}`} />}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── STEP 1: Paste token + pick number ── */}
+                {waStep === 1 && (
+                  <div className="space-y-5 pt-2">
+                    <div className="text-center py-3">
+                      <div className="w-14 h-14 bg-green-500/15 border border-green-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                        <MessageCircle className="w-7 h-7 text-green-400" />
+                      </div>
+                      <p className="text-white font-bold text-base">Connect your WhatsApp Business number</p>
+                      <p className="text-gray-500 text-sm mt-1">Paste your access token — we&apos;ll find your numbers automatically.</p>
+                    </div>
+
+                    {/* Token field */}
+                    <div>
+                      <label className={labelCls}>Access Token <span className="text-gray-500 font-normal">(from Meta Developer App)</span></label>
+                      <div className="relative">
+                        <input
+                          type={showWaToken ? 'text' : 'password'}
+                          className={`${inputCls} pr-10`}
+                          value={settings.waAccessToken}
+                          onChange={(e) => { set('waAccessToken', e.target.value); setHasExistingWaToken(false); setWaPhones([]); setWaConnectError(''); }}
+                          placeholder={hasExistingWaToken ? '••••••••' : 'EAABsB…'}
+                        />
+                        <button type="button" onClick={() => setShowWaToken((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                          {showWaToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Where to get token */}
+                    <details className="group">
+                      <summary className="text-xs text-purple-400 hover:text-purple-300 cursor-pointer list-none flex items-center gap-1.5 w-fit select-none">
+                        <span className="text-[10px] group-open:rotate-90 inline-block transition-transform">▶</span>
+                        Where do I get my Access Token?
+                      </summary>
+                      <div className="mt-3 pl-4 border-l-2 border-purple-500/30 space-y-2 text-xs text-gray-400">
+                        <p><span className="text-purple-400 font-bold">1.</span> Go to <strong className="text-white">developers.facebook.com/apps</strong> → open your WhatsApp app</p>
+                        <p><span className="text-purple-400 font-bold">2.</span> WhatsApp → Getting Started → copy the <strong className="text-white">Temporary access token</strong></p>
+                        <p className="text-orange-400/80"><strong>⚠ Temporary tokens expire in 24 hours.</strong> For a permanent token: Business Settings → System Users → Generate Token → select your app + whatsapp_business_messaging + whatsapp_business_management.</p>
+                      </div>
+                    </details>
+
+                    <button
+                      onClick={waDetectNumbers}
+                      disabled={waConnecting || (!settings.waAccessToken && !hasExistingWaToken)}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors"
+                    >
+                      {waConnecting
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Detecting your numbers…</>
+                        : <><Wifi className="w-4 h-4" /> Detect my WhatsApp numbers</>}
+                    </button>
+
+                    {waConnectError && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">{waConnectError}</div>
+                    )}
+
+                    {/* Phone picker */}
+                    {waPhones.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Pick your number</p>
+                        {waPhones.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => waSelectPhone(p)}
+                            className="w-full text-left flex items-center gap-3 px-4 py-3 bg-gray-800/60 hover:bg-green-600/15 border border-white/8 hover:border-green-500/30 rounded-xl transition-all"
+                          >
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${p.status === 'CONNECTED' ? 'bg-green-400' : 'bg-yellow-400'}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-white font-bold text-sm">{p.number}</div>
+                              <div className="text-gray-500 text-xs">{p.name} · {p.status}</div>
+                            </div>
+                            <span className="text-xs text-green-400 font-bold">Select →</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── STEP 2: Auto-create template ── */}
+                {waStep === 2 && (
+                  <div className="space-y-5 pt-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                      <p className="text-green-400 font-bold text-sm">Connected</p>
+                      <span className="text-gray-500 text-xs">{settings.waDisplayPhone || settings.waPhoneNumberId}</span>
+                    </div>
+
+                    <div>
+                      <p className="text-white font-bold text-sm">Set up your outreach template</p>
+                      <p className="text-gray-500 text-xs mt-1">
+                        WhatsApp requires a pre-approved template for cold messages. We&apos;ll create and submit it to Meta on your behalf — no copy-pasting needed.
+                      </p>
+                    </div>
+
+                    {/* Template preview (read-only) */}
+                    <div className="bg-gray-800/50 border border-white/8 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-2">Message that will be sent</p>
+                      <p className="text-sm text-gray-200 leading-relaxed">{TEMPLATE_PREVIEW}</p>
+                    </div>
+
+                    {/* Status display */}
+                    {settings.waTemplateStatus === 'PENDING' && (
+                      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3 space-y-2">
+                        <p className="text-yellow-400 font-bold text-sm">⏳ Awaiting Meta review</p>
+                        <p className="text-yellow-400/70 text-xs">Template submitted. Meta usually approves within 1–24 hours. Come back to check.</p>
+                        <button
+                          onClick={waRefreshStatus}
+                          disabled={waCheckingStatus}
+                          className="text-xs text-yellow-400 hover:text-yellow-300 font-bold flex items-center gap-1.5 transition-colors"
+                        >
+                          {waCheckingStatus ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                          Check status now
+                        </button>
+                      </div>
+                    )}
+
+                    {settings.waTemplateStatus === 'REJECTED' && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                        <p className="text-red-400 font-bold text-sm">❌ Template rejected by Meta</p>
+                        <p className="text-red-400/70 text-xs mt-1">This sometimes happens with cold outreach templates. Contact support and we&apos;ll help resubmit with a revised message.</p>
+                      </div>
+                    )}
+
+                    {waTemplateError && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">{waTemplateError}</div>
+                    )}
+
+                    {!settings.waTemplateStatus && (
+                      <button
+                        onClick={waCreateTemplate}
+                        disabled={waCreatingTemplate}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors"
+                      >
+                        {waCreatingTemplate
+                          ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting to Meta…</>
+                          : <><Send className="w-4 h-4" /> Create & Submit Template</>}
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => { set('waPhoneNumberId', ''); set('wabaId', ''); set('waDisplayPhone', ''); set('waTemplateStatus', ''); }}
+                      className="text-xs text-gray-600 hover:text-gray-400 transition-colors w-full text-center"
+                    >
+                      ← Change number
+                    </button>
+                  </div>
+                )}
+
+                {/* ── STEP 3: Ready ── */}
+                {waStep === 3 && (
+                  <div className="space-y-5 pt-2 text-center">
+                    <div className="py-5">
+                      <div className="w-16 h-16 bg-green-500/15 border border-green-500/25 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle className="w-8 h-8 text-green-400" />
+                      </div>
+                      <p className="text-white font-bold text-lg">WhatsApp Business API is active</p>
+                      <p className="text-gray-500 text-sm mt-1">
+                        The <strong className="text-white">API Send</strong> button now appears on every prospect card with a phone number.
+                      </p>
+                    </div>
+
+                    <div className="text-left space-y-3 bg-gray-800/40 border border-white/8 rounded-xl px-4 py-4">
+                      <div className="flex items-center gap-2.5 text-sm">
+                        <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                        <span className="text-gray-500">Phone</span>
+                        <span className="text-white font-semibold text-sm ml-auto">{settings.waDisplayPhone || settings.waPhoneNumberId}</span>
+                      </div>
+                      <div className="flex items-center gap-2.5 text-sm">
+                        <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                        <span className="text-gray-500">Template</span>
+                        <span className="text-green-400 font-semibold text-sm ml-auto">✅ Approved</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        set('waPhoneNumberId', ''); set('waAccessToken', ''); set('waTemplateName', '');
+                        set('wabaId', ''); set('waDisplayPhone', ''); set('waTemplateStatus', '');
+                        setHasExistingWaToken(false);
+                      }}
+                      className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                    >
+                      Disconnect / change number
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Save button */}
           <div className="pt-4 border-t border-white/8 flex items-center gap-3">

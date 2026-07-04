@@ -6,11 +6,19 @@ import {
   MessageCircle, Loader2, X, ExternalLink, CheckCircle, XCircle,
 } from 'lucide-react';
 import { Business } from '@/types';
-import { scoreProspect, scoreLabel } from '@/lib/scoring';
+import { scoreProspect, scoreLabel, scoreBreakdown } from '@/lib/scoring';
 import { useProspects } from '@/context/ProspectsContext';
 import { getBestTimeStatus } from '@/lib/searchHistory';
 import { whatsappLink } from '@/lib/phone';
 import { buildQuickWAMessage } from '@/lib/waMessage';
+import { useWaPaceTimer } from '@/lib/waRateLimit';
+
+function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' {
+  const h = new Date().getHours();
+  if (h < 12) return 'morning';
+  if (h < 17) return 'afternoon';
+  return 'evening';
+}
 
 interface Props {
   business: Business;
@@ -37,21 +45,28 @@ type WaStep = 'preview' | 'confirm';
 interface WaState { step: WaStep; msg: string; link: string }
 
 export default function BusinessCard({ business, onClick, competitors }: Props) {
-  const { isSaved, save, remove, get, markOutreachSent, updateStage, incrementToday } = useProspects();
+  const { isSaved, save, remove, get, markOutreachSent, updateStage, incrementToday, settings } = useProspects();
+  const { waitSecs, recordSend } = useWaPaceTimer();
+  const waApiConnected = !!(settings.waPhoneNumberId && settings.waTemplateStatus === 'APPROVED');
   const saved = isSaved(business.id);
   const prospect = get(business.id);
   const score = scoreProspect(business);
+  const breakdown = scoreBreakdown(business);
   const { label: scoreText, color: scoreColor } = scoreLabel(score);
   const stageMeta = prospect ? STAGE_META[prospect.stage] : null;
+  const CONTACTED_STAGES_SET = new Set(['contacted', 'interested', 'proposal', 'won', 'lost']);
+  const isAlreadyContacted = prospect ? CONTACTED_STAGES_SET.has(prospect.stage) : false;
   const socialOnly = isSocialOnly(business);
   const timeStatus = getBestTimeStatus();
 
   const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [copying, setCopying] = useState(false);
-  const [msgCopied, setMsgCopied] = useState(false);
   const [waState, setWaState] = useState<WaState | null>(null);
   const [editedMsg, setEditedMsg] = useState('');
+  const [showScoreTip, setShowScoreTip] = useState(false);
+  const [sendingApi, setSendingApi] = useState(false);
+  const [apiSent, setApiSent] = useState<'ok' | 'err' | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const copyPhone = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,7 +91,7 @@ export default function BusinessCard({ business, onClick, competitors }: Props) 
       const res = await fetch('/api/outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, competitors: competitors ?? business.competitors }),
+        body: JSON.stringify({ business, competitors: competitors ?? business.competitors, timeOfDay: getTimeOfDay() }),
       });
       const json = await res.json();
       msg = (res.ok && json.whatsapp) ? json.whatsapp : buildQuickWAMessage(business);
@@ -108,6 +123,7 @@ export default function BusinessCard({ business, onClick, competitors }: Props) 
       markOutreachSent(business.id, waState.msg, 'whatsapp');
       updateStage(business.id, 'contacted');
       incrementToday();
+      recordSend();
     }
     setWaState(null);
   };
@@ -117,27 +133,40 @@ export default function BusinessCard({ business, onClick, competitors }: Props) 
     setWaState(null);
   };
 
-  const copyWAMessage = async (e: React.MouseEvent) => {
+
+  const sendViaApi = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!business.phone || copying || generating) return;
-    setCopying(true);
-    let msg: string;
+    if (!business.phone || sendingApi) return;
+    setSendingApi(true);
+    setApiSent(null);
+    setApiError(null);
     try {
-      const res = await fetch('/api/outreach', {
+      const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, competitors: competitors ?? business.competitors }),
+        body: JSON.stringify({ to: business.phone, businessName: business.name }),
       });
-      const json = await res.json();
-      msg = (res.ok && json.whatsapp) ? json.whatsapp : buildQuickWAMessage(business);
+      if (res.ok) {
+        setApiSent('ok');
+        if (!saved) save(business);
+        markOutreachSent(business.id, `[WA API] ${business.name}`, 'whatsapp');
+        updateStage(business.id, 'contacted');
+        incrementToday();
+        recordSend();
+        setTimeout(() => setApiSent(null), 3000);
+      } else {
+        const json = await res.json() as { error?: string };
+        setApiSent('err');
+        setApiError(json.error ?? 'Send failed');
+        setTimeout(() => { setApiSent(null); setApiError(null); }, 6000);
+      }
     } catch {
-      msg = buildQuickWAMessage(business);
+      setApiSent('err');
+      setApiError('Could not reach server');
+      setTimeout(() => { setApiSent(null); setApiError(null); }, 6000);
     } finally {
-      setCopying(false);
+      setSendingApi(false);
     }
-    navigator.clipboard.writeText(msg).catch(() => {});
-    setMsgCopied(true);
-    setTimeout(() => setMsgCopied(false), 2500);
   };
 
   return (
@@ -145,7 +174,9 @@ export default function BusinessCard({ business, onClick, competitors }: Props) 
       <div
         onClick={onClick}
         className={`relative bg-gray-900 border rounded-2xl p-4 cursor-pointer hover:bg-gray-800/60 transition-all group flex flex-col gap-3 ${
-          saved
+          isAlreadyContacted
+            ? 'border-white/6 opacity-50 hover:opacity-80 hover:border-white/15'
+            : saved
             ? 'border-blue-500/30 opacity-85 hover:opacity-100 hover:border-blue-400/50'
             : 'border-white/10 hover:border-purple-500/40'
         }`}
@@ -167,9 +198,20 @@ export default function BusinessCard({ business, onClick, competitors }: Props) 
               📱 Social Only
             </span>
           ) : business.hasWebsite ? (
-            <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/15 flex items-center gap-1 flex-shrink-0">
-              <Globe className="w-3 h-3" /> Has Site
-            </span>
+            business.psiScore != null ? (
+              <span className={`text-[11px] font-bold px-2 py-1 rounded-full border flex items-center gap-1 flex-shrink-0 ${
+                business.psiScore >= 90 ? 'bg-green-500/15 text-green-400 border-green-500/25' :
+                business.psiScore >= 50 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/25' :
+                'bg-red-500/15 text-red-400 border-red-500/25'
+              }`}>
+                <Globe className="w-3 h-3" />
+                {business.psiScore >= 90 ? '⚡' : business.psiScore >= 50 ? '🐢' : '🐌'} {business.psiScore}/100
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/15 flex items-center gap-1 flex-shrink-0">
+                <Globe className="w-3 h-3" /> Has Site
+              </span>
+            )
           ) : (
             <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25 flex-shrink-0">
               🎯 No Website
@@ -237,16 +279,71 @@ export default function BusinessCard({ business, onClick, competitors }: Props) 
 
         {/* Bottom: score + actions */}
         <div className="mt-auto pt-3 border-t border-white/5 flex items-center gap-2">
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${scoreColor}`}>
-            {scoreText} {score}/10
-          </span>
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowScoreTip((v) => !v); }}
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border cursor-pointer select-none ${scoreColor}`}
+            >
+              {scoreText} {score}/10
+            </button>
+            {showScoreTip && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-full left-0 mb-1.5 z-50 w-48 bg-gray-900 border border-white/15 rounded-xl shadow-2xl p-3 text-[11px]"
+              >
+                <p className="text-gray-500 font-bold uppercase tracking-widest mb-2 text-[9px]">Score breakdown</p>
+                <div className="space-y-1">
+                  {breakdown.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <span className="text-gray-300">{r.label}</span>
+                      <span className="text-green-400 font-bold">+{r.pts}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between font-bold">
+                  <span className="text-white">Total</span>
+                  <span className="text-white">{score}/10</span>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-1 ml-auto">
+            {/* WhatsApp Business API send — only shown when API is connected */}
+            {waApiConnected && business.phone && (
+              <div className="flex flex-col items-end gap-0.5">
+                <button
+                  onClick={sendViaApi}
+                  disabled={sendingApi}
+                  title={apiSent === 'ok' ? 'Sent!' : apiSent === 'err' ? (apiError ?? 'Send failed') : 'Send via WA Business API'}
+                  className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border transition-colors disabled:opacity-60 disabled:cursor-wait ${
+                    apiSent === 'ok'
+                      ? 'bg-green-500/20 text-green-300 border-green-500/30'
+                      : apiSent === 'err'
+                      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                      : 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30'
+                  }`}
+                >
+                  {sendingApi
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+                    : apiSent === 'ok'
+                    ? <><Check className="w-3.5 h-3.5" /> Sent!</>
+                    : apiSent === 'err'
+                    ? <>✗ Failed</>
+                    : <><MessageCircle className="w-3.5 h-3.5" /> API Send</>
+                  }
+                </button>
+                {apiError && (
+                  <span className="text-[10px] text-red-400/80 max-w-[160px] text-right leading-tight">{apiError}</span>
+                )}
+              </div>
+            )}
+
             {/* WhatsApp quick-send */}
             {business.phone && (
               <button
                 onClick={quickWhatsApp}
-                disabled={generating || copying}
+                disabled={generating}
                 title={generating ? 'Writing message…' : 'Preview & send WhatsApp'}
                 className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors disabled:opacity-60 disabled:cursor-wait"
               >
@@ -257,26 +354,6 @@ export default function BusinessCard({ business, onClick, competitors }: Props) 
               </button>
             )}
 
-            {/* Copy cover message */}
-            {business.phone && (
-              <button
-                onClick={copyWAMessage}
-                disabled={copying || generating}
-                title={msgCopied ? 'Copied!' : 'Copy outreach message to clipboard'}
-                className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border transition-colors disabled:opacity-60 disabled:cursor-wait ${
-                  msgCopied
-                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                    : 'bg-white/5 text-gray-500 border-white/10 hover:text-gray-300 hover:border-white/20'
-                }`}
-              >
-                {copying
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : msgCopied
-                  ? <><Check className="w-3.5 h-3.5" /> Copied!</>
-                  : <><Copy className="w-3.5 h-3.5" /> Copy msg</>
-                }
-              </button>
-            )}
 
             {/* Save/Remove */}
             {!saved ? (
@@ -345,7 +422,12 @@ export default function BusinessCard({ business, onClick, competitors }: Props) 
                 </div>
 
                 {/* Action */}
-                <div className="px-6 pb-6 pt-2">
+                <div className="px-6 pb-6 pt-2 space-y-2">
+                  {waitSecs > 0 && (
+                    <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-center font-medium">
+                      ⏱ Tip: wait {waitSecs}s before sending — helps avoid restriction
+                    </div>
+                  )}
                   <button
                     onClick={openWhatsApp}
                     className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-base transition-colors"

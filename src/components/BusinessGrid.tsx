@@ -10,9 +10,12 @@ interface Props {
   error: string | null;
   onSelect: (b: Business) => void;
   competitors?: string[];
+  selectMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
-export default function BusinessGrid({ businesses, loading, error, onSelect, competitors }: Props) {
+export default function BusinessGrid({ businesses, loading, error, onSelect, competitors, selectMode, selectedIds, onToggleSelect }: Props) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-28 gap-4 text-center">
@@ -48,9 +51,29 @@ export default function BusinessGrid({ businesses, loading, error, onSelect, com
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {businesses.map((b) => (
-        <BusinessCard key={b.id} business={b} onClick={() => onSelect(b)} competitors={competitors} />
-      ))}
+      {businesses.map((b) => {
+        const isSelected = selectedIds?.has(b.id) ?? false;
+        return (
+          <div key={b.id} className="relative">
+            {selectMode && (
+              <button
+                onClick={() => onToggleSelect?.(b.id)}
+                className={`absolute top-2 left-2 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  isSelected ? 'bg-green-500 border-green-400' : 'bg-gray-900/80 border-gray-600 hover:border-green-400'
+                }`}
+              >
+                {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
+              </button>
+            )}
+            <div
+              onClick={selectMode ? () => onToggleSelect?.(b.id) : undefined}
+              className={selectMode ? 'cursor-pointer' : undefined}
+            >
+              <BusinessCard business={b} onClick={selectMode ? () => {} : () => onSelect(b)} competitors={competitors} />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,13 @@
 import { Business } from '@/types';
 import { whatsappLink } from './phone';
 
+function warmGreeting(shortName: string): string {
+  const h = new Date().getHours();
+  if (h < 12) return `Good morning ${shortName}! Hope you're having a great start to the day.`;
+  if (h < 17) return `Good afternoon ${shortName}! Trust you're doing well today.`;
+  return `Good evening ${shortName}! Hope your day has been good.`;
+}
+
 export function buildQuickWAMessage(business: Business): string {
   const shortName = business.name.includes('(')
     ? business.name.split('(')[0].trim()
@@ -8,24 +15,22 @@ export function buildQuickWAMessage(business: Business): string {
     ? business.name.slice(0, 45).trim() + '…'
     : business.name;
 
-  const boldName = `*${shortName}*`;
-
   const rawCat = business.category.toLowerCase();
   const isGeneric =
     rawCat === 'business' || rawCat === 'establishment' || rawCat === 'point of interest';
   const niche = isGeneric ? 'local' : rawCat;
   const nichePhrase = isGeneric ? 'businesses like yours' : `${niche} businesses`;
 
-  const problem =
+  const greeting = warmGreeting(shortName);
+
+  const observation =
     business.reviewCount && business.reviewCount > 0
-      ? `Hi! 👋 I came across ${boldName} on Google.\n\nYou have *${business.reviewCount} Google reviews* ⭐ — _that's real trust people have given you._ But when a new customer searches online right now, there's *no website to land on.*`
-      : `Hi! 👋 I came across ${boldName} on Google.\n\nPeople are searching for ${nichePhrase} in your area every day — but _without a website, you're invisible_ to all of them.`;
+      ? `Noticed *${shortName}* has *${business.reviewCount} Google reviews* but no website yet. That's real trust you've built — without a website, new customers searching online can't find you properly.`
+      : `Saw *${shortName}* on Google — no website linked to the profile yet. People searching for ${nichePhrase} in your area right now can't find you online.`;
 
-  const agitate = `Every day, potential customers find your competitors instead — _not because they're better,_ but because *they show up online and you don't.*`;
+  const cta = `Is this something you're thinking about for the business?`;
 
-  const solution = `I build *digital front doors* for ${nichePhrase} — mobile-first, found on Google *and* recommended by AI tools like ChatGPT. 🌐\n\n_Would you be open to a quick chat?_`;
-
-  return `${problem}\n\n${agitate}\n\n${solution}`;
+  return `${greeting}\n\n${observation}\n\n${cta}`;
 }
 
 export function buildWALink(business: Business): string | null {

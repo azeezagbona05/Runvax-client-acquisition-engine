@@ -6,17 +6,11 @@ import { Business } from '@/types';
 import { scoreLabel } from '@/lib/scoring';
 import { useProspects } from '@/context/ProspectsContext';
 import { whatsappLink } from '@/lib/phone';
+import { buildQuickWAMessage } from '@/lib/waMessage';
 
 interface Props {
   businesses: Business[];
   onClose: () => void;
-}
-
-function buildMessage(b: Business) {
-  const reviewLine = b.reviewCount
-    ? `You've earned ${b.reviewCount} Google reviews ⭐ — but when people search for you, there's no website to send them to.`
-    : `People search for ${b.category} in your area every day.`;
-  return `Hi! 👋 I came across ${b.name} on Google. ${reviewLine}\n\nI build digital front doors for ${b.category} businesses — not just a website, but the full experience customers get *before* visiting and *after* leaving. Found on Google, recommended by AI assistants, enquiries 24/7.\n\nOpen to a quick chat? 🌐`;
 }
 
 export default function QuickFireModal({ businesses, onClose }: Props) {
@@ -43,7 +37,7 @@ export default function QuickFireModal({ businesses, onClose }: Props) {
 
   const handleSend = () => {
     if (!current?.phone) return;
-    const msg = buildMessage(current);
+    const msg = buildQuickWAMessage(current);
     const link = whatsappLink(current, msg);
     if (!link) return;
     window.open(link, '_blank');
@@ -69,7 +63,7 @@ export default function QuickFireModal({ businesses, onClose }: Props) {
 
   const copyMsg = () => {
     if (!current) return;
-    navigator.clipboard.writeText(buildMessage(current)).catch(() => {});
+    navigator.clipboard.writeText(buildQuickWAMessage(current)).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -178,17 +172,28 @@ export default function QuickFireModal({ businesses, onClose }: Props) {
                 )}
                 {current.phone && (
                   <div className="flex items-center gap-2">
-                    <span className="text-white font-bold text-lg">{current.phone}</span>
-                    <button onClick={copyMsg} className={`text-[11px] font-bold px-2 py-1 rounded-lg transition-colors ${copied ? 'bg-green-500/20 text-green-400' : 'bg-white/8 text-gray-500 hover:text-white border border-white/10'}`}>
-                      {copied ? <><Check className="w-3 h-3 inline mr-1" />Copied</> : <><Copy className="w-3 h-3 inline mr-1" />Copy msg</>}
-                    </button>
+                    <span className="text-white font-bold text-lg tracking-wide">{current.phone}</span>
                   </div>
                 )}
               </div>
 
               {/* Message preview */}
-              <div className="bg-green-950/30 border border-green-500/15 rounded-xl p-3 text-green-200/80 text-xs leading-relaxed whitespace-pre-wrap">
-                {buildMessage(current)}
+              <div className="rounded-xl overflow-hidden border border-white/10">
+                <div className="bg-[#128C7E] px-3 py-1.5 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">WhatsApp Message Preview</span>
+                  <button
+                    onClick={copyMsg}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 ${copied ? 'bg-white/20 text-white' : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'}`}
+                  >
+                    {copied ? <><Check className="w-2.5 h-2.5" />Copied</> : <><Copy className="w-2.5 h-2.5" />Copy</>}
+                  </button>
+                </div>
+                <div className="bg-[#ECE5DD] p-3">
+                  <div className="bg-white rounded-xl rounded-tl-none px-3 py-2.5 shadow-sm max-w-[90%]">
+                    <p className="text-gray-900 text-sm leading-relaxed whitespace-pre-wrap">{buildQuickWAMessage(current)}</p>
+                    <p className="text-gray-400 text-[10px] text-right mt-1">11:00 AM</p>
+                  </div>
+                </div>
               </div>
             </div>
 
