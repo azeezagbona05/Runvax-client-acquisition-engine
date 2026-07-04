@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
-import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark, RotateCcw, Receipt, Globe, Plus, Trash2, MessageCircle, Wifi, Bot, Play, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import { Save, Loader2, CheckCircle, AlertCircle, Send, User, Mail, Target, Eye, EyeOff, Landmark, RotateCcw, Receipt, Globe, Plus, Trash2, MessageCircle, Wifi, Bot, Play, ToggleLeft, ToggleRight, RefreshCw, Fingerprint, ChevronRight, ChevronLeft, Shield, LogOut, Smartphone } from 'lucide-react';
 import RateCardTab from '@/components/RateCardTab';
 import { DEFAULT_RATE_CARD } from '@/lib/rateCard';
 import type { RateCard } from '@/lib/rateCard';
@@ -226,7 +226,7 @@ interface PortfolioItem {
   category?: string;
 }
 
-type Tab = 'profile' | 'email' | 'payment' | 'goals' | 'ratecard' | 'portfolio' | 'whatsapp-api';
+type Tab = 'profile' | 'email' | 'payment' | 'goals' | 'ratecard' | 'portfolio' | 'whatsapp-api' | 'security';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -258,6 +258,67 @@ export default function SettingsPage() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [fetchingSet, setFetchingSet] = useState<Set<number>>(new Set());
+  // Mobile navigation: null = home screen, string = detail view
+  const [mobileSection, setMobileSection] = useState<Tab | null>(null);
+  // Biometric
+  interface BioCred { id: string; deviceName: string | null; createdAt: string }
+  const [bioCreds, setBioCreds] = useState<BioCred[]>([]);
+  const [bioRegistering, setBioRegistering] = useState(false);
+  const [bioMsg, setBioMsg] = useState('');
+  const [bioSupported, setBioSupported] = useState(false);
+
+  useEffect(() => {
+    setBioSupported(
+      typeof window !== 'undefined' &&
+      !!window.PublicKeyCredential &&
+      !!navigator.credentials
+    );
+  }, []);
+
+  const loadBioCreds = useCallback(async () => {
+    const res = await fetch('/api/auth/webauthn/credentials');
+    if (res.ok) setBioCreds(await res.json() as BioCred[]);
+  }, []);
+
+  useEffect(() => { void loadBioCreds(); }, [loadBioCreds]);
+
+  const registerBiometric = async () => {
+    setBioRegistering(true);
+    setBioMsg('');
+    try {
+      const { startRegistration } = await import('@simplewebauthn/browser');
+      const optRes = await fetch('/api/auth/webauthn/register');
+      if (!optRes.ok) throw new Error('Could not start registration');
+      const options = await optRes.json();
+      const deviceName = /iPhone|iPad/.test(navigator.userAgent) ? 'iPhone'
+        : /Android/.test(navigator.userAgent) ? 'Android'
+        : 'This device';
+      const response = await startRegistration({ optionsJSON: options });
+      const verRes = await fetch('/api/auth/webauthn/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response, deviceName }),
+      });
+      const data = await verRes.json() as { ok?: boolean; error?: string };
+      if (!verRes.ok) throw new Error(data.error ?? 'Registration failed');
+      setBioMsg('Biometric login enabled for this device.');
+      await loadBioCreds();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed';
+      setBioMsg(msg.includes('cancel') ? 'Cancelled.' : msg);
+    } finally {
+      setBioRegistering(false);
+    }
+  };
+
+  const removeBioCred = async (id: string) => {
+    await fetch('/api/auth/webauthn/credentials', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    await loadBioCreds();
+  };
 
   useEffect(() => {
     fetch('/api/user/settings')
@@ -477,18 +538,184 @@ export default function SettingsPage() {
     );
   }
 
-  const tabs: { id: Tab; label: string; icon: typeof User }[] = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'email', label: 'Email & SMTP', icon: Mail },
-    { id: 'payment', label: 'Bank & Payment', icon: Landmark },
-    { id: 'goals', label: 'Goals', icon: Target },
-    { id: 'ratecard', label: 'Rate Card', icon: Receipt },
-    { id: 'portfolio', label: 'Portfolio', icon: Globe },
-    { id: 'whatsapp-api', label: 'WA Business API', icon: MessageCircle },
+  const tabs: { id: Tab; label: string; icon: typeof User; subtitle?: string }[] = [
+    { id: 'profile',       label: 'Profile',          icon: User,          subtitle: settings.senderName || 'Your name & agency' },
+    { id: 'email',         label: 'Email & SMTP',      icon: Mail,          subtitle: settings.smtpHost || 'Connect your email' },
+    { id: 'payment',       label: 'Bank & Payment',    icon: Landmark,      subtitle: settings.bankName || 'Bank account & links' },
+    { id: 'goals',         label: 'Goals & Analytics', icon: Target,        subtitle: `${settings.dailyGoal} outreaches/day` },
+    { id: 'ratecard',      label: 'Rate Card',         icon: Receipt,       subtitle: 'Your pricing packages' },
+    { id: 'portfolio',     label: 'Portfolio',         icon: Globe,         subtitle: `${portfolioItems.length} project${portfolioItems.length !== 1 ? 's' : ''}` },
+    { id: 'whatsapp-api',  label: 'WhatsApp Business', icon: MessageCircle, subtitle: settings.waDisplayPhone || 'Connect WA API' },
+    { id: 'security',      label: 'Security',          icon: Shield,        subtitle: bioCreds.length > 0 ? `${bioCreds.length} biometric device${bioCreds.length !== 1 ? 's' : ''}` : 'Face ID · Fingerprint · PIN' },
   ];
 
+  const MOBILE_GROUPS = [
+    { label: 'Agency Profile', tabs: ['profile', 'ratecard', 'portfolio'] as Tab[] },
+    { label: 'Outreach',       tabs: ['email', 'whatsapp-api', 'payment'] as Tab[] },
+    { label: 'Performance',    tabs: ['goals'] as Tab[] },
+    { label: 'Security',       tabs: ['security'] as Tab[] },
+  ];
+
+  const activeTab = mobileSection ?? tab;
+
+  // Security tab content
+  const securityContent = (
+    <div className="space-y-6">
+      <div className="pb-4 border-b border-white/8">
+        <p className="text-white font-semibold text-sm">Biometric Login</p>
+        <p className="text-gray-500 text-xs mt-1">
+          Use Face ID, fingerprint, or device PIN to sign in without a password.
+        </p>
+      </div>
+
+      {!bioSupported && (
+        <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3">
+          <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+          <p className="text-sm text-yellow-300">Your browser doesn&apos;t support biometric login. Try Chrome or Safari on a modern device.</p>
+        </div>
+      )}
+
+      {bioSupported && (
+        <>
+          <button
+            onClick={registerBiometric}
+            disabled={bioRegistering}
+            className="w-full flex items-center gap-4 px-5 py-4 bg-purple-600/15 hover:bg-purple-600/25 border border-purple-500/30 rounded-2xl transition-colors disabled:opacity-60"
+          >
+            {bioRegistering
+              ? <Loader2 className="w-6 h-6 text-purple-400 animate-spin flex-shrink-0" />
+              : <Fingerprint className="w-6 h-6 text-purple-400 flex-shrink-0" />}
+            <div className="text-left">
+              <p className="text-sm font-bold text-white">
+                {bioRegistering ? 'Follow your device prompt…' : 'Enable on this device'}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">Face ID · Touch ID · Fingerprint · Device PIN</p>
+            </div>
+          </button>
+
+          {bioMsg && (
+            <p className={`text-xs px-1 ${bioMsg.includes('enabled') ? 'text-green-400' : 'text-red-400'}`}>{bioMsg}</p>
+          )}
+        </>
+      )}
+
+      {bioCreds.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Registered Devices</p>
+          <div className="space-y-2">
+            {bioCreds.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-3 bg-gray-800/60 border border-white/8 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Smartphone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{c.deviceName ?? 'Device'}</p>
+                    <p className="text-[11px] text-gray-600">{new Date(c.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => void removeBioCred(c.id)}
+                  className="text-red-500 hover:text-red-400 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors flex-shrink-0"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="pt-2 border-t border-white/8 space-y-2">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Account</p>
+        <button
+          onClick={replayOnboarding}
+          className="w-full flex items-center gap-3 px-4 py-3.5 bg-white/[0.03] border border-white/8 rounded-xl text-sm text-gray-300 hover:bg-white/[0.06] transition-colors"
+        >
+          <RotateCcw className="w-4 h-4 text-gray-500" />
+          Replay setup wizard
+        </button>
+        <button
+          onClick={() => signOut({ callbackUrl: '/' })}
+          className="w-full flex items-center gap-3 px-4 py-3.5 bg-red-500/5 border border-red-500/20 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Log out
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Mobile home screen (list view) ────────────────────────────────────────────
+  const mobileHome = (
+    <div className="space-y-1 pb-24">
+      {/* Profile card */}
+      <div className="bg-gray-900/80 rounded-2xl border border-white/8 px-5 py-4 mb-4 flex items-center gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-purple-600 flex items-center justify-center text-white text-xl font-black flex-shrink-0">
+          {(session?.user?.name?.[0] ?? session?.user?.email?.[0] ?? '?').toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <p className="text-white font-bold truncate">{session?.user?.name ?? 'Your Account'}</p>
+          <p className="text-gray-500 text-xs truncate">{session?.user?.email}</p>
+          <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-600/20 text-purple-400 border border-purple-500/30 uppercase tracking-wider">
+            {((session?.user as { plan?: string })?.plan ?? 'Free')} Plan
+          </span>
+        </div>
+      </div>
+
+      {MOBILE_GROUPS.map(({ label, tabs: groupTabs }) => (
+        <div key={label} className="mb-2">
+          <p className="text-[11px] font-bold text-gray-600 uppercase tracking-widest px-1 pb-1.5">{label}</p>
+          <div className="bg-gray-900 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/[0.05]">
+            {groupTabs.map((tid) => {
+              const t = tabs.find((x) => x.id === tid)!;
+              return (
+                <button
+                  key={tid}
+                  onClick={() => { setMobileSection(tid); setTab(tid); }}
+                  className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/[0.03] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gray-800 border border-white/8 flex items-center justify-center flex-shrink-0">
+                    <t.icon className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white">{t.label}</p>
+                    {t.subtitle && <p className="text-xs text-gray-500 truncate mt-0.5">{t.subtitle}</p>}
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="min-h-dvh bg-gray-950 py-4 sm:py-10 px-4">
+    <div className="min-h-dvh bg-gray-950">
+
+      {/* ── MOBILE HOME (hidden when a section is selected) ──────────────── */}
+      <div className={`sm:hidden ${mobileSection ? 'hidden' : ''}`}>
+        <div className="px-4 pt-6 pb-32">
+          <h1 className="text-2xl font-black text-white mb-5">Settings</h1>
+          {mobileHome}
+        </div>
+      </div>
+
+      {/* ── MOBILE DETAIL SUBHEADER ─────────────────────────────────────── */}
+      {mobileSection && (
+        <div className="sm:hidden sticky top-0 z-10 bg-gray-950/95 backdrop-blur-md border-b border-white/[0.06] flex items-center gap-3 px-4 h-14">
+          <button
+            onClick={() => setMobileSection(null)}
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-white"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <p className="font-bold text-white text-sm">{tabs.find((t) => t.id === tab)?.label}</p>
+        </div>
+      )}
+
+      {/* ── SHARED CONTENT (mobile detail + always on desktop) ──────────── */}
+      <div className={`${mobileSection ? 'block' : 'hidden'} sm:block py-4 sm:py-10 px-4`}>
       <div className="max-w-4xl mx-auto">
 
         {/* Header */}
@@ -499,8 +726,8 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* Tabs — scrollable on mobile */}
-        <div className="flex gap-1 bg-gray-900 border border-white/10 rounded-xl p-1 mb-6 overflow-x-auto scrollbar-none">
+        {/* Tabs */}
+        <div className="hidden sm:flex gap-1 bg-gray-900 border border-white/10 rounded-xl p-1 mb-6 overflow-x-auto scrollbar-none">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -517,7 +744,10 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 space-y-5">
+        <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 sm:p-6 space-y-5">
+
+          {/* ── SECURITY TAB ── */}
+          {tab === 'security' && securityContent}
 
           {/* ── PROFILE TAB ── */}
           {tab === 'profile' && (
@@ -1199,6 +1429,7 @@ export default function SettingsPage() {
           })()}
 
           {/* Save button */}
+          {tab !== 'security' && (
           <div className="pt-4 border-t border-white/8 flex items-center gap-3">
             <button
               onClick={save}
@@ -1220,6 +1451,7 @@ export default function SettingsPage() {
               </span>
             )}
           </div>
+          )}
         </div>
 
         {session?.user && (
@@ -1227,6 +1459,7 @@ export default function SettingsPage() {
             Logged in as <span className="text-gray-400">{session.user.email}</span>
           </p>
         )}
+      </div>
       </div>
     </div>
   );

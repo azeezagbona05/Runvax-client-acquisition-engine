@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/prisma';
 import { getAppUrl, getAppName } from '@/lib/url';
+import { createTransporter, passwordResetEmailHtml } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,30 +30,18 @@ export async function POST(req: NextRequest) {
   // Transactional email from us — always send as the app brand.
   const senderName = getAppName();
 
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT ?? 587);
-  const smtpUser = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (host && smtpUser && pass) {
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     try {
-      const transporter = nodemailer.createTransport({
-        host, port, secure: port === 465, auth: { user: smtpUser, pass },
-      });
+      const transporter = createTransporter();
       await transporter.sendMail({
-        from: `"${senderName}" <${smtpUser}>`,
+        from: `"${senderName}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
         to: email,
         subject: `Reset your password — ${senderName}`,
         text: `You requested a password reset.\n\nClick this link to set a new password (expires in 1 hour):\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
-        html: `
-          <p>You requested a password reset.</p>
-          <p><a href="${resetUrl}" style="background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">Reset Password</a></p>
-          <p style="color:#888;font-size:12px;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
-        `,
+        html: passwordResetEmailHtml(user.name ?? 'there', resetUrl, senderName),
       });
     } catch (err) {
       console.error('Reset email send failed:', err);
-      // Still return ok — token is saved, user can get link another way
     }
   }
 
