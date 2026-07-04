@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Square, Send, X } from 'lucide-react';
 
@@ -23,6 +23,7 @@ type FilterMode = 'all' | 'no-website' | 'slow-site' | 'new';
 const STAGE_SORT_ORDER: Record<string, number> = {
   found: 2, contacted: 3, interested: 3, proposal: 4, won: 5, lost: 5,
 };
+const CONTACTED_STAGES_SET = new Set(['contacted', 'interested', 'proposal', 'won', 'lost']);
 
 const PER_PAGE = 20;
 
@@ -346,9 +347,15 @@ export default function Home() {
     } finally { setGenerating(false); }
   };
 
-  const noWebsiteCount = businesses.filter((b) => !b.hasWebsite).length;
-  const newCount = businesses.filter((b) => !isSaved(b.id)).length;
-  const hotCount = businesses.filter((b) => scoreProspect(b) >= 8).length;
+  // Score map: computed once per businesses change, reused everywhere
+  const scoreMap = useMemo(
+    () => new Map(businesses.map((b) => [b.id, scoreProspect(b)])),
+    [businesses],
+  );
+
+  const noWebsiteCount = useMemo(() => businesses.filter((b) => !b.hasWebsite).length, [businesses]);
+  const newCount       = useMemo(() => businesses.filter((b) => !isSaved(b.id)).length, [businesses, isSaved]);
+  const hotCount       = useMemo(() => businesses.filter((b) => (scoreMap.get(b.id) ?? 0) >= 8).length, [businesses, scoreMap]);
 
   // Opportunity density — % of the returned set that has no website
   const noWebsiteRate = businesses.length > 0 ? Math.round((noWebsiteCount / businesses.length) * 100) : 0;
@@ -357,43 +364,46 @@ export default function Home() {
     noWebsiteRate >= 35 ? { label: '✅ Good opportunity density',  cls: 'bg-green-500/15 border-green-500/25 text-green-400' } :
                           { label: 'Lower density here',           cls: 'bg-white/5 border-white/10 text-gray-400' };
 
-  const sorted = [...businesses].sort((a, b) => {
-    if (sortByScore) {
-      return scoreProspect(b) - scoreProspect(a);
-    }
+  const sorted = useMemo(() => [...businesses].sort((a, b) => {
+    if (sortByScore) return (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0);
     const aStage = isSaved(a.id) ? STAGE_SORT_ORDER[get(a.id)?.stage ?? 'found'] ?? 2 : 1;
     const bStage = isSaved(b.id) ? STAGE_SORT_ORDER[get(b.id)?.stage ?? 'found'] ?? 2 : 1;
     return aStage - bStage;
-  });
+  }), [businesses, sortByScore, scoreMap, isSaved, get]);
 
-  const CONTACTED_STAGES = new Set(['contacted', 'interested', 'proposal', 'won', 'lost']);
-  const isContacted = (b: Business) => {
+  const isContacted = useCallback((b: Business) => {
     const stage = get(b.id)?.stage;
-    return !!stage && CONTACTED_STAGES.has(stage);
-  };
+    return !!stage && CONTACTED_STAGES_SET.has(stage);
+  }, [get]);
 
-  const contactedCount = sorted.filter(isContacted).length;
+  const contactedCount = useMemo(() => sorted.filter(isContacted).length, [sorted, isContacted]);
+  const slowSiteCount  = useMemo(
+    () => sorted.filter((b) => b.hasWebsite && b.psiScore != null && b.psiScore < 50).length,
+    [sorted],
+  );
 
-  const slowSiteCount = sorted.filter((b) => b.hasWebsite && b.psiScore != null && b.psiScore < 50).length;
+  const primaryFiltered = useMemo(() => (
+    filter === 'no-website' ? sorted.filter((b) => !b.hasWebsite) :
+    filter === 'slow-site'  ? sorted.filter((b) => b.hasWebsite && b.psiScore != null && b.psiScore < 50) :
+    filter === 'new'        ? sorted.filter((b) => !isSaved(b.id)) :
+    sorted
+  ), [sorted, filter, isSaved]);
 
-  const primaryFiltered =
-    filter === 'no-website'  ? sorted.filter((b) => !b.hasWebsite) :
-    filter === 'slow-site'   ? sorted.filter((b) => b.hasWebsite && b.psiScore != null && b.psiScore < 50) :
-    filter === 'new'         ? sorted.filter((b) => !isSaved(b.id)) :
-    sorted;
-
-  const filtered = primaryFiltered
+  const filtered = useMemo(() => primaryFiltered
     .filter((b) => showContacted || !isContacted(b))
     .filter((b) => !phoneOnly || !!b.phone)
-    .filter((b) => !reviewedOnly || (b.reviewCount != null && b.reviewCount > 0));
+    .filter((b) => !reviewedOnly || (b.reviewCount != null && b.reviewCount > 0)),
+    [primaryFiltered, showContacted, isContacted, phoneOnly, reviewedOnly],
+  );
 
   // Hot leads pinned strip (score ≥ 8, only when not already sorted by score)
-  const hotLeads = !sortByScore && page === 0
-    ? filtered.filter((b) => scoreProspect(b) >= 8).slice(0, 3)
-    : [];
+  const hotLeads = useMemo(() =>
+    !sortByScore && page === 0 ? filtered.filter((b) => (scoreMap.get(b.id) ?? 0) >= 8).slice(0, 3) : [],
+    [sortByScore, page, filtered, scoreMap],
+  );
 
-  const totalPages   = Math.ceil(filtered.length / PER_PAGE);
-  const paginated    = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paginated  = useMemo(() => filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE), [filtered, page]);
 
   // Is Next locked? Free plan gets only 1 page (20 results)
   const resultsLimit    = searchMeta?.resultsLimit ?? Infinity;

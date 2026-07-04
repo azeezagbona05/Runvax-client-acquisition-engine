@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, memo } from 'react';
 import {
   MapPin, Phone, Star, Globe, Bookmark, Copy, Check,
   MessageCircle, Loader2, X, ExternalLink, CheckCircle, XCircle,
@@ -41,21 +41,22 @@ const STAGE_META: Record<string, { label: string; color: string }> = {
   lost:       { label: '❌ Lost',       color: 'text-red-400 bg-red-500/15 border-red-500/30' },
 };
 
+const CARD_CONTACTED_STAGES = new Set(['contacted', 'interested', 'proposal', 'won', 'lost']);
+
 type WaStep = 'preview' | 'confirm';
 interface WaState { step: WaStep; msg: string; link: string }
 
-export default function BusinessCard({ business, onClick, competitors }: Props) {
+function BusinessCard({ business, onClick, competitors }: Props) {
   const { isSaved, save, remove, get, markOutreachSent, updateStage, incrementToday, settings } = useProspects();
   const { waitSecs, recordSend } = useWaPaceTimer();
   const waApiConnected = !!(settings.waPhoneNumberId && settings.waTemplateStatus === 'APPROVED');
   const saved = isSaved(business.id);
   const prospect = get(business.id);
-  const score = scoreProspect(business);
-  const breakdown = scoreBreakdown(business);
-  const { label: scoreText, color: scoreColor } = scoreLabel(score);
+  const score = useMemo(() => scoreProspect(business), [business]);
+  const breakdown = useMemo(() => scoreBreakdown(business), [business]);
+  const { label: scoreText, color: scoreColor } = useMemo(() => scoreLabel(score), [score]);
   const stageMeta = prospect ? STAGE_META[prospect.stage] : null;
-  const CONTACTED_STAGES_SET = new Set(['contacted', 'interested', 'proposal', 'won', 'lost']);
-  const isAlreadyContacted = prospect ? CONTACTED_STAGES_SET.has(prospect.stage) : false;
+  const isAlreadyContacted = !!prospect && CARD_CONTACTED_STAGES.has(prospect.stage);
   const socialOnly = isSocialOnly(business);
   const timeStatus = getBestTimeStatus();
 
@@ -479,3 +480,5 @@ export default function BusinessCard({ business, onClick, competitors }: Props) 
     </>
   );
 }
+
+export default memo(BusinessCard);

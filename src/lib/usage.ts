@@ -60,20 +60,22 @@ export async function checkAndIncrementAI(req: NextRequest): Promise<UsageCheckR
     };
   }
 
-  const userRecord = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { isSuspended: true },
-  });
+  const userPlan = (token?.plan as string) ?? 'free';
+  const planConfig = await getPlanConfig(userPlan);
+  const date = todayStr();
+
+  // Run suspension check and usage lookup in parallel
+  const [userRecord, record] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { isSuspended: true } }),
+    prisma.usageRecord.findUnique({ where: { userId_date: { userId, date } } }),
+  ]);
+
   if (userRecord?.isSuspended) {
     return {
       ok: false,
       error: NextResponse.json({ error: 'This account has been suspended.', code: 'SUSPENDED' }, { status: 403 }),
     };
   }
-
-  const userPlan = (token?.plan as string) ?? 'free';
-  const planConfig = await getPlanConfig(userPlan);
-  const date = todayStr();
 
   if (planConfig.aiCallsPerDay === Infinity) {
     await prisma.usageRecord.upsert({
@@ -83,10 +85,6 @@ export async function checkAndIncrementAI(req: NextRequest): Promise<UsageCheckR
     });
     return { ok: true, userId, plan: userPlan };
   }
-
-  const record = await prisma.usageRecord.findUnique({
-    where: { userId_date: { userId, date } },
-  });
 
   const used = record?.aiCalls ?? 0;
 
@@ -149,11 +147,15 @@ export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchC
   const planConfig = await getPlanConfig(userPlan);
   const date = todayStr();
 
-  // Per-user override takes precedence over plan default.
-  const userRecord = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { searchLimitOverride: true, isSuspended: true },
-  });
+  // Run suspension/override check and usage lookup in parallel
+  const [userRecord, record] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { searchLimitOverride: true, isSuspended: true },
+    }),
+    prisma.usageRecord.findUnique({ where: { userId_date: { userId, date } } }),
+  ]);
+
   if (userRecord?.isSuspended) {
     return {
       ok: false,
@@ -172,10 +174,6 @@ export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchC
     });
     return { ok: true, userId, plan: userPlan, resultsPerSearch: planConfig.resultsPerSearch };
   }
-
-  const record = await prisma.usageRecord.findUnique({
-    where: { userId_date: { userId, date } },
-  });
 
   const used = record?.searchCount ?? 0;
 

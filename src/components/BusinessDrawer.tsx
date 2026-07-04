@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   X, MapPin, Phone, Globe, Star, Clock, Loader2, Sparkles,
   ExternalLink, MessageCircle, FileText, AlertTriangle,
@@ -118,9 +118,9 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
 
   const conversationCount = prospect?.conversations?.length ?? 0;
 
-  const score = scoreProspect(business);
-  const { label: scoreText, color: scoreColor } = scoreLabel(score);
-  const price = estimatePrice(business.category, business.categoryTypes);
+  const score = useMemo(() => scoreProspect(business), [business]);
+  const { label: scoreText, color: scoreColor } = useMemo(() => scoreLabel(score), [score]);
+  const price = useMemo(() => estimatePrice(business.category, business.categoryTypes), [business.category, business.categoryTypes]);
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(business.name)}&query_place_id=${business.id}`;
 
   const handleSaveToggle = () => {
