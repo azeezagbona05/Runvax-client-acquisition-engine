@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
 import {
-  Search, Columns3, BarChart3, Sun, Moon, Zap, Settings, MailWarning, Sparkles,
+  Search, Columns3, BarChart3, Sun, Moon, Zap, Settings, MailWarning, Sparkles, LogOut, UserCircle,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -16,6 +16,19 @@ export default function Nav() {
   const { theme, toggle } = useTheme();
   const { data: session } = useSession();
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showUserMenu]);
 
   const handleResend = useCallback(async () => {
     if (!session?.user?.email || resendStatus !== 'idle') return;
@@ -87,6 +100,48 @@ export default function Nav() {
             >
               {theme === 'dark' ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-purple-400" />}
             </button>
+
+            {/* User avatar + logout menu */}
+            {session?.user && (
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setShowUserMenu((v) => !v)}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-purple-600 text-white text-sm font-black"
+                  aria-label="Account menu"
+                >
+                  {session.user.name?.[0]?.toUpperCase() ?? session.user.email?.[0]?.toUpperCase() ?? '?'}
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-gray-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
+                    {/* User info */}
+                    <div className="px-4 py-3 border-b border-white/8">
+                      <p className="text-xs font-bold text-white truncate">{session.user.name ?? 'Account'}</p>
+                      <p className="text-[11px] text-gray-500 truncate">{session.user.email}</p>
+                    </div>
+
+                    {/* Settings link */}
+                    <Link
+                      href="/settings"
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 transition-colors border-b border-white/8"
+                    >
+                      <UserCircle className="w-4 h-4 text-gray-400" />
+                      Settings &amp; Profile
+                    </Link>
+
+                    {/* Log out */}
+                    <button
+                      onClick={() => signOut({ callbackUrl: '/' })}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>
