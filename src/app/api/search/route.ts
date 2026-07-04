@@ -42,27 +42,27 @@ export async function POST(req: NextRequest) {
       });
 
       if (cached) {
-        // Still enforce location restriction even on cache hits
-        if (location || country) {
-          const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { plan: true },
-          });
-          const locCheck = await checkLocationRestriction(
-            userId!, user?.plan ?? 'free',
-            (location as string) || '',
-            (country as string) || undefined,
-          );
-          if (!locCheck.ok) return locCheck.error!;
-        }
-
         const results = cached.results as Array<Record<string, unknown>>;
         const cachedIds = results.map((r) => r.id as string).filter(Boolean);
-        const psiRows = await prisma.cachedBusiness.findMany({
-          where: { placeId: { in: cachedIds } },
-          select: { placeId: true, psiScore: true, psiDesktopScore: true },
-        });
-        const psiMap = new Map(psiRows.map((r) => [r.placeId, r]));
+
+        // Run location check and PSI lookup in parallel
+        const [locResult, psiRows] = await Promise.all([
+          (location || country)
+            ? prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
+                .then((user) => checkLocationRestriction(
+                  userId!, user?.plan ?? 'free',
+                  (location as string) || '',
+                  (country as string) || undefined,
+                ))
+            : Promise.resolve({ ok: true }),
+          prisma.cachedBusiness.findMany({
+            where: { placeId: { in: cachedIds } },
+            select: { placeId: true, psiScore: true, psiDesktopScore: true },
+          }),
+        ]);
+
+        if (!locResult.ok) return (locResult as { ok: false; error: Response }).error;
+        const psiMap = new Map((psiRows as Array<{placeId:string; psiScore:number|null; psiDesktopScore:number|null}>).map((r) => [r.placeId, r]));
         const enriched = results.map((r) => {
           const p = psiMap.get(r.id as string);
           return { ...r, psiScore: p?.psiScore ?? undefined, psiDesktopScore: p?.psiDesktopScore ?? undefined };

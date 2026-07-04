@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  createContext, useCallback, useContext, useEffect, useState, ReactNode,
+  createContext, useCallback, useContext, useEffect, useState, useMemo, useRef, ReactNode,
 } from 'react';
 import {
   Business, SavedProspect, ProspectStage, AppSettings, DailyLog,
@@ -75,15 +75,18 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
     void load();
   }, []);
 
-  // Helpers: find prospect by Google Places ID
-  const byBizId = (bizId: string) => prospects.find((p) => p.business.id === bizId);
-  const dbIdByBizId = (bizId: string): string => {
-    const p = byBizId(bizId);
+  // Ref always points to latest prospects — lets write callbacks be stable without stale closures
+  const prospectsRef = useRef(prospects);
+  useEffect(() => { prospectsRef.current = prospects; }, [prospects]);
+
+  // Stable helpers that never change reference
+  const dbIdByBizId = useCallback((bizId: string): string => {
+    const p = prospectsRef.current.find((pr) => pr.business.id === bizId);
     return p ? dbId(p) : '';
-  };
+  }, []);
 
   const save = useCallback(async (business: Business): Promise<{ error?: string; code?: string }> => {
-    if (prospects.some((p) => p.business.id === business.id)) return {};
+    if (prospectsRef.current.some((p) => p.business.id === business.id)) return {};
 
     const res = await fetch('/api/prospects', {
       method: 'POST',
@@ -97,16 +100,14 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
 
     setProspects((prev) => [data, ...prev]);
     return {};
-  }, [prospects]);
+  }, []);
 
   const remove = useCallback(async (businessId: string) => {
     const id = dbIdByBizId(businessId);
     if (!id) return;
-
     setProspects((prev) => prev.filter((p) => p.business.id !== businessId));
     await fetch(`/api/prospects/${id}`, { method: 'DELETE' });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prospects]);
+  }, [dbIdByBizId]);
 
   const patch = useCallback(async (businessId: string, body: Record<string, unknown>) => {
     const id = dbIdByBizId(businessId);
@@ -116,8 +117,7 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prospects]);
+  }, [dbIdByBizId]);
 
   const updateStage = useCallback(async (businessId: string, stage: ProspectStage) => {
     setProspects((prev) => prev.map((p) => p.business.id === businessId ? { ...p, stage } : p));
@@ -160,8 +160,7 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
       p.business.id === businessId ? { ...p, followUpSequence: data.steps } : p
     ));
     return {};
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prospects]);
+  }, [dbIdByBizId]);
 
   const updateSequenceStep = useCallback(async (businessId: string, stepId: string, status: 'sent' | 'skipped') => {
     const id = dbIdByBizId(businessId);
@@ -177,8 +176,7 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
         p.business.id === businessId ? { ...p, followUpSequence: data.steps } : p
       ));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prospects]);
+  }, [dbIdByBizId]);
 
   const addConversationEntry = useCallback(async (
     businessId: string,
@@ -186,13 +184,11 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
   ) => {
     const id = dbIdByBizId(businessId);
     if (!id) return;
-
     const res = await fetch(`/api/prospects/${id}/conversations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(entry),
     });
-
     if (res.ok) {
       const full = await res.json() as ConversationEntry;
       setProspects((prev) => prev.map((p) =>
@@ -201,8 +197,7 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
           : p
       ));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prospects]);
+  }, [dbIdByBizId]);
 
   const markOutreachSent = useCallback(async (
     businessId: string,
@@ -211,26 +206,20 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
     framework?: string,
   ) => {
     const outreachSentAt = new Date().toISOString();
-
-    // Optimistic update
+    // Read current stage from ref to avoid stale closure
+    const currentStage = prospectsRef.current.find((p) => p.business.id === businessId)?.stage;
     setProspects((prev) => prev.map((p) => {
       if (p.business.id !== businessId) return p;
-      return {
-        ...p,
-        outreachSentAt,
-        stage: p.stage === 'found' ? 'contacted' : p.stage,
-      };
+      return { ...p, outreachSentAt, stage: p.stage === 'found' ? 'contacted' : p.stage };
     }));
-
     await Promise.all([
       patch(businessId, {
         outreachSentAt,
-        stage: byBizId(businessId)?.stage === 'found' ? 'contacted' : undefined,
+        stage: currentStage === 'found' ? 'contacted' : undefined,
       }),
       addConversationEntry(businessId, { type: 'sent', channel, content, framework }),
     ]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prospects, patch, addConversationEntry]);
+  }, [patch, addConversationEntry]);
 
   const isSaved = useCallback(
     (id: string) => prospects.some((p) => p.business.id === id),
@@ -264,13 +253,20 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
 
   const todayCount = dailyLogs.find((l) => l.date === todayStr())?.count ?? 0;
 
+  const ctxValue = useMemo(() => ({
+    prospects, loading, save, remove, updateStage, updateNotes,
+    setReminder, clearReminder, setFollowUpSequence, generateSequence, updateSequenceStep,
+    markOutreachSent, addConversationEntry,
+    isSaved, get, settings, updateSettings, dailyLogs, incrementToday, todayCount,
+  }), [
+    prospects, loading, isSaved, get, settings, dailyLogs, todayCount,
+    save, remove, updateStage, updateNotes, setReminder, clearReminder,
+    setFollowUpSequence, generateSequence, updateSequenceStep,
+    markOutreachSent, addConversationEntry, updateSettings, incrementToday,
+  ]);
+
   return (
-    <ProspectsContext.Provider value={{
-      prospects, loading, save, remove, updateStage, updateNotes,
-      setReminder, clearReminder, setFollowUpSequence, generateSequence, updateSequenceStep,
-      markOutreachSent, addConversationEntry,
-      isSaved, get, settings, updateSettings, dailyLogs, incrementToday, todayCount,
-    }}>
+    <ProspectsContext.Provider value={ctxValue}>
       {children}
     </ProspectsContext.Provider>
   );

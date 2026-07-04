@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Phone, Star, MessageCircle, StickyNote, Bell, ChevronRight, ChevronLeft,
   Trash2, Download, Zap, CheckSquare, Square, X, Search, Check, Calendar,
@@ -344,7 +344,7 @@ export default function PipelinePage() {
     setDragOverStage(null);
   }, [draggingId, updateStage]);
 
-  const matchesSearch = (p: SavedProspect) => {
+  const matchesSearch = useCallback((p: SavedProspect) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -353,9 +353,12 @@ export default function PipelinePage() {
       (p.business.address ?? '').toLowerCase().includes(q) ||
       (p.business.phone ?? '').includes(q)
     );
-  };
+  }, [search]);
 
-  const selectedProspects = prospects.filter((p) => selectedIds.has(p.business.id));
+  const selectedProspects = useMemo(
+    () => prospects.filter((p) => selectedIds.has(p.business.id)),
+    [prospects, selectedIds],
+  );
 
   if (prospects.length === 0) {
     return (
@@ -372,8 +375,23 @@ export default function PipelinePage() {
     );
   }
 
-  const totalValue = prospects.filter((p) => p.stage !== 'lost').reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0);
-  const wonValue = prospects.filter((p) => p.stage === 'won').reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0);
+  const totalValue = useMemo(
+    () => prospects.filter((p) => p.stage !== 'lost').reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0),
+    [prospects],
+  );
+  const wonValue = useMemo(
+    () => prospects.filter((p) => p.stage === 'won').reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0),
+    [prospects],
+  );
+
+  // Pre-compute per-stage filtered lists once per prospects/search change
+  const prospectsByStage = useMemo(() => {
+    const map = new Map<string, SavedProspect[]>();
+    for (const stage of STAGES) {
+      map.set(stage.id, prospects.filter((p) => p.stage === stage.id && matchesSearch(p)));
+    }
+    return map;
+  }, [prospects, matchesSearch]);
 
   return (
     <div className="min-h-dvh bg-gray-950">
@@ -442,7 +460,7 @@ export default function PipelinePage() {
           {/* Stage filters */}
           <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
             {STAGES.map((s) => {
-              const count = prospects.filter((p) => p.stage === s.id && matchesSearch(p)).length;
+              const count = prospectsByStage.get(s.id)?.length ?? 0;
               const active = activeStages.includes(s.id);
               return (
                 <button key={s.id} onClick={() => toggleStage(s.id)}
@@ -459,7 +477,7 @@ export default function PipelinePage() {
 
       {/* Due follow-ups banner */}
       {(() => {
-        const dueProspects = prospects.filter(hasDueStepToday);
+        const dueProspects = prospects.filter(hasDueStepToday); // eslint-disable-line react-hooks/exhaustive-deps
         if (!dueProspects.length) return null;
         return (
           <div className="px-4 pt-3 max-w-[1600px] mx-auto">
@@ -488,7 +506,7 @@ export default function PipelinePage() {
       <div className="overflow-x-auto snap-x snap-mandatory sm:snap-none" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 min-w-max max-w-[1600px] mx-auto">
           {STAGES.filter((s) => activeStages.includes(s.id)).map((stage) => {
-            const stageProspects = prospects.filter((p) => p.stage === stage.id && matchesSearch(p));
+            const stageProspects = prospectsByStage.get(stage.id) ?? [];
             const stageValue = stageProspects.reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0);
             const isDragTarget = !selectMode && dragOverStage === stage.id;
             const colPage = colPages[stage.id] ?? 1;

@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { Loader2, SearchX } from 'lucide-react';
 import BusinessCard from './BusinessCard';
 import { Business } from '@/types';
@@ -15,7 +16,7 @@ interface Props {
   onToggleSelect?: (id: string) => void;
 }
 
-export default function BusinessGrid({ businesses, loading, error, onSelect, competitors, selectMode, selectedIds, onToggleSelect }: Props) {
+function BusinessGrid({ businesses, loading, error, onSelect, competitors, selectMode, selectedIds, onToggleSelect }: Props) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-28 gap-4 text-center">
@@ -77,3 +78,5 @@ export default function BusinessGrid({ businesses, loading, error, onSelect, com
     </div>
   );
 }
+
+export default memo(BusinessGrid);
