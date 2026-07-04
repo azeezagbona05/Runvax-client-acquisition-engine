@@ -10,10 +10,13 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 const RP_NAME = 'ProspectAI';
-const RP_ID  = process.env.NEXT_PUBLIC_SITE_URL
-  ? new URL(process.env.NEXT_PUBLIC_SITE_URL).hostname
-  : 'localhost';
-const ORIGIN = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+function getOriginAndRpId(req: NextRequest) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  const origin = configured || req.headers.get('origin') || 'http://localhost:3000';
+  const rpId = new URL(origin).hostname;
+  return { origin, rpId };
+}
 
 // GET — generate registration options (challenge)
 export async function GET(req: NextRequest) {
@@ -33,9 +36,11 @@ export async function GET(req: NextRequest) {
     select: { credentialId: true, transports: true },
   });
 
+  const { rpId } = getOriginAndRpId(req);
+
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
-    rpID: RP_ID,
+    rpID: rpId,
     userName: user.email ?? user.id,
     userDisplayName: user.name ?? user.email ?? 'ProspectAI User',
     excludeCredentials: existing.map((c) => ({
@@ -78,13 +83,15 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json() as { response: RegistrationResponseJSON; deviceName?: string };
 
+  const { origin, rpId } = getOriginAndRpId(req);
+
   let verification;
   try {
     verification = await verifyRegistrationResponse({
       response: body.response,
       expectedChallenge: challenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
+      expectedOrigin: origin,
+      expectedRPID: rpId,
       requireUserVerification: true,
     });
   } catch (e) {

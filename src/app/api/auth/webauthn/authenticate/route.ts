@@ -9,10 +9,12 @@ import { encode } from 'next-auth/jwt';
 
 export const dynamic = 'force-dynamic';
 
-const RP_ID  = process.env.NEXT_PUBLIC_SITE_URL
-  ? new URL(process.env.NEXT_PUBLIC_SITE_URL).hostname
-  : 'localhost';
-const ORIGIN = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+function getOriginAndRpId(req: NextRequest) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  const origin = configured || req.headers.get('origin') || 'http://localhost:3000';
+  const rpId = new URL(origin).hostname;
+  return { origin, rpId };
+}
 
 // GET — generate authentication options (challenge)
 // Called with ?email= so we can look up the user's credentials
@@ -29,8 +31,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'No biometric registered for this account' }, { status: 404 });
   }
 
+  const { rpId } = getOriginAndRpId(req);
+
   const options = await generateAuthenticationOptions({
-    rpID: RP_ID,
+    rpID: rpId,
     userVerification: 'preferred',
     allowCredentials: user.webAuthnCredentials.map((c) => ({
       id: c.credentialId,
@@ -68,13 +72,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Credential not found' }, { status: 400 });
   }
 
+  const { origin, rpId } = getOriginAndRpId(req);
+
   let verification;
   try {
     verification = await verifyAuthenticationResponse({
       response: body.response,
       expectedChallenge: challenge,
-      expectedOrigin: ORIGIN,
-      expectedRPID: RP_ID,
+      expectedOrigin: origin,
+      expectedRPID: rpId,
       credential: {
         id: cred.credentialId,
         publicKey: new Uint8Array(cred.publicKey),
