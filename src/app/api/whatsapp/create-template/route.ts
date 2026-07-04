@@ -5,10 +5,9 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
+import { TEMPLATE_NAME, TEMPLATE_BODY } from '@/lib/whatsapp-constants';
+
 const GRAPH = 'https://graph.facebook.com/v20.0';
-export const TEMPLATE_NAME = 'beamai_outreach_v1';
-export const TEMPLATE_BODY =
-  'Hi! I noticed *{{1}}* on Google Maps has no website yet. Customers searching online for your services can\'t find you easily. I help local businesses get professional websites quickly and affordably. Would you like to see what yours could look like?';
 
 export async function POST() {
   const session = await getServerSession(authOptions);
