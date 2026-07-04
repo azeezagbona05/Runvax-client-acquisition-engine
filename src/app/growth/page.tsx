@@ -535,6 +535,17 @@ export default function GrowthPage() {
               when someone asks how to find clients for their web agency in Nigeria.
             </p>
           </div>
+
+          {/* Deep SEO link */}
+          <a href="/growth/seo" className="mt-4 flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-blue-900/40 to-purple-900/30 border border-blue-500/25 hover:border-blue-500/50 rounded-2xl transition-all group">
+            <div className="w-8 h-8 bg-blue-600/30 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-base">🔑</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white">World-Class SEO Analysis →</p>
+              <p className="text-xs text-gray-500">200+ keywords · competitor gaps · content calendar · llms.txt · 90-day authority plan</p>
+            </div>
+          </a>
         </div>
 
         {/* Run All */}
