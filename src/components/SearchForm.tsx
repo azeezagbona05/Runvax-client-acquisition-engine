@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, MapPin, Loader2, Clock, Sparkles, ChevronDown, X } from 'lucide-react';
+import { Search, MapPin, Loader2, Clock, Sparkles, ChevronDown, X, ArrowLeft, Navigation } from 'lucide-react';
 import { SearchFormData } from '@/types';
 import { getSearchHistory, getBestTimeStatus, SearchHistoryEntry } from '@/lib/searchHistory';
 import { AREAS, STATES, TIER_CONFIG, Area } from '@/lib/areas';
@@ -66,12 +66,16 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
   const [industryError, setIndustryError] = useState('');
   const [locationError, setLocationError] = useState('');
   const [geoError, setGeoError]           = useState('');
-  const [countrySearch, setCountrySearch] = useState('');
-  const [showCountryDd, setShowCountryDd] = useState(false);
+  const [countrySearch, setCountrySearch]         = useState('');
+  const [showCountryDd, setShowCountryDd]         = useState(false);
+  const [showMobileLocPicker, setShowMobileLocPicker] = useState(false);
+  const [mobileLocSearch, setMobileLocSearch]     = useState('');
+  const [mobileExpanded, setMobileExpanded]       = useState(false);
 
-  const locationRef   = useRef<HTMLInputElement>(null);
-  const countryDdRef  = useRef<HTMLDivElement>(null);
-  const stateSelectRef = useRef<HTMLSelectElement>(null);
+  const locationRef      = useRef<HTMLInputElement>(null);
+  const mobileLocRef     = useRef<HTMLInputElement>(null);
+  const countryDdRef     = useRef<HTMLDivElement>(null);
+  const stateSelectRef   = useRef<HTMLSelectElement>(null);
 
   useEffect(() => { getSearchHistory().then(setHistory); }, []);
   useEffect(() => { setTimeStatus(getBestTimeStatus(country)); }, [country]);
@@ -139,8 +143,51 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
   // Keep alias for backward compat in JSX
   const cityGroups = browseGroups;
 
+  // ── Mobile picker computed values ──
+  const mobileLocQuery = mobileLocSearch.toLowerCase().trim();
+  const mobileMatchedAreas = mobileLocQuery
+    ? countryAreas.filter((a) =>
+        a.name.toLowerCase().includes(mobileLocQuery) ||
+        a.city.toLowerCase().includes(mobileLocQuery) ||
+        a.note.toLowerCase().includes(mobileLocQuery),
+      )
+    : countryAreas;
+  const mobileBrowseGroups: { label: string; areas: Area[] }[] = [];
+  if (!mobileLocQuery) {
+    const mobileGroupMap = new Map<string, Area[]>();
+    mobileMatchedAreas.forEach((a) => {
+      const key = a.lga ?? a.city;
+      if (!mobileGroupMap.has(key)) mobileGroupMap.set(key, []);
+      mobileGroupMap.get(key)!.push(a);
+    });
+    mobileGroupMap.forEach((areas, label) => mobileBrowseGroups.push({ label, areas }));
+  }
+
+  const openMobilePicker = () => {
+    setMobileLocSearch(location);
+    setShowMobileLocPicker(true);
+    setTimeout(() => mobileLocRef.current?.focus(), 80);
+  };
+
+  const closeMobilePicker = () => {
+    setShowMobileLocPicker(false);
+    setMobileLocSearch('');
+  };
+
+  const pickLocationMobile = (area: Area) => {
+    setLocation(area.name);
+    setSelectedTier(area.tier);
+    setLat(undefined); setLng(undefined);
+    setLocationError('');
+    closeMobilePicker();
+    if (industry.trim()) runSearch(industry, area.name);
+  };
+
+  const showFullForm = landing || mobileExpanded;
+
   const runSearch = (ind: string, loc: string, lt?: number, ln?: number) => {
     if (!ind.trim() || (!loc.trim() && !lt)) return;
+    setMobileExpanded(false);
     const q = lt ? `${ind} near me` : `${ind} in ${loc}`;
     onSearch({ industry: ind, location: loc, country, lat: lt, lng: ln, radius, query: q });
   };
@@ -178,6 +225,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     setLocationError('');
     if (!industry.trim()) { setIndustryError('Please enter an industry or business type.'); return; }
     if (!location.trim() && !lat) { setLocationError('Please enter a location or use your GPS.'); return; }
+    setMobileExpanded(false);
     runSearch(industry, location, lat, lng);
   };
 
@@ -232,7 +280,27 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
 
   return (
     <>
-    <div className="bg-gradient-to-br from-purple-950/60 via-gray-900 to-gray-950 border-b border-white/5">
+    {/* Mobile compact bar — replaces full form on mobile after first search */}
+    {!showFullForm && (
+      <div className="sm:hidden border-b border-white/8 bg-gray-900/95 px-4 py-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setMobileExpanded(true)}
+          className="flex-1 bg-gray-800/80 border border-white/10 rounded-xl px-4 py-2.5 text-left flex items-center gap-3 active:bg-gray-700/80 transition-colors"
+        >
+          <Search className="w-4 h-4 text-purple-400 flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-white text-sm font-semibold truncate">{industry || 'Search prospects'}</p>
+            <p className="text-gray-500 text-xs truncate">
+              {location || 'Any location'} · {selectedCountry.flag} {selectedCountry.name}
+            </p>
+          </div>
+          <ChevronDown className="w-4 h-4 text-gray-600 flex-shrink-0" />
+        </button>
+      </div>
+    )}
+
+    <div className={`bg-gradient-to-br from-purple-950/60 via-gray-900 to-gray-950 border-b border-white/5 ${!showFullForm ? 'hidden sm:block' : ''}`}>
       <div className="max-w-4xl mx-auto px-4 py-6 md:py-8">
 
         {/* Hero */}
@@ -422,6 +490,21 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
                 )}
               </label>
               <div className="flex gap-2">
+                {/* Mobile: tapping opens full-screen picker */}
+                <button
+                  type="button"
+                  onClick={openMobilePicker}
+                  className={`sm:hidden flex-1 bg-gray-800/80 border rounded-xl px-4 py-3 text-sm text-left transition-colors ${
+                    location ? 'text-white' : 'text-gray-600'
+                  } ${locationError ? 'border-red-500' : 'border-white/10'}`}
+                >
+                  {location || (selectedState
+                    ? `Search in ${STATES.find(s => s.code === selectedState)?.name}…`
+                    : country === 'OTHER' ? 'Type any city or area…'
+                    : `Search areas in ${selectedCountry.name}…`)}
+                </button>
+
+                {/* Desktop: normal text input with dropdown */}
                 <input ref={locationRef} type="text" value={location}
                   onChange={(e) => {
                     setLocation(e.target.value);
@@ -439,7 +522,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
                         ? 'Type any city or area…'
                         : `Search areas in ${selectedCountry.name}…`
                   }
-                  className={`flex-1 bg-gray-800/80 border rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none transition-colors text-sm ${locationError ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-purple-500'}`}
+                  className={`hidden sm:block flex-1 bg-gray-800/80 border rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none transition-colors text-sm ${locationError ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-purple-500'}`}
                 />
                 <button type="button" onClick={handleGeolocate} disabled={geoLoading} title="Use GPS"
                   className="bg-gray-700 hover:bg-gray-600 border border-white/10 rounded-xl px-3.5 transition-colors disabled:opacity-50 flex items-center">
@@ -458,9 +541,9 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
                 </p>
               )}
 
-              {/* Area dropdown */}
+              {/* Area dropdown — desktop only */}
               {showLocSug && (query ? matchedAreas.length > 0 : cityGroups.length > 0) && (
-                <div className="absolute top-full left-0 right-[52px] mt-1 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden max-h-80 overflow-y-auto">
+                <div className="hidden sm:block absolute top-full left-0 right-[52px] mt-1 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden max-h-80 overflow-y-auto">
 
                   {/* SEARCH MODE — flat results with tier badge + LGA hint */}
                   {query && matchedAreas.map((area) => (
@@ -575,6 +658,134 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
         </div>
       </div>
     </div>
+    )}
+
+    {/* ── Mobile full-screen location picker ── */}
+    {showMobileLocPicker && (
+      <div
+        className="sm:hidden fixed inset-0 z-[100] flex flex-col bg-gray-950"
+        style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        {/* Header */}
+        <div className="bg-gray-900 border-b border-white/8 px-4 pt-3 pb-3 space-y-3 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={closeMobilePicker}
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 active:bg-white/10"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-bold text-sm">Choose Area</p>
+              <p className="text-gray-500 text-xs truncate">{selectedCountry.flag} {selectedCountry.name}{selectedState ? ` · ${STATES.find(s => s.code === selectedState)?.name}` : ''}</p>
+            </div>
+            {mobileLocSearch && (
+              <button type="button" onClick={() => setMobileLocSearch('')} className="text-gray-500 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Search input */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+            <input
+              ref={mobileLocRef}
+              type="text"
+              value={mobileLocSearch}
+              onChange={(e) => setMobileLocSearch(e.target.value)}
+              placeholder={selectedState
+                ? `Search in ${STATES.find(s => s.code === selectedState)?.name}…`
+                : `Search areas in ${selectedCountry.name}…`}
+              className="w-full bg-gray-800 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Scrollable list */}
+        <div className="flex-1 overflow-y-auto">
+
+          {/* GPS option */}
+          <button
+            type="button"
+            onClick={() => { handleGeolocate(); closeMobilePicker(); }}
+            className="w-full flex items-center gap-4 px-4 py-4 border-b border-white/5 active:bg-white/5"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
+              <Navigation className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="text-left min-w-0">
+              <p className="text-white text-sm font-semibold">Use my current location</p>
+              <p className="text-gray-500 text-xs mt-0.5">GPS auto-detect</p>
+            </div>
+          </button>
+
+          {/* Results */}
+          {mobileLocQuery ? (
+            /* Search mode — flat list */
+            mobileMatchedAreas.length === 0 ? (
+              <div className="text-center py-16 text-gray-600">
+                <p className="text-base mb-1">No areas found</p>
+                <p className="text-sm">Try a different search term</p>
+              </div>
+            ) : (
+              mobileMatchedAreas.map((area) => (
+                <button
+                  key={`${area.lga ?? area.city}-${area.name}`}
+                  type="button"
+                  onClick={() => pickLocationMobile(area)}
+                  className={`w-full flex items-center justify-between gap-4 px-4 py-4 border-b border-white/5 active:bg-purple-600/10 ${location === area.name ? 'bg-purple-600/10' : ''}`}
+                >
+                  <div className="min-w-0 text-left">
+                    <p className="text-white text-sm font-medium">{area.name}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">
+                      {area.lga ? <span className="text-purple-400/70">{area.lga} · </span> : null}
+                      {area.note}
+                    </p>
+                  </div>
+                  <span className={`flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full border ${TIER_CONFIG[area.tier].badge}`}>
+                    {TIER_CONFIG[area.tier].label}
+                  </span>
+                </button>
+              ))
+            )
+          ) : (
+            /* Browse mode — grouped */
+            mobileBrowseGroups.length === 0 ? (
+              <div className="text-center py-16 text-gray-600 text-sm">No areas available</div>
+            ) : (
+              mobileBrowseGroups.map(({ label, areas }) => (
+                <div key={label}>
+                  <div className="px-4 py-2.5 bg-gray-900/80 border-b border-white/5 sticky top-0 z-10">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-purple-400">{label}</p>
+                    <p className="text-[10px] text-gray-600">{areas.length} area{areas.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  {areas.map((area) => (
+                    <button
+                      key={`${area.lga ?? area.city}-${area.name}`}
+                      type="button"
+                      onClick={() => pickLocationMobile(area)}
+                      className={`w-full flex items-center justify-between gap-4 px-4 py-4 border-b border-white/5 active:bg-purple-600/10 ${location === area.name ? 'bg-purple-600/10' : ''}`}
+                    >
+                      <div className="min-w-0 text-left">
+                        <p className="text-white text-sm font-medium">{area.name}</p>
+                        <p className="text-gray-500 text-xs mt-0.5">{area.note}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {location === area.name && <span className="text-purple-400 text-xs">✓</span>}
+                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${TIER_CONFIG[area.tier].badge}`}>
+                          {TIER_CONFIG[area.tier].label}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ))
+            )
+          )}
+        </div>
+      </div>
     )}
     </>
   );

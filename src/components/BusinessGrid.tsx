@@ -49,7 +49,7 @@ function BusinessGrid({ businesses, loading, error, onSelect, competitors, selec
     );
   }
 
-  if (!hasSearched) {
+  if (!hasSearched && businesses.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-5 text-center">
         <div className="w-20 h-20 rounded-3xl bg-purple-600/15 border border-purple-500/20 flex items-center justify-center text-4xl">
