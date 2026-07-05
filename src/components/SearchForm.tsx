@@ -34,6 +34,13 @@ const COUNTRIES = [
   { code: 'OTHER', name: 'Other',       flag: '🌍' },
 ];
 
+// Nigeria first, then alphabetical, Other last
+const COUNTRIES_SORTED = [
+  COUNTRIES.find((c) => c.code === 'NG')!,
+  ...COUNTRIES.filter((c) => c.code !== 'NG' && c.code !== 'OTHER').sort((a, b) => a.name.localeCompare(b.name)),
+  COUNTRIES.find((c) => c.code === 'OTHER')!,
+];
+
 interface SearchFormProps {
   onSearch: (data: SearchFormData) => void;
   loading: boolean;
@@ -59,11 +66,27 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
   const [industryError, setIndustryError] = useState('');
   const [locationError, setLocationError] = useState('');
   const [geoError, setGeoError]           = useState('');
+  const [countrySearch, setCountrySearch] = useState('');
+  const [showCountryDd, setShowCountryDd] = useState(false);
 
-  const locationRef = useRef<HTMLInputElement>(null);
+  const locationRef   = useRef<HTMLInputElement>(null);
+  const countryDdRef  = useRef<HTMLDivElement>(null);
+  const stateSelectRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => { getSearchHistory().then(setHistory); }, []);
   useEffect(() => { setTimeStatus(getBestTimeStatus(country)); }, [country]);
+
+  useEffect(() => {
+    if (!showCountryDd) return;
+    const handle = (e: MouseEvent) => {
+      if (countryDdRef.current && !countryDdRef.current.contains(e.target as Node)) {
+        setShowCountryDd(false);
+        setCountrySearch('');
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [showCountryDd]);
 
   const selectedCountry = COUNTRIES.find((c) => c.code === country) ?? COUNTRIES[0];
 
@@ -80,6 +103,13 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     if (stateCities) return stateCities.includes(a.city);
     return true;
   });
+
+  const filteredCountries = countrySearch.trim()
+    ? COUNTRIES_SORTED.filter((c) =>
+        c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+        c.code.toLowerCase().includes(countrySearch.toLowerCase()),
+      )
+    : COUNTRIES_SORTED;
 
   const indSuggestions = industry.trim()
     ? INDUSTRIES.filter((s) => s.toLowerCase().includes(industry.toLowerCase()))
@@ -123,7 +153,13 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     setLat(undefined);
     setLng(undefined);
     setLocationError('');
-    setTimeout(() => locationRef.current?.focus(), 50);
+    setShowCountryDd(false);
+    setCountrySearch('');
+    // Auto-focus state if country has states, otherwise focus location
+    setTimeout(() => {
+      if (stateSelectRef.current) stateSelectRef.current.focus();
+      else locationRef.current?.focus();
+    }, 80);
   };
 
   const handleStateChange = (stateCode: string | null) => {
@@ -240,72 +276,88 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
         {/* Form */}
         <form onSubmit={handleSubmit} className="bg-white/[0.04] backdrop-blur border border-white/10 rounded-2xl p-5 md:p-6 space-y-4">
 
-          {/* ── Step 1: Country ── */}
-          <div>
-            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-              1 · Country
-            </label>
-            <div className="flex gap-2 flex-wrap">
-              {COUNTRIES.map((c) => (
-                <button
-                  key={c.code}
-                  type="button"
-                  title={c.name}
-                  onClick={() => handleCountryChange(c.code)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-all ${
-                    country === c.code
-                      ? 'bg-purple-600/30 border-purple-500/50 text-white'
-                      : 'bg-gray-800/60 border-white/10 text-gray-400 hover:border-purple-500/30 hover:text-gray-200'
-                  }`}
-                >
-                  <span>{c.flag}</span>
-                  <span className="sm:hidden text-[11px] font-bold tracking-wide">
-                    {c.code === 'OTHER' ? 'Other' : c.code}
-                  </span>
-                  <span className="hidden sm:inline">{c.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* ── Step 1: Country + Step 2: State ── */}
+          <div className="grid sm:grid-cols-2 gap-4">
 
-          {/* ── Step 2: State / Region ── */}
-          {country !== 'OTHER' && countryStates.length > 0 && (
+            {/* Country — searchable custom dropdown */}
             <div>
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                2 · State / Region
+                1 · Country
               </label>
-              <div
-                className="flex gap-2 overflow-x-auto pb-1"
-                style={{ scrollbarWidth: 'none' }}
-              >
+              <div className="relative" ref={countryDdRef}>
                 <button
                   type="button"
-                  onClick={() => handleStateChange(null)}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                    !selectedState
-                      ? 'bg-purple-600/30 border-purple-500/50 text-white'
-                      : 'bg-gray-800/60 border-white/10 text-gray-400 hover:border-purple-500/30 hover:text-gray-200'
-                  }`}
+                  onClick={() => setShowCountryDd((v) => !v)}
+                  className={`w-full bg-gray-800/80 border rounded-xl pl-4 pr-10 py-3 text-sm text-left flex items-center gap-2.5 transition-colors ${showCountryDd ? 'border-purple-500 text-white' : 'border-white/10 text-white hover:border-purple-500/40'}`}
                 >
-                  All states
+                  <span className="text-base leading-none">{selectedCountry.flag}</span>
+                  <span className="flex-1 truncate">{selectedCountry.name}</span>
+                  <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 transition-transform ${showCountryDd ? 'rotate-180' : ''}`} />
                 </button>
-                {countryStates.map((s) => (
-                  <button
-                    key={s.code}
-                    type="button"
-                    onClick={() => handleStateChange(s.code)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap ${
-                      selectedState === s.code
-                        ? 'bg-purple-600/30 border-purple-500/50 text-white'
-                        : 'bg-gray-800/60 border-white/10 text-gray-400 hover:border-purple-500/30 hover:text-gray-200'
-                    }`}
-                  >
-                    {s.name}
-                  </button>
-                ))}
+
+                {showCountryDd && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-30 overflow-hidden">
+                    <div className="p-2 border-b border-white/8">
+                      <input
+                        type="text"
+                        value={countrySearch}
+                        onChange={(e) => setCountrySearch(e.target.value)}
+                        placeholder="Search country…"
+                        autoFocus
+                        className="w-full bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                    <div className="max-h-52 overflow-y-auto">
+                      {filteredCountries.length === 0 && (
+                        <p className="text-center text-gray-600 text-sm py-4">No match</p>
+                      )}
+                      {filteredCountries.map((c, i) => (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onMouseDown={() => handleCountryChange(c.code)}
+                          className={`w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm transition-colors border-b border-white/5 last:border-0 ${
+                            country === c.code
+                              ? 'bg-purple-600/25 text-purple-200 font-semibold'
+                              : 'text-gray-300 hover:bg-purple-600/20 hover:text-white'
+                          }`}
+                        >
+                          <span className="text-base leading-none">{c.flag}</span>
+                          <span className="flex-1">{c.name}</span>
+                          {i === 0 && !countrySearch && (
+                            <span className="text-[10px] text-purple-400 font-bold">Popular</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+
+            {/* State / Region */}
+            {country !== 'OTHER' && countryStates.length > 0 && (
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                  2 · State / Region
+                </label>
+                <div className="relative">
+                  <select
+                    ref={stateSelectRef}
+                    value={selectedState ?? ''}
+                    onChange={(e) => handleStateChange(e.target.value || null)}
+                    className="w-full bg-gray-800/80 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm appearance-none cursor-pointer"
+                  >
+                    <option value="">All states</option>
+                    {countryStates.map((s) => (
+                      <option key={s.code} value={s.code}>{s.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* ── Step 3: Industry + Area ── */}
           <div className="grid md:grid-cols-2 gap-4">
@@ -459,7 +511,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
 
                   {!query && !selectedState && (
                     <div className="px-4 py-2.5 text-[11px] text-gray-600 border-t border-white/5">
-                      Select a state above to narrow down · or type to search all of {selectedCountry.name}
+                      Pick a state to narrow down · or type to search all of {selectedCountry.name}
                     </div>
                   )}
                 </div>

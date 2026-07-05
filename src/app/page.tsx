@@ -606,22 +606,113 @@ export default function Home() {
 
           {/* Opportunity density banner */}
           {!guestGate && !loading && !error && businesses.length > 0 && lastSearch && (
-            <div className="mb-5 flex items-center gap-3 flex-wrap bg-gray-800/60 border border-white/8 rounded-2xl px-4 py-3">
-              <span className="text-2xl leading-none">🎯</span>
-              <p className="text-sm text-gray-300 flex-1 min-w-0">
+            <div className="mb-5 flex items-center gap-3 bg-gray-800/60 border border-white/8 rounded-2xl px-4 py-3">
+              <span className="text-2xl leading-none flex-shrink-0">🎯</span>
+              <p className="hidden sm:block text-sm text-gray-300 flex-1 min-w-0">
                 Of the top <strong className="text-white">{businesses.length}</strong>{' '}
                 <strong className="text-white">{lastSearch.industry.toLowerCase()}</strong> in{' '}
                 <strong className="text-white">{lastSearch.location.split(',')[0]}</strong>,{' '}
                 <strong className="text-orange-400">{noWebsiteRate}% have no website</strong>.
               </p>
-              <span className={`text-xs font-bold px-3 py-1.5 rounded-full border whitespace-nowrap ${density.cls}`}>
+              <p className="sm:hidden text-xs text-gray-300 flex-1 min-w-0">
+                <strong className="text-orange-400">{noWebsiteRate}%</strong> no website in{' '}
+                <strong className="text-white">{lastSearch.location.split(',')[0]}</strong>
+              </p>
+              <span className={`flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border whitespace-nowrap ${density.cls}`}>
                 {density.label}
               </span>
             </div>
           )}
 
           {!guestGate && !loading && !error && businesses.length > 0 && (
-            <div className="flex items-center gap-3 mb-6 flex-wrap">
+            <>
+              {/* Mobile filter bar — single scrollable row */}
+              <div className="sm:hidden mb-4 space-y-2">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span>
+                    <strong className="text-white">{filtered.length}</strong> results ·{' '}
+                    <strong className="text-orange-400">{noWebsiteCount}</strong> no website ·{' '}
+                    <strong className="text-green-400">{newCount}</strong> new
+                  </span>
+                  {totalPages > 1 && (
+                    <span className="text-gray-600">
+                      · p<strong className="text-purple-400">{page + 1}</strong>/{maxAllowedPages}
+                    </span>
+                  )}
+                  <div className={`ml-auto flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border ${
+                    timeStatus.level === 'low' ? 'bg-red-500/10 border-red-500/30'
+                    : timeStatus.level === 'good' ? 'bg-green-500/10 border-green-500/25'
+                    : 'bg-amber-500/10 border-amber-500/30'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${timeStatus.dot} ${timeStatus.level === 'low' ? 'animate-ping' : 'animate-pulse'}`} />
+                    <span className={`font-semibold ${timeStatus.color}`}>{timeStatus.label}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+                  <button onClick={() => handleFilterChange('all')}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'all' ? 'bg-purple-600 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
+                    All ({businesses.length})
+                  </button>
+                  <button onClick={() => handleFilterChange('no-website')}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'no-website' ? 'bg-orange-500 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
+                    🎯 No Site ({noWebsiteCount})
+                  </button>
+                  <button onClick={() => handleFilterChange('new')}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'new' ? 'bg-green-600 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
+                    ✨ New ({newCount})
+                  </button>
+                  {slowSiteCount > 0 && (
+                    <button onClick={() => handleFilterChange('slow-site')}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'slow-site' ? 'bg-red-600 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
+                      🐌 Slow ({slowSiteCount})
+                    </button>
+                  )}
+                  <span className="flex-shrink-0 text-gray-700 text-xs mx-1">·</span>
+                  <button onClick={() => setPhoneOnly((v) => !v)} title="Phone only"
+                    className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${phoneOnly ? 'bg-green-700 text-green-200 border border-green-600/50' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
+                    📞
+                  </button>
+                  <button onClick={() => setReviewedOnly((v) => !v)} title="Reviewed only"
+                    className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${reviewedOnly ? 'bg-yellow-700 text-yellow-200 border border-yellow-600/50' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
+                    ⭐
+                  </button>
+                  <button onClick={() => { setSortByScore((v) => !v); setPage(0); }} title="Hot first"
+                    className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${sortByScore ? 'bg-red-700 text-red-200 border border-red-600/50' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
+                    🔥
+                  </button>
+                  {contactedCount > 0 && (
+                    <button onClick={() => setShowContacted((v) => !v)} title="Toggle contacted"
+                      className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${!showContacted ? 'bg-yellow-600/30 text-yellow-300 border border-yellow-500/40' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
+                      📱 {contactedCount}
+                    </button>
+                  )}
+                  <span className="flex-shrink-0 text-gray-700 text-xs mx-1">·</span>
+                  {quickFireTargets.length > 0 && (
+                    <button onClick={() => setShowQuickFire(true)}
+                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/25">
+                      <Zap className="w-3 h-3" /> {quickFireTargets.length}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { if (!canEmailBlast) { triggerUpgrade('feature', 'Email Blast'); return; } setShowBulkEmail(true); }}
+                    className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold bg-blue-500/15 text-blue-400 border border-blue-500/25">
+                    {canEmailBlast ? <Mail className="w-3 h-3" /> : <Lock className="w-3 h-3" />} {emailBlastTargets.length}
+                  </button>
+                  <button onClick={exportCSV} title="Export CSV"
+                    className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-white/8 text-gray-400 border border-white/10">
+                    <Download className="w-3 h-3" />
+                  </button>
+                  {waApiConnected && (
+                    <button
+                      onClick={() => { setSelectMode((v) => !v); setSelectedIds(new Set()); }}
+                      className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selectMode ? 'bg-green-600/30 text-green-300 border-green-500/40' : 'bg-white/8 text-gray-400 border-white/10'}`}>
+                      <CheckSquare className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Desktop filter bar */}
+              <div className="hidden sm:flex items-center gap-3 mb-6 flex-wrap">
 
               {/* Stats + time indicator */}
               <div className="flex items-center gap-3 flex-wrap">
@@ -748,6 +839,7 @@ export default function Home() {
                 )}
               </div>
             </div>
+            </>
           )}
 
           {/* Auto-prospect queue banner */}
