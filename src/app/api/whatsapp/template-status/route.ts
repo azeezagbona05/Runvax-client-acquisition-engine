@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { TEMPLATE_NAME } from '@/lib/whatsapp-constants';
+import { createTransporter, whatsappRejectedHtml } from '@/lib/email';
+import { getAppUrl, getAppName } from '@/lib/url';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,12 +34,29 @@ export async function GET() {
   const template = data.data[0];
   const status = template.status;
 
-  // Persist latest status
+  // Persist latest status and fire rejection email if newly rejected
   if (status !== settings.waTemplateStatus) {
     await prisma.userSettings.update({
       where: { userId: session.user.id },
       data: { waTemplateStatus: status },
     });
+
+    if (status === 'REJECTED' && process.env.SMTP_HOST) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { email: true, name: true },
+      });
+      if (user?.email) {
+        const appName = getAppName();
+        const settingsUrl = `${getAppUrl()}/settings`;
+        createTransporter().sendMail({
+          from: `"${appName}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
+          to: user.email,
+          subject: `Action needed — your WhatsApp template was rejected`,
+          html: whatsappRejectedHtml(user.name ?? 'there', template.rejected_reason, settingsUrl, appName),
+        }).catch(() => {});
+      }
+    }
   }
 
   return NextResponse.json({

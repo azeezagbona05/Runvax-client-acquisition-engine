@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { getToken } from 'next-auth/jwt';
 import { checkAndIncrementAI, requireFeature } from '@/lib/usage';
 import { Business } from '@/types';
 import { estimatePrice } from '@/lib/scoring';
 import { getEffectiveProfile } from '@/lib/userProfile';
+import { createTransporter, proposalCopyHtml, proposalToProspectHtml } from '@/lib/email';
+import { getAppName } from '@/lib/url';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const { business, yourName, yourPhone, yourWebsite, priceFrom, priceTo, timeline }: {
+  const { business, yourName, yourPhone, yourWebsite, priceFrom, priceTo, timeline, prospectEmail }: {
     business: Business;
     yourName?: string;
     yourPhone?: string;
@@ -16,6 +20,7 @@ export async function POST(req: NextRequest) {
     priceFrom?: string;
     priceTo?: string;
     timeline?: string;
+    prospectEmail?: string;
   } = await req.json();
 
   if (!process.env.OPENAI_API_KEY) {
@@ -204,6 +209,40 @@ Looking forward to hearing from you! 🙏
 
 — ${profile.senderName}
 📱 ${profile.whatsapp}`;
+
+    // Fire-and-forget emails — never block the response
+    if (process.env.SMTP_HOST) {
+      const appName = getAppName();
+      const transporter = createTransporter();
+      const jwtToken = await getToken({ req });
+      const userId = (jwtToken?.id ?? jwtToken?.sub) as string | undefined;
+
+      // #5 — self-copy to the freelancer
+      if (userId) {
+        prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
+          .then((u) => {
+            if (!u?.email) return;
+            return transporter.sendMail({
+              from: `"${appName}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
+              to: u.email,
+              subject: `📋 Proposal saved — ${business.name}`,
+              html: proposalCopyHtml(business.name, proposal, appName),
+            });
+          }).catch(() => {});
+      }
+
+      // #6 — send to prospect if email provided
+      if (prospectEmail) {
+        transporter.sendMail({
+          from: agencyName
+            ? `"${agencyName}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`
+            : (process.env.SMTP_FROM ?? process.env.SMTP_USER ?? ''),
+          to: prospectEmail,
+          subject: `Website Proposal for ${business.name} — ${agencyName}`,
+          html: proposalToProspectHtml(proposal, agencyName ?? appName, agencyPhone, profile.replyEmail ?? undefined, agencyWebsite ?? undefined),
+        }).catch(() => {});
+      }
+    }
 
     return NextResponse.json({
       proposal,

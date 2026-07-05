@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle } from 'lucide-react';
+import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle, Send } from 'lucide-react';
 import { Business } from '@/types';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import { useProspects } from '@/context/ProspectsContext';
@@ -30,6 +30,10 @@ export default function ProposalModal({ business, onClose }: Props) {
   const [timeline, setTimeline] = useState('7–8 business days');
   const [copied, setCopied] = useState(false);
   const [coverCopied, setCoverCopied] = useState(false);
+  const [prospectEmail, setProspectEmail] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
   const [packages, setPackages] = useState<WebsitePackage[]>([]);
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -63,7 +67,7 @@ export default function ProposalModal({ business, onClose }: Props) {
       const res = await fetch('/api/proposal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, yourName, yourPhone, yourWebsite, priceFrom, priceTo, timeline }),
+        body: JSON.stringify({ business, yourName, yourPhone, yourWebsite, priceFrom, priceTo, timeline, prospectEmail: prospectEmail.trim() || undefined }),
       });
       const json = await res.json();
       if (handleAIResponse(res, json)) return;
@@ -319,6 +323,20 @@ export default function ProposalModal({ business, onClose }: Props) {
                 />
               </div>
 
+              {/* Prospect email — optional, sends proposal direct to client */}
+              <div>
+                <label className="text-[11px] text-gray-500 font-semibold block mb-1">
+                  Prospect&apos;s Email <span className="text-gray-600 font-normal">(optional — sends proposal directly to client)</span>
+                </label>
+                <input
+                  type="email"
+                  value={prospectEmail}
+                  onChange={(e) => setProspectEmail(e.target.value)}
+                  placeholder="e.g. info@businessname.com"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+
               {error && <p className="text-red-400 text-sm">{error}</p>}
               <button
                 onClick={generate}
@@ -375,30 +393,79 @@ export default function ProposalModal({ business, onClose }: Props) {
         </div>
 
         {proposal && (
-          <div className="flex gap-2 p-5 border-t border-white/10 flex-shrink-0">
-            <button
-              onClick={handleCopy}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${
-                copied ? 'bg-green-600 text-white' : 'bg-white/10 hover:bg-white/20 text-gray-300'
-              }`}
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-colors"
-            >
-              <Printer className="w-4 h-4" /> Print / Save PDF
-            </button>
-            <button
-              onClick={generate}
-              disabled={loading}
-              className="ml-auto flex items-center gap-2 px-4 py-3 bg-white/8 hover:bg-white/15 text-gray-400 rounded-xl text-sm font-semibold transition-colors border border-white/10"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Redo
-            </button>
+          <div className="border-t border-white/10 flex-shrink-0">
+            {/* Send via email row */}
+            <div className="flex gap-2 px-5 pt-4 pb-2">
+              <div className="flex-1 flex gap-2">
+                <input
+                  type="email"
+                  value={prospectEmail}
+                  onChange={(e) => { setProspectEmail(e.target.value); setEmailSent(false); setEmailError(''); }}
+                  placeholder="Prospect's email to send proposal…"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 min-w-0"
+                />
+                <button
+                  disabled={!prospectEmail.trim() || sendingEmail || emailSent}
+                  onClick={async () => {
+                    if (!prospectEmail.trim()) return;
+                    setSendingEmail(true); setEmailError('');
+                    try {
+                      const res = await fetch('/api/proposal/send-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          prospectEmail: prospectEmail.trim(),
+                          proposal,
+                          agencyName: agentMeta?.name || yourName,
+                          agencyPhone: agentMeta?.phone || yourPhone,
+                          agencyEmail: agentMeta?.email,
+                          agencyWebsite: agentMeta?.website || yourWebsite,
+                        }),
+                      });
+                      const json = await res.json();
+                      if (!res.ok) throw new Error(json.error || 'Failed');
+                      setEmailSent(true);
+                      setTimeout(() => setEmailSent(false), 4000);
+                    } catch (e) { setEmailError(e instanceof Error ? e.message : 'Could not send — check SMTP settings'); }
+                    finally { setSendingEmail(false); }
+                  }}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex-shrink-0 ${
+                    emailSent ? 'bg-green-600 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40'
+                  }`}
+                >
+                  {sendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : emailSent ? <Check className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                  {emailSent ? 'Sent!' : 'Send'}
+                </button>
+              </div>
+            </div>
+            {emailError && <p className="px-5 pb-2 text-red-400 text-xs">{emailError}</p>}
+
+            {/* Main action bar */}
+            <div className="flex gap-2 px-5 pb-5">
+              <button
+                onClick={handleCopy}
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${
+                  copied ? 'bg-green-600 text-white' : 'bg-white/10 hover:bg-white/20 text-gray-300'
+                }`}
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-colors"
+              >
+                <Printer className="w-4 h-4" /> Print / PDF
+              </button>
+              <button
+                onClick={generate}
+                disabled={loading}
+                className="ml-auto flex items-center gap-2 px-4 py-3 bg-white/8 hover:bg-white/15 text-gray-400 rounded-xl text-sm font-semibold transition-colors border border-white/10"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                Redo
+              </button>
+            </div>
           </div>
         )}
       </div>
