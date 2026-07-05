@@ -159,11 +159,11 @@ export default function Nav() {
                 className="relative flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
               >
                 {/* Active pill capsule */}
-                <div className={`relative flex items-center justify-center rounded-2xl px-5 py-1 mb-0.5 transition-all duration-200 ${
-                  active ? 'bg-purple-600/20' : ''
+                <div className={`relative flex items-center justify-center rounded-2xl transition-all duration-200 mb-0.5 ${
+                  active ? 'bg-purple-600/20 px-6 py-1.5' : 'px-5 py-1'
                 }`}>
-                  <Icon className={`w-5 h-5 transition-all duration-200 ${
-                    active ? 'text-purple-400 scale-110' : 'text-gray-500'
+                  <Icon className={`transition-all duration-200 ${
+                    active ? 'w-6 h-6 text-purple-400' : 'w-5 h-5 text-gray-500'
                   }`} />
                   {badge != null && badge > 0 && (
                     <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 ${badgeColor} text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none`}>
