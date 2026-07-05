@@ -1,8 +1,9 @@
 'use client';
 
 import { memo } from 'react';
-import { Loader2, SearchX } from 'lucide-react';
+import { SearchX } from 'lucide-react';
 import BusinessCard from './BusinessCard';
+import { SkeletonGrid } from './SkeletonCard';
 import { Business } from '@/types';
 
 interface Props {
@@ -14,38 +15,73 @@ interface Props {
   selectMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
+  hasSearched?: boolean;
 }
 
-function BusinessGrid({ businesses, loading, error, onSelect, competitors, selectMode, selectedIds, onToggleSelect }: Props) {
+function BusinessGrid({ businesses, loading, error, onSelect, competitors, selectMode, selectedIds, onToggleSelect, hasSearched }: Props) {
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-28 gap-4 text-center">
-        <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
-        <p className="text-gray-400 font-medium">Scanning Google Maps…</p>
-        <p className="text-gray-600 text-sm">Checking which businesses have websites</p>
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 px-1">
+          <div className="flex gap-1.5">
+            {[1,2,3].map((i) => (
+              <span key={i} className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+            ))}
+          </div>
+          <p className="text-gray-500 text-sm animate-pulse">Scanning Google Maps…</p>
+        </div>
+        <SkeletonGrid count={6} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-28 gap-4 text-center">
-        <div className="w-16 h-16 bg-red-500/15 rounded-full flex items-center justify-center">
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <div className="w-16 h-16 bg-red-500/15 rounded-2xl flex items-center justify-center">
           <SearchX className="w-7 h-7 text-red-400" />
         </div>
-        <p className="text-red-400 font-semibold">Search failed</p>
-        <p className="text-gray-500 text-sm max-w-sm">{error}</p>
-       
+        <div>
+          <p className="text-red-400 font-bold text-base">Search failed</p>
+          <p className="text-gray-500 text-sm mt-1 max-w-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasSearched) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-5 text-center">
+        <div className="w-20 h-20 rounded-3xl bg-purple-600/15 border border-purple-500/20 flex items-center justify-center text-4xl">
+          🎯
+        </div>
+        <div>
+          <p className="text-white font-bold text-lg">Find your next client</p>
+          <p className="text-gray-500 text-sm mt-1 max-w-xs leading-relaxed">
+            Search any business type in any city — we'll surface every one with no website.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 text-xs text-gray-600 max-w-xs">
+          {['🍽️ Restaurants in Lagos', '💇 Salons in Accra', '⚖️ Law firms in Nairobi'].map((ex) => (
+            <div key={ex} className="bg-white/4 border border-white/8 rounded-xl px-4 py-2">{ex}</div>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (businesses.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-28 gap-4 text-center">
-        <span className="text-5xl">🔍</span>
-        <p className="text-gray-400 font-semibold">No businesses found</p>
-        <p className="text-gray-600 text-sm">Try a broader industry term or a different location</p>
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <div className="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center text-3xl">
+          🔍
+        </div>
+        <div>
+          <p className="text-gray-300 font-bold">No results found</p>
+          <p className="text-gray-600 text-sm mt-1 max-w-xs leading-relaxed">
+            Try a broader search term, a different area, or remove active filters.
+          </p>
+        </div>
       </div>
     );
   }

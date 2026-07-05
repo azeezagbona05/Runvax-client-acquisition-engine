@@ -17,5 +17,28 @@
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "/logo.svg",     "sizes": "any",     "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Search",
+      "short_name": "Search",
+      "description": "Find businesses that need a website",
+      "url": "/",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Pipeline",
+      "short_name": "Pipeline",
+      "description": "View and manage your prospects",
+      "url": "/pipeline",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Market Brief",
+      "short_name": "Brief",
+      "description": "AI market intelligence for today",
+      "url": "/market-brief",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }

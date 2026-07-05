@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo, useRef } from 'react';
 import {
   MapPin, Phone, Star, Globe, Bookmark, Copy, Check,
-  MessageCircle, Loader2, X, ExternalLink, CheckCircle, XCircle,
+  MessageCircle, Loader2, X, ExternalLink, CheckCircle, XCircle, PhoneCall,
 } from 'lucide-react';
 import { Business } from '@/types';
 import { scoreProspect, scoreLabel, scoreBreakdown } from '@/lib/scoring';
@@ -12,6 +12,7 @@ import { getBestTimeStatus } from '@/lib/searchHistory';
 import { whatsappLink } from '@/lib/phone';
 import { buildQuickWAMessage } from '@/lib/waMessage';
 import { useWaPaceTimer } from '@/lib/waRateLimit';
+import { useToast } from './Toast';
 
 function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' {
   const h = new Date().getHours();
@@ -49,6 +50,7 @@ interface WaState { step: WaStep; msg: string; link: string }
 function BusinessCard({ business, onClick, competitors }: Props) {
   const { isSaved, save, remove, get, markOutreachSent, updateStage, incrementToday, settings } = useProspects();
   const { waitSecs, recordSend } = useWaPaceTimer();
+  const { toast } = useToast();
   const waApiConnected = !!(settings.waPhoneNumberId && settings.waTemplateStatus === 'APPROVED');
   const saved = isSaved(business.id);
   const prospect = get(business.id);
@@ -69,11 +71,18 @@ function BusinessCard({ business, onClick, competitors }: Props) {
   const [apiSent, setApiSent] = useState<'ok' | 'err' | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // Swipe gesture state
+  const [swipeX, setSwipeX] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const swipeAxis = useRef<'h' | 'v' | null>(null);
+
   const copyPhone = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!business.phone) return;
     navigator.clipboard.writeText(business.phone).catch(() => {});
     setCopied(true);
+    toast('Phone number copied');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -134,6 +143,45 @@ function BusinessCard({ business, onClick, competitors }: Props) {
     setWaState(null);
   };
 
+  // ── Swipe gesture handlers ──
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    swipeAxis.current = null;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (!swipeAxis.current) {
+      if (Math.abs(dx) > Math.abs(dy) + 5) swipeAxis.current = 'h';
+      else if (Math.abs(dy) > 8) swipeAxis.current = 'v';
+    }
+    if (swipeAxis.current === 'h') {
+      setSwipeX(Math.max(-100, Math.min(100, dx)));
+    }
+  };
+
+  const onTouchEnd = () => {
+    if (swipeAxis.current === 'h') {
+      if (swipeX > 72 && business.phone) {
+        // Swipe right → WhatsApp
+        quickWhatsApp({ stopPropagation: () => {} } as React.MouseEvent);
+        toast('Opening WhatsApp…', 'info');
+      } else if (swipeX < -72) {
+        // Swipe left → mark contacted / save
+        if (!saved) save(business);
+        updateStage(business.id, 'contacted');
+        toast('Marked as contacted');
+      }
+    }
+    setSwipeX(0);
+    touchStartX.current = null;
+    touchStartY.current = null;
+    swipeAxis.current = null;
+  };
+
 
   const sendViaApi = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -172,9 +220,28 @@ function BusinessCard({ business, onClick, competitors }: Props) {
 
   return (
     <>
+      {/* Swipe hint backgrounds — only visible while swiping */}
+      <div className="relative overflow-hidden rounded-2xl">
+        {swipeX > 20 && (
+          <div className="absolute inset-0 bg-green-500/20 rounded-2xl flex items-center pl-4 gap-2 text-green-400 text-sm font-bold pointer-events-none">
+            <MessageCircle className="w-5 h-5" /> WhatsApp
+          </div>
+        )}
+        {swipeX < -20 && (
+          <div className="absolute inset-0 bg-yellow-500/20 rounded-2xl flex items-center justify-end pr-4 gap-2 text-yellow-400 text-sm font-bold pointer-events-none">
+            Contacted <Check className="w-5 h-5" />
+          </div>
+        )}
       <div
         onClick={onClick}
-        className={`relative bg-gray-900 border rounded-2xl p-4 cursor-pointer hover:bg-gray-800/60 transition-all group flex flex-col gap-3 ${
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{
+          transform: `translateX(${swipeX}px)`,
+          transition: swipeX === 0 ? 'transform 0.25s ease' : 'none',
+        }}
+        className={`relative bg-gray-900 border rounded-2xl p-4 cursor-pointer hover:bg-gray-800/60 transition-colors group flex flex-col gap-3 ${
           isAlreadyContacted
             ? 'border-white/6 opacity-50 hover:opacity-80 hover:border-white/15'
             : saved
@@ -233,11 +300,19 @@ function BusinessCard({ business, onClick, competitors }: Props) {
           </div>
         )}
 
-        {/* Phone + copy */}
+        {/* Phone + call + copy */}
         {business.phone ? (
           <div className="flex items-center gap-2 text-xs">
             <Phone className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-            <span className="text-gray-400 flex-1">{business.phone}</span>
+            <span className="text-gray-400 flex-1 truncate">{business.phone}</span>
+            <a
+              href={`tel:${business.phone.replace(/\s/g, '')}`}
+              onClick={(e) => e.stopPropagation()}
+              title="Call now"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-all"
+            >
+              <PhoneCall className="w-3 h-3" /> Call
+            </a>
             <button
               onClick={copyPhone}
               title="Copy number"
@@ -385,6 +460,7 @@ function BusinessCard({ business, onClick, competitors }: Props) {
           </div>
         )}
       </div>
+      </div>{/* end swipe wrapper */}
 
       {/* ── WhatsApp Preview + Delivery Confirmation Modal ── */}
       {waState && (

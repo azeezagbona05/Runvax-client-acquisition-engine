@@ -51,6 +51,22 @@ input[type='range'] {
   @apply w-full accent-purple-500 cursor-pointer;
 }
 
+/* ── Keyboard-aware layout (iOS Safari 15.4+ / Chrome Android) ── */
+/* When soft keyboard is open, the visual viewport shrinks.
+   Dropdowns and suggestion lists use max-h to stay within visible area. */
+@supports (height: 100dvh) {
+  .keyboard-safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), env(keyboard-inset-height, 0px));
+  }
+}
+
+/* Prevent content jumping behind keyboard on iOS */
+@media (max-width: 639px) {
+  input:focus, textarea:focus, select:focus {
+    scroll-margin-bottom: 1rem;
+  }
+}
+
 /* ── Celebration confetti (onboarding "first win") ── */
 @keyframes confetti-fall {
   0%   { transform: translateY(-12vh) rotate(0deg);   opacity: 1; }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle, Send } from 'lucide-react';
+import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle, Send, Share2 } from 'lucide-react';
 import { Business } from '@/types';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import { useProspects } from '@/context/ProspectsContext';
@@ -441,7 +441,7 @@ export default function ProposalModal({ business, onClose }: Props) {
             {emailError && <p className="px-5 pb-2 text-red-400 text-xs">{emailError}</p>}
 
             {/* Main action bar */}
-            <div className="flex gap-2 px-5 pb-5">
+            <div className="flex gap-2 px-5 pb-5 flex-wrap">
               <button
                 onClick={handleCopy}
                 className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${
@@ -457,6 +457,14 @@ export default function ProposalModal({ business, onClose }: Props) {
               >
                 <Printer className="w-4 h-4" /> Print / PDF
               </button>
+              {typeof navigator !== 'undefined' && 'share' in navigator && (
+                <button
+                  onClick={() => navigator.share({ title: `Proposal — ${business.name}`, text: proposal }).catch(() => {})}
+                  className="flex items-center gap-2 px-4 py-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-xl text-sm font-bold transition-colors"
+                >
+                  <Share2 className="w-4 h-4" /> Share
+                </button>
+              )}
               <button
                 onClick={generate}
                 disabled={loading}

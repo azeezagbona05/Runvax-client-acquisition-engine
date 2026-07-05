@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Square, Send, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Square, Send, X, Search, RefreshCw } from 'lucide-react';
 
 import SearchForm from '@/components/SearchForm';
 import BusinessGrid from '@/components/BusinessGrid';
@@ -460,6 +460,35 @@ export default function Home() {
     setSelectedIds(new Set());
   };
 
+  // ── Scroll tracking for collapsible header ──
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 220);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // ── Pull-to-refresh ──
+  const [pullY, setPullY] = useState(0);
+  const pullStartY = useRef<number | null>(null);
+  const pullThreshold = 72;
+
+  const onPullStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) pullStartY.current = e.touches[0].clientY;
+  };
+  const onPullMove = (e: React.TouchEvent) => {
+    if (pullStartY.current === null) return;
+    const dy = e.touches[0].clientY - pullStartY.current;
+    if (dy > 0) setPullY(Math.min(dy, pullThreshold + 20));
+  };
+  const onPullEnd = () => {
+    if (pullY >= pullThreshold && lastSearchData) {
+      handleSearch(lastSearchData, true);
+    }
+    setPullY(0);
+    pullStartY.current = null;
+  };
+
   const handleFilterChange = (f: FilterMode) => { setFilter(f); setPage(0); };
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   const goNext = () => {
@@ -492,8 +521,43 @@ export default function Home() {
 
       <SearchForm onSearch={handleSearch} loading={loading} landing={!hasSearched} />
 
+      {/* ── Mobile compact sticky bar (shows when scrolled past form) ── */}
+      {scrolled && hasSearched && lastSearch && (
+        <div
+          className="sm:hidden fixed inset-x-0 z-30 bg-gray-900/96 backdrop-blur-md border-b border-white/8 px-4 py-2.5 flex items-center gap-3"
+          style={{ top: 'calc(env(safe-area-inset-top) + 3.5rem)' }}
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-semibold truncate leading-tight">{lastSearch.industry}</p>
+            <p className="text-gray-500 text-xs">{lastSearch.location.split(',')[0]} · {filtered.length} results</p>
+          </div>
+          <button
+            onClick={scrollToTop}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-xl text-xs font-bold"
+          >
+            <Search className="w-3 h-3" /> Edit
+          </button>
+        </div>
+      )}
+
       {hasSearched && (
-        <main className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
+        <main
+          className="max-w-7xl mx-auto px-4 py-4 sm:py-8"
+          onTouchStart={onPullStart}
+          onTouchMove={onPullMove}
+          onTouchEnd={onPullEnd}
+        >
+
+          {/* Pull-to-refresh indicator */}
+          {pullY > 0 && (
+            <div
+              className="sm:hidden flex items-center justify-center gap-2 text-purple-400 text-sm font-semibold overflow-hidden transition-all"
+              style={{ height: Math.min(pullY, pullThreshold), opacity: pullY / pullThreshold }}
+            >
+              <RefreshCw className={`w-4 h-4 ${pullY >= pullThreshold ? 'animate-spin text-green-400' : ''}`} />
+              <span>{pullY >= pullThreshold ? 'Release to refresh' : 'Pull to refresh'}</span>
+            </div>
+          )}
 
           {/* Guest signup gate — overlays blurred results */}
           {guestGate && (
@@ -899,7 +963,7 @@ export default function Home() {
           )}
 
           {!guestGate && (
-            <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} competitors={competitorNames} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
+            <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} competitors={competitorNames} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} hasSearched={hasSearched} />
           )}
 
           {/* Bulk send action bar */}
