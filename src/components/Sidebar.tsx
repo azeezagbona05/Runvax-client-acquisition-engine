@@ -9,7 +9,7 @@ import { useSidebar } from '@/context/SidebarContext';
 import { useTheme } from '@/context/ThemeContext';
 import {
   Search, Columns3, BarChart3, Settings, PanelLeftClose, PanelLeftOpen,
-  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, Sparkles, TrendingUp,
+  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, Sparkles,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -41,7 +41,6 @@ export default function Sidebar() {
     { href: '/market-brief', icon: Sparkles,    label: 'Market Brief',  badge: undefined,                              badgeColor: 'bg-purple-600' },
     { href: '/',             icon: Search,      label: 'Find Prospects', badge: undefined,                            badgeColor: 'bg-purple-600' },
     { href: '/pipeline',     icon: Columns3,    label: 'Pipeline',  badge: savedCount > 0 ? savedCount : undefined,  badgeColor: 'bg-purple-600' },
-    { href: '/growth',       icon: TrendingUp,  label: 'AI Growth',  badge: undefined,                               badgeColor: 'bg-green-600' },
     { href: '/dashboard',    icon: BarChart3,   label: 'Analytics', badge: wonCount > 0 ? wonCount : undefined,      badgeColor: 'bg-green-500' },
     { href: '/settings',     icon: Settings,    label: 'Settings',  badge: undefined,                                badgeColor: 'bg-purple-600' },
   ];
