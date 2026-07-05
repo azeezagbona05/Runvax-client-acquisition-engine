@@ -23,7 +23,7 @@ import ReplyPanel from './ReplyPanel';
 // Backend (/api/demo, /demo/[slug], DemoSite model) remains in place.
 const SHOW_DEMO = false;
 
-type DrawerTab = 'details' | 'outreach' | 'conversation' | 'team' | 'reply';
+type DrawerTab = 'details' | 'outreach' | 'conversation' | 'reply';
 
 type ProspectStage = 'found' | 'contacted' | 'interested' | 'proposal' | 'won' | 'lost';
 
@@ -295,7 +295,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 flex-shrink-0">
-          {(['details', 'outreach', 'reply', 'team', 'conversation'] as const).map((tabId) => (
+          {(['details', 'outreach', 'reply', 'conversation'] as const).map((tabId) => (
             <button
               key={tabId}
               onClick={() => setActiveTab(tabId)}
@@ -305,10 +305,9 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                   : 'text-gray-600 border-transparent hover:text-gray-400'
               }`}
             >
-              {tabId === 'details'   ? 'Details'
-               : tabId === 'outreach'     ? 'Outreach'
-               : tabId === 'reply'        ? '💬 Reply'
-               : tabId === 'team'         ? '🤖 Team'
+              {tabId === 'details'      ? 'Details'
+               : tabId === 'outreach'   ? 'Outreach'
+               : tabId === 'reply'      ? '💬 Reply'
                : 'Convo'}
               {tabId === 'conversation' && conversationCount > 0 && (
                 <span className="bg-purple-500/20 text-purple-300 text-[9px] font-black px-1.5 py-0.5 rounded-full">
@@ -329,11 +328,6 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
               currentStage={prospect?.stage}
               onStageChange={() => {/* stage update triggers re-render via context */}}
             />
-          )}
-
-          {/* ── AI TEAM TAB ── */}
-          {activeTab === 'team' && (
-            <AITeamPanel business={business} psiDetails={psiDetails} />
           )}
 
           {/* ── OUTREACH TAB ── */}
