@@ -223,7 +223,14 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     e.preventDefault();
     setIndustryError('');
     setLocationError('');
-    if (!industry.trim()) { setIndustryError('Please enter an industry or business type.'); return; }
+    if (!industry.trim()) { setIndustryError('Please select a business category.'); return; }
+    const isValidCategory = INDUSTRIES.some(
+      (s) => s.toLowerCase() === industry.toLowerCase()
+    );
+    if (!isValidCategory) {
+      setIndustryError('Please pick a category from the list — use Google to search for a specific business name.');
+      return;
+    }
     if (!location.trim() && !lat) { setLocationError('Please enter a location or use your GPS.'); return; }
     setMobileExpanded(false);
     runSearch(industry, location, lat, lng);
@@ -461,8 +468,14 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
                 <input type="text" value={industry}
                   onChange={(e) => { setIndustry(e.target.value); setShowIndSug(true); setIndustryError(''); }}
                   onFocus={() => setShowIndSug(true)}
-                  onBlur={() => setTimeout(() => setShowIndSug(false), 150)}
-                  placeholder="Select or search a category…"
+                  onBlur={() => setTimeout(() => {
+                    setShowIndSug(false);
+                    // Clear if typed text doesn't match any category
+                    if (industry.trim() && !INDUSTRIES.some((s) => s.toLowerCase() === industry.toLowerCase())) {
+                      setIndustry('');
+                    }
+                  }, 200)}
+                  placeholder="Select a business category…"
                   className={`w-full bg-gray-800/80 border rounded-xl pl-4 pr-16 py-3 text-white placeholder-gray-600 focus:outline-none transition-colors text-sm ${industryError ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-purple-500'}`}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
