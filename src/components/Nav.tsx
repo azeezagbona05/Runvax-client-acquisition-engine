@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
 import {
-  Search, Columns3, BarChart3, Sun, Moon, Zap, Settings, MailWarning, Sparkles, LogOut, UserCircle,
+  Search, Columns3, Sun, Moon, Zap, Settings, MailWarning, Sparkles, LogOut, UserCircle,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -44,17 +44,15 @@ export default function Nav() {
     }
   }, [session?.user?.email, resendStatus]);
 
-  const wonCount   = prospects.filter((p) => p.stage === 'won').length;
   const savedCount = prospects.length;
 
   const userPlan = (session?.user as { plan?: string })?.plan ?? 'free';
 
-  const tabs = [
-    { href: '/market-brief', icon: Sparkles, label: 'Brief' },
-    { href: '/',          icon: Search,   label: 'Find' },
-    { href: '/pipeline',  icon: Columns3, label: 'Pipeline',  badge: savedCount },
-    { href: '/dashboard', icon: BarChart3, label: 'Analytics', badge: wonCount > 0 ? wonCount : undefined, badgeColor: 'bg-green-500' },
-    { href: '/settings',  icon: Settings, label: 'Settings' },
+  const tabs: { href: string; icon: React.ElementType; label: string; badge?: number; badgeColor?: string }[] = [
+    { href: '/',             icon: Search,    label: 'Find' },
+    { href: '/pipeline',     icon: Columns3,  label: 'Pipeline', badge: savedCount },
+    { href: '/market-brief', icon: Sparkles,  label: 'Insights' },
+    { href: '/settings',     icon: Settings,  label: 'Settings' },
   ];
 
   const emailVerified = (session?.user as { emailVerified?: Date | null })?.emailVerified;
