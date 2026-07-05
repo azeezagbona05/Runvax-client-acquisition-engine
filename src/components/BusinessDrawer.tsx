@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X, MapPin, Phone, Globe, Star, Clock, Loader2, Sparkles,
   ExternalLink, MessageCircle, FileText, AlertTriangle,
@@ -48,6 +48,34 @@ interface Props {
 }
 
 export default function BusinessDrawer({ business, onClose, onGenerate, generating, generateError, onPsiScore }: Props) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number | null>(null);
+  const dragDy = useRef(0);
+
+  const onHandleTouchStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    dragDy.current = 0;
+  };
+  const onHandleTouchMove = (e: React.TouchEvent) => {
+    if (dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    if (dy > 0 && sheetRef.current) {
+      dragDy.current = dy;
+      sheetRef.current.style.transform = `translateY(${dy}px)`;
+      sheetRef.current.style.transition = 'none';
+    }
+  };
+  const onHandleTouchEnd = () => {
+    if (dragDy.current > 120) {
+      onClose();
+    } else if (sheetRef.current) {
+      sheetRef.current.style.transform = '';
+      sheetRef.current.style.transition = '';
+    }
+    dragStartY.current = null;
+    dragDy.current = 0;
+  };
+
   const { isSaved, save, remove, get, updateStage, updateNotes, setReminder, clearReminder } = useProspects();
   const { triggerUpgrade } = useUpgrade();
   const canProposal = useFeature('proposals');
@@ -231,7 +259,28 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-fade-in" onClick={onClose} />
 
-      <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-gray-900 border-l border-white/10 z-50 flex flex-col animate-slide-in-right shadow-2xl overflow-hidden">
+      {/* Mobile: bottom sheet · Desktop: right-side drawer */}
+      <div
+        ref={sheetRef}
+        className="
+          fixed z-50 flex flex-col bg-gray-900 shadow-2xl overflow-hidden
+          bottom-0 inset-x-0 max-h-[92vh] rounded-t-3xl border-t border-white/10
+          animate-slide-in-up
+          sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:max-h-none sm:w-full sm:max-w-md
+          sm:rounded-none sm:border-t-0 sm:border-l sm:border-white/10
+          sm:animate-slide-in-right
+        "
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        {/* Mobile drag handle */}
+        <div
+          className="sm:hidden flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing flex-shrink-0"
+          onTouchStart={onHandleTouchStart}
+          onTouchMove={onHandleTouchMove}
+          onTouchEnd={onHandleTouchEnd}
+        >
+          <div className="w-10 h-1 rounded-full bg-gray-700" />
+        </div>
 
         {/* Header */}
         <div className="bg-gray-900/95 backdrop-blur border-b border-white/10 px-5 py-4 flex items-start justify-between gap-4 flex-shrink-0">

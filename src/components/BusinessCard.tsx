@@ -353,8 +353,46 @@ function BusinessCard({ business, onClick, competitors }: Props) {
           </div>
         )}
 
-        {/* Bottom: score + actions */}
-        <div className="mt-auto pt-3 border-t border-white/5 flex items-center gap-2">
+        {/* Mobile quick-action strip — 3 big touch targets */}
+        <div className="sm:hidden flex border-t border-white/8 -mx-4 -mb-4 mt-2 rounded-b-2xl overflow-hidden">
+          {business.phone ? (
+            <button
+              onClick={quickWhatsApp}
+              disabled={generating}
+              className="flex-1 py-3.5 flex flex-col items-center gap-1 text-green-400 bg-green-500/8 border-r border-white/8 active:bg-green-500/20 transition-colors disabled:opacity-50"
+            >
+              {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
+              <span className="text-[10px] font-bold">WhatsApp</span>
+            </button>
+          ) : (
+            <div className="flex-1 py-3.5 flex flex-col items-center gap-1 text-gray-700 bg-white/2 border-r border-white/8">
+              <MessageCircle className="w-5 h-5" />
+              <span className="text-[10px] font-bold">No phone</span>
+            </div>
+          )}
+          {business.phone && (
+            <a
+              href={`tel:${business.phone.replace(/\s/g, '')}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 py-3.5 flex flex-col items-center gap-1 text-purple-400 bg-purple-500/8 border-r border-white/8 active:bg-purple-500/20 transition-colors"
+            >
+              <PhoneCall className="w-5 h-5" />
+              <span className="text-[10px] font-bold">Call</span>
+            </a>
+          )}
+          <button
+            onClick={toggleSave}
+            className={`flex-1 py-3.5 flex flex-col items-center gap-1 active:opacity-70 transition-colors ${
+              saved ? 'text-blue-400 bg-blue-500/8' : 'text-gray-500 bg-white/3'
+            }`}
+          >
+            <Bookmark className={`w-5 h-5 ${saved ? 'fill-blue-400' : ''}`} />
+            <span className="text-[10px] font-bold">{saved ? 'Saved' : 'Save'}</span>
+          </button>
+        </div>
+
+        {/* Desktop: score + actions */}
+        <div className="hidden sm:flex mt-auto pt-3 border-t border-white/5 items-center gap-2">
           <div className="relative">
             <button
               onClick={(e) => { e.stopPropagation(); setShowScoreTip((v) => !v); }}
