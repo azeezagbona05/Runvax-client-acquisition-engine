@@ -347,12 +347,34 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
           {/* ── Step 1: Country + Step 2: State ── */}
           <div className="grid sm:grid-cols-2 gap-4">
 
-            {/* Country — searchable custom dropdown */}
-            <div>
+            {/* Country */}
+            <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
                 1 · Country
               </label>
-              <div className="relative" ref={countryDdRef}>
+
+              {/* Desktop: flag chip grid */}
+              <div className="hidden sm:flex flex-wrap gap-2">
+                {COUNTRIES_SORTED.map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    title={c.name}
+                    onClick={() => handleCountryChange(c.code)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all duration-150 ${
+                      country === c.code
+                        ? 'bg-purple-600/20 border-purple-500/50 text-white font-semibold ring-1 ring-purple-500/30'
+                        : 'bg-gray-800/60 border-white/8 text-gray-400 hover:border-purple-500/30 hover:text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    <span className="text-xl leading-none">{c.flag}</span>
+                    <span className="text-xs font-semibold">{c.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Mobile: searchable dropdown */}
+              <div className="sm:hidden relative" ref={countryDdRef}>
                 <button
                   type="button"
                   onClick={() => setShowCountryDd((v) => !v)}
