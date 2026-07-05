@@ -23,7 +23,7 @@ import ReplyPanel from './ReplyPanel';
 // Backend (/api/demo, /demo/[slug], DemoSite model) remains in place.
 const SHOW_DEMO = false;
 
-type DrawerTab = 'details' | 'outreach' | 'conversation' | 'reply';
+type DrawerTab = 'details' | 'outreach' | 'messages';
 
 type ProspectStage = 'found' | 'contacted' | 'interested' | 'proposal' | 'won' | 'lost';
 
@@ -84,6 +84,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
   const prospect = get(business.id);
 
   const [activeTab, setActiveTab] = useState<DrawerTab>('details');
+
   const [localNotes, setLocalNotes] = useState(prospect?.notes ?? '');
   const [reminderDate, setReminderDate] = useState(prospect?.reminderDate ?? '');
   const [reminderNote, setReminderNote] = useState(prospect?.reminderNote ?? '');
@@ -295,7 +296,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 flex-shrink-0">
-          {(['details', 'outreach', 'reply', 'conversation'] as const).map((tabId) => (
+          {(['details', 'outreach', 'messages'] as const).map((tabId) => (
             <button
               key={tabId}
               onClick={() => setActiveTab(tabId)}
@@ -305,11 +306,8 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                   : 'text-gray-600 border-transparent hover:text-gray-400'
               }`}
             >
-              {tabId === 'details'      ? 'Details'
-               : tabId === 'outreach'   ? 'Outreach'
-               : tabId === 'reply'      ? '💬 Reply'
-               : 'Convo'}
-              {tabId === 'conversation' && conversationCount > 0 && (
+              {tabId === 'details' ? 'Details' : tabId === 'outreach' ? 'Outreach' : '💬 Messages'}
+              {tabId === 'messages' && conversationCount > 0 && (
                 <span className="bg-purple-500/20 text-purple-300 text-[9px] font-black px-1.5 py-0.5 rounded-full">
                   {conversationCount}
                 </span>
@@ -321,13 +319,30 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
 
-          {/* ── REPLY INTELLIGENCE TAB ── */}
-          {activeTab === 'reply' && (
-            <ReplyPanel
-              business={business}
-              currentStage={prospect?.stage}
-              onStageChange={() => {/* stage update triggers re-render via context */}}
-            />
+          {/* ── MESSAGES TAB (Reply + Conversation) ── */}
+          {activeTab === 'messages' && (
+            <div className="space-y-6">
+              <ReplyPanel
+                business={business}
+                currentStage={prospect?.stage}
+                onStageChange={() => {}}
+              />
+              <div className="border-t border-white/8 pt-5">
+                {!saved && (
+                  <div className="mb-4 bg-yellow-900/30 border border-yellow-500/20 rounded-xl px-4 py-3 text-yellow-300 text-sm">
+                    <span className="font-bold">Save to pipeline first</span> to track conversations.
+                    <button onClick={() => save(business)} className="ml-2 underline hover:no-underline">Save now</button>
+                  </div>
+                )}
+                {saved && <ConversationPanel business={business} />}
+                {!saved && (
+                  <div className="text-center py-8 border border-dashed border-white/10 rounded-2xl">
+                    <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm">Save this prospect to start tracking conversations</p>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {/* ── OUTREACH TAB ── */}
@@ -466,25 +481,6 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                     </button>
                   </div>
                   <div className="text-gray-300 text-xs leading-relaxed whitespace-pre-wrap">{auditText}</div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── CONVERSATION TAB ── */}
-          {activeTab === 'conversation' && (
-            <div>
-              {!saved && (
-                <div className="mb-4 bg-yellow-900/30 border border-yellow-500/20 rounded-xl px-4 py-3 text-yellow-300 text-sm">
-                  <span className="font-bold">Save to pipeline first</span> to track conversations.
-                  <button onClick={() => save(business)} className="ml-2 underline hover:no-underline">Save now</button>
-                </div>
-              )}
-              {saved && <ConversationPanel business={business} />}
-              {!saved && (
-                <div className="text-center py-8 border border-dashed border-white/10 rounded-2xl">
-                  <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">Save this prospect to start tracking conversations</p>
                 </div>
               )}
             </div>
