@@ -14,16 +14,26 @@ export default function InstallBanner() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    // Already installed as PWA — don't show
+    // Running as installed PWA
     if (window.matchMedia('(display-mode: standalone)').matches) return;
-    // Already dismissed this session
-    if (sessionStorage.getItem('pwa_dismissed')) return;
+    // Previously installed (caught via appinstalled event)
+    if (localStorage.getItem('pwa_installed')) return;
+    // User dismissed — don't show again for 30 days
+    const dismissedAt = localStorage.getItem('pwa_dismissed_at');
+    if (dismissedAt && Date.now() - Number(dismissedAt) < 30 * 24 * 60 * 60 * 1000) return;
+
+    // Listen for successful install — permanently suppress banner
+    const onInstalled = () => {
+      localStorage.setItem('pwa_installed', '1');
+      setShow(false);
+    };
+    window.addEventListener('appinstalled', onInstalled);
 
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !(navigator as { standalone?: boolean }).standalone;
     if (ios) {
       setIsIOS(true);
       setShow(true);
-      return;
+      return () => window.removeEventListener('appinstalled', onInstalled);
     }
 
     const handler = (e: Event) => {
@@ -32,20 +42,26 @@ export default function InstallBanner() {
       setShow(true);
     };
     window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
   }, []);
 
   const handleInstall = async () => {
     if (!prompt) return;
     prompt.prompt();
     const { outcome } = await prompt.userChoice;
-    if (outcome === 'accepted') setShow(false);
+    if (outcome === 'accepted') {
+      localStorage.setItem('pwa_installed', '1');
+      setShow(false);
+    }
     setPrompt(null);
   };
 
   const handleDismiss = () => {
     setShow(false);
-    sessionStorage.setItem('pwa_dismissed', '1');
+    localStorage.setItem('pwa_dismissed_at', String(Date.now()));
   };
 
   if (!show) return null;
