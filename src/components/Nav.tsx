@@ -149,31 +149,33 @@ export default function Nav() {
         className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-gray-900/95 backdrop-blur-md border-t border-white/[0.06]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="flex h-14">
+        <div className="flex h-16">
           {tabs.map(({ href, icon: Icon, label, badge, badgeColor = 'bg-purple-600' }) => {
             const active = pathname === href;
             return (
               <Link
                 key={href}
                 href={href}
-                className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                  active ? 'text-purple-400' : 'text-gray-500'
-                }`}
+                className="relative flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
               >
-                {active && (
-                  <span className="absolute top-0 inset-x-0 flex justify-center">
-                    <span className="w-8 h-0.5 bg-purple-500 rounded-full" />
-                  </span>
-                )}
-                <div className="relative">
-                  <Icon className={`w-5 h-5 transition-all duration-150 ${active ? 'scale-110' : ''}`} />
+                {/* Active pill capsule */}
+                <div className={`relative flex items-center justify-center rounded-2xl px-5 py-1 mb-0.5 transition-all duration-200 ${
+                  active ? 'bg-purple-600/20' : ''
+                }`}>
+                  <Icon className={`w-5 h-5 transition-all duration-200 ${
+                    active ? 'text-purple-400 scale-110' : 'text-gray-500'
+                  }`} />
                   {badge != null && badge > 0 && (
-                    <span className={`absolute -top-1.5 -right-2 min-w-[16px] h-4 ${badgeColor} text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none`}>
+                    <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 ${badgeColor} text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none`}>
                       {badge > 99 ? '99+' : badge}
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] font-semibold leading-none">{label}</span>
+                <span className={`text-[10px] leading-none transition-all duration-200 ${
+                  active ? 'text-purple-400 font-bold' : 'text-gray-600 font-medium'
+                }`}>
+                  {label}
+                </span>
               </Link>
             );
           })}
