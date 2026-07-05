@@ -360,21 +360,6 @@ export default function PipelinePage() {
     [prospects, selectedIds],
   );
 
-  if (prospects.length === 0) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-12 sm:py-24 text-center">
-        <div className="text-6xl mb-4">📋</div>
-        <h1 className="text-2xl font-black text-white mb-2">Pipeline Empty</h1>
-        <p className="text-gray-400 mb-4">Save prospects from the search page to build your pipeline</p>
-        <div className="flex items-center justify-center gap-3 flex-wrap">
-          <Link href="/" className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-bold px-6 py-3 rounded-xl transition-colors">
-            Go to Search →
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   const totalValue = useMemo(
     () => prospects.filter((p) => p.stage !== 'lost').reduce((s, p) => s + (p.estimatedPrice?.min ?? 0), 0),
     [prospects],
@@ -392,6 +377,21 @@ export default function PipelinePage() {
     }
     return map;
   }, [prospects, matchesSearch]);
+
+  if (prospects.length === 0) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-12 sm:py-24 text-center">
+        <div className="text-6xl mb-4">📋</div>
+        <h1 className="text-2xl font-black text-white mb-2">Pipeline Empty</h1>
+        <p className="text-gray-400 mb-4">Save prospects from the search page to build your pipeline</p>
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          <Link href="/" className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-bold px-6 py-3 rounded-xl transition-colors">
+            Go to Search →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-gray-950">
