@@ -99,7 +99,9 @@ function SignInForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-dvh bg-gray-950 flex items-center justify-center px-4 py-8 relative overflow-hidden"
+      style={{ paddingTop: 'max(2rem, env(safe-area-inset-top))', paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+    >
       {/* Subtle animated background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="auth-blob absolute -top-32 -left-24 w-[30rem] h-[30rem] rounded-full blur-3xl opacity-60"

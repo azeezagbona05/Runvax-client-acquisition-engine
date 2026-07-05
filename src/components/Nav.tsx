@@ -58,6 +58,9 @@ export default function Nav() {
   const emailVerified = (session?.user as { emailVerified?: Date | null })?.emailVerified;
   const showVerifyBanner = session?.user && !emailVerified && !pathname.startsWith('/auth');
 
+  // Hide all nav chrome on auth pages — sign-in/signup fill the whole screen
+  if (pathname.startsWith('/auth')) return null;
+
   return (
     <>
       {/* ── Email verification banner ── */}
