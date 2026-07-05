@@ -648,14 +648,14 @@ export default function SettingsPage() {
   const mobileHome = (
     <div className="space-y-1 pb-24">
       {/* Profile card */}
-      <div className="bg-gray-900/80 rounded-2xl border border-white/8 px-5 py-4 mb-4 flex items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-purple-600 flex items-center justify-center text-white text-xl font-black flex-shrink-0">
+      <div className="bg-gradient-to-br from-purple-600 to-purple-900 rounded-2xl px-5 py-5 mb-4 flex items-center gap-4 shadow-lg shadow-purple-900/30">
+        <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white text-xl font-black flex-shrink-0 border border-white/20">
           {(session?.user?.name?.[0] ?? session?.user?.email?.[0] ?? '?').toUpperCase()}
         </div>
         <div className="min-w-0">
           <p className="text-white font-bold truncate">{session?.user?.name ?? 'Your Account'}</p>
-          <p className="text-gray-500 text-xs truncate">{session?.user?.email}</p>
-          <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-600/20 text-purple-400 border border-purple-500/30 uppercase tracking-wider">
+          <p className="text-purple-200/80 text-xs truncate">{session?.user?.email}</p>
+          <span className="inline-block mt-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white/20 text-white border border-white/25 uppercase tracking-wider">
             {((session?.user as { plan?: string })?.plan ?? 'Free')} Plan
           </span>
         </div>
