@@ -13,7 +13,7 @@ import OpenAI from 'openai';
  * If the chosen provider has no API key, it falls back to the other one.
  */
 
-export type AIProvider = 'openai' | 'gemini';
+export type AIProvider = 'openai' | 'gemini' | 'groq';
 
 export interface GenerateOptions {
   prompt: string;
@@ -39,19 +39,22 @@ export interface GenerateResult {
 
 const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash';
 const OPENAI_DEFAULT_MODEL = 'gpt-4o';
+const GROQ_DEFAULT_MODEL   = 'llama-3.3-70b-versatile';
 
 export function hasProvider(p: AIProvider): boolean {
-  return p === 'gemini' ? !!process.env.GEMINI_API_KEY : !!process.env.OPENAI_API_KEY;
+  if (p === 'gemini') return !!process.env.GEMINI_API_KEY;
+  if (p === 'groq')   return !!process.env.GROQ_API_KEY;
+  return !!process.env.OPENAI_API_KEY;
 }
 
 /** Resolve the provider for a feature. OpenAI is the default; Gemini is opt-in via env. */
 export function providerFor(feature?: string): AIProvider {
   // 1. Per-feature override wins: AI_PROVIDER_BRIEF=gemini, etc.
   const envVal = feature ? process.env[`AI_PROVIDER_${feature.toUpperCase()}`] : undefined;
-  if (envVal === 'gemini' || envVal === 'openai') return envVal;
+  if (envVal === 'gemini' || envVal === 'openai' || envVal === 'groq') return envVal;
   // 2. Global default override: AI_PROVIDER_DEFAULT=gemini
   const globalDefault = process.env.AI_PROVIDER_DEFAULT;
-  if (globalDefault === 'gemini' || globalDefault === 'openai') return globalDefault;
+  if (globalDefault === 'gemini' || globalDefault === 'openai' || globalDefault === 'groq') return globalDefault;
   // 3. Fall back to OpenAI.
   return 'openai';
 }
@@ -145,18 +148,45 @@ async function generateGemini(o: GenerateOptions): Promise<GenerateResult> {
   };
 }
 
-/** Generate text with the resolved provider, with a resilient fallback to the other. */
-export async function generate(o: GenerateOptions): Promise<GenerateResult> {
-  let provider = o.provider ?? providerFor(o.feature);
-  if (!hasProvider(provider)) provider = provider === 'gemini' ? 'openai' : 'gemini';
+async function generateGroq(o: GenerateOptions): Promise<GenerateResult> {
+  const client = new OpenAI({
+    apiKey: process.env.GROQ_API_KEY,
+    baseURL: 'https://api.groq.com/openai/v1',
+  });
+  const completion = await client.chat.completions.create({
+    model: o.model ?? GROQ_DEFAULT_MODEL,
+    max_tokens: o.maxTokens ?? 1200,
+    ...(o.temperature != null ? { temperature: o.temperature } : {}),
+    ...(o.json ? { response_format: { type: 'json_object' as const } } : {}),
+    messages: [
+      ...(o.system ? [{ role: 'system' as const, content: o.system }] : []),
+      { role: 'user' as const, content: o.prompt },
+    ],
+  });
+  return {
+    text: completion.choices[0]?.message?.content ?? '',
+    provider: 'groq',
+    inputTokens: completion.usage?.prompt_tokens,
+    outputTokens: completion.usage?.completion_tokens,
+  };
+}
 
-  try {
-    return provider === 'gemini' ? await generateGemini(o) : await generateOpenAI(o);
-  } catch (err) {
-    const other: AIProvider = provider === 'gemini' ? 'openai' : 'gemini';
-    if (hasProvider(other)) {
-      return other === 'gemini' ? await generateGemini(o) : await generateOpenAI(o);
-    }
-    throw err;
+async function callProvider(p: AIProvider, o: GenerateOptions): Promise<GenerateResult> {
+  if (p === 'gemini') return generateGemini(o);
+  if (p === 'groq')   return generateGroq(o);
+  return generateOpenAI(o);
+}
+
+/** Generate text with the resolved provider, falling back through available providers on error. */
+export async function generate(o: GenerateOptions): Promise<GenerateResult> {
+  const primary = o.provider ?? providerFor(o.feature);
+  const ALL: AIProvider[] = ['openai', 'gemini', 'groq'];
+  const order: AIProvider[] = [primary, ...ALL.filter(p => p !== primary && hasProvider(p))];
+
+  let lastErr: unknown;
+  for (const p of order) {
+    if (!hasProvider(p)) continue;
+    try { return await callProvider(p, o); } catch (err) { lastErr = err; }
   }
+  throw lastErr;
 }

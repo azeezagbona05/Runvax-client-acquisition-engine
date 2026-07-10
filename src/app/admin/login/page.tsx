@@ -86,7 +86,7 @@ export default function AdminLoginPage() {
                 required
                 autoFocus
                 className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-purple-500/60 transition-colors"
-                placeholder="admin@beamai.net"
+                placeholder="admin@runvax.com"
               />
             </div>
 

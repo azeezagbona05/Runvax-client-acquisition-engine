@@ -6,12 +6,12 @@ const prisma = new PrismaClient();
 async function main() {
   // ── 1. Default AI profile account ─────────────────────────────────────────
   // Used as fallback for all AI prompts when a user hasn't set their own profile.
-  const defaultEmail = 'info@beamai.net';
+  const defaultEmail = 'info@runvax.com';
   const defaultHash  = await bcrypt.hash('Jomi@2025@@', 12);
 
   const defaultUser = await prisma.user.upsert({
     where:  { email: defaultEmail },
-    create: { email: defaultEmail, name: 'BeamAI', password: defaultHash, plan: 'agency', emailVerified: new Date() },
+    create: { email: defaultEmail, name: 'Runvax', password: defaultHash, plan: 'agency', emailVerified: new Date() },
     update: { plan: 'agency', emailVerified: new Date() },
   });
 
@@ -19,8 +19,8 @@ async function main() {
     where:  { userId: defaultUser.id },
     create: {
       userId: defaultUser.id,
-      senderName:   'BeamAI Team',
-      businessName: 'BeamAI',
+      senderName:   'Runvax Team',
+      businessName: 'Runvax',
       whatsapp:     '+234 800 000 0000',
       replyEmail:   defaultEmail,
       city:         'Lagos, Nigeria',
@@ -31,8 +31,8 @@ async function main() {
       onboardingDone: true,
     },
     update: {
-      senderName:   'BeamAI Team',
-      businessName: 'BeamAI',
+      senderName:   'Runvax Team',
+      businessName: 'Runvax',
       whatsapp:     '+234 800 000 0000',
       replyEmail:   defaultEmail,
       city:         'Lagos, Nigeria',
@@ -45,7 +45,7 @@ async function main() {
 
   // ── 2. Admin account ────────────────────────────────────────────────────────
   // Grants access to /admin panel. Email must also be in ADMIN_EMAILS env var.
-  const adminEmail    = 'admin@beamai.net';
+  const adminEmail    = 'admin@runvax.com';
   const adminPassword = 'BeamAdmin@2025!';
   const adminHash     = await bcrypt.hash(adminPassword, 12);
 

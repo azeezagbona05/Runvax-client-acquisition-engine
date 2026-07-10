@@ -206,7 +206,7 @@ export default async function DemoSitePage({ params }: { params: { slug: string 
           <div style={{ fontSize: 14, marginBottom: 18 }}>{business.address}</div>
           <div style={{ fontSize: 13, opacity: 0.7 }}>
             Made with{' '}
-            <a href="/" style={{ color: '#c4b5fd', fontWeight: 700 }}>ProspectAI</a>
+            <a href="/" style={{ color: '#c4b5fd', fontWeight: 700 }}>Runvax</a>
             {' '}— a free preview of your website
           </div>
         </div>

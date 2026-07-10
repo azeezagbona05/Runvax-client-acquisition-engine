@@ -327,6 +327,10 @@ model CachedBusiness {
   competitors      Json?
   detailsRefreshedAt DateTime?
 
+  // Discovered emails — crawled from business website, cached for 30 days
+  discoveredEmails  Json?     // [{email, source, page}]
+  emailsCrawledAt   DateTime?
+
   // PageSpeed Insights — mobile + desktop performance scores 0-100, checked on demand
   psiScore        Int?
   psiDesktopScore Int?

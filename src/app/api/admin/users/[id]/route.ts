@@ -62,3 +62,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   return NextResponse.json(user);
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email || !ADMIN_EMAILS.includes(session.user.email.toLowerCase())) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  await prisma.user.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
+}

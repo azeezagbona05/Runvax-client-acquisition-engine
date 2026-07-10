@@ -14,11 +14,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const post = getPost(params.slug);
   if (!post) return {};
   return {
-    title: { absolute: `${post.title} | ProspectAI Blog` },
+    title: { absolute: `${post.title} | Runvax Blog` },
     description: post.description,
     alternates: { canonical: `${SITE_URL}/blog/${post.slug}` },
     keywords: post.tags,
-    authors: [{ name: 'ProspectAI' }],
+    authors: [{ name: 'Runvax' }],
     openGraph: {
       title: post.title, description: post.description,
       url: `${SITE_URL}/blog/${post.slug}`, siteName: SITE_NAME,
@@ -42,12 +42,35 @@ const mdxComponents = {
   blockquote: (props: React.HTMLAttributes<HTMLElement>) => (
     <blockquote className="border-l-4 border-blue-500 pl-4 my-6 italic text-gray-500 dark:text-gray-400" {...props} />
   ),
+  pre: (props: React.HTMLAttributes<HTMLPreElement>) => (
+    <pre className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 overflow-x-auto my-6 text-sm" {...props} />
+  ),
   code: (props: React.HTMLAttributes<HTMLElement>) => (
     <code className="bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
   ),
   hr: () => <hr className="border-gray-200 dark:border-gray-800 my-8" />,
   a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
     <a className="text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:text-blue-700" {...props} />
+  ),
+  table: (props: React.HTMLAttributes<HTMLTableElement>) => (
+    <div className="overflow-x-auto my-6">
+      <table className="w-full text-sm border-collapse" {...props} />
+    </div>
+  ),
+  thead: (props: React.HTMLAttributes<HTMLTableSectionElement>) => (
+    <thead className="bg-gray-50 dark:bg-gray-800/60" {...props} />
+  ),
+  tbody: (props: React.HTMLAttributes<HTMLTableSectionElement>) => (
+    <tbody className="divide-y divide-gray-100 dark:divide-gray-800" {...props} />
+  ),
+  tr: (props: React.HTMLAttributes<HTMLTableRowElement>) => (
+    <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors" {...props} />
+  ),
+  th: (props: React.HTMLAttributes<HTMLTableCellElement>) => (
+    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700" {...props} />
+  ),
+  td: (props: React.HTMLAttributes<HTMLTableCellElement>) => (
+    <td className="px-4 py-3 text-gray-600 dark:text-gray-300 align-top" {...props} />
   ),
 };
 
@@ -62,10 +85,10 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
     description: post.description,
     datePublished: post.date,
     dateModified: post.date,
-    author: { '@type': 'Organization', name: 'ProspectAI' },
+    author: { '@type': 'Organization', name: 'Runvax' },
     publisher: {
       '@type': 'Organization',
-      name: 'ProspectAI',
+      name: 'Runvax',
       url: SITE_URL,
     },
     url: `${SITE_URL}/blog/${post.slug}`,
@@ -107,10 +130,10 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
         <footer className="mt-16 pt-8 border-t border-gray-200 dark:border-gray-800">
           <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Find your next web design client — free
+              Find your next client — free
             </h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
-              ProspectAI searches any city, any industry, and flags businesses with no website. Generate cold emails in one click. No credit card needed.
+              Runvax searches any city, any industry, and flags businesses with no website. Generate cold emails in one click. No credit card needed.
             </p>
             <Link
               href="/"

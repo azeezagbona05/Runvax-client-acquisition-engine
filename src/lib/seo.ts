@@ -8,7 +8,7 @@ if (!process.env.NEXT_PUBLIC_SITE_URL && process.env.NODE_ENV === 'production') 
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
 
-export const SITE_NAME = 'ProspectAI';
+export const SITE_NAME = 'Runvax';
 
 // 163 chars — includes location keywords, CTA, removes friction
 export const SITE_DESCRIPTION =

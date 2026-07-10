@@ -4,10 +4,20 @@ import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getAppUrl, getAppName } from '@/lib/url';
 import { createTransporter, verificationEmailHtml } from '@/lib/email';
+import { rateLimit, getIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  // 10 registrations per IP per hour
+  const rl = rateLimit(`register:${getIp(req)}`, { maxRequests: 10, windowMs: 60 * 60 * 1000 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Too many registration attempts. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+    );
+  }
+
   const { name, email, password } = await req.json() as { name: string; email: string; password: string };
 
   if (!email || !password || !name) {

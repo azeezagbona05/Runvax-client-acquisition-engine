@@ -71,6 +71,8 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
   const [showMobileLocPicker, setShowMobileLocPicker] = useState(false);
   const [mobileLocSearch, setMobileLocSearch]     = useState('');
   const [mobileExpanded, setMobileExpanded]       = useState(false);
+  const [activeHowStep, setActiveHowStep]         = useState(0);
+  const howCarouselRef = useRef<HTMLDivElement>(null);
 
   const locationRef      = useRef<HTMLInputElement>(null);
   const mobileLocRef     = useRef<HTMLInputElement>(null);
@@ -640,7 +642,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
           <button type="submit" disabled={loading}
             className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-purple-900 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 text-base shadow-lg shadow-purple-900/40">
             {loading
-              ? <><Loader2 className="w-5 h-5 animate-spin" /> Searching Google Maps…</>
+              ? <><Loader2 className="w-5 h-5 animate-spin" /> Searching prospects…</>
               : <><Search className="w-5 h-5" /> Find Prospects Now</>}
           </button>
         </form>
@@ -676,7 +678,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
 
       {/* ── How It Works ── */}
       <div className="border-t border-white/5 pt-10 pb-4">
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <p className="text-[11px] font-black text-purple-400 uppercase tracking-[0.2em] mb-2">How It Works</p>
           <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
             From zero to signed client<br className="hidden sm:block" />{' '}
@@ -684,78 +686,126 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
           </h2>
         </div>
 
-        <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-5">
-
-          {/* Connector line — desktop only */}
-          <div className="hidden sm:block absolute top-10 left-[calc(16.66%+1rem)] right-[calc(16.66%+1rem)] h-px"
-            style={{ background: 'linear-gradient(90deg, rgba(124,58,237,0.6) 0%, rgba(249,115,22,0.6) 100%)' }} />
-
-          {/* Step 1 */}
-          <div className="relative group">
-            <div className="relative overflow-hidden rounded-3xl border border-purple-500/20 bg-gradient-to-br from-purple-950/80 to-gray-900 p-6 h-full transition-all duration-300 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-900/30">
-              {/* Watermark number */}
-              <span className="absolute -top-3 -right-2 text-[7rem] font-black text-purple-500/8 leading-none select-none pointer-events-none">1</span>
-              {/* Icon */}
-              <div className="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-2xl mb-4 relative z-10">
-                🔍
+        {/* ── Mobile swipeable carousel ── */}
+        <div className="sm:hidden relative -mx-4">
+          <div
+            ref={howCarouselRef}
+            onScroll={() => {
+              const el = howCarouselRef.current;
+              if (!el) return;
+              const cardW = (el.children[0] as HTMLElement)?.offsetWidth ?? 0;
+              setActiveHowStep(Math.min(2, Math.round(el.scrollLeft / (cardW + 16))));
+            }}
+            className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth gap-4 pl-4 pr-6 pb-2"
+            style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', scrollPaddingLeft: '1rem' } as React.CSSProperties}
+          >
+            {/* Step 1 */}
+            <div className="snap-start flex-shrink-0 w-[78vw]">
+              <div className="how-card rounded-2xl border border-white/8 shadow-md p-5" style={{ borderLeft: '3px solid rgb(124,58,237)' }}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-lg flex-shrink-0">🔍</div>
+                  <span className="text-[10px] font-black text-purple-500 uppercase tracking-[0.15em]">Step 1</span>
+                </div>
+                <h3 className="text-white text-[17px] font-black leading-snug mb-2">Type. Search. Done.</h3>
+                <p className="text-gray-400 text-[13px] leading-relaxed">
+                  Pick any industry and city worldwide. Restaurants in Lagos, salons in Nairobi, law firms in London — scanned instantly.
+                </p>
               </div>
-              <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-1.5">Step 1</p>
-              <h3 className="text-white text-xl font-black leading-tight mb-2">
-                Type. Search.<br />Done.
-              </h3>
-              <p className="text-gray-500 text-xs leading-relaxed">
-                Pick any industry and city worldwide. Restaurants in Lagos, salons in Nairobi, law firms in London — we scan Google Maps instantly.
-              </p>
             </div>
-            {/* Arrow */}
-            <div className="hidden sm:flex absolute -right-3 top-10 z-10 w-6 h-6 rounded-full bg-gray-950 border border-white/10 items-center justify-center">
-              <span className="text-gray-500 text-xs">→</span>
+
+            {/* Step 2 */}
+            <div className="snap-start flex-shrink-0 w-[78vw]">
+              <div className="how-card rounded-2xl border border-white/8 shadow-md p-5" style={{ borderLeft: '3px solid rgb(249,115,22)' }}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-lg flex-shrink-0">🎯</div>
+                  <span className="text-[10px] font-black text-orange-500 uppercase tracking-[0.15em]">Step 2</span>
+                </div>
+                <h3 className="text-white text-[17px] font-black leading-snug mb-2">No Website = They Need You.</h3>
+                <p className="text-gray-400 text-[13px] leading-relaxed">
+                  Every business without a website is flagged as a hot lead — scored by rating, reviews, and category.
+                </p>
+              </div>
             </div>
+
+            {/* Step 3 */}
+            <div className="snap-start flex-shrink-0 w-[78vw]">
+              <div className="how-card rounded-2xl border border-white/8 shadow-md p-5" style={{ borderLeft: '3px solid rgb(124,58,237)' }}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-orange-500 flex items-center justify-center text-lg flex-shrink-0">⚡</div>
+                  <span className="text-[10px] font-black text-purple-500 uppercase tracking-[0.15em]">Step 3</span>
+                </div>
+                <h3 className="text-white text-[17px] font-black leading-snug mb-2">AI Writes It. You Send It.</h3>
+                <p className="text-gray-400 text-[13px] leading-relaxed">
+                  One tap generates a personalised WhatsApp, cold email, or proposal — named after their business, city, and industry.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Dots */}
+          <div className="flex items-center justify-center gap-2 mt-4 px-4">
+            {[0, 1, 2].map((i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  const el = howCarouselRef.current;
+                  if (!el) return;
+                  const cardW = (el.children[0] as HTMLElement)?.offsetWidth ?? 0;
+                  el.scrollTo({ left: i * (cardW + 16), behavior: 'smooth' });
+                  setActiveHowStep(i);
+                }}
+                className={`h-1.5 rounded-full transition-all duration-300 ${i === activeHowStep ? 'w-7 bg-purple-500' : 'w-1.5 bg-gray-700'}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* ── Desktop grid ── */}
+        <div className="hidden sm:grid grid-cols-3 gap-5">
+          {/* Step 1 */}
+          <div className="how-card rounded-2xl border border-white/8 shadow-sm p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5" style={{ borderTop: '3px solid rgb(124,58,237)' }}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 rounded-xl bg-purple-600 flex items-center justify-center text-2xl flex-shrink-0">🔍</div>
+              <div>
+                <p className="text-[10px] font-black text-purple-500 uppercase tracking-[0.15em]">Step 1</p>
+                <p className="text-gray-500 text-[11px]">Search</p>
+              </div>
+            </div>
+            <h3 className="text-white text-xl font-black leading-snug mb-2">Type. Search. Done.</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">Pick any industry and city worldwide. Restaurants in Lagos, salons in Nairobi, law firms in London — we scan for prospects instantly.</p>
           </div>
 
           {/* Step 2 */}
-          <div className="relative group">
-            <div className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-gradient-to-br from-orange-950/60 to-gray-900 p-6 h-full transition-all duration-300 hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-900/20">
-              <span className="absolute -top-3 -right-2 text-[7rem] font-black text-orange-500/8 leading-none select-none pointer-events-none">2</span>
-              <div className="w-12 h-12 rounded-2xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center text-2xl mb-4 relative z-10">
-                🎯
+          <div className="how-card rounded-2xl border border-white/8 shadow-sm p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5" style={{ borderTop: '3px solid rgb(249,115,22)' }}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center text-2xl flex-shrink-0">🎯</div>
+              <div>
+                <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.15em]">Step 2</p>
+                <p className="text-gray-500 text-[11px]">Identify</p>
               </div>
-              <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1.5">Step 2</p>
-              <h3 className="text-white text-xl font-black leading-tight mb-2">
-                No Website =<br />They Need You.
-              </h3>
-              <p className="text-gray-500 text-xs leading-relaxed">
-                Every business without a website is flagged as a hot lead. Scored by rating, reviews, and category — your best prospects rise to the top.
-              </p>
             </div>
-            <div className="hidden sm:flex absolute -right-3 top-10 z-10 w-6 h-6 rounded-full bg-gray-950 border border-white/10 items-center justify-center">
-              <span className="text-gray-500 text-xs">→</span>
-            </div>
+            <h3 className="text-white text-xl font-black leading-snug mb-2">No Website = They Need You.</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">Every business without a website is flagged as a hot lead. Scored by rating, reviews, and category — your best prospects rise to the top.</p>
           </div>
 
           {/* Step 3 */}
-          <div className="relative group">
-            <div className="relative overflow-hidden rounded-3xl border border-green-500/20 bg-gradient-to-br from-green-950/60 to-gray-900 p-6 h-full transition-all duration-300 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-900/20">
-              <span className="absolute -top-3 -right-2 text-[7rem] font-black text-green-500/8 leading-none select-none pointer-events-none">3</span>
-              <div className="w-12 h-12 rounded-2xl bg-green-600/20 border border-green-500/30 flex items-center justify-center text-2xl mb-4 relative z-10">
-                ⚡
+          <div className="how-card rounded-2xl border border-white/8 shadow-sm p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5" style={{ borderTop: '3px solid rgb(124,58,237)' }}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-orange-500 flex items-center justify-center text-2xl flex-shrink-0">⚡</div>
+              <div>
+                <p className="text-[10px] font-black text-purple-500 uppercase tracking-[0.15em]">Step 3</p>
+                <p className="text-gray-500 text-[11px]">Close</p>
               </div>
-              <p className="text-[10px] font-black text-green-400 uppercase tracking-widest mb-1.5">Step 3</p>
-              <h3 className="text-white text-xl font-black leading-tight mb-2">
-                AI Writes It.<br />You Send It.
-              </h3>
-              <p className="text-gray-500 text-xs leading-relaxed">
-                One tap generates a personalised WhatsApp message, cold email, or full business proposal — named after their business, city, and industry.
-              </p>
             </div>
+            <h3 className="text-white text-xl font-black leading-snug mb-2">AI Writes It. You Send It.</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">One tap generates a personalised WhatsApp message, cold email, or full proposal — named after their business, city, and industry.</p>
           </div>
-
         </div>
 
         {/* Bottom trust line */}
         <div className="flex items-center justify-center gap-6 mt-8 flex-wrap">
           {['🌍 Works in 50+ countries', '⚡ Results in seconds', '🤖 AI-powered outreach'].map((t) => (
-            <div key={t} className="flex items-center gap-1.5 text-xs text-gray-600 font-semibold">{t}</div>
+            <div key={t} className="flex items-center gap-1.5 text-xs text-gray-500 font-semibold">{t}</div>
           ))}
         </div>
       </div>

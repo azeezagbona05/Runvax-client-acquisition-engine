@@ -1,0 +1,68 @@
+---
+title: "AI Lead Scoring Explained: How It Works and Why It Matters"
+description: "How AI lead scoring ranks prospects by likelihood to convert, what signals it actually uses, and when it's worth setting up versus when gut instinct is faster."
+date: "2026-08-20"
+category: "AI Tools"
+tags: ["AI lead scoring", "lead scoring explained", "lead prioritization", "AI sales scoring", "lead qualification"]
+---
+
+AI lead scoring ranks prospects by assigning each one a numeric score based on signals correlated with conversion — engagement level, firmographic fit, behavioral data, or (for local-business targeting) how clearly a business needs what you're selling. The score tells you who to chase first when you have more leads than time to contact them all.
+
+It's a prioritization tool, not a magic prediction engine. Here's what's actually happening under the hood, and when it's worth setting up versus when it's overkill.
+
+## The problem lead scoring solves
+
+Once a prospecting or outreach system is working well, a new problem shows up: too many leads, not enough hours to personally follow up on each one with equal effort. Without scoring, most people default to first-in-first-out — contacting leads in the order they arrived, regardless of quality. That's a coin flip on effort allocation. Lead scoring replaces the coin flip with a ranked list based on actual signals.
+
+This only becomes a real problem once volume is solved. If you're still short on leads, scoring is premature — see [AI vs. manual lead generation: a real time comparison](/blog/ai-vs-manual-lead-generation-which-is-faster) for the volume side of the equation first.
+
+## The signals AI lead scoring actually uses
+
+| Signal type | Examples | How it's weighted |
+|---|---|---|
+| Explicit fit | Industry, company size, location match to your ideal client | Usually rules-based — either matches your criteria or doesn't |
+| Behavioral | Opened an email, clicked a link, visited your site twice | Weighted higher the more recent and more active the action |
+| Engagement depth | Replied vs. opened vs. no response | Replies score far higher than opens — intent signals beat awareness signals |
+| Need signal (local business context) | No website at all vs. outdated website vs. website with an expired SSL cert | Stronger "no website" signals typically score higher — clearer, more urgent gap |
+| Negative signals | Explicit "not interested," bounced email, unsubscribed | Score drops sharply or the lead is removed from active outreach |
+
+In B2B SaaS scoring models, most of the weight goes to firmographic and behavioral data pulled from CRM and email tools. For freelancers and agencies targeting local businesses, the more useful signal is often simpler and more concrete: the size and clarity of the gap you can fix. A business with zero web presence and a high review count is a stronger lead than one with an outdated-but-functional site and no reviews, because the former has a more urgent, obvious problem and clear proof of demand (the reviews).
+
+## Rules-based vs. machine-learning scoring
+
+Two different approaches get called "AI lead scoring," and they work differently:
+
+**Rules-based scoring** assigns points for specific, predefined criteria ("no website: +30 points, over 50 reviews: +20 points, in target industry: +15 points"). It's transparent — you can see exactly why a lead scored what it did — and it works well with small data sets, which describes most freelancer and solo-agency situations.
+
+**Machine-learning scoring** trains a model on your historical conversion data to find patterns humans might miss ("leads that reply within 2 hours of first contact convert 3x more often, regardless of industry"). It needs a meaningful volume of historical data to work well — hundreds to thousands of past leads — which puts it out of reach for most solo operators and small agencies. This is genuinely useful at scale (larger sales teams), but for most freelancers a rules-based system captures 80% of the value with none of the data requirements.
+
+## A simple rules-based scoring model you can build today
+
+You don't need dedicated software to get most of the benefit. A basic point system works:
+
+1. **+30**: No website at all (clearest, most urgent gap)
+2. **+20**: Website exists but is broken, outdated, or unmaintained
+3. **+15**: 20+ Google reviews (proof the business has real customer demand)
+4. **+15**: Replied to your first outreach message
+5. **+10**: In your highest-converting past niche
+6. **-20**: Explicitly said "not interested" or "no budget"
+
+Rank by total score, work the top of the list first. This is exactly the logic behind why tools that flag no-website businesses are inherently doing a form of lead scoring already — the flag itself is the highest-weighted signal in the model. See [how AI finds businesses without a website](/blog/how-ai-finds-businesses-without-websites) for how that underlying flag gets generated.
+
+## When lead scoring is worth setting up
+
+**You have more qualified leads than you can personally contact within a week.** Below that volume, just work the list — scoring overhead isn't worth it.
+
+**Your close rate varies significantly by lead type and you can articulate why.** If you already know "leads with 50+ reviews and no website close at double the rate," you have the raw material for a scoring model. If you don't know your own patterns yet, build the habit of tracking outcomes before automating the ranking.
+
+**You're delegating outreach to someone else (a VA or junior hire).** A scoring system gives a non-expert a clear priority order without needing your judgment on every single lead.
+
+## When it's not worth it
+
+If you're a solo operator working through 15-20 leads a week by hand, an hour spent building a scoring spreadsheet is an hour not spent on outreach. Gut instinct — informed by a quick look at review count and website status — gets you 90% of the benefit at a fraction of the setup cost. Formal scoring earns its keep at volume, not before.
+
+## Where Runvax fits
+
+Runvax surfaces the strongest scoring signal automatically: every business it finds is already flagged by website status (no site, outdated site, or has a working site), and paired with review count and category data pulled straight from the listing — so you can sort and prioritize without building a scoring system from scratch. For the writing step that turns a top-ranked lead into an actual message, see [how to use AI to write cold emails that get replies](/blog/ai-cold-email-writing-guide-2026).
+
+[Try Runvax free](https://runvax.com) — see leads pre-sorted by website status and review count. No credit card required.

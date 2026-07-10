@@ -301,8 +301,8 @@ function PricingContent() {
 
         <p className="text-center text-gray-500 text-sm">
           Questions? Email{' '}
-          <a href="mailto:info@beamai.net" className="text-purple-400 hover:underline">
-            info@beamai.net
+          <a href="mailto:info@runvax.com" className="text-purple-400 hover:underline">
+            info@runvax.com
           </a>
         </p>
       </div>

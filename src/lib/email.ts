@@ -1,6 +1,14 @@
 import nodemailer from 'nodemailer';
 
 export function createTransporter() {
+  if (process.env.RESEND_API_KEY) {
+    return nodemailer.createTransport({
+      host: 'smtp.resend.com',
+      port: 465,
+      secure: true,
+      auth: { user: 'resend', pass: process.env.RESEND_API_KEY },
+    });
+  }
   const port = Number(process.env.SMTP_PORT ?? 587);
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,

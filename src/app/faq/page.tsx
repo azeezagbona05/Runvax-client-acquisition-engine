@@ -4,83 +4,83 @@ import { SITE_URL, SITE_NAME } from '@/lib/seo';
 export const metadata: Metadata = {
   title: 'Frequently Asked Questions',
   description:
-    'Everything you need to know about ProspectAI — how to find web design clients, generate cold outreach, manage a prospect pipeline, and grow your agency in Nigeria, Ghana, Kenya, and beyond.',
+    'Everything you need to know about Runvax — how to find web design clients, generate cold outreach, manage a prospect pipeline, and grow your agency in Nigeria, Ghana, Kenya, and beyond.',
   alternates: { canonical: `${SITE_URL}/faq` },
   openGraph: {
     title: `FAQ — ${SITE_NAME}`,
     description:
-      'Answers to every common question about ProspectAI: pricing, features, countries supported, cold email generation, pipeline management, and more.',
+      'Answers to every common question about Runvax: pricing, features, countries supported, cold email generation, pipeline management, and more.',
     url: `${SITE_URL}/faq`,
   },
 };
 
 const faqs: { q: string; a: string }[] = [
   {
-    q: 'What is ProspectAI?',
-    a: 'ProspectAI is an AI-powered lead generation tool for web designers, freelancers, and digital agencies. It searches any business type in any city worldwide and surfaces businesses with no website, so you can find your next paying client in seconds.',
+    q: 'What is Runvax?',
+    a: 'Runvax is an AI-powered lead generation tool for web designers, freelancers, and digital agencies. It searches any business type in any city worldwide and surfaces businesses with no website, so you can find your next paying client in seconds.',
   },
   {
     q: 'How do I find businesses that need a website?',
-    a: "ProspectAI searches Google's real-time global business index for any industry and location, then automatically flags every listing that has no website. You can filter by industry — restaurants, salons, law firms, clinics, gyms, hotels, and 16 more categories — and by city or country.",
+    a: "Runvax searches Google's real-time global business index for any industry and location, then automatically flags every listing that has no website. You can filter by industry — restaurants, salons, law firms, clinics, gyms, hotels, and 16 more categories — and by city or country.",
   },
   {
     q: 'How do freelancers and agencies find web design clients?',
-    a: 'The fastest way is to search for local businesses in your target industry that have no website. ProspectAI does this automatically — search any city, select an industry, and get a list of businesses with phone numbers, addresses, ratings, and a no-website flag so you know exactly who to pitch.',
+    a: 'The fastest way is to search for local businesses in your target industry that have no website. Runvax does this automatically — search any city, select an industry, and get a list of businesses with phone numbers, addresses, ratings, and a no-website flag so you know exactly who to pitch.',
   },
   {
-    q: 'Can ProspectAI generate cold outreach emails and WhatsApp messages?',
-    a: 'Yes. For every prospect found, ProspectAI generates a personalized cold email, WhatsApp message, and formal proposal using AI. The messages are written in a natural tone, tailored to the specific business, and avoid generic AI-sounding language.',
+    q: 'Can Runvax generate cold outreach emails and WhatsApp messages?',
+    a: 'Yes. For every prospect found, Runvax generates a personalized cold email, WhatsApp message, and formal proposal using AI. The messages are written in a natural tone, tailored to the specific business, and avoid generic AI-sounding language.',
   },
   {
     q: 'What industries can I search for leads?',
-    a: 'ProspectAI covers 22+ industries including Restaurants & Eateries, Beauty Salons & Spas, Barbers & Hair Salons, Schools & Private Tutors, Clinics & Hospitals, Pharmacies, Real Estate Agencies, Hotels & Guesthouses, Event Centers, Law Firms, Auto Workshops, Fashion & Boutiques, Photography Studios, Gyms, Construction, Catering Services, Churches, Travel Agencies, Supermarkets, Laundry Services, Printing & Design Shops, and Accounting Firms. You can also type any custom industry.',
+    a: 'Runvax covers 22+ industries including Restaurants & Eateries, Beauty Salons & Spas, Barbers & Hair Salons, Schools & Private Tutors, Clinics & Hospitals, Pharmacies, Real Estate Agencies, Hotels & Guesthouses, Event Centers, Law Firms, Auto Workshops, Fashion & Boutiques, Photography Studios, Gyms, Construction, Catering Services, Churches, Travel Agencies, Supermarkets, Laundry Services, Printing & Design Shops, and Accounting Firms. You can also type any custom industry.',
   },
   {
-    q: 'Which countries does ProspectAI support?',
-    a: 'ProspectAI supports Nigeria, Ghana, Kenya, South Africa, Uganda, Tanzania, Rwanda, Senegal, Cameroon, United States, United Kingdom, and Canada. Any city within these countries can be searched for business leads.',
+    q: 'Which countries does Runvax support?',
+    a: 'Runvax supports Nigeria, Ghana, Kenya, South Africa, Uganda, Tanzania, Rwanda, Senegal, Cameroon, United States, United Kingdom, and Canada. Any city within these countries can be searched for business leads.',
   },
   {
     q: 'How do I find web design clients in Nigeria or Ghana?',
-    a: 'Select Nigeria or Ghana from the country selector, enter any city (Lagos, Abuja, Port Harcourt, Accra, Kumasi, etc.), choose an industry, and ProspectAI returns local businesses in that city with their contact details and website status. Businesses with no website are your highest-priority leads.',
+    a: 'Select Nigeria or Ghana from the country selector, enter any city (Lagos, Abuja, Port Harcourt, Accra, Kumasi, etc.), choose an industry, and Runvax returns local businesses in that city with their contact details and website status. Businesses with no website are your highest-priority leads.',
   },
   {
     q: 'What is the best lead generation tool for web designers?',
-    a: 'ProspectAI is purpose-built for web designers, freelancers, and agencies who want to find local businesses without a website. Unlike generic B2B databases, it searches in real time for any city worldwide, flags no-website businesses automatically, and generates personalized cold outreach in one click.',
+    a: 'Runvax is purpose-built for web designers, freelancers, and agencies who want to find local businesses without a website. Unlike generic B2B databases, it searches in real time for any city worldwide, flags no-website businesses automatically, and generates personalized cold outreach in one click.',
   },
   {
     q: 'How do I generate leads for a digital marketing agency?',
-    a: 'Use ProspectAI to search any industry and city for businesses with low or no online presence. You can search multiple industries (restaurants, salons, law firms, etc.) across multiple cities, save prospects to a pipeline, and send AI-generated cold emails or WhatsApp messages directly from the platform.',
+    a: 'Use Runvax to search any industry and city for businesses with low or no online presence. You can search multiple industries (restaurants, salons, law firms, etc.) across multiple cities, save prospects to a pipeline, and send AI-generated cold emails or WhatsApp messages directly from the platform.',
   },
   {
-    q: 'Is ProspectAI free?',
-    a: 'Yes. ProspectAI has a free plan with 5 searches per day and 20 results per search. Paid plans start at ₦9,999 per month (Pro) for 20 searches and 60 results, and ₦24,999 per month (Agency) for unlimited searches and results.',
+    q: 'Is Runvax free?',
+    a: 'Yes. Runvax has a free plan with 5 searches per day and 20 results per search. Paid plans start at ₦9,999 per month (Pro) for 20 searches and 60 results, and ₦24,999 per month (Agency) for unlimited searches and results.',
   },
   {
-    q: 'Can I find restaurant, salon, or law firm leads with ProspectAI?',
-    a: 'Yes. ProspectAI includes dedicated categories for restaurants, beauty salons, barbers, law firms, clinics, gyms, real estate agencies, hotels, and 14+ more industries. Search any of these in any city to get a targeted list of leads with contact info and website status.',
+    q: 'Can I find restaurant, salon, or law firm leads with Runvax?',
+    a: 'Yes. Runvax includes dedicated categories for restaurants, beauty salons, barbers, law firms, clinics, gyms, real estate agencies, hotels, and 14+ more industries. Search any of these in any city to get a targeted list of leads with contact info and website status.',
   },
   {
-    q: 'How does AI cold email generation work in ProspectAI?',
-    a: "After finding a business, click Generate and ProspectAI's AI writes a personalized cold email using the business name, industry, location, and your agency details from your profile. The email is natural, conversational, avoids spam triggers, and ends with your full professional signature.",
+    q: 'How does AI cold email generation work in Runvax?',
+    a: "After finding a business, click Generate and Runvax's AI writes a personalized cold email using the business name, industry, location, and your agency details from your profile. The email is natural, conversational, avoids spam triggers, and ends with your full professional signature.",
   },
   {
     q: 'What is the best way to find local businesses without a website?',
-    a: "The most efficient method is to use a tool like ProspectAI that queries Google's business index and automatically filters for listings with no website URL. This surfaces hundreds of potential clients per search that you can contact directly with a personalized pitch.",
+    a: "The most efficient method is to use a tool like Runvax that queries Google's business index and automatically filters for listings with no website URL. This surfaces hundreds of potential clients per search that you can contact directly with a personalized pitch.",
   },
   {
-    q: 'Can I manage prospects and track outreach in ProspectAI?',
-    a: 'Yes. ProspectAI includes a built-in pipeline where you can save businesses, move them through stages (Found, Contacted, Interested, Proposal Sent, Won, Lost), add notes, set reminders, and track all outreach conversations in one place.',
+    q: 'Can I manage prospects and track outreach in Runvax?',
+    a: 'Yes. Runvax includes a built-in pipeline where you can save businesses, move them through stages (Found, Contacted, Interested, Proposal Sent, Won, Lost), add notes, set reminders, and track all outreach conversations in one place.',
   },
   {
-    q: 'How much does ProspectAI cost?',
-    a: 'ProspectAI has a free plan with no credit card required (5 searches/day). Pro is ₦9,999/month (~$6 USD / £5 GBP) with 20 searches/day and 60 results. Agency is ₦24,999/month (~$15 USD / £12 GBP) with unlimited searches, results, and AI calls.',
+    q: 'How much does Runvax cost?',
+    a: 'Runvax has a free plan with no credit card required (5 searches/day). Pro is ₦9,999/month (~$6 USD / £5 GBP) with 20 searches/day and 60 results. Agency is ₦24,999/month (~$15 USD / £12 GBP) with unlimited searches, results, and AI calls.',
   },
   {
-    q: 'Is ProspectAI available in the UK and USA?',
-    a: 'Yes. ProspectAI supports cities in the United Kingdom (London, Manchester, Birmingham) and the United States (New York, Houston, Chicago, Los Angeles) in addition to Nigeria, Ghana, Kenya, South Africa, Uganda, Tanzania, Rwanda, Senegal, and Cameroon.',
+    q: 'Is Runvax available in the UK and USA?',
+    a: 'Yes. Runvax supports cities in the United Kingdom (London, Manchester, Birmingham) and the United States (New York, Houston, Chicago, Los Angeles) in addition to Nigeria, Ghana, Kenya, South Africa, Uganda, Tanzania, Rwanda, Senegal, and Cameroon.',
   },
   {
-    q: 'What is the difference between ProspectAI Free and Pro?',
+    q: 'What is the difference between Runvax Free and Pro?',
     a: 'Free plan: 5 searches/day, 20 results/search, 15 AI messages/day — no credit card. Pro plan (₦9,999/month): 20 searches/day, 60 results/search, 200 AI calls/day. Agency plan (₦24,999/month): unlimited everything plus bulk email blast.',
   },
 ];
@@ -112,7 +112,7 @@ export default function FAQPage() {
             <h1 className="text-4xl font-bold mb-4">Frequently Asked Questions</h1>
             <p className="text-gray-400 text-lg max-w-xl mx-auto">
               Everything you need to know about finding web design clients and growing your agency
-              with ProspectAI.
+              with Runvax.
             </p>
           </div>
 

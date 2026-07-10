@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: 'How to find web design clients, write cold emails that convert, and grow your agency in Nigeria, Ghana, Kenya, South Africa, the UK, and beyond.',
   alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
-    title: 'ProspectAI Blog — Web Design Client Growth Guides',
+    title: 'Runvax Blog — Web Design Client Growth Guides',
     description: 'Practical guides on finding local business leads, cold outreach, and scaling your web design agency in Africa and the UK.',
     url: `${SITE_URL}/blog`,
     siteName: SITE_NAME,
@@ -18,17 +18,24 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ProspectAI Blog — Web Design Client Growth Guides',
+    title: 'Runvax Blog — Web Design Client Growth Guides',
     description: 'Find clients, write better cold emails, and grow your web design agency.',
     images: [`${SITE_URL}/og-image.png`],
   },
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'Guide': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  'Guide':      'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   'Cold Email': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  'Lead Gen': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  'Strategy': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+  'Lead Gen':   'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  'Strategy':   'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+  'Tools':      'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  'Tutorial':   'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
+  'Templates':  'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300',
+  'Resources':  'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+  'Make Money': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  'AI Tools':   'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
+  'Comparison': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 };
 
 export default function BlogPage() {
@@ -41,7 +48,7 @@ export default function BlogPage() {
         <div className="mb-12">
           <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 font-medium mb-3">
             <BookOpen className="w-4 h-4" />
-            ProspectAI Blog
+            Runvax Blog
           </div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Guides for Web Designers & Agencies

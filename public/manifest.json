@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "ProspectAI",
-  "short_name": "ProspectAI",
+  "name": "Runvax",
+  "short_name": "Runvax",
   "description": "Find local businesses that need a website. Generate AI-powered cold emails, WhatsApp messages, and proposals instantly.",
   "start_url": "/",
   "display": "standalone",

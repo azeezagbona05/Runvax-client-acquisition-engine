@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import { SITE_URL, SITE_NAME } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'ProspectAI vs Fiverr — Find Web Design Clients Without the Competition',
+  title: 'Runvax vs Fiverr — Find Web Design Clients Without the Competition',
   description:
-    'Tired of competing with hundreds of sellers on Fiverr? ProspectAI lets you find local businesses that need a website and pitch them directly — no bidding, no commission, no race to the bottom.',
+    'Tired of competing with hundreds of sellers on Fiverr? Runvax lets you find local businesses that need a website and pitch them directly — no bidding, no commission, no race to the bottom.',
   alternates: { canonical: `${SITE_URL}/vs-fiverr` },
   openGraph: {
-    title: `ProspectAI vs Fiverr — Stop Waiting, Start Closing`,
+    title: `Runvax vs Fiverr — Stop Waiting, Start Closing`,
     description:
       'Find unlimited web design leads without Fiverr commissions or competition. Search any city, contact businesses directly with AI cold outreach.',
     url: `${SITE_URL}/vs-fiverr`,
@@ -18,61 +18,61 @@ const comparisons = [
   {
     feature: 'Finding clients',
     fiverr: 'Wait for buyers to find you among thousands of sellers',
-    prospectai: 'You actively find businesses that need a website right now',
+    runvax: 'You actively find businesses that need a website right now',
   },
   {
     feature: 'Competition',
     fiverr: 'Compete with 50,000+ sellers on price, reviews, and gig ranking',
-    prospectai: 'You contact each prospect directly — no competing sellers',
+    runvax: 'You contact each prospect directly — no competing sellers',
   },
   {
     feature: 'Commission',
     fiverr: '20% commission taken on every sale',
-    prospectai: 'Zero commission — you keep 100% of every deal',
+    runvax: 'Zero commission — you keep 100% of every deal',
   },
   {
     feature: 'Client relationship',
     fiverr: 'Anonymous platform transactions, Fiverr owns the relationship',
-    prospectai: 'You own the client relationship from day one',
+    runvax: 'You own the client relationship from day one',
   },
   {
     feature: 'Pricing',
     fiverr: 'Race to the bottom — clients expect $5–$50 websites',
-    prospectai: 'You pitch directly at real market rates (₦50k–₦500k+)',
+    runvax: 'You pitch directly at real market rates (₦50k–₦500k+)',
   },
   {
     feature: 'Outreach',
     fiverr: 'None — passive waiting for orders',
-    prospectai: 'AI-generated cold emails, WhatsApp messages, and proposals in one click',
+    runvax: 'AI-generated cold emails, WhatsApp messages, and proposals in one click',
   },
   {
     feature: 'Lead volume',
     fiverr: 'Depends on Fiverr algorithm ranking you high enough',
-    prospectai: 'Unlimited — search any city, any industry, anytime',
+    runvax: 'Unlimited — search any city, any industry, anytime',
   },
   {
     feature: 'Cost',
     fiverr: '20% on every project (on a ₦50k job = ₦10k gone)',
-    prospectai: '₦9,999/month flat — keeps 100% of all revenue',
+    runvax: '₦9,999/month flat — keeps 100% of all revenue',
   },
 ];
 
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
-  name: 'ProspectAI vs Fiverr',
+  name: 'Runvax vs Fiverr',
   description:
-    'Comparison of ProspectAI and Fiverr for web designers looking to find clients in Nigeria and Africa.',
+    'Comparison of Runvax and Fiverr for web designers looking to find clients in Nigeria and Africa.',
   url: `${SITE_URL}/vs-fiverr`,
   mainEntity: {
     '@type': 'FAQPage',
     mainEntity: [
       {
         '@type': 'Question',
-        name: 'Is ProspectAI better than Fiverr for finding web design clients?',
+        name: 'Is Runvax better than Fiverr for finding web design clients?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'For web designers who want to find clients proactively — especially in Nigeria, Ghana, Kenya, and Africa — ProspectAI is far more effective than Fiverr. You search for businesses with no website, contact them directly with AI-generated outreach, and keep 100% of your revenue. Fiverr takes 20% commission and forces you to compete with thousands of sellers.',
+          text: 'For web designers who want to find clients proactively — especially in Nigeria, Ghana, Kenya, and Africa — Runvax is far more effective than Fiverr. You search for businesses with no website, contact them directly with AI-generated outreach, and keep 100% of your revenue. Fiverr takes 20% commission and forces you to compete with thousands of sellers.',
         },
       },
       {
@@ -80,7 +80,7 @@ const jsonLd = {
         name: 'How do I find web design clients without Fiverr?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Use ProspectAI to search any city for businesses that have no website. Filter by industry (restaurants, salons, law firms, clinics, etc.), get their contact details, and send a personalized cold email or WhatsApp message generated by AI. You reach clients directly without any platform middleman or commission.',
+          text: 'Use Runvax to search any city for businesses that have no website. Filter by industry (restaurants, salons, law firms, clinics, etc.), get their contact details, and send a personalized cold email or WhatsApp message generated by AI. You reach clients directly without any platform middleman or commission.',
         },
       },
     ],
@@ -99,14 +99,14 @@ export default function VsFiverrPage() {
           {/* Hero */}
           <div className="text-center mb-16">
             <span className="inline-block text-xs font-semibold tracking-widest uppercase text-indigo-400 mb-3">
-              ProspectAI vs Fiverr
+              Runvax vs Fiverr
             </span>
             <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
               Stop Waiting for Fiverr Orders.<br />
               <span className="text-indigo-400">Go Find Your Clients.</span>
             </h1>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto mb-8">
-              Fiverr makes you compete with 50,000 sellers and takes 20% of every sale. ProspectAI
+              Fiverr makes you compete with 50,000 sellers and takes 20% of every sale. Runvax
               lets you find businesses that need a website right now and pitch them directly — no
               competition, no commission.
             </p>
@@ -149,7 +149,7 @@ export default function VsFiverrPage() {
                       🔴 Fiverr
                     </th>
                     <th className="text-left px-6 py-4 text-indigo-400 font-semibold w-3/8">
-                      🟢 ProspectAI
+                      🟢 Runvax
                     </th>
                   </tr>
                 </thead>
@@ -161,7 +161,7 @@ export default function VsFiverrPage() {
                     >
                       <td className="px-6 py-4 font-medium text-gray-300">{row.feature}</td>
                       <td className="px-6 py-4 text-gray-400">{row.fiverr}</td>
-                      <td className="px-6 py-4 text-gray-200">{row.prospectai}</td>
+                      <td className="px-6 py-4 text-gray-200">{row.runvax}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -172,14 +172,14 @@ export default function VsFiverrPage() {
           {/* How it works */}
           <div className="mb-16">
             <h2 className="text-2xl font-bold mb-8 text-center">
-              How ProspectAI Replaces Fiverr
+              How Runvax Replaces Fiverr
             </h2>
             <div className="grid md:grid-cols-3 gap-6">
               {[
                 {
                   step: '1',
                   title: 'Search any city',
-                  body: 'Type Lagos, Accra, London, or any city. Pick an industry. ProspectAI returns real local businesses with contact details and website status.',
+                  body: 'Type Lagos, Accra, London, or any city. Pick an industry. Runvax returns real local businesses with contact details and website status.',
                 },
                 {
                   step: '2',
@@ -189,7 +189,7 @@ export default function VsFiverrPage() {
                 {
                   step: '3',
                   title: 'Send AI-written outreach',
-                  body: 'Click Generate. ProspectAI writes a personalized cold email or WhatsApp message for that business in seconds. Send and close.',
+                  body: 'Click Generate. Runvax writes a personalized cold email or WhatsApp message for that business in seconds. Send and close.',
                 },
               ].map(({ step, title, body }) => (
                 <div key={step} className="bg-gray-900 border border-gray-800 rounded-xl p-6">

@@ -1,9 +1,9 @@
-# ProspectAI — Product Documentation
+# Runvax — Product Documentation
 
 > **Find businesses that need a website. Pitch them with AI. Win them as clients.**
 > An AI-powered prospecting, outreach, and CRM platform for web designers, freelancers, and digital agencies.
 
-*Operated by BeamAI · Built for Nigeria & emerging markets, now expanding to the US, UK & Canada.*
+*Operated by Runvax · Built for Nigeria & emerging markets, now expanding to the US, UK & Canada.*
 
 ---
 
@@ -24,7 +24,7 @@ It's slow, unstructured, demoralising, and most give up before they close a deal
 
 ## 2. The Solution
 
-**ProspectAI turns that entire manual grind into a guided, AI-assisted workflow** — a single tool that takes a freelancer from *"I need clients"* to *"I just closed a deal."*
+**Runvax turns that entire manual grind into a guided, AI-assisted workflow** — a single tool that takes a freelancer from *"I need clients"* to *"I just closed a deal."*
 
 It does three things end-to-end:
 
@@ -33,7 +33,7 @@ It does three things end-to-end:
 3. **Win** — Track every prospect through a sales pipeline, automate follow-ups, log conversations, and measure conversion — so deals don't slip through the cracks.
 
 ### Why it's built this way
-Generic lead tools (Apollo, ZoomInfo, BuiltWith) are built for US enterprise sales and ignore the realities of local-business selling in emerging markets: WhatsApp-first communication, local currencies, local pricing, and the specific objections ("I have Facebook already") that local SMBs raise. ProspectAI is **purpose-built for the person selling websites to local businesses** — the whole loop, in one place.
+Generic lead tools (Apollo, ZoomInfo, BuiltWith) are built for US enterprise sales and ignore the realities of local-business selling in emerging markets: WhatsApp-first communication, local currencies, local pricing, and the specific objections ("I have Facebook already") that local SMBs raise. Runvax is **purpose-built for the person selling websites to local businesses** — the whole loop, in one place.
 
 ## 3. Who It's For
 
@@ -178,9 +178,9 @@ All generation is powered by OpenAI models with **local market context** (naira 
 
 ## 8. What Makes It Stand Out (The Moat)
 
-ProspectAI isn't "another AI writer." Its defensibility compounds:
+Runvax isn't "another AI writer." Its defensibility compounds:
 
-1. **The full loop in one tool** — find → qualify → pitch → close. Competitors do one slice; ProspectAI owns the whole freelancer workflow.
+1. **The full loop in one tool** — find → qualify → pitch → close. Competitors do one slice; Runvax owns the whole freelancer workflow.
 2. **Emerging-markets first** — WhatsApp-native outreach, local currencies, local pricing intelligence, tiered neighborhoods, and objection handling tuned to local SMBs. Western tools ignore this enormous, underserved market.
 3. **A proprietary conversion dataset (in the making)** — every search, outcome, price band, and reply is logged. Over time this becomes data no competitor has: *which businesses convert, at what price, with which message, at what time, by industry and area.*
 4. **Built-in distribution** — shareable audits and demo previews carry the brand, creating a viral loop.
@@ -191,7 +191,7 @@ ProspectAI isn't "another AI writer." Its defensibility compounds:
 ## 9. The Pitch (Summary)
 
 **Elevator pitch:**
-> ProspectAI is the all-in-one platform that helps web designers and agencies find local businesses that need a website, pitch them with AI, and close them — purpose-built for WhatsApp-first, emerging markets that global sales tools ignore.
+> Runvax is the all-in-one platform that helps web designers and agencies find local businesses that need a website, pitch them with AI, and close them — purpose-built for WhatsApp-first, emerging markets that global sales tools ignore.
 
 **The problem:** Millions of local businesses have no website; thousands of freelancers can build them but can't find or close clients. The middle is broken.
 

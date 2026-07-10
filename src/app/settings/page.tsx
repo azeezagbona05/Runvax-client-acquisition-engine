@@ -465,9 +465,9 @@ export default function SettingsPage() {
     setWaTemplateError('');
     try {
       const res = await fetch('/api/whatsapp/create-template', { method: 'POST' });
-      const data = await res.json() as { ok?: boolean; status?: string; existed?: boolean; error?: string };
+      const data = await res.json() as { ok?: boolean; status?: string; existed?: boolean; name?: string; error?: string };
       if (!res.ok || data.error) { setWaTemplateError(data.error ?? 'Failed to create template'); return; }
-      setSettings((prev) => ({ ...prev, waTemplateName: 'beamai_outreach_v1', waTemplateStatus: data.status ?? 'PENDING' }));
+      setSettings((prev) => ({ ...prev, waTemplateName: data.name ?? prev.waTemplateName, waTemplateStatus: data.status ?? 'PENDING' }));
     } catch {
       setWaTemplateError('Could not reach Meta API.');
     } finally {

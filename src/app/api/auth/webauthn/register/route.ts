@@ -9,7 +9,7 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-const RP_NAME = 'ProspectAI';
+const RP_NAME = 'Runvax';
 
 function getOriginAndRpId(req: NextRequest) {
   const configured = process.env.NEXT_PUBLIC_SITE_URL;
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     rpName: RP_NAME,
     rpID: rpId,
     userName: user.email ?? user.id,
-    userDisplayName: user.name ?? user.email ?? 'ProspectAI User',
+    userDisplayName: user.name ?? user.email ?? 'Runvax User',
     excludeCredentials: existing.map((c) => ({
       id: c.credentialId,
       transports: c.transports ? (JSON.parse(c.transports) as AuthenticatorTransport[]) : undefined,

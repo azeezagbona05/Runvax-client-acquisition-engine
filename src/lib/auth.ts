@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
+import { rateLimit } from './rateLimiter';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase());
 
@@ -22,6 +23,11 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        // 5 failed attempts per email per 15 minutes
+        const loginIp = (((req as { headers?: Record<string, string> }).headers?.['x-forwarded-for'] ?? '').split(',')[0].trim()) || 'unknown';
+        const rl = rateLimit(`login:${credentials.email.toLowerCase()}:${loginIp}`, { maxRequests: 5, windowMs: 15 * 60 * 1000 });
+        if (!rl.ok) return null; // silently fail — same UX as wrong password
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },

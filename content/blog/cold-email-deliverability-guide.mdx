@@ -1,0 +1,86 @@
+---
+title: "Cold Email Deliverability: Why Your Emails Land in Spam"
+description: "Why cold emails land in spam and how to fix it — domain authentication, warm-up, sending volume, and copy triggers that tank cold email deliverability in 2026."
+date: "2026-08-02"
+category: "Cold Email"
+tags: ["cold email deliverability", "cold email spam", "why emails go to spam", "email deliverability fix", "cold email inbox placement"]
+---
+
+Cold emails land in spam most often because of missing domain authentication (SPF, DKIM, DMARC), sending from a brand-new or unwarmed domain, or sending high volume too fast. Copy triggers like spammy words matter less than most guides claim — technical setup is the root cause in the majority of cases.
+
+Here's what actually controls inbox placement, in the order it's worth checking.
+
+## Why Deliverability Matters More Than Any Other Metric
+
+A perfectly written email that lands in spam has a 0% reply rate — no exceptions. If your reply rate is sitting well below the 6-9% 2026 average and you've ruled out targeting problems, deliverability is the next place to look, not your subject lines. A whole campaign quietly landing in spam looks identical to a campaign nobody wants to reply to, which is why this gets misdiagnosed as a copywriting problem constantly.
+
+## The Deliverability Checklist, in Priority Order
+
+| Priority | Fix | Why it matters |
+|---|---|---|
+| 1 | SPF, DKIM, DMARC records | Proves your domain is authorized to send — missing this is the #1 cause of spam placement |
+| 2 | Domain and IP warm-up | New domains sending high volume immediately look like spam to mail providers |
+| 3 | Sending volume and pacing | Sudden spikes trigger spam filters even on warmed domains |
+| 4 | Dedicated sending domain | Keeps cold outreach separate from your main business domain's reputation |
+| 5 | List hygiene | Sending to invalid or bounced addresses damages sender reputation |
+| 6 | Copy and formatting | Matters, but far less than the technical factors above |
+
+## 1. Domain Authentication: SPF, DKIM, DMARC
+
+These three DNS records tell receiving mail servers that your domain actually authorized the email to be sent — without them, providers like Gmail and Outlook treat your mail as unverifiable, which is one of the strongest spam signals there is.
+
+- **SPF (Sender Policy Framework):** Lists which servers are allowed to send email for your domain.
+- **DKIM (DomainKeys Identified Mail):** Cryptographically signs your emails so receivers can verify they weren't altered in transit.
+- **DMARC (Domain-based Message Authentication):** Tells receivers what to do if SPF or DKIM checks fail, and gives you visibility into spoofing attempts.
+
+If you've never set these up, this is very likely your single biggest deliverability lever. Most email sending platforms (and most domain registrars) have straightforward instructions for adding these DNS records — it's a one-time setup, not an ongoing task.
+
+## 2. Domain and Mailbox Warm-Up
+
+A brand-new domain or mailbox sending 200 cold emails on day one looks exactly like spam behavior to mail providers, regardless of how good the content is. Warm-up means gradually increasing volume over 2-4 weeks so your sending pattern looks like a real, established mailbox.
+
+A simple warm-up ramp:
+
+| Week | Daily volume | Notes |
+|---|---|---|
+| 1 | 10-20 emails | Mix of cold sends and normal replies to build history |
+| 2 | 30-50 emails | Monitor bounce and spam complaint rates closely |
+| 3 | 50-100 emails | Continue if metrics stay healthy |
+| 4+ | Target volume | Full sending pace once reputation is established |
+
+Skipping warm-up is the most common reason a technically-correct new domain still underperforms in its first month.
+
+## 3. Sending Volume and Pacing
+
+Even a warmed domain can trigger spam filters with sudden spikes — sending 500 emails in one hour looks automated in a way that sending the same 500 spread across a full business day doesn't. Spread sends throughout the day, and avoid sending the exact same email template to a huge batch all at once; slight variation in subject line and opening line across a send helps too.
+
+## 4. Use a Dedicated Sending Domain
+
+Sending cold outreach from your primary business domain risks your main domain's reputation if something goes wrong — a spam complaint spike can affect deliverability for your regular business email too. Many experienced senders use a separate but related domain (like a variant of their main domain) purely for cold outreach, keeping the two reputations independent.
+
+## 5. List Hygiene
+
+Sending to invalid, disconnected, or role-based addresses (like info@ or admin@) increases bounce rates, and high bounce rates are a direct signal to mail providers that your list quality — and by extension your sending practices — are poor. Verify email addresses before sending where possible, and remove hard bounces from future sends immediately rather than retrying them.
+
+## 6. Copy and Formatting: Matters, But Less Than You Think
+
+Spam trigger words ("free," "guarantee," excessive exclamation points) do contribute slightly to spam scoring, but they're a minor factor compared to the technical issues above. A well-authenticated, properly warmed domain sending reasonably-written cold email will out-deliver a poorly-authenticated domain sending "perfect" copy every time. Don't over-index on word choice at the expense of the technical fundamentals.
+
+That said, a few formatting habits genuinely help:
+- Avoid excessive links (more than 2-3) in a single cold email
+- Skip large images or attachments on a first-touch email
+- Keep HTML formatting simple — plain-text-style emails often perform better for cold outreach specifically, since they read as personal rather than templated
+
+## How to Tell If Deliverability Is Your Problem
+
+If your reply rate is well below the [6-9% 2026 average](/blog/cold-email-reply-rate-benchmarks-2026) across an entire campaign — not just a few emails — and your open rates also look unusually low, deliverability is the more likely culprit over copy. A useful diagnostic: send a test to a personal inbox you control (Gmail, Outlook) and check whether it lands in the primary inbox or spam/promotions folder before you send to real prospects.
+
+## Deliverability Problems Compound Fast
+
+A domain that develops a poor sending reputation doesn't just underperform for the current campaign — every future email from that domain inherits the damaged reputation until it's rebuilt, which can take weeks. This is why fixing deliverability early is worth far more than optimizing copy on a domain that's already struggling to reach the inbox. Once deliverability is solid, personalization is what moves you from average to top-tier — see [how to personalize cold emails at scale](/blog/how-to-personalize-cold-emails-at-scale) for the next lever to pull.
+
+For where deliverability fits into the full outreach picture, see the [cold outreach complete guide](/blog/cold-outreach-complete-guide-2026). And if you're building outreach as one channel in a bigger lead generation system, our [lead generation for small business guide](/blog/lead-generation-for-small-business-complete-guide) covers how deliverability issues on one channel push more weight onto others.
+
+## Spend Less Time Fighting Spam Filters, More Time Reaching Real Prospects
+
+Good deliverability gets your email to the inbox — but it still needs to reach the right inbox. [Runvax](https://runvax.com) finds local businesses with no website in any city and industry, so the emails you're carefully getting past spam filters are landing in front of businesses genuinely likely to respond.

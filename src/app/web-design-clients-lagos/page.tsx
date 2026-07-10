@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Find Web Design Clients in Lagos — ProspectAI',
+  title: 'Find Web Design Clients in Lagos — Runvax',
   description:
     'Find local businesses in Lagos that need a website. Search Ikeja, Lekki, Victoria Island, Surulere, and every Lagos neighbourhood for businesses with no web presence.',
   alternates: { canonical: `${SITE_URL}/web-design-clients-lagos` },
   openGraph: {
-    title: 'Find Web Design Clients in Lagos — ProspectAI',
+    title: 'Find Web Design Clients in Lagos — Runvax',
     description:
-      'ProspectAI finds Lagos businesses with no website. Get phone numbers, addresses, and AI cold outreach in 60 seconds. Free plan available.',
+      'Runvax finds Lagos businesses with no website. Get phone numbers, addresses, and AI cold outreach in 60 seconds. Free plan available.',
     url: `${SITE_URL}/web-design-clients-lagos`,
   },
 };
@@ -32,7 +32,7 @@ const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
   name: 'Find Web Design Clients in Lagos',
-  description: 'How to find local businesses in Lagos that need a website using ProspectAI.',
+  description: 'How to find local businesses in Lagos that need a website using Runvax.',
   url: `${SITE_URL}/web-design-clients-lagos`,
   about: {
     '@type': 'City',
@@ -62,7 +62,7 @@ export default function LagosPage() {
             <p className="text-gray-400 text-lg mb-8 max-w-2xl">
               Lagos has over 300,000 registered SMBs — and the vast majority have no website. Every
               restaurant in Ikeja, salon in Lekki, and clinic in Surulere is a potential client.
-              ProspectAI finds them for you in seconds.
+              Runvax finds them for you in seconds.
             </p>
             <a
               href="/?city=Lagos&country=NG"
@@ -120,7 +120,7 @@ export default function LagosPage() {
               ))}
             </div>
             <p className="text-gray-500 text-sm mt-3">
-              ProspectAI searches any Lagos neighbourhood or local government area — type any location name.
+              Runvax searches any Lagos neighbourhood or local government area — type any location name.
             </p>
           </div>
 
@@ -134,7 +134,7 @@ export default function LagosPage() {
                 {
                   step: '1',
                   title: 'Search a Lagos neighbourhood',
-                  body: 'Type "Ikeja", "Lekki", "Surulere", or any Lagos location. ProspectAI queries Google\'s real-time business data for that area.',
+                  body: 'Type "Ikeja", "Lekki", "Surulere", or any Lagos location. Runvax queries Google\'s real-time business data for that area.',
                 },
                 {
                   step: '2',
@@ -183,7 +183,7 @@ export default function LagosPage() {
               ))}
             </div>
             <p className="text-gray-400 text-sm mt-4">
-              One Lagos client paying ₦150,000 covers 15 months of ProspectAI Pro (₦9,999/month).
+              One Lagos client paying ₦150,000 covers 15 months of Runvax Pro (₦9,999/month).
             </p>
           </div>
 

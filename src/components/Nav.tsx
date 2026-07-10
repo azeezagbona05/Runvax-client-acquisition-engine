@@ -84,7 +84,7 @@ export default function Nav() {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="flex items-center justify-between px-4 h-14">
-          <img src="/logo.svg" alt="ProspectAI" className="w-8 h-8" />
+          <img src="/logo.svg" alt="Runvax" className="w-8 h-8" />
 
           <div className="flex items-center gap-2">
             {session?.user && userPlan === 'free' && (
@@ -102,7 +102,17 @@ export default function Nav() {
               {theme === 'dark' ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-purple-400" />}
             </button>
 
-            {/* User avatar + logout menu */}
+            {/* Sign in button for guests on mobile */}
+            {!session?.user && (
+              <Link
+                href="/auth/signin"
+                className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-purple-600 hover:bg-purple-500 text-white transition-colors"
+              >
+                Login
+              </Link>
+            )}
+
+          {/* User avatar + logout menu */}
             {session?.user && (
               <div className="relative" ref={userMenuRef}>
                 <button

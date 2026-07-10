@@ -13,12 +13,12 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-white font-bold text-lg mb-3">1. Acceptance of Terms</h2>
-          <p>By accessing or using ProspectAI ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
+          <p>By accessing or using Runvax ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
         </section>
 
         <section>
           <h2 className="text-white font-bold text-lg mb-3">2. Description of Service</h2>
-          <p>ProspectAI is a SaaS platform that helps web developers and digital agencies in Nigeria discover local businesses without websites, generate AI-powered outreach, proposals, and website prompts, and manage their sales pipeline.</p>
+          <p>Runvax is a SaaS platform that helps web developers and digital agencies in Nigeria discover local businesses without websites, generate AI-powered outreach, proposals, and website prompts, and manage their sales pipeline.</p>
         </section>
 
         <section>
@@ -80,7 +80,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-white font-bold text-lg mb-3">11. Contact</h2>
-          <p>For questions about these Terms, contact us at <a href="mailto:info@beamai.net" className="text-purple-400 hover:underline">info@beamai.net</a>.</p>
+          <p>For questions about these Terms, contact us at <a href="mailto:info@runvax.com" className="text-purple-400 hover:underline">info@runvax.com</a>.</p>
         </section>
       </div>
     </div>

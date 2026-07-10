@@ -758,6 +758,13 @@ export default function AdminPage() {
   const [search, setSearch]         = useState('');
   const [planFilter, setPlanFilter] = useState<Plan | 'all' | 'suspicious'>('all');
 
+  // Bulk user selection / delete state
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting]   = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [singleDeleting, setSingleDeleting] = useState<Record<string, boolean>>({});
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   // API Costs filter state
   const [costsSearch, setCostsSearch]     = useState('');
   const [costsPlan, setCostsPlan]         = useState<Plan | 'all'>('all');
@@ -858,6 +865,55 @@ export default function AdminPage() {
     }
   };
 
+  // ── Delete a single user ─────────────────────────────────────────────────
+  const handleDeleteUser = async (userId: string) => {
+    setSingleDeleting((p) => ({ ...p, [userId]: true }));
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setStats((prev) => prev ? { ...prev, users: prev.users.filter((u) => u.id !== userId) } : prev);
+        setSelectedUsers((prev) => {
+          const next = new Set(prev);
+          next.delete(userId);
+          return next;
+        });
+        setConfirmDeleteId(null);
+      }
+    } finally {
+      setSingleDeleting((p) => ({ ...p, [userId]: false }));
+    }
+  };
+
+  // ── Bulk delete selected users ───────────────────────────────────────────
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedUsers);
+    if (ids.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      if (res.ok) {
+        const idSet = new Set(ids);
+        setStats((prev) => prev ? { ...prev, users: prev.users.filter((u) => !idSet.has(u.id)) } : prev);
+        setSelectedUsers(new Set());
+        setConfirmBulkDelete(false);
+      }
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const toggleUserSelected = (userId: string) => {
+    setSelectedUsers((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId); else next.add(userId);
+      return next;
+    });
+  };
+
   // ── Filtered users ───────────────────────────────────────────────────────
   const filteredUsers = useMemo(() => {
     if (!stats) return [];
@@ -871,6 +927,21 @@ export default function AdminPage() {
       return matchesPlan && matchesSearch;
     });
   }, [stats, search, planFilter]);
+
+  const allFilteredSelected = filteredUsers.length > 0 && filteredUsers.every((u) => selectedUsers.has(u.id));
+
+  const toggleSelectAll = () => {
+    setSelectedUsers((prev) => {
+      if (allFilteredSelected) {
+        const next = new Set(prev);
+        for (const u of filteredUsers) next.delete(u.id);
+        return next;
+      }
+      const next = new Set(prev);
+      for (const u of filteredUsers) next.add(u.id);
+      return next;
+    });
+  };
 
   const suspiciousCount = useMemo(
     () => (stats?.users ?? []).filter((u) => botScore(u) >= 4).length,
@@ -1074,11 +1145,67 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* Bulk selection action bar */}
+            {selectedUsers.size > 0 && (
+              <div className="flex items-center justify-between gap-3 bg-red-500/10 border border-red-500/25 rounded-2xl px-4 py-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-red-300">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  {selectedUsers.size} user{selectedUsers.size === 1 ? '' : 's'} selected
+                </div>
+                <div className="flex items-center gap-2">
+                  {confirmBulkDelete ? (
+                    <>
+                      <span className="text-xs text-red-300 hidden sm:inline">Delete permanently?</span>
+                      <button
+                        onClick={handleBulkDelete}
+                        disabled={bulkDeleting}
+                        className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+                      >
+                        {bulkDeleting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        {bulkDeleting ? 'Deleting…' : 'Confirm Delete'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmBulkDelete(false)}
+                        disabled={bulkDeleting}
+                        className="px-3 py-2 text-xs font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setSelectedUsers(new Set())}
+                        className="px-3 py-2 text-xs font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => setConfirmBulkDelete(true)}
+                        className="flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete Selected
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="bg-gray-900 border border-white/10 rounded-2xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/8 text-left">
+                      <th className="px-4 py-3 w-8">
+                        <input
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          onChange={toggleSelectAll}
+                          className="w-4 h-4 rounded accent-purple-600 cursor-pointer"
+                          aria-label="Select all users"
+                        />
+                      </th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">User</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Plan</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Prospects</th>
@@ -1087,6 +1214,7 @@ export default function AdminPage() {
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Expires</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Change Plan</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Activity</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Delete</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1098,6 +1226,15 @@ export default function AdminPage() {
                       return (
                         <>
                           <tr key={u.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${isExpanded ? 'bg-white/[0.03]' : ''} ${u.isSuspended ? 'bg-red-500/[0.04]' : risk >= 4 ? 'bg-orange-500/[0.03]' : ''}`}>
+                            <td className="px-4 py-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedUsers.has(u.id)}
+                                onChange={() => toggleUserSelected(u.id)}
+                                className="w-4 h-4 rounded accent-purple-600 cursor-pointer"
+                                aria-label={`Select ${u.name ?? u.email ?? 'user'}`}
+                              />
+                            </td>
                             <td className="px-4 py-3">
                               <div className="font-semibold text-white flex items-center gap-1.5 flex-wrap">
                                 {u.name ?? '—'}
@@ -1171,10 +1308,38 @@ export default function AdminPage() {
                                 <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                               </button>
                             </td>
+                            <td className="px-4 py-3">
+                              {confirmDeleteId === u.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    disabled={singleDeleting[u.id]}
+                                    className="flex items-center gap-1 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white text-[10px] font-bold px-2 py-1.5 rounded-lg transition-colors"
+                                  >
+                                    {singleDeleting[u.id] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="text-[10px] font-semibold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1.5 rounded-lg transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDeleteId(u.id)}
+                                  title="Delete user"
+                                  className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </td>
                           </tr>
                           {isExpanded && (
                             <tr key={`${u.id}-expand`} className="border-b border-white/5">
-                              <td colSpan={8} className="p-0">
+                              <td colSpan={10} className="p-0">
                                 <UserRestrictionsPanel
                                   user={u}
                                   duplicateIp={isDupIp}
@@ -1198,7 +1363,7 @@ export default function AdminPage() {
                     })}
                     {filteredUsers.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="px-4 py-10 text-center text-gray-600 text-sm">
+                        <td colSpan={10} className="px-4 py-10 text-center text-gray-600 text-sm">
                           {search || planFilter !== 'all' ? 'No users match your filters' : 'No users yet'}
                         </td>
                       </tr>

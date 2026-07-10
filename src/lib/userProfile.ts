@@ -32,7 +32,7 @@ export interface EffectiveProfile {
   portfolio: PortfolioEntry[];
 }
 
-const DEFAULT_EMAIL = 'info@beamai.net';
+const DEFAULT_EMAIL = 'info@runvax.com';
 
 // Cached default profile — loaded once per process lifetime
 let _defaultCache: EffectiveProfile | null = null;
@@ -45,8 +45,8 @@ async function getDefaultProfile(): Promise<EffectiveProfile> {
   });
   const defaultRc = defaultUser?.settings?.rateCard as unknown as RateCard | null;
   _defaultCache = {
-    senderName: defaultUser?.settings?.senderName ?? 'BeamAI Team',
-    businessName: defaultUser?.settings?.businessName ?? 'BeamAI',
+    senderName: defaultUser?.settings?.senderName ?? 'Runvax Team',
+    businessName: defaultUser?.settings?.businessName ?? 'Runvax',
     whatsapp: defaultUser?.settings?.whatsapp ?? '+234 800 000 0000',
     replyEmail: defaultUser?.settings?.replyEmail ?? DEFAULT_EMAIL,
     city: defaultUser?.settings?.city ?? 'Lagos, Nigeria',

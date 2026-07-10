@@ -14,6 +14,11 @@ import { buildQuickWAMessage } from '@/lib/waMessage';
 import { useWaPaceTimer } from '@/lib/waRateLimit';
 import { useToast } from './Toast';
 
+function getDomain(website?: string): string {
+  if (!website) return '';
+  try { return new URL(website).hostname; } catch { return ''; }
+}
+
 function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' {
   const h = new Date().getHours();
   if (h < 12) return 'morning';
@@ -287,10 +292,23 @@ function BusinessCard({ business, onClick, competitors }: Props) {
           )}
         </div>
 
-        {/* Name */}
-        <h3 className="font-bold text-white text-[15px] leading-snug line-clamp-2 group-hover:text-purple-300 transition-colors -mt-1">
-          {business.name}
-        </h3>
+        {/* Name + Clearbit logo */}
+        <div className="flex items-start gap-2 -mt-1">
+          {business.hasWebsite && getDomain(business.website) && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`https://www.google.com/s2/favicons?sz=32&domain=${getDomain(business.website)}`}
+              alt=""
+              width={20}
+              height={20}
+              className="w-5 h-5 rounded flex-shrink-0 mt-0.5 object-contain"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          )}
+          <h3 className="font-bold text-white text-[15px] leading-snug line-clamp-2 group-hover:text-purple-300 transition-colors">
+            {business.name}
+          </h3>
+        </div>
 
         {/* Address */}
         {business.address && (

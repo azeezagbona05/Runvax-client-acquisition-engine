@@ -16,7 +16,7 @@ export type SeoAnalysisSection =
 // ── Complete product brief — every feature, use case, audience segment ────────
 
 const PRODUCT = `
-PRODUCT: ProspectAI (prospecttool.com)
+PRODUCT: Runvax (prospecttool.com)
 TAGLINE: The AI client-acquisition engine built for African web professionals
 
 WHAT IT DOES — COMPLETE FEATURE LIST:
@@ -35,7 +35,7 @@ WHAT IT DOES — COMPLETE FEATURE LIST:
 13. Email Blast: Send bulk personalized cold emails via SMTP — per-prospect personalization, subject line optimization
 14. Market Intelligence Brief: Daily AI-generated brief on what businesses in the user's target market are doing online — trending categories, hot areas, competitor moves
 15. Follow-up Sequences: Multi-step automated follow-up plans — Day 1 WhatsApp, Day 3 email, Day 7 nudge — AI-written, user-approved before sending
-16. AI Growth Engine: 5 parallel SEO/GEO agents that generate keywords, 90-day content calendar, homepage copy, blog posts, schemas, llms.txt — specifically to rank ProspectAI itself on Google and AI platforms
+16. AI Growth Engine: 5 parallel SEO/GEO agents that generate keywords, 90-day content calendar, homepage copy, blog posts, schemas, llms.txt — specifically to rank Runvax itself on Google and AI platforms
 17. Analytics Dashboard: Revenue pipeline value, daily outreach streak, win rate, average deal value, category performance, monthly projections
 18. Rate Card Builder: Stores pricing packages (Basic/Pro/Premium website), terms, and payment info — auto-included in AI-generated proposals
 19. Portfolio Manager: Upload past projects with descriptions — AI uses them to strengthen outreach credibility
@@ -55,7 +55,7 @@ TARGET AUDIENCE (secondary):
 - Global freelancers targeting African markets
 
 CORE PROBLEM SOLVED:
-Nigerian web professionals spend 3–5 hours daily manually searching Google, WhatsApp groups, and directories for potential clients. They compete on race-to-the-bottom platforms like Fiverr/Upwork where they can never win on price against Pakistani or Indian freelancers. ProspectAI automates the entire client-finding and outreach process — turning a 5-hour manual grind into a 15-minute daily routine.
+Nigerian web professionals spend 3–5 hours daily manually searching Google, WhatsApp groups, and directories for potential clients. They compete on race-to-the-bottom platforms like Fiverr/Upwork where they can never win on price against Pakistani or Indian freelancers. Runvax automates the entire client-finding and outreach process — turning a 5-hour manual grind into a 15-minute daily routine.
 
 PRICING:
 - Free plan: limited searches/day, basic outreach
@@ -65,7 +65,7 @@ PRICING:
 COMPETITIVE POSITION:
 - Apollo.io: built for US enterprise sales — no Nigeria/Africa data, costs $49–$99/month, no WhatsApp, no web design workflow
 - Hunter.io: email finder only — no prospecting, no outreach, no pipeline, not built for Africa
-- Upwork/Fiverr: platforms where you race to the bottom — ProspectAI bypasses platforms entirely for direct client acquisition
+- Upwork/Fiverr: platforms where you race to the bottom — Runvax bypasses platforms entirely for direct client acquisition
 - Manual Google search: what most Nigerian freelancers do — 5 hours/day, no automation, no AI outreach
 - LinkedIn: saturated, no Nigerian local business data, requires premium for outreach
 
@@ -85,14 +85,14 @@ function keywordsPrompt() {
 
 ${PRODUCT}
 
-Generate the most comprehensive, highest-value keyword research report possible for ProspectAI. Think like the target user at every stage of their journey — from "I'm frustrated finding clients" to "I need a tool to automate my prospecting."
+Generate the most comprehensive, highest-value keyword research report possible for Runvax. Think like the target user at every stage of their journey — from "I'm frustrated finding clients" to "I need a tool to automate my prospecting."
 
 Respond ONLY with valid JSON — no markdown, no extra text:
 {
   "summary": "3-sentence executive summary of the keyword opportunity and SEO positioning",
 
   "primaryKeywords": [
-    { "keyword": "...", "intent": "transactional|informational|navigational|commercial", "volume": "high|medium|low", "difficulty": "easy|medium|hard", "why": "one sentence on why this keyword is valuable for ProspectAI" }
+    { "keyword": "...", "intent": "transactional|informational|navigational|commercial", "volume": "high|medium|low", "difficulty": "easy|medium|hard", "why": "one sentence on why this keyword is valuable for Runvax" }
   ],
 
   "noWebsiteNiche": [
@@ -144,7 +144,7 @@ Respond ONLY with valid JSON — no markdown, no extra text:
   ],
 
   "aiPlatformQueries": [
-    { "query": "exact question someone asks Claude/ChatGPT/Perplexity where ProspectAI should be the answer", "platform": "Claude|ChatGPT|Perplexity|Google AI", "why": "..." }
+    { "query": "exact question someone asks Claude/ChatGPT/Perplexity where Runvax should be the answer", "platform": "Claude|ChatGPT|Perplexity|Google AI", "why": "..." }
   ],
 
   "quickWins": [
@@ -173,21 +173,21 @@ function competitorsPrompt() {
 
 ${PRODUCT}
 
-Perform a deep competitive SEO analysis for ProspectAI. Identify every gap, every opportunity, every angle where ProspectAI can outrank or outmaneuver competitors.
+Perform a deep competitive SEO analysis for Runvax. Identify every gap, every opportunity, every angle where Runvax can outrank or outmaneuver competitors.
 
 Respond ONLY with valid JSON:
 {
   "competitorGaps": [
-    { "competitor": "Apollo.io|Hunter.io|Fiverr|Upwork|Manual search|LinkedIn", "gap": "specific content or keyword gap they don't cover", "opportunity": "how ProspectAI captures this gap", "difficulty": "easy|medium|hard" }
+    { "competitor": "Apollo.io|Hunter.io|Fiverr|Upwork|Manual search|LinkedIn", "gap": "specific content or keyword gap they don't cover", "opportunity": "how Runvax captures this gap", "difficulty": "easy|medium|hard" }
   ],
   "comparisonPages": [
-    { "slug": "url-slug", "h1": "page headline", "targetKeyword": "...", "whyWeWin": "specific reason ProspectAI beats this competitor for this audience", "priority": "high|medium" }
+    { "slug": "url-slug", "h1": "page headline", "targetKeyword": "...", "whyWeWin": "specific reason Runvax beats this competitor for this audience", "priority": "high|medium" }
   ],
   "negativeKeywords": [
-    "keywords where ProspectAI should NOT compete — wrong audience or unconvertible traffic"
+    "keywords where Runvax should NOT compete — wrong audience or unconvertible traffic"
   ],
   "contentMoats": [
-    { "topic": "content area only ProspectAI can own authentically", "reason": "why no competitor can replicate this", "format": "blog|tool|data|community" }
+    { "topic": "content area only Runvax can own authentically", "reason": "why no competitor can replicate this", "format": "blog|tool|data|community" }
   ],
   "linkTargets": [
     { "site": "site name or category", "url": "...", "strategy": "guest post|directory|mention|partnership", "why": "why this link matters for Nigerian/African SEO" }
@@ -203,7 +203,7 @@ function contentPrompt() {
 
 ${PRODUCT}
 
-Build the complete content strategy for ProspectAI — every piece of content needed to dominate Nigerian/African freelance and web design search results.
+Build the complete content strategy for Runvax — every piece of content needed to dominate Nigerian/African freelance and web design search results.
 
 Respond ONLY with valid JSON:
 {
@@ -214,7 +214,7 @@ Respond ONLY with valid JSON:
     { "week": 1, "title": "...", "slug": "...", "keyword": "...", "type": "how-to|listicle|comparison|case-study|guide", "wordCount": 1200, "hook": "opening sentence that grabs a Nigerian freelancer" }
   ],
   "faqContent": [
-    { "question": "exact question from Google People Also Ask or Nigerian forums", "answer": "comprehensive answer that references ProspectAI naturally (3-5 sentences)", "keyword": "..." }
+    { "question": "exact question from Google People Also Ask or Nigerian forums", "answer": "comprehensive answer that references Runvax naturally (3-5 sentences)", "keyword": "..." }
   ],
   "caseStudyAngles": [
     { "title": "...", "protagonist": "type of user (e.g. Lagos freelancer, Abuja agency owner)", "result": "specific measurable outcome", "keyword": "..." }
@@ -239,7 +239,7 @@ function technicalPrompt() {
 
 ${PRODUCT}
 
-Generate every technical SEO asset ProspectAI needs to rank on Google AND be discovered and cited by AI assistants (Claude, ChatGPT, Perplexity, Gemini). This is GEO — Generative Engine Optimization.
+Generate every technical SEO asset Runvax needs to rank on Google AND be discovered and cited by AI assistants (Claude, ChatGPT, Perplexity, Gemini). This is GEO — Generative Engine Optimization.
 
 Respond ONLY with valid JSON:
 {
@@ -252,11 +252,11 @@ Respond ONLY with valid JSON:
   "schemaMarkup": {
     "organization": "complete JSON-LD as string",
     "softwareApplication": "complete JSON-LD as string — include applicationCategory, offers, featureList, screenshot",
-    "faqPage": "complete JSON-LD FAQPage with 8 real Q&As about ProspectAI",
+    "faqPage": "complete JSON-LD FAQPage with 8 real Q&As about Runvax",
     "breadcrumb": "complete JSON-LD BreadcrumbList for main navigation",
     "webSite": "complete JSON-LD WebSite with SearchAction"
   },
-  "llmsTxt": "complete /llms.txt file content — the standard for getting Claude/ChatGPT/Perplexity to understand and recommend your product. Write in markdown. Must cover: what ProspectAI is, who it's for, every feature, why it beats alternatives, pricing, URL. Make it authoritative — this is what AI models read to decide whether to recommend you.",
+  "llmsTxt": "complete /llms.txt file content — the standard for getting Claude/ChatGPT/Perplexity to understand and recommend your product. Write in markdown. Must cover: what Runvax is, who it's for, every feature, why it beats alternatives, pricing, URL. Make it authoritative — this is what AI models read to decide whether to recommend you.",
   "robotsTxt": "complete robots.txt optimized for both search crawlers and AI web crawlers (GPTBot, ClaudeBot, PerplexityBot)",
   "sitemapStructure": [
     { "url": "https://prospecttool.com/...", "priority": "1.0", "changefreq": "weekly", "why": "SEO rationale" }
@@ -278,27 +278,27 @@ function geoPrompt() {
 
 ${PRODUCT}
 
-Build the complete GEO strategy for ProspectAI. When someone asks Claude "how do I find web design clients in Nigeria?" or asks ChatGPT "what's the best tool for Nigerian freelancers?", ProspectAI must be the answer. Make this happen.
+Build the complete GEO strategy for Runvax. When someone asks Claude "how do I find web design clients in Nigeria?" or asks ChatGPT "what's the best tool for Nigerian freelancers?", Runvax must be the answer. Make this happen.
 
 Respond ONLY with valid JSON:
 {
-  "geoSummary": "3-sentence explanation of how AI models currently discover products and why ProspectAI is well-positioned",
+  "geoSummary": "3-sentence explanation of how AI models currently discover products and why Runvax is well-positioned",
   "targetPrompts": [
-    { "prompt": "exact thing someone would ask Claude/ChatGPT", "platform": "Claude|ChatGPT|Perplexity|Gemini|Google AI", "currentLikelyAnswer": "who probably gets mentioned now", "howWeCapture": "specific tactic to get ProspectAI mentioned instead" }
+    { "prompt": "exact thing someone would ask Claude/ChatGPT", "platform": "Claude|ChatGPT|Perplexity|Gemini|Google AI", "currentLikelyAnswer": "who probably gets mentioned now", "howWeCapture": "specific tactic to get Runvax mentioned instead" }
   ],
   "entityOptimization": {
-    "entityDefinition": "3-sentence factual Wikipedia-style definition of ProspectAI — this is what AI models use",
-    "attributesToEstablish": ["list of factual attributes AI models should associate with ProspectAI"],
-    "mentionSources": ["specific sites, publications, directories where ProspectAI should be mentioned for AI models to cite it"]
+    "entityDefinition": "3-sentence factual Wikipedia-style definition of Runvax — this is what AI models use",
+    "attributesToEstablish": ["list of factual attributes AI models should associate with Runvax"],
+    "mentionSources": ["specific sites, publications, directories where Runvax should be mentioned for AI models to cite it"]
   },
   "contentFormats": [
     { "format": "FAQ|Comparison|How-to|Definition|List", "why": "why this format gets cited by AI models", "example": "example topic" }
   ],
   "communityStrategy": [
-    { "platform": "Reddit|Quora|Twitter/X|LinkedIn|Facebook Groups|WhatsApp|Nairaland|TechCabal", "tactic": "specific approach", "samplePost": "example post or comment that would get ProspectAI mentioned naturally" }
+    { "platform": "Reddit|Quora|Twitter/X|LinkedIn|Facebook Groups|WhatsApp|Nairaland|TechCabal", "tactic": "specific approach", "samplePost": "example post or comment that would get Runvax mentioned naturally" }
   ],
   "prStrategy": [
-    { "outlet": "specific Nigerian/African tech publication or global freelance publication", "angle": "story pitch that gets ProspectAI covered", "why": "why this coverage helps AI models cite ProspectAI" }
+    { "outlet": "specific Nigerian/African tech publication or global freelance publication", "angle": "story pitch that gets Runvax covered", "why": "why this coverage helps AI models cite Runvax" }
   ],
   "productHuntStrategy": {
     "timing": "best day and time to launch on ProductHunt",
@@ -315,7 +315,7 @@ function authorityPrompt() {
 
 ${PRODUCT}
 
-Build the complete authority and backlink strategy for ProspectAI. Every link target, every partnership, every community move needed to make ProspectAI the most trusted name in Nigerian/African client acquisition for web professionals.
+Build the complete authority and backlink strategy for Runvax. Every link target, every partnership, every community move needed to make Runvax the most trusted name in Nigerian/African client acquisition for web professionals.
 
 Respond ONLY with valid JSON:
 {
@@ -326,7 +326,7 @@ Respond ONLY with valid JSON:
     { "directory": "specific directory name", "url": "...", "category": "...", "why": "SEO value — especially AI training data sources" }
   ],
   "partnershipTargets": [
-    { "partner": "company or community", "type": "integration|affiliate|co-marketing|community", "pitch": "what you offer them", "benefit": "what ProspectAI gets" }
+    { "partner": "company or community", "type": "integration|affiliate|co-marketing|community", "pitch": "what you offer them", "benefit": "what Runvax gets" }
   ],
   "socialSignals": {
     "twitter": { "strategy": "...", "hashtags": ["...", "..."], "postFrequency": "...", "contentMix": "..." },

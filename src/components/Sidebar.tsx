@@ -63,7 +63,7 @@ export default function Sidebar() {
             <div className="flex items-center gap-2.5 min-w-0 pl-1">
               <img src="/logo.svg" alt="" className="w-8 h-8 flex-shrink-0" />
               <div className="min-w-0">
-                <div className="text-sm font-black text-white leading-tight">ProspectAI</div>
+                <div className="text-sm font-black text-white leading-tight">Runvax</div>
                 <div className="text-[10px] text-gray-600 leading-tight">Find · Pitch · Win</div>
               </div>
             </div>
@@ -223,7 +223,7 @@ export default function Sidebar() {
 
             {/* Secondary items */}
             <div className="py-1.5 border-t border-white/8">
-              <a href="mailto:info@beamai.net?subject=ProspectAI%20Support" onClick={closeMenu} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-200 hover:bg-white/5 transition-colors">
+              <a href="mailto:info@runvax.com?subject=Runvax%20Support" onClick={closeMenu} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-200 hover:bg-white/5 transition-colors">
                 <LifeBuoy className="w-4 h-4 text-gray-400 flex-shrink-0" /> Help
               </a>
               <button onClick={() => { closeMenu(); signOut({ callbackUrl: '/' }); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-200 hover:bg-white/5 transition-colors">

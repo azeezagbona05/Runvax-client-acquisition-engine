@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Square, Send, X, Search, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Send, X, Search, RefreshCw } from 'lucide-react';
 
 import SearchForm from '@/components/SearchForm';
 import BusinessGrid from '@/components/BusinessGrid';
@@ -18,7 +18,7 @@ import { saveToHistory, getBestTimeStatus } from '@/lib/searchHistory';
 import { scoreProspect } from '@/lib/scoring';
 import { useFeature } from '@/context/PlanFeaturesContext';
 
-type FilterMode = 'all' | 'no-website' | 'slow-site' | 'new';
+type FilterMode = 'all' | 'no-website' | 'new';
 
 const STAGE_SORT_ORDER: Record<string, number> = {
   found: 2, contacted: 3, interested: 3, proposal: 4, won: 5, lost: 5,
@@ -319,11 +319,17 @@ export default function Home() {
   const handleSelect = async (business: Business) => {
     setSelected(business);
     setGeneratedPrompt(null);
+    // OSM businesses have no Google placeId — skip the details fetch
+    if (business.id.startsWith('osm_')) return;
     setDetailLoading(true);
     try {
       const res = await fetch(`/api/details?id=${business.id}`);
       const json = await res.json();
-      if (res.ok && json.details) setSelected(json.details);
+      if (res.ok && json.details) {
+        setSelected(json.details);
+        // Patch the businesses array so cards re-render with enriched fields (e.g. facebookPage)
+        setBusinesses(prev => prev.map(b => b.id === json.details.id ? { ...b, ...json.details } : b));
+      }
     } catch { /* keep basic data */ }
     finally { setDetailLoading(false); }
   };
@@ -377,14 +383,9 @@ export default function Home() {
   }, [get]);
 
   const contactedCount = useMemo(() => sorted.filter(isContacted).length, [sorted, isContacted]);
-  const slowSiteCount  = useMemo(
-    () => sorted.filter((b) => b.hasWebsite && b.psiScore != null && b.psiScore < 50).length,
-    [sorted],
-  );
 
   const primaryFiltered = useMemo(() => (
     filter === 'no-website' ? sorted.filter((b) => !b.hasWebsite) :
-    filter === 'slow-site'  ? sorted.filter((b) => b.hasWebsite && b.psiScore != null && b.psiScore < 50) :
     filter === 'new'        ? sorted.filter((b) => !isSaved(b.id)) :
     sorted
   ), [sorted, filter, isSaved]);
@@ -409,12 +410,6 @@ export default function Home() {
   const resultsLimit    = searchMeta?.resultsLimit ?? Infinity;
   const maxAllowedPages = resultsLimit === Infinity ? totalPages : Math.ceil(resultsLimit / PER_PAGE);
   const nextLocked      = page >= maxAllowedPages - 1 && totalPages > maxAllowedPages;
-
-  // Due reminders
-  const today = new Date().toISOString().slice(0, 10);
-  const dueReminders = prospects.filter(
-    (p) => p.reminderDate && p.reminderDate.slice(0, 10) <= today && !['won', 'lost'].includes(p.stage)
-  );
 
   // CSV export
   const exportCSV = () => {
@@ -620,28 +615,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Due reminders strip */}
-          {!guestGate && session && dueReminders.length > 0 && (
-            <div className="mb-4 bg-orange-500/10 border border-orange-500/25 rounded-xl px-4 py-3">
-              <p className="text-orange-400 font-bold text-xs mb-2">⏰ {dueReminders.length} follow-up{dueReminders.length > 1 ? 's' : ''} due today</p>
-              <div className="flex flex-wrap gap-2">
-                {dueReminders.slice(0, 5).map((p) => (
-                  <button
-                    key={p.business.id}
-                    onClick={() => handleSelect(p.business)}
-                    className="text-xs bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 px-3 py-1.5 rounded-lg font-semibold transition-colors"
-                  >
-                    {p.business.name}
-                    {p.reminderNote && <span className="text-orange-400/60 ml-1">· {p.reminderNote}</span>}
-                  </button>
-                ))}
-                {dueReminders.length > 5 && (
-                  <span className="text-xs text-orange-400/60 self-center">+{dueReminders.length - 5} more in pipeline</span>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Search quota badge */}
           {!guestGate && searchMeta && searchMeta.searchesLimit !== null && (
             <div className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border mb-4 ${remainingColor}`}>
@@ -692,18 +665,8 @@ export default function Home() {
             <>
               {/* Mobile filter bar — single scrollable row */}
               <div className="sm:hidden mb-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <span>
-                    <strong className="text-white">{filtered.length}</strong> results ·{' '}
-                    <strong className="text-orange-400">{noWebsiteCount}</strong> no website ·{' '}
-                    <strong className="text-green-400">{newCount}</strong> new
-                  </span>
-                  {totalPages > 1 && (
-                    <span className="text-gray-600">
-                      · p<strong className="text-purple-400">{page + 1}</strong>/{maxAllowedPages}
-                    </span>
-                  )}
-                  <div className={`ml-auto flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border ${
+                <div className="flex items-center justify-end">
+                  <div className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border ${
                     timeStatus.level === 'low' ? 'bg-red-500/10 border-red-500/30'
                     : timeStatus.level === 'good' ? 'bg-green-500/10 border-green-500/25'
                     : 'bg-amber-500/10 border-amber-500/30'}`}>
@@ -714,22 +677,16 @@ export default function Home() {
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
                   <button onClick={() => handleFilterChange('all')}
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'all' ? 'bg-purple-600 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                    All ({businesses.length})
+                    All
                   </button>
                   <button onClick={() => handleFilterChange('no-website')}
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'no-website' ? 'bg-orange-500 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                    🎯 No Site ({noWebsiteCount})
+                    No Website{noWebsiteCount > 0 ? ` (${noWebsiteCount})` : ''}
                   </button>
                   <button onClick={() => handleFilterChange('new')}
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'new' ? 'bg-green-600 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                    ✨ New ({newCount})
+                    Unsaved
                   </button>
-                  {slowSiteCount > 0 && (
-                    <button onClick={() => handleFilterChange('slow-site')}
-                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'slow-site' ? 'bg-red-600 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                      🐌 Slow ({slowSiteCount})
-                    </button>
-                  )}
                   <span className="flex-shrink-0 text-gray-700 text-xs mx-1">·</span>
                   <button onClick={() => setPhoneOnly((v) => !v)} title="Phone only"
                     className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${phoneOnly ? 'bg-green-700 text-green-200 border border-green-600/50' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
@@ -778,39 +735,21 @@ export default function Home() {
               {/* Desktop filter bar */}
               <div className="hidden sm:flex items-center gap-3 mb-6 flex-wrap">
 
-              {/* Stats + time indicator */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-sm text-gray-500">
-                  <strong className="text-white">{filtered.length}</strong> results
-                  {totalPages > 1 && (
-                    <span className="text-gray-600">
-                      &nbsp;· page <strong className="text-purple-400">{page + 1}</strong> of{' '}
-                      <strong className="text-purple-400">{maxAllowedPages}</strong>
-                      {maxAllowedPages < totalPages && (
-                        <span className="text-gray-700"> ({totalPages - maxAllowedPages} locked)</span>
-                      )}
-                    </span>
-                  )}
-                  &nbsp;·&nbsp;
-                  <strong className="text-orange-400">{noWebsiteCount}</strong> no website
-                  &nbsp;·&nbsp;
-                  <strong className="text-green-400">{newCount}</strong> new
+              {/* Time indicator */}
+              <div className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${
+                timeStatus.level === 'low'
+                  ? 'bg-red-500/10 border-red-500/30'
+                  : timeStatus.level === 'good'
+                  ? 'bg-green-500/10 border-green-500/25'
+                  : 'bg-amber-500/10 border-amber-500/30'
+              }`}>
+                <span className="relative flex w-1.5 h-1.5">
+                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} ${
+                    timeStatus.level === 'low' ? 'animate-ping' : 'animate-pulse'
+                  }`} />
+                  <span className={`relative inline-flex w-1.5 h-1.5 rounded-full ${timeStatus.dot}`} />
                 </span>
-                <div className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${
-                  timeStatus.level === 'low'
-                    ? 'bg-red-500/10 border-red-500/30'
-                    : timeStatus.level === 'good'
-                    ? 'bg-green-500/10 border-green-500/25'
-                    : 'bg-amber-500/10 border-amber-500/30'
-                }`}>
-                  <span className="relative flex w-1.5 h-1.5">
-                    <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} ${
-                      timeStatus.level === 'low' ? 'animate-ping' : 'animate-pulse'
-                    }`} />
-                    <span className={`relative inline-flex w-1.5 h-1.5 rounded-full ${timeStatus.dot}`} />
-                  </span>
-                  <span className={`font-semibold ${timeStatus.color}`}>{timeStatus.label}</span>
-                </div>
+                <span className={`font-semibold ${timeStatus.color}`}>{timeStatus.label}</span>
               </div>
 
               <div className="flex items-center gap-2 ml-auto flex-wrap">
@@ -834,26 +773,18 @@ export default function Home() {
                 <button onClick={() => handleFilterChange('all')}
                   className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
                     filter === 'all' ? 'bg-purple-600 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                  All ({businesses.length})
+                  All
                 </button>
                 <button onClick={() => handleFilterChange('no-website')}
                   className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
                     filter === 'no-website' ? 'bg-orange-500 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                  🎯 No Website ({noWebsiteCount})
+                  No Website {noWebsiteCount > 0 && <span className="opacity-70">({noWebsiteCount})</span>}
                 </button>
                 <button onClick={() => handleFilterChange('new')}
                   className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
                     filter === 'new' ? 'bg-green-600 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                  ✨ New ({newCount})
+                  Unsaved
                 </button>
-                {slowSiteCount > 0 && (
-                  <button onClick={() => handleFilterChange('slow-site')}
-                    title="Businesses with a website scoring under 50/100 on Google PageSpeed — strong pitch opportunity"
-                    className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                      filter === 'slow-site' ? 'bg-red-600 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                    🐌 Slow Site ({slowSiteCount})
-                  </button>
-                )}
                 <span className="text-gray-700 text-xs hidden sm:inline">|</span>
                 <button
                   onClick={() => setPhoneOnly((v) => !v)}
@@ -1108,10 +1039,6 @@ export default function Home() {
           onGenerate={handleGenerate}
           generating={generating || detailLoading}
           generateError={generateError}
-          onPsiScore={(placeId, score, desktopScore) => {
-            setSelected((prev) => prev ? { ...prev, psiScore: score, psiDesktopScore: desktopScore ?? undefined } : prev);
-            setBusinesses((prev) => prev.map((b) => b.id === placeId ? { ...b, psiScore: score, psiDesktopScore: desktopScore ?? undefined } : b));
-          }}
         />
       )}
       {generatedPrompt && selected && (

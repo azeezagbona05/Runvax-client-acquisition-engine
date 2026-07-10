@@ -123,6 +123,15 @@ html.light .bg-gray-900    { background-color: #ffffff !important; }
 html.light .bg-gray-800    { background-color: #f8fafc !important; }
 html.light .bg-gray-700    { background-color: #e2e8f0 !important; }
 
+/* How It Works cards */
+html.light .how-card {
+  background-color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04) !important;
+}
+html.light .how-card:hover {
+  box-shadow: 0 6px 16px rgba(15,23,42,0.10), 0 2px 4px rgba(15,23,42,0.05) !important;
+}
+
 /* Cards — white + elevated shadow */
 html.light .bg-gray-800\/60 {
   background-color: #ffffff !important;

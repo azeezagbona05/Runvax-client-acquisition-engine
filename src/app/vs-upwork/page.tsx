@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import { SITE_URL, SITE_NAME } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'ProspectAI vs Upwork — Find Web Design Clients Without Bidding Wars',
+  title: 'Runvax vs Upwork — Find Web Design Clients Without Bidding Wars',
   description:
-    'Stop spending hours writing Upwork proposals that never get accepted. ProspectAI lets you find local businesses that need a website and reach them directly with AI-generated outreach.',
+    'Stop spending hours writing Upwork proposals that never get accepted. Runvax lets you find local businesses that need a website and reach them directly with AI-generated outreach.',
   alternates: { canonical: `${SITE_URL}/vs-upwork` },
   openGraph: {
-    title: `ProspectAI vs Upwork — No Bids, No Connects, No Waiting`,
+    title: `Runvax vs Upwork — No Bids, No Connects, No Waiting`,
     description:
       'Find unlimited web design clients without wasting Connects on Upwork. Search any city and pitch businesses directly with AI cold outreach.',
     url: `${SITE_URL}/vs-upwork`,
@@ -18,61 +18,61 @@ const comparisons = [
   {
     feature: 'Client acquisition',
     upwork: 'Submit proposals and compete with 10–50 freelancers per job',
-    prospectai: 'You reach businesses directly — you are the only person pitching',
+    runvax: 'You reach businesses directly — you are the only person pitching',
   },
   {
     feature: 'Cost to apply',
     upwork: 'Spend Connects (paid tokens) for every proposal — win or lose',
-    prospectai: 'No tokens, no bids — unlimited outreach on paid plans',
+    runvax: 'No tokens, no bids — unlimited outreach on paid plans',
   },
   {
     feature: 'Commission',
     upwork: '10% service fee on all earnings (plus contract fee)',
-    prospectai: 'Zero platform commission — you keep every naira',
+    runvax: 'Zero platform commission — you keep every naira',
   },
   {
     feature: 'Client type',
     upwork: 'Global clients who may demand complex portfolios',
-    prospectai: 'Local businesses in your city who need a basic website — easier close',
+    runvax: 'Local businesses in your city who need a basic website — easier close',
   },
   {
     feature: 'Pricing control',
     upwork: 'Race to the bottom in a saturated global market',
-    prospectai: 'You quote local market rates directly — no global price pressure',
+    runvax: 'You quote local market rates directly — no global price pressure',
   },
   {
     feature: 'Proposal success rate',
     upwork: '1–5% win rate on most proposals due to saturation',
-    prospectai: 'Direct outreach to warm leads (no website = confirmed need)',
+    runvax: 'Direct outreach to warm leads (no website = confirmed need)',
   },
   {
     feature: 'Speed to first client',
     upwork: 'Weeks or months building profile, reviews, and JSS score',
-    prospectai: 'First outreach in under 5 minutes — free plan, no card',
+    runvax: 'First outreach in under 5 minutes — free plan, no card',
   },
   {
     feature: 'Account risk',
     upwork: 'Account can be suspended; you lose all earnings history',
-    prospectai: 'You own every client relationship — nothing to lose',
+    runvax: 'You own every client relationship — nothing to lose',
   },
 ];
 
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
-  name: 'ProspectAI vs Upwork',
+  name: 'Runvax vs Upwork',
   description:
-    'Comparison of ProspectAI and Upwork for web designers looking to find clients without bidding.',
+    'Comparison of Runvax and Upwork for web designers looking to find clients without bidding.',
   url: `${SITE_URL}/vs-upwork`,
   mainEntity: {
     '@type': 'FAQPage',
     mainEntity: [
       {
         '@type': 'Question',
-        name: 'Is ProspectAI better than Upwork for web design freelancers?',
+        name: 'Is Runvax better than Upwork for web design freelancers?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'For local client acquisition — especially in Nigeria, Ghana, Kenya, and other African markets — ProspectAI is more effective than Upwork. You find businesses that need a website, contact them directly, and keep 100% of your revenue. Upwork requires Connects, takes a 10% fee, and forces you to compete in a saturated global marketplace.',
+          text: 'For local client acquisition — especially in Nigeria, Ghana, Kenya, and other African markets — Runvax is more effective than Upwork. You find businesses that need a website, contact them directly, and keep 100% of your revenue. Upwork requires Connects, takes a 10% fee, and forces you to compete in a saturated global marketplace.',
         },
       },
       {
@@ -80,7 +80,7 @@ const jsonLd = {
         name: 'How do I get web design clients without Upwork?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Use ProspectAI to search for local businesses in your city that have no website. Filter by industry, get real contact details, and send personalized AI cold emails or WhatsApp messages in one click. No bids, no Connects, no waiting.',
+          text: 'Use Runvax to search for local businesses in your city that have no website. Filter by industry, get real contact details, and send personalized AI cold emails or WhatsApp messages in one click. No bids, no Connects, no waiting.',
         },
       },
     ],
@@ -99,14 +99,14 @@ export default function VsUpworkPage() {
           {/* Hero */}
           <div className="text-center mb-16">
             <span className="inline-block text-xs font-semibold tracking-widest uppercase text-indigo-400 mb-3">
-              ProspectAI vs Upwork
+              Runvax vs Upwork
             </span>
             <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
               Stop Burning Connects on Proposals<br />
               <span className="text-indigo-400">That Never Win.</span>
             </h1>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto mb-8">
-              Upwork has thousands of proposals for every job. ProspectAI lets you find businesses
+              Upwork has thousands of proposals for every job. Runvax lets you find businesses
               that <em>already need</em> a website and pitch them before any competitor even knows
               they exist.
             </p>
@@ -149,7 +149,7 @@ export default function VsUpworkPage() {
                       🔴 Upwork
                     </th>
                     <th className="text-left px-6 py-4 text-indigo-400 font-semibold">
-                      🟢 ProspectAI
+                      🟢 Runvax
                     </th>
                   </tr>
                 </thead>
@@ -161,7 +161,7 @@ export default function VsUpworkPage() {
                     >
                       <td className="px-6 py-4 font-medium text-gray-300">{row.feature}</td>
                       <td className="px-6 py-4 text-gray-400">{row.upwork}</td>
-                      <td className="px-6 py-4 text-gray-200">{row.prospectai}</td>
+                      <td className="px-6 py-4 text-gray-200">{row.runvax}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -182,7 +182,7 @@ export default function VsUpworkPage() {
               </p>
               <p>
                 A restaurant in Ikeja with no website is a warm lead. They know they need one. They
-                just haven&apos;t been approached yet. With ProspectAI, you find that restaurant, get
+                just haven&apos;t been approached yet. With Runvax, you find that restaurant, get
                 their phone number, and send a personalized WhatsApp message in under 3 minutes.
               </p>
               <p>

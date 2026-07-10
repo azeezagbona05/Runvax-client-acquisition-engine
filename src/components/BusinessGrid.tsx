@@ -28,7 +28,7 @@ function BusinessGrid({ businesses, loading, error, onSelect, competitors, selec
               <span key={i} className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
             ))}
           </div>
-          <p className="text-gray-500 text-sm animate-pulse">Scanning Google Maps…</p>
+          <p className="text-gray-500 text-sm animate-pulse">Scanning prospects…</p>
         </div>
         <SkeletonGrid count={6} />
       </div>

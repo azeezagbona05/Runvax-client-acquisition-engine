@@ -1,5 +1,5 @@
 /**
- * ProspectAI house-style assets — conversational tone, human-first.
+ * Runvax house-style assets — conversational tone, human-first.
  * The goal: every message reads like one person noticed one business.
  */
 

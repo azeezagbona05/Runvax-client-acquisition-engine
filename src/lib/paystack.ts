@@ -77,10 +77,20 @@ export function generateReference(userId: string): string {
 }
 
 export function verifyWebhookSignature(body: string, signature: string): boolean {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret) {
+    console.error('[paystack] PAYSTACK_SECRET_KEY is not set — rejecting webhook');
+    return false;
+  }
+  if (!signature) return false;
   const crypto = require('crypto') as typeof import('crypto');
   const hash = crypto
-    .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY ?? '')
+    .createHmac('sha512', secret)
     .update(body)
     .digest('hex');
-  return hash === signature;
+  // timingSafeEqual requires equal-length buffers; mismatched length = definitely not equal
+  const a = Buffer.from(hash);
+  const b = Buffer.from(signature);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }

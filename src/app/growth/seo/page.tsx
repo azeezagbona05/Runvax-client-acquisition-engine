@@ -28,7 +28,7 @@ const SECTIONS: Array<{
   },
   {
     id: 'competitors', icon: Shield, emoji: '🎯', label: 'Competitor Analysis',
-    tagline: 'Identifies every gap Apollo.io, Fiverr, Upwork and Hunter.io leave open for ProspectAI to own',
+    tagline: 'Identifies every gap Apollo.io, Fiverr, Upwork and Hunter.io leave open for Runvax to own',
     delivers: ['Content gaps per competitor', 'Comparison page briefs', 'Content moats you can own', 'Link-worthy targets', 'SERP feature opportunities'],
     color: 'red',
   },
@@ -46,13 +46,13 @@ const SECTIONS: Array<{
   },
   {
     id: 'geo', icon: Bot, emoji: '🤖', label: 'AI Platform Ranking (GEO)',
-    tagline: 'Gets ProspectAI cited by Claude, ChatGPT, Perplexity, and Gemini when users ask about finding clients',
+    tagline: 'Gets Runvax cited by Claude, ChatGPT, Perplexity, and Gemini when users ask about finding clients',
     delivers: ['Target prompts per AI platform', 'Entity definition for AI models', 'Community strategy (Nairaland, Reddit, Twitter)', 'PR angles for AI citation', 'ProductHunt launch strategy'],
     color: 'orange',
   },
   {
     id: 'authority', icon: TrendingUp, emoji: '🏆', label: 'Authority Building',
-    tagline: '90-day backlink, partnership, and community plan to make ProspectAI the #1 name in African freelance tools',
+    tagline: '90-day backlink, partnership, and community plan to make Runvax the #1 name in African freelance tools',
     delivers: ['Backlink strategy by type', 'Directory listing targets', 'Partnership pitches', 'Nairaland strategy', 'Social media plan (Twitter/TikTok/LinkedIn)', '90-day week-by-week plan'],
     color: 'yellow',
   },
@@ -204,7 +204,7 @@ function KeywordsOutput({ data }: { data: Record<string, unknown> }) {
 
       <div className="flex gap-2">
         <CopyBtn text={allKeywords.join('\n')} label={`Copy all ${allKeywords.length} keywords`} />
-        <DownloadBtn content={allKeywords.join('\n')} filename="prospectai-keywords.txt" />
+        <DownloadBtn content={allKeywords.join('\n')} filename="runvax-keywords.txt" />
       </div>
 
       {categories.map(([key, title, color]) => (
@@ -580,7 +580,7 @@ function GeoOutput({ data }: { data: Record<string, unknown> }) {
       )}
       {entity && (
         <div className="space-y-3">
-          <Label text="Entity Optimization (how AI models should know ProspectAI)" color="purple" />
+          <Label text="Entity Optimization (how AI models should know Runvax)" color="purple" />
           <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
             <p className="text-xs text-gray-200 leading-relaxed italic">{entity.entityDefinition}</p>
           </div>
@@ -867,7 +867,7 @@ export default function SeoAnalysisPage() {
           </div>
           <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/20 border border-blue-500/20 rounded-2xl p-4">
             <p className="text-sm text-gray-300 leading-relaxed">
-              Six specialist agents analyse every dimension of ProspectAI's SEO opportunity — keywords, competitors, content, technical assets, AI platform ranking (GEO), and authority building. All run simultaneously. Output is production-ready: copy, download, and deploy.
+              Six specialist agents analyse every dimension of Runvax's SEO opportunity — keywords, competitors, content, technical assets, AI platform ranking (GEO), and authority building. All run simultaneously. Output is production-ready: copy, download, and deploy.
             </p>
           </div>
         </div>

@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Find Web Design Clients in Accra — ProspectAI',
+  title: 'Find Web Design Clients in Accra — Runvax',
   description:
     'Find businesses in Accra, Ghana that need a website. Search East Legon, Osu, Tema, Kumasi, and more. AI cold outreach included. Free plan available.',
   alternates: { canonical: `${SITE_URL}/web-design-clients-accra` },
   openGraph: {
-    title: 'Find Web Design Clients in Accra — ProspectAI',
+    title: 'Find Web Design Clients in Accra — Runvax',
     description:
-      'ProspectAI finds Accra businesses with no website. Search East Legon, Osu, Tema and pitch with AI cold outreach. Free plan.',
+      'Runvax finds Accra businesses with no website. Search East Legon, Osu, Tema and pitch with AI cold outreach. Free plan.',
     url: `${SITE_URL}/web-design-clients-accra`,
   },
 };
@@ -47,7 +47,7 @@ export default function AccraPage() {
             </h1>
             <p className="text-gray-400 text-lg mb-8 max-w-2xl">
               Accra is West Africa&apos;s tech hub — and thousands of local businesses still have no
-              website. East Legon restaurants, Osu boutiques, Tema logistics companies. ProspectAI
+              website. East Legon restaurants, Osu boutiques, Tema logistics companies. Runvax
               finds them all in real time.
             </p>
             <a

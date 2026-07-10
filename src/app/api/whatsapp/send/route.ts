@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { TEMPLATE_NAME } from '@/lib/whatsapp-constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const settings = await prisma.userSettings.findUnique({ where: { userId: session.user.id } });
-  if (!settings?.waPhoneNumberId || !settings?.waAccessToken) {
+  if (!settings?.waPhoneNumberId || !settings?.waAccessToken || !settings?.waTemplateName) {
     return NextResponse.json({ error: 'WhatsApp API not connected.' }, { status: 400 });
   }
   if (settings.waTemplateStatus !== 'APPROVED') {
@@ -36,7 +35,7 @@ export async function POST(req: NextRequest) {
     to,
     type: 'template',
     template: {
-      name: TEMPLATE_NAME,
+      name: settings.waTemplateName,
       language: { code: 'en' },
       components: [
         {

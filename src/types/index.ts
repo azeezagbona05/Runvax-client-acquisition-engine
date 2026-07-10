@@ -87,6 +87,7 @@ export interface Business {
     text: string;
     time: string;
   }>;
+  source?: 'google' | 'osm';
 }
 
 export interface SearchFormData {

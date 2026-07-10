@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Find Web Design Clients in Abuja — ProspectAI',
+  title: 'Find Web Design Clients in Abuja — Runvax',
   description:
     'Find businesses in Abuja that need a website. Search Wuse, Garki, Maitama, Gwarinpa, and every Abuja area for SMBs with no web presence. Free plan available.',
   alternates: { canonical: `${SITE_URL}/web-design-clients-abuja` },
   openGraph: {
-    title: 'Find Web Design Clients in Abuja — ProspectAI',
+    title: 'Find Web Design Clients in Abuja — Runvax',
     description:
-      'ProspectAI finds Abuja businesses with no website. AI cold outreach in 60 seconds. Free plan.',
+      'Runvax finds Abuja businesses with no website. AI cold outreach in 60 seconds. Free plan.',
     url: `${SITE_URL}/web-design-clients-abuja`,
   },
 };
@@ -48,7 +48,7 @@ export default function AbujaPage() {
             <p className="text-gray-400 text-lg mb-8 max-w-2xl">
               Abuja is Nigeria&apos;s capital and fastest-growing city. Government contractors, hotels,
               restaurants, and professional services firms fill every district — and most still have
-              no website. ProspectAI finds them for you.
+              no website. Runvax finds them for you.
             </p>
             <a
               href="/?city=Abuja&country=NG"

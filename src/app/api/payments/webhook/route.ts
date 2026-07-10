@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
   const rawBody = await req.text();
 
   if (!verifyWebhookSignature(rawBody, signature)) {
+    console.warn('[webhook] Rejected: invalid signature from', req.headers.get('x-forwarded-for') ?? 'unknown');
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
@@ -30,6 +31,24 @@ export async function POST(req: NextRequest) {
       plan?: { plan_code?: string };
     };
   };
+
+  // Idempotency: skip if we've already processed this exact reference + event combo
+  const idempotencyKey = `${event.event}::${event.data.reference ?? event.data.subscription_code ?? 'no-ref'}`;
+  const alreadyProcessed = await prisma.payment.findFirst({
+    where: { reference: idempotencyKey, status: 'webhook_processed' },
+  });
+  if (alreadyProcessed) {
+    return NextResponse.json({ ok: true, skipped: true });
+  }
+
+  // Mark as processing (upsert so replays are no-ops)
+  await prisma.payment.upsert({
+    where: { reference: idempotencyKey },
+    create: { userId: 'system', reference: idempotencyKey, plan: 'system', amount: 0, status: 'webhook_processed' },
+    update: {},
+  }).catch(() => { /* non-critical */ });
+
+  console.info('[webhook]', event.event, 'ref:', event.data.reference ?? event.data.subscription_code ?? 'n/a');
 
   try {
     switch (event.event) {

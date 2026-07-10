@@ -40,7 +40,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     priceNote: 'per month',
     aiCallsPerDay: 200,
     searchesPerDay: 20,
-    resultsPerSearch: 60,
+    resultsPerSearch: 40,
     maxProspects: Infinity,
     features: defaultFeaturesFor('pro'),
     badge: 'PRO',

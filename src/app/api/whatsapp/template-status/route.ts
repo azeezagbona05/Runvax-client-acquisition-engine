@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { TEMPLATE_NAME } from '@/lib/whatsapp-constants';
 import { createTransporter, whatsappRejectedHtml } from '@/lib/email';
 import { getAppUrl, getAppName } from '@/lib/url';
 
@@ -20,7 +19,7 @@ export async function GET() {
   }
 
   const res = await fetch(
-    `${GRAPH}/${settings.wabaId}/message_templates?name=${TEMPLATE_NAME}&fields=id,name,status,rejected_reason&access_token=${settings.waAccessToken}`,
+    `${GRAPH}/${settings.wabaId}/message_templates?name=${settings.waTemplateName}&fields=id,name,status,rejected_reason&access_token=${settings.waAccessToken}`,
   );
   const data = await res.json() as {
     data?: Array<{ id: string; name: string; status: string; rejected_reason?: string }>;

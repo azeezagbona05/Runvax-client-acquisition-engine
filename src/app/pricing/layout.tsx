@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { SITE_URL, SITE_NAME } from '@/lib/seo';
 
-const TITLE = 'ProspectAI Pricing — Free Lead Gen Tool for Web Designers';
+const TITLE = 'Runvax Pricing — Free Lead Gen Tool for Web Designers';
 const DESC = 'Start free — no credit card. Find businesses without a website in any city. Pro from ₦9,999/month (~$6 USD). Agency unlimited. AI cold email included on all plans.';
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: DESC,
   alternates: { canonical: `${SITE_URL}/pricing` },
   keywords: [
-    'ProspectAI pricing', 'lead gen tool for agencies pricing',
+    'Runvax pricing', 'lead gen tool for agencies pricing',
     'AI prospect finder plans', 'free lead generation tool for web designers',
     'affordable lead generation software', 'web design client finder cost',
     'agency prospecting tool pricing', 'cold outreach tool plans',

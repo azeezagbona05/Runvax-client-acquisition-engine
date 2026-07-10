@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Find Web Design Clients in Port Harcourt — ProspectAI',
+  title: 'Find Web Design Clients in Port Harcourt — Runvax',
   description:
     'Find businesses in Port Harcourt that need a website. Search GRA, Trans Amadi, Rumuola, Eleme, and every PH area. AI cold outreach included. Free plan.',
   alternates: { canonical: `${SITE_URL}/web-design-clients-port-harcourt` },
   openGraph: {
-    title: 'Find Web Design Clients in Port Harcourt — ProspectAI',
+    title: 'Find Web Design Clients in Port Harcourt — Runvax',
     description:
-      'ProspectAI finds Port Harcourt businesses with no website. Search oil servicing firms, hotels, restaurants in GRA, Trans Amadi and more.',
+      'Runvax finds Port Harcourt businesses with no website. Search oil servicing firms, hotels, restaurants in GRA, Trans Amadi and more.',
     url: `${SITE_URL}/web-design-clients-port-harcourt`,
   },
 };
@@ -47,7 +47,7 @@ export default function PortHarcourtPage() {
             </h1>
             <p className="text-gray-400 text-lg mb-8 max-w-2xl">
               Port Harcourt is Nigeria&apos;s oil capital — and it is full of oil servicing companies,
-              engineering firms, hotels, and restaurants that need professional websites. ProspectAI
+              engineering firms, hotels, and restaurants that need professional websites. Runvax
               finds them for you, with contact details and AI outreach ready.
             </p>
             <a

@@ -13,7 +13,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-white font-bold text-lg mb-3">1. Who We Are</h2>
-          <p>ProspectAI is operated by BeamAI. We are based in Lagos, Nigeria. Contact: <a href="mailto:info@beamai.net" className="text-purple-400 hover:underline">info@beamai.net</a>.</p>
+          <p>Runvax is operated by Runvax. We are based in Lagos, Nigeria. Contact: <a href="mailto:info@runvax.com" className="text-purple-400 hover:underline">info@runvax.com</a>.</p>
         </section>
 
         <section>
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
             <li><strong className="text-white">Deletion:</strong> Request account deletion via email.</li>
             <li><strong className="text-white">Portability:</strong> Export your prospects as CSV from the Pipeline page.</li>
           </ul>
-          <p className="mt-2">To exercise these rights, email <a href="mailto:info@beamai.net" className="text-purple-400 hover:underline">info@beamai.net</a>.</p>
+          <p className="mt-2">To exercise these rights, email <a href="mailto:info@runvax.com" className="text-purple-400 hover:underline">info@runvax.com</a>.</p>
         </section>
 
         <section>
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-white font-bold text-lg mb-3">10. Contact</h2>
-          <p>Privacy questions: <a href="mailto:info@beamai.net" className="text-purple-400 hover:underline">info@beamai.net</a></p>
+          <p>Privacy questions: <a href="mailto:info@runvax.com" className="text-purple-400 hover:underline">info@runvax.com</a></p>
         </section>
       </div>
 

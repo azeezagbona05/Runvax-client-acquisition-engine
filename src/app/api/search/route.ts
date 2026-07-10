@@ -147,7 +147,6 @@ export async function POST(req: NextRequest) {
           const now = new Date();
           const cityFromQuery = (location as string | undefined) ?? '';
           const countryCode = (country as string | undefined) ?? 'NG';
-
           await Promise.all([
             // Save search result set to cache (upsert refreshes createdAt)
             prisma.searchCache.upsert({
@@ -185,9 +184,14 @@ export async function POST(req: NextRequest) {
             ),
           ]);
 
-          // Lazily clean up cache entries older than 7 days
+          // Lazily clean up searchCache entries older than 7 days
           void prisma.searchCache.deleteMany({
             where: { createdAt: { lt: new Date(Date.now() - CACHE_TTL_MS) } },
+          }).catch(() => {});
+
+          // Lazily clean up cachedBusiness entries not seen in 90 days (Google Places ToS compliance)
+          void prisma.cachedBusiness.deleteMany({
+            where: { lastSeenAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
           }).catch(() => {});
         } catch { /* never block the response */ }
       })();

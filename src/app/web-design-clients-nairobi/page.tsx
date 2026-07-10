@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Find Web Design Clients in Nairobi — ProspectAI',
+  title: 'Find Web Design Clients in Nairobi — Runvax',
   description:
     'Find businesses in Nairobi, Kenya that need a website. Search Westlands, Karen, CBD, Mombasa Road, and everywhere. AI cold outreach included. Free plan.',
   alternates: { canonical: `${SITE_URL}/web-design-clients-nairobi` },
   openGraph: {
-    title: 'Find Web Design Clients in Nairobi — ProspectAI',
+    title: 'Find Web Design Clients in Nairobi — Runvax',
     description:
-      'ProspectAI finds Nairobi businesses with no website. Real-time search. AI cold outreach. Free plan available.',
+      'Runvax finds Nairobi businesses with no website. Real-time search. AI cold outreach. Free plan available.',
     url: `${SITE_URL}/web-design-clients-nairobi`,
   },
 };
@@ -48,7 +48,7 @@ export default function NairobiPage() {
             <p className="text-gray-400 text-lg mb-8 max-w-2xl">
               Nairobi is &ldquo;Silicon Savannah&rdquo; — East Africa&apos;s tech capital. Yet thousands of
               Westlands restaurants, Karen clinics, and CBD law firms still have no website. That is
-              your opportunity. ProspectAI finds them in seconds.
+              your opportunity. Runvax finds them in seconds.
             </p>
             <a
               href="/?city=Nairobi&country=KE"

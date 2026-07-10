@@ -34,7 +34,7 @@ export async function POST() {
       where: { userId: session.user.id },
       data: { waTemplateName: TEMPLATE_NAME, waTemplateStatus: existing.status },
     });
-    return NextResponse.json({ ok: true, status: existing.status, existed: true });
+    return NextResponse.json({ ok: true, status: existing.status, existed: true, name: TEMPLATE_NAME });
   }
 
   // Create the template
@@ -79,5 +79,5 @@ export async function POST() {
     data: { waTemplateName: TEMPLATE_NAME, waTemplateStatus: status },
   });
 
-  return NextResponse.json({ ok: true, status, existed: false });
+  return NextResponse.json({ ok: true, status, existed: false, name: TEMPLATE_NAME });
 }

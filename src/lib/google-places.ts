@@ -43,7 +43,7 @@ export async function searchPlaces(params: {
   const key = process.env.GOOGLE_PLACES_API_KEY;
   if (!key) throw new Error('GOOGLE_PLACES_API_KEY is not set in .env.local');
 
-  const maxPages = Math.min(params.maxPages ?? 3, 3);
+  const maxPages = Math.min(params.maxPages ?? 2, 2);
   const allPlaces: unknown[] = [];
   let pageToken: string | undefined;
 
@@ -88,9 +88,6 @@ export async function searchPlaces(params: {
     pageToken = data.nextPageToken as string | undefined;
 
     if (!pageToken) break;
-
-    // Small delay between page requests to avoid hitting rate limits
-    if (page < maxPages - 1) await new Promise((r) => setTimeout(r, 300));
   }
 
   return { places: allPlaces };

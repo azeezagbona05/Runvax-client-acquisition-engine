@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { SITE_URL, SITE_NAME } from '@/lib/seo';
 
-const TITLE = 'Blog — Web Design Client Tips, Lead Gen Guides | ProspectAI';
+const TITLE = 'Blog — Web Design Client Tips, Lead Gen Guides | Runvax';
 const DESC = 'Practical guides for freelance web designers and agencies: how to find clients, write cold emails, and grow your web design business in Nigeria, Ghana, Kenya, UK, and beyond.';
 
 export const metadata: Metadata = {

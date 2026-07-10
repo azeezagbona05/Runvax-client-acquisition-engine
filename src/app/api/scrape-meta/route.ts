@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const res = await fetch(normalised, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BeamAI/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Runvax/1.0)' },
       signal: AbortSignal.timeout(8000),
       redirect: 'follow',
     });
