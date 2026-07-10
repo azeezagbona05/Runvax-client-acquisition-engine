@@ -1,0 +1,87 @@
+---
+title: "How to Forecast Monthly Revenue From Your Pipeline"
+description: "Forecast monthly revenue by multiplying weighted pipeline value by your historical close rate — not by adding up every open deal as if it's already won. Here's the math."
+date: "2026-09-20"
+category: "Strategy"
+tags: ["forecast revenue from pipeline", "revenue forecasting freelancer", "pipeline value forecast", "web design revenue projection"]
+---
+
+Forecast monthly revenue by weighting your total pipeline value by stage-specific close probability, then applying your historical close rate to what's left — not by simply adding up every open deal's value as if it's all coming in. Here's the exact math, using a real pipeline breakdown as the example.
+
+---
+
+## Why "Total Pipeline Value" Alone Is a Bad Forecast
+
+The single most common forecasting mistake is treating pipeline value as if it's revenue-in-waiting. A $20,000 pipeline sounds like $20,000 coming in, but if half of that is sitting at "Contacted" with no reply yet, most of it isn't close to converting. Pipeline value is a snapshot of what's in motion, not a prediction of what lands.
+
+A real forecast needs two additional inputs beyond raw pipeline value: how likely each stage is to convert, and your actual historical close rate. Both come directly from tracked pipeline data — which is why forecasting only works if you're logging stage and value consistently in the first place. See [how to calculate and improve your web design close rate](/blog/calculating-your-web-design-close-rate) for how to get an accurate close rate figure before plugging it into any of the math below.
+
+---
+
+## Step 1: Assign a Weight to Each Stage
+
+Not every stage deserves equal weight in a forecast — a deal at Proposal is far more likely to close soon than one that was just Found. A reasonable starting set of weights, adjustable as you build your own historical data:
+
+| Stage | Suggested Weight | Reasoning |
+|---|---|---|
+| Found | 5% | Not yet contacted; almost entirely speculative |
+| Contacted | 10% | Outreach sent, no engagement confirmed yet |
+| Interested | 35% | Real engagement, but no formal commitment |
+| Proposal | 55% | Formal offer out; conversion window is active |
+| Won | 100% | Already closed — counted as banked, not forecast |
+
+These weights aren't universal — they should shift based on your own historical Interested → Won and Proposal → Won conversion rates once you have a few months of data. Treat the table above as a starting point, not gospel.
+
+---
+
+## Step 2: Calculate Weighted Pipeline Value
+
+Multiply the dollar value of every open deal by its stage weight, then sum. Example pipeline:
+
+| Stage | Deal Value | Weight | Weighted Value |
+|---|---|---|---|
+| Found (3 leads) | $4,500 | 5% | $225 |
+| Contacted (6 leads) | $9,000 | 10% | $900 |
+| Interested (4 leads) | $6,800 | 35% | $2,380 |
+| Proposal (3 leads) | $5,400 | 55% | $2,970 |
+| **Total open pipeline** | **$25,700** | — | **$6,475** |
+
+The raw pipeline total ($25,700) and the weighted forecast ($6,475) are very different numbers — and the weighted figure is the one that actually predicts this month's likely revenue. This is the running pipeline value calculation that a tracked pipeline can surface automatically instead of requiring a manual spreadsheet formula rebuilt from scratch every time a deal moves stage.
+
+---
+
+## Step 3: Add What's Already Won
+
+Weighted pipeline value forecasts what's *likely* to close. What's already Won this period is certain — add it directly, unweighted, to get your full monthly forecast:
+
+**Forecast = Won value (this period) + Weighted open pipeline value**
+
+If you've already closed $8,000 this month and your weighted open pipeline adds another $6,475 of likely-to-close value, your realistic monthly forecast lands around $14,475 — not the full $25,700 sitting in the pipeline, and not just the $8,000 already banked.
+
+---
+
+## Step 4: Sanity-Check Against Your Sales Cycle
+
+Weighted pipeline value tells you what's *likely* to close eventually, but not necessarily *this month*. If your average time from Proposal to Won is three weeks, a deal that just entered Proposal yesterday probably won't close before month-end even if it's a near-certain win. Adjust your forecast down for deals unlikely to complete their cycle within the forecast window, and treat those as next month's forecast instead.
+
+This is also where the automatic staleness flag matters for forecasting accuracy — a lead sitting in Interested for three weeks with no movement isn't a 35%-likely deal anymore; it's closer to Lost and should be weighted down or excluded until it's actively moving again. Forecasting off stale, uncorrected pipeline data overstates revenue and leads to bad planning decisions.
+
+---
+
+## Using This to Set a Pipeline Target
+
+Once you can forecast reliably, you can also run the math backward: given your close rate and average deal size, how much total pipeline value do you need in motion to hit a specific income goal? That reverse calculation is genuinely more useful day-to-day than the forward forecast, because it tells you whether you need to generate more leads *right now* or whether your existing pipeline is already sufficient if you just work it properly. See [how much pipeline value do you need to hit your income goal](/blog/how-much-pipeline-value-do-you-need-to-hit-your-income-goal) for that full calculation.
+
+---
+
+## Forecasting Without Tracked Data Is Just Guessing
+
+None of this math works without consistent, accurate stage and value logging. A spreadsheet where "stage" is a free-text field updated irregularly will produce a forecast that's wrong in ways you won't notice until the money doesn't show up. See [how to track web design leads without a spreadsheet](/blog/how-to-track-web-design-leads-without-a-spreadsheet) for why stage-based tracking is the prerequisite for every calculation in this post, not an optional refinement.
+
+Forecasting accurately also changes how you think about income more broadly — a forecast grounded in real weighted pipeline data is a much better planning tool than the income ranges freelancers often quote from general benchmarks. See [how much you can actually make in freelance web design in 2026](/blog/how-much-can-you-make-freelance-web-design-2026) for how those benchmark numbers compare to what a tracked, weighted pipeline actually predicts for an individual freelancer.
+
+---
+
+## See Your Real Number, Not Your Hopeful One
+
+A weighted forecast only works if your pipeline value and stage data are accurate in real time. [Runvax](https://runvax.com) keeps a running total of pipeline value and won value as deals move through Found, Contacted, Interested, Proposal, Won, and Lost, so the raw numbers behind a forecast like the one above are always current, not reconstructed from memory at month-end. Free to start, no credit card required.

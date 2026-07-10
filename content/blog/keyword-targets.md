@@ -233,6 +233,88 @@ Cross-pillar link suggestion: link to the live `/vs-apollo`, `/vs-fiverr`, `/vs-
 
 ---
 
+## PHASE 2 — Feature-mapped pillars (2026-07-11 addition)
+
+The 7 pillars above are mostly top-of-funnel ("how do I get clients"). This phase maps content directly to product features — proposals, pipeline tracking, and website delivery quality — to reach searchers much closer to the point of using Runvax. Same rigor: real research, GEO-first opening, full interlinking, 900-1600 words.
+
+**Research findings for this phase:**
+- Halo effect: a polished first impression on a proposal makes prospects assume the same quality applies to the work itself
+- Three-tier pricing converts ~1.4x better than two-tier; four-plus tiers convert worse
+- 60% of proposals go silent, but 42.5% of closed-won deals close within 24 hours of the client opening the proposal — speed of follow-up matters more than most freelancers think
+- Day 1 after sending, a prospect is ~80% ready to move forward; by day 7 they're reconsidering whether they need the service at all
+- "Just checking in" is the lowest-performing follow-up opener; adding new value (case study, resource) works far better
+- Booking a walkthrough call *before* sending the proposal makes ghosting structurally harder — they'd have to cancel a meeting, not just ignore an email
+- 36% of freelancer time goes to admin tasks that connected tools could automate
+- Modern lead tracking has moved beyond contact lists into full-lifecycle pipelines (contact → proposal → contract → delivery)
+- 53% of mobile users abandon a site that takes longer than 3 seconds to load; each additional second of load time can cut conversions up to 7%; a 1-second mobile delay can cut conversions up to 20%
+- Over 60% of global web traffic is mobile — Google's ranking signals now evaluate the mobile version of a site as primary
+- Core Web Vitals (LCP, FID/INP, CLS) are the standard framework for measuring the speed/stability that drives both rankings and conversions
+
+**Product grounding — use these exact mechanics, don't invent generic ones:**
+- Runvax's pipeline has exactly 6 stages: **Found → Contacted → Interested → Proposal → Won / Lost**. "Interested" has sub-states (asked price, requested info, requested a call, said "okay thanks", said "I'll think about it"). Prospects untouched for 3+ days show a "needs follow-up" flag. There's a reminder/overdue system and a running total of pipeline value + won value.
+- Runvax's AI proposal generator takes business name, industry, location, your name/phone/website, a price range, and a timeline, and produces a formal proposal — plus can email it directly to the prospect.
+
+### PILLAR H — AI Proposal Generation & Winning Deals (10 posts)
+
+Cross-pillar links: into Pillar D hub (`how-to-price-web-design-projects`) and Pillar B (cold email follow-up post).
+
+1. **HUB** `web-design-proposal-psychology-that-wins` — "The Psychology of Web Design Proposals That Win" — kw: web design proposal psychology
+2. `how-to-follow-up-after-sending-a-proposal` — "How to Follow Up After Sending a Proposal (Without Sounding Desperate)" — kw: follow up after sending proposal
+3. `why-clients-ghost-after-a-proposal` — "Why Clients Ghost After a Proposal — And How to Prevent It" — kw: client ghosted after proposal
+4. `three-tier-pricing-for-web-design-proposals` — "Three-Tier Pricing for Web Design Proposals (Why It Converts Better)" — kw: three tier pricing web design
+5. `value-based-pricing-vs-hourly-web-design` — "Value-Based Pricing vs. Hourly: Which Wins More Web Design Clients" — kw: value based pricing web design
+6. `how-ai-proposals-close-more-deals` — "How AI-Generated Proposals Close More Deals, Faster" — kw: AI proposal generator close deals (ground this in Runvax's actual proposal generator mechanics)
+7. `proposal-mistakes-that-lose-clients` — "8 Proposal Mistakes That Lose You the Client" — kw: proposal mistakes web design
+8. `how-to-price-a-website-project-proposal` — "How to Present Price in a Website Project Proposal" — kw: price website project proposal (differentiate clearly from `/blog/how-to-price-web-design-projects`, which is the general pricing framework — this one is specifically about *presenting* price inside the proposal document itself: anchoring, tier order, where price sits on the page)
+9. `proposal-to-contract-what-happens-after-they-say-yes` — "Proposal to Contract: What Happens After They Say Yes" — kw: proposal to contract web design
+10. `how-fast-should-you-send-a-proposal` — "How Fast Should You Send a Proposal After First Contact?" — kw: how fast send proposal after inquiry
+
+### PILLAR I — Lead & Pipeline Tracking (10 posts)
+
+Cross-pillar links: into Pillar A hub (`lead-generation-for-small-business-complete-guide`) and Pillar E (make-money income posts).
+
+1. **HUB** `how-to-track-web-design-leads-without-a-spreadsheet` — "How to Track Web Design Leads Without a Spreadsheet" — kw: track web design leads without spreadsheet
+2. `free-crm-alternatives-for-freelance-web-designers` — "Free CRM Alternatives for Freelance Web Designers" — kw: free CRM freelance web designers
+3. `pipeline-stages-every-web-designer-should-track` — "The Pipeline Stages Every Web Designer Should Track" — kw: sales pipeline stages web design (use Runvax's real 6 stages as the model)
+4. `how-often-to-follow-up-with-leads-before-giving-up` — "How Often Should You Follow Up With a Lead Before Giving Up?" — kw: how often follow up with leads (pipeline-wide cadence — differentiate from the Pillar B post which is specifically about cold email follow-up sequences)
+5. `calculating-your-web-design-close-rate` — "How to Calculate (and Improve) Your Web Design Close Rate" — kw: web design close rate
+6. `why-leads-go-cold-and-how-to-revive-them` — "Why Leads Go Cold — And How to Revive Them" — kw: revive cold leads
+7. `how-to-forecast-monthly-revenue-from-your-pipeline` — "How to Forecast Monthly Revenue From Your Pipeline" — kw: forecast revenue from pipeline
+8. `kanban-vs-spreadsheet-for-tracking-clients` — "Kanban vs. Spreadsheet for Tracking Web Design Clients" — kw: kanban vs spreadsheet client tracking
+9. `reminders-and-follow-up-systems-for-freelancers` — "Reminders and Follow-Up Systems Every Freelancer Needs" — kw: follow up reminder system freelancer
+10. `how-much-pipeline-value-do-you-need-to-hit-your-income-goal` — "How Much Pipeline Value Do You Need to Hit Your Income Goal?" — kw: pipeline value income goal
+
+### PILLAR J — Building Client-Winning Websites (12 posts)
+
+**Important framing:** this is NOT generic "how to code a website" content (impossible to rank against freeCodeCamp/MDN/W3Schools). Every post ties design/technical quality back to a business outcome — closing the deal, keeping the client, getting referred. Audience is working freelancers/agencies who want to level up delivery quality, not beginners learning to code.
+
+Cross-pillar links: into Pillar D (freelance/agency growth) and Pillar H (proposals) posts.
+
+1. **HUB** `how-to-build-websites-that-win-and-keep-clients` — "How to Build Websites That Win and Keep Clients" — kw: build websites that win clients
+2. `mobile-first-design-that-converts-local-business-visitors` — "Mobile-First Design That Converts Local Business Visitors" — kw: mobile first design conversion
+3. `website-speed-and-why-it-costs-you-clients` — "Website Speed: Why a Slow Site Costs You Clients" — kw: website speed loses clients
+4. `core-web-vitals-explained-for-freelance-designers` — "Core Web Vitals Explained for Freelance Designers" — kw: core web vitals freelancers
+5. `what-makes-a-website-look-professional-vs-amateur` — "What Makes a Website Look Professional vs. Amateur" — kw: professional vs amateur website design
+6. `website-must-have-features-small-business-clients-expect` — "Website Features Every Small Business Client Expects" — kw: website features small business expect
+7. `how-to-present-website-work-to-a-non-technical-client` — "How to Present Website Work to a Non-Technical Client" — kw: present website work to client
+8. `portfolio-quality-website-checklist-before-delivery` — "The Portfolio-Quality Website Checklist Before Delivery" — kw: website delivery checklist
+9. `how-long-should-it-take-to-build-a-small-business-website` — "How Long Should It Take to Build a Small Business Website?" — kw: how long to build small business website
+10. `website-accessibility-basics-every-designer-should-know` — "Website Accessibility Basics Every Designer Should Know" — kw: website accessibility basics
+11. `common-website-mistakes-that-make-businesses-look-untrustworthy` — "Website Mistakes That Make a Business Look Untrustworthy" — kw: website mistakes untrustworthy
+12. `how-to-turn-one-website-client-into-five-referrals` — "How to Turn One Website Client Into Five Referrals" — kw: turn client into referrals
+
+### Batch assignments — Phase 2
+
+| Agent | Pillar | Posts |
+|---|---|---|
+| 8 | H — AI Proposal Generation | 10 |
+| 9 | I — Lead & Pipeline Tracking | 10 |
+| 10 | J — Building Client-Winning Websites | 12 |
+
+**Phase 2 total: 32 new posts. Combined grand total: 137 posts.**
+
+---
+
 ## Post-launch checklist (after all agents finish)
 
 1. Verify no duplicate slugs, all frontmatter parses.
