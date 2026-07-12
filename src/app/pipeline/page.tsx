@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Phone, Star, MessageCircle, StickyNote, Bell, ChevronRight, ChevronLeft,
   Trash2, Download, Zap, CheckSquare, Square, X, Search, Check, Calendar,
+  LayoutGrid, List,
 } from 'lucide-react';
 import { useProspects } from '@/context/ProspectsContext';
 import { SavedProspect, ProspectStage, ReplyType } from '@/types';
@@ -14,6 +15,9 @@ import Link from 'next/link';
 import ProspectDetailModal from '@/components/ProspectDetailModal';
 import BulkOutreachModal from '@/components/BulkOutreachModal';
 import FollowUpSequenceModal from '@/components/FollowUpSequenceModal';
+import ProspectTable from '@/components/ProspectTable';
+
+type ViewMode = 'board' | 'table';
 
 type Stage = { id: ProspectStage; icon: string; label: string; headerColor: string; bg: string };
 
@@ -309,6 +313,14 @@ export default function PipelinePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulk, setShowBulk] = useState(false);
   const [colPages, setColPages] = useState<Record<string, number>>({});
+  const [view, setView] = useState<ViewMode>('board');
+
+  // Restore last-used view from localStorage, and persist changes to it.
+  useEffect(() => {
+    const stored = localStorage.getItem('pipelineView');
+    if (stored === 'board' || stored === 'table') setView(stored);
+  }, []);
+  useEffect(() => { localStorage.setItem('pipelineView', view); }, [view]);
 
   // Reset column pages whenever search changes so results start from the top
   useEffect(() => { setColPages({}); }, [search]);
@@ -378,6 +390,12 @@ export default function PipelinePage() {
     return map;
   }, [prospects, matchesSearch]);
 
+  // Flat list respecting the active stage filters + search — feeds the table view
+  const filteredProspects = useMemo(
+    () => prospects.filter((p) => activeStages.includes(p.stage) && matchesSearch(p)),
+    [prospects, activeStages, matchesSearch],
+  );
+
   if (prospects.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 sm:py-24 text-center">
@@ -412,6 +430,22 @@ export default function PipelinePage() {
             <div className="flex items-center gap-2 flex-shrink-0">
               {!selectMode ? (
                 <>
+                  <div className="hidden sm:flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-xl p-0.5">
+                    <button
+                      onClick={() => setView('board')}
+                      title="Board view"
+                      className={`p-1.5 rounded-lg transition-colors ${view === 'board' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      <LayoutGrid className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setView('table')}
+                      title="Table view"
+                      className={`p-1.5 rounded-lg transition-colors ${view === 'table' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      <List className="w-4 h-4" />
+                    </button>
+                  </div>
                   <button
                     onClick={() => setSelectMode(true)}
                     className="flex items-center gap-1.5 px-3 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-xl text-sm font-bold transition-colors"
@@ -502,8 +536,22 @@ export default function PipelinePage() {
         );
       })()}
 
-      {/* Kanban board */}
-      <div className="overflow-x-auto snap-x snap-mandatory sm:snap-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+      {/* Table view (desktop) */}
+      {view === 'table' && (
+        <div className="hidden sm:block px-3 sm:px-4 py-4 max-w-[1600px] mx-auto">
+          <ProspectTable
+            prospects={filteredProspects}
+            onOpen={setDetailProspect}
+            onOpenSequence={setSequenceProspect}
+            selectMode={selectMode}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+          />
+        </div>
+      )}
+
+      {/* Kanban board — always the mobile view; desktop when view === 'board' */}
+      <div className={`${view === 'table' ? 'sm:hidden' : ''} overflow-x-auto snap-x snap-mandatory sm:snap-none`} style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 min-w-max max-w-[1600px] mx-auto">
           {STAGES.filter((s) => activeStages.includes(s.id)).map((stage) => {
             const stageProspects = prospectsByStage.get(stage.id) ?? [];

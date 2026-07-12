@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Send, X, Search, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Send, X, Search, RefreshCw, LayoutGrid, List } from 'lucide-react';
 
 import SearchForm from '@/components/SearchForm';
 import BusinessGrid from '@/components/BusinessGrid';
+import BusinessTable from '@/components/BusinessTable';
 import BusinessDrawer from '@/components/BusinessDrawer';
 import PromptModal from '@/components/PromptModal';
 import QuickFireModal from '@/components/QuickFireModal';
@@ -57,6 +58,7 @@ export default function Home() {
   const [showContacted, setShowContacted]   = useState(false);
   const [selectMode, setSelectMode]         = useState(false);
   const [selectedIds, setSelectedIds]       = useState<Set<string>>(new Set());
+  const [resultsView, setResultsView]       = useState<'grid' | 'table'>('grid');
   const [bulkSending, setBulkSending]       = useState(false);
   const [bulkProgress, setBulkProgress]     = useState<{ done: number; total: number } | null>(null);
 
@@ -94,6 +96,13 @@ export default function Home() {
       }
     } catch { /* */ }
   }, [session]);
+
+  // Restore last-used results view, and persist changes to it.
+  useEffect(() => {
+    const stored = localStorage.getItem('resultsView');
+    if (stored === 'grid' || stored === 'table') setResultsView(stored);
+  }, []);
+  useEffect(() => { localStorage.setItem('resultsView', resultsView); }, [resultsView]);
 
   const timeStatus = getBestTimeStatus();
 
@@ -817,6 +826,20 @@ export default function Home() {
                   </button>
                 )}
                 <span className="text-gray-700 text-xs hidden sm:inline">|</span>
+                <div className="flex items-center gap-0.5 bg-white/8 border border-white/10 rounded-full p-0.5">
+                  <button
+                    onClick={() => setResultsView('grid')}
+                    title="Grid view"
+                    className={`p-1.5 rounded-full transition-colors ${resultsView === 'grid' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setResultsView('table')}
+                    title="Table view"
+                    className={`p-1.5 rounded-full transition-colors ${resultsView === 'table' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                </div>
                 <button
                   onClick={exportCSV}
                   title="Export current results to CSV"
@@ -893,7 +916,9 @@ export default function Home() {
             </div>
           )}
 
-          {!guestGate && (
+          {!guestGate && resultsView === 'table' && !loading && !error ? (
+            <BusinessTable businesses={paginated} onSelect={handleSelect} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
+          ) : !guestGate && (
             <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} competitors={competitorNames} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} hasSearched={hasSearched} />
           )}
 
