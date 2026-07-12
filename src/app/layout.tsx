@@ -10,6 +10,7 @@ import AuthProvider from '@/components/AuthProvider';
 import InstallBanner from '@/components/InstallBanner';
 import WaDailyCounter from '@/components/WaDailyCounter';
 import { ToastProvider } from '@/components/Toast';
+import Analytics from '@/components/Analytics';
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from '@/lib/seo';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -82,14 +83,13 @@ export const metadata: Metadata = {
     title: TITLE,
     description: SITE_DESCRIPTION,
     locale: 'en_US',
-    // Replace /og-image.png with a 1200×630 branded banner once designed
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Runvax — Find Businesses That Need a Website' }],
+    images: [{ url: '/og', width: 1200, height: 630, alt: 'Runvax — Find Businesses That Need a Website' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: TITLE,
     description: SITE_DESCRIPTION,
-    images: ['/og-image.png'],
+    images: ['/og'],
   },
   robots: {
     index: true,
@@ -345,6 +345,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script dangerouslySetInnerHTML={{ __html: swScript }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        <Analytics />
       </head>
       <body className={`${inter.className} bg-gray-950 text-white antialiased`}>
         <AuthProvider>

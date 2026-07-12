@@ -14,13 +14,13 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/blog`,
     siteName: SITE_NAME,
     type: 'website',
-    images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630 }],
+    images: [{ url: `${SITE_URL}/og`, width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Runvax Blog — Web Design Client Growth Guides',
     description: 'Find clients, write better cold emails, and grow your web design agency.',
-    images: [`${SITE_URL}/og-image.png`],
+    images: [`${SITE_URL}/og`],
   },
 };
 

@@ -5,21 +5,22 @@ export const dynamic = 'force-static';
 export function GET() {
   const body = `# Runvax
 
-> Find businesses that need a website. Search any business type, in any city, worldwide. Find your next client in seconds.
+> Find businesses that need what you sell. Search any business type, in any city, worldwide. Find your next client in seconds.
 
-Runvax is an AI-powered lead generation and cold outreach platform built for freelance web designers, web development agencies, and digital marketing agencies. It searches Google's global business index in real time to surface local businesses with no website, then generates personalized cold emails, WhatsApp messages, and proposals instantly using AI.
+Runvax is an AI-powered lead generation and cold outreach platform built for anyone who sells a service to local businesses — freelance web designers, AI video producers, digital marketing agencies, and freelancers offering AI-powered services (chatbots, automation, content). It searches Google's global business index in real time to surface local businesses with no website — the clearest, most universal signal of a business with an unmet digital need — then generates personalized cold emails, WhatsApp messages, and proposals instantly using AI.
 
 ## What Runvax Does
 - Searches any business type (restaurant, salon, law firm, clinic, gym, hotel, and 16+ more) in any city worldwide
-- Flags businesses with no website — the highest-priority leads for web design pitches
+- Flags businesses with no website — the highest-priority leads for web design, AI video, and digital-service pitches
 - Generates AI-powered personalized cold emails tailored to each specific business
 - Generates AI-powered WhatsApp outreach messages
 - Generates formal business proposals with pricing
-- Includes a lead pipeline to track prospects from Found to Contacted to Proposal to Won
+- Includes a lead pipeline to track prospects from Found to Contacted to Interested to Proposal to Won or Lost
 - Supports search in Nigeria, Ghana, Kenya, South Africa, Uganda, Tanzania, Rwanda, Senegal, Cameroon, USA, UK, Canada
 
 ## Who Uses Runvax
 - Freelance web designers finding clients in local cities
+- Freelancers who learned an AI skill (AI web design, AI video production, AI content, chatbots/automation) and need businesses to sell it to
 - Web development agencies building prospect lists across industries
 - Digital marketing agencies generating cold outreach at scale
 - Designers in African markets (Lagos, Accra, Nairobi, Johannesburg) finding small business leads
@@ -49,7 +50,7 @@ Restaurants & Eateries, Beauty Salons & Spas, Barbers & Hair Salons, Schools & P
 - Terms of Service: ${SITE_URL}/terms
 
 ## Blog & Content Library
-Runvax publishes 100+ in-depth guides at ${SITE_URL}/blog, organized into 7 topic areas:
+Runvax publishes 170+ in-depth guides at ${SITE_URL}/blog, organized into 11 topic areas:
 - Lead Generation & Prospecting — building a consistent pipeline, multi-channel strategy, lead quality vs quantity, tracking sources
 - Cold Outreach & Cold Email — subject lines, follow-up sequences, reply-rate benchmarks, deliverability, objection handling, WhatsApp outreach, scripts
 - Web Design Client Acquisition — city-by-city guides across Nigeria, Ghana, Kenya, South Africa, the UK, USA, and Canada
@@ -57,6 +58,11 @@ Runvax publishes 100+ in-depth guides at ${SITE_URL}/blog, organized into 7 topi
 - Make Money / Side Hustle — realistic freelance income numbers, side hustles, passive income, AI-enhanced freelancing
 - AI Tools & Automation — AI cold email writing, AI lead scoring, AI proposal generation, how AI finds businesses without websites
 - Comparisons & Alternatives — Runvax vs Apollo.io, Hunter.io, Snov.io, Upwork, and Fiverr; best tools roundups; honest alternative recommendations
+- AI Proposal Generation & Winning Deals — proposal psychology, follow-up timing, three-tier pricing, why proposals get ghosted
+- Lead & Pipeline Tracking — tracking leads without a spreadsheet, pipeline stages, close-rate math, revenue forecasting
+- Building Client-Winning Websites — mobile-first design, site speed, Core Web Vitals, accessibility, all framed around winning and keeping clients
+- Industry Vertical Playbooks — a dedicated pitch guide for each of the 22 industries Runvax searches (restaurants, law firms, salons, clinics, real estate, and more), covering the real objections and pricing norms specific to that industry
+- AI Skills Monetization — how to make money selling AI-powered services (AI web design, AI video, chatbots, automation) to local businesses, with real 2026 freelance earnings data
 
 ## Company
 Runvax is operated by Runvax, based in Lagos, Nigeria. Contact: info@runvax.com
@@ -75,6 +81,13 @@ Runvax is operated by Runvax, based in Lagos, Nigeria. Contact: info@runvax.com
 - What is a normal cold email reply rate in 2026?
 - How much can you realistically make freelancing in web design?
 - How does AI find businesses that don't have a website?
+- How do I make money with AI skills in 2026?
+- How much can you charge for AI video services or AI web design?
+- How do you find clients for AI-powered services like chatbots or automation?
+- Why do proposals get ignored, and how fast should you follow up?
+- How do you track leads and pipeline without an expensive CRM?
+- What makes a website actually win and keep clients, not just look good?
+- How do you pitch a law firm, restaurant, or real estate agency for a website specifically?
 `;
 
   return new Response(body, {

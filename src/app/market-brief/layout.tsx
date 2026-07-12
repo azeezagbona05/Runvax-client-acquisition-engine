@@ -19,9 +19,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: TITLE, description: DESC,
     url: `${SITE_URL}/market-brief`, siteName: SITE_NAME,
-    images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630 }],
+    images: [{ url: `${SITE_URL}/og`, width: 1200, height: 630 }],
   },
-  twitter: { card: 'summary_large_image', title: TITLE, description: DESC, images: [`${SITE_URL}/og-image.png`] },
+  twitter: { card: 'summary_large_image', title: TITLE, description: DESC, images: [`${SITE_URL}/og`] },
 };
 
 export default async function MarketBriefLayout({ children }: { children: React.ReactNode }) {

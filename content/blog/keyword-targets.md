@@ -315,6 +315,94 @@ Cross-pillar links: into Pillar D (freelance/agency growth) and Pillar H (propos
 
 ---
 
+## PHASE 3 — Industry vertical playbooks (2026-07-11 addition)
+
+Rationale: at 137 posts, more generic pillar content (more cities, more general lead-gen advice) risks reading as thin/templated to Google. The genuinely untapped keyword space is industry-specific pitch content — one post per industry Runvax already searches, each with real, differentiated pain points, objections, and pricing expectations for that vertical. This is NOT a template swap exercise — each post must contain something a generic "how to pitch any business" post couldn't say.
+
+**Domain status as of this phase:** runvax.com and www.runvax.com are both live and DNS-verified. Once this batch ships, submit to Google Search Console.
+
+### PILLAR K — Industry Vertical Playbooks (23 posts: 1 hub + 22 verticals)
+
+The 22 verticals map exactly to Runvax's real industry categories (see `src/app/layout.tsx` JSON-LD `featureList` / industries list for the canonical list — do not invent industries outside this set).
+
+Cross-pillar links: into Pillar B (cold outreach scripts), Pillar H (proposal pricing/psychology), and Pillar D (pricing framework).
+
+1. **HUB** `best-industries-to-pitch-for-web-design` — "The Best Industries to Pitch for Web Design (Ranked by Opportunity)" — kw: best industries for web design clients. Include a table ranking industries by no-website rate, average deal size, and pitch difficulty; link out to all 22 vertical posts below.
+
+2. `pitching-restaurants-for-web-design` — "How to Pitch Restaurants for a Website (What They Actually Care About)" — kw: web design for restaurants
+3. `pitching-beauty-salons-for-web-design` — "How to Pitch Beauty Salons and Spas for a Website" — kw: web design for beauty salons
+4. `pitching-barbershops-for-web-design` — "How to Pitch Barbershops and Hair Salons for a Website" — kw: web design for barbershops
+5. `pitching-schools-for-web-design` — "How to Pitch Schools and Private Tutors for a Website" — kw: web design for schools
+6. `pitching-clinics-for-web-design` — "How to Pitch Clinics and Hospitals for a Website" — kw: web design for clinics
+7. `pitching-pharmacies-for-web-design` — "How to Pitch Pharmacies for a Website" — kw: web design for pharmacies
+8. `pitching-real-estate-agencies-for-web-design` — "How to Pitch Real Estate Agencies for a Website" — kw: web design for real estate agents
+9. `pitching-hotels-for-web-design` — "How to Pitch Hotels and Guesthouses for a Website" — kw: web design for hotels
+10. `pitching-event-centers-for-web-design` — "How to Pitch Event Centers and Halls for a Website" — kw: web design for event centers
+11. `pitching-law-firms-for-web-design` — "How to Pitch Law Firms for a Website" — kw: web design for law firms
+12. `pitching-auto-workshops-for-web-design` — "How to Pitch Auto Workshops and Mechanics for a Website" — kw: web design for auto repair shops
+13. `pitching-fashion-boutiques-for-web-design` — "How to Pitch Fashion Boutiques for a Website" — kw: web design for boutiques
+14. `pitching-photographers-for-web-design` — "How to Pitch Photography Studios for a Website" — kw: web design for photographers
+15. `pitching-gyms-for-web-design` — "How to Pitch Gyms and Fitness Centers for a Website" — kw: web design for gyms
+16. `pitching-contractors-for-web-design` — "How to Pitch Construction and Contractors for a Website" — kw: web design for contractors
+17. `pitching-caterers-for-web-design` — "How to Pitch Catering Services for a Website" — kw: web design for caterers
+18. `pitching-churches-for-web-design` — "How to Pitch Churches and Ministries for a Website" — kw: web design for churches
+19. `pitching-travel-agencies-for-web-design` — "How to Pitch Travel and Tour Agencies for a Website" — kw: web design for travel agencies
+20. `pitching-local-stores-for-web-design` — "How to Pitch Supermarkets and Local Stores for a Website" — kw: web design for retail stores
+21. `pitching-laundry-businesses-for-web-design` — "How to Pitch Laundry and Dry Cleaning Businesses for a Website" — kw: web design for laundry businesses
+22. `pitching-print-shops-for-web-design` — "How to Pitch Printing and Design Shops for a Website" — kw: web design for print shops
+23. `pitching-accounting-firms-for-web-design` — "How to Pitch Accounting and Tax Firms for a Website" — kw: web design for accounting firms
+
+**What must differ per post (non-negotiable — this is what separates this from thin/templated content):**
+- The real objection that industry raises most ("my customers just call me," "I get everything from referrals," "I don't have time to update a website," etc.) — must be genuinely specific to how that industry actually operates, verified via web search if not obvious
+- Realistic price expectations/budget sensitivity for that specific industry (a law firm and a barbershop have very different budgets and expectations)
+- What that industry's website actually needs to include (a restaurant needs a menu + photos + hours; a law firm needs credibility signals + practice areas + consultation booking; a real estate agency needs listings; a gym needs class schedules + membership signup)
+- Where to actually find these businesses (which search terms, which platforms — e.g. photographers live on Instagram as much as Google Maps)
+
+**Interlinking rule for this pillar:** every vertical post links to the HUB, links to 2 sibling verticals (chain, in list order above), and 1 cross-pillar link into a Pillar B, D, or H post as fits the topic.
+
+**Frontmatter:** category `"Guide"`, dates staggered 2026-10-08 through 2026-11-15 in list order.
+
+### Batch assignment — Phase 3
+
+| Agent | Scope | Posts |
+|---|---|---|
+| 11 | HUB + verticals 1–11 (restaurants through auto workshops) | 12 |
+| 12 | Verticals 12–22 (fashion boutiques through accounting firms) | 11 |
+
+**Phase 3 total: 23 new posts. Combined grand total: 160 posts.**
+
+---
+
+## PHASE 4 — AI skills monetization (2026-07-12 addition)
+
+Founder clarified the real audience: not just web designers — anyone who has learned an AI-powered skill (AI web design, AI video, AI content, automation/chatbots) and needs businesses willing to pay for it. "How to make money with AI" is one of the hottest 2026 search trends. This pillar targets that directly.
+
+### PILLAR L — AI Skills Monetization (15 posts: 1 hub + 14 cluster)
+
+Category: "Make Money" or "AI Tools" as fits. Grounded in real 2026 freelance AI earnings data (chatbot dev $40-100/hr, AI audits $5-20K, full implementations $25-150K, ongoing retainers $2.5-15K/mo; AI video $12-18/clip entry to $1,200-3,000/mo productized retainers; AI data analytics $80-150/hr).
+
+1. **HUB** `how-to-make-money-with-ai-skills-2026`
+2. `how-to-sell-ai-web-design-services-to-local-businesses`
+3. `how-to-start-an-ai-video-editing-side-hustle`
+4. `ai-video-services-businesses-will-pay-for`
+5. `best-ai-skills-to-learn-for-freelancing-2026`
+6. `how-to-find-clients-for-ai-services`
+7. `how-much-can-you-charge-for-ai-web-design`
+8. `ai-freelancing-vs-traditional-freelancing-which-pays-more`
+9. `how-to-pitch-ai-powered-services-to-skeptical-business-owners`
+10. `ai-video-marketing-services-for-small-business`
+11. `building-an-ai-services-agency-from-scratch`
+12. `no-code-ai-tools-to-offer-as-a-service-2026`
+13. `how-to-package-ai-skills-into-a-sellable-service`
+14. `ai-skills-that-are-actually-in-demand-right-now`
+15. `ai-services-pricing-guide-2026`
+
+Interlinking: chain siblings within pillar, all link to hub, cross-pillar links into Pillar A/F (lead gen, AI tools) posts. Footer CTA reframed around "finding businesses with gaps" (no website, no booking, no automation) rather than narrowly "web design clients."
+
+**Phase 4 total: 15 new posts.**
+
+---
+
 ## Post-launch checklist (after all agents finish)
 
 1. Verify no duplicate slugs, all frontmatter parses.
