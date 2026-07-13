@@ -6,6 +6,7 @@ import { Search, MapPin, Loader2, Clock, Sparkles, ChevronDown, X, ArrowLeft, Na
 import { SearchFormData } from '@/types';
 import { getSearchHistory, getBestTimeStatus, SearchHistoryEntry } from '@/lib/searchHistory';
 import { AREAS, STATES, TIER_CONFIG, Area } from '@/lib/areas';
+import AuthBackground from '@/components/AuthBackground';
 
 const INDUSTRIES = [
   'Restaurants & Eateries', 'Beauty Salons & Spas', 'Barbers & Hair Salons',
@@ -309,8 +310,9 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
       </div>
     )}
 
-    <div className={`bg-gradient-to-br from-purple-950/60 via-gray-900 to-gray-950 border-b border-white/5 ${!showFullForm ? 'hidden sm:block' : ''}`}>
-      <div className="max-w-4xl mx-auto px-4 py-6 md:py-8">
+    <div className={`relative overflow-hidden bg-gradient-to-br from-purple-950/60 via-gray-900 to-gray-950 border-b border-white/5 ${!showFullForm ? 'hidden sm:block' : ''}`}>
+      <AuthBackground blobs={false} />
+      <div className="relative z-10 max-w-4xl mx-auto px-4 py-6 md:py-8">
 
         {/* Hero */}
         <div className="text-center mb-5">

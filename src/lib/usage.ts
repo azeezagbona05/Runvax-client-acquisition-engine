@@ -3,6 +3,48 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from './prisma';
 import { getPlanConfig } from './plans';
 import { FeatureId, FEATURE_LABELS } from './features';
+import { createTransporter, limitReachedEmailHtml } from './email';
+import { getAppUrl, getAppName } from './url';
+
+// Fire-and-forget: email the user the first time they hit a daily limit —
+// guarded by a per-day flag on UsageRecord so retries after the block don't
+// re-send. Mirrors UpgradeModal's copy, which already shows the same message
+// for both the search and AI caps.
+function notifyLimitReachedOnce(userId: string, date: string, kind: 'search' | 'ai'): void {
+  void (async () => {
+    try {
+      const field = kind === 'search' ? 'searchLimitEmailSent' : 'aiLimitEmailSent';
+      const record = await prisma.usageRecord.findUnique({
+        where: { userId_date: { userId, date } },
+        select: { searchLimitEmailSent: true, aiLimitEmailSent: true },
+      });
+      if (record?.[field]) return;
+
+      // Claim it first so a burst of retried requests can't double-send.
+      await prisma.usageRecord.upsert({
+        where: { userId_date: { userId, date } },
+        create: { userId, date, [field]: true },
+        update: { [field]: true },
+      });
+
+      if (!process.env.SMTP_HOST && !process.env.RESEND_API_KEY) return;
+
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+      if (!user?.email) return;
+
+      const transporter = createTransporter();
+      const appName = getAppName();
+      await transporter.sendMail({
+        from: `"${appName}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
+        to: user.email,
+        subject: 'Daily limit reached — upgrade to keep going',
+        html: limitReachedEmailHtml(user.name ?? 'there', getAppUrl(), appName),
+      });
+    } catch (e) {
+      console.error('[limit-email] failed', e);
+    }
+  })();
+}
 
 export interface FeatureCheckResult {
   ok: boolean;
@@ -89,6 +131,7 @@ export async function checkAndIncrementAI(req: NextRequest): Promise<UsageCheckR
   const used = record?.aiCalls ?? 0;
 
   if (used >= planConfig.aiCallsPerDay) {
+    notifyLimitReachedOnce(userId, date, 'ai');
     return {
       ok: false,
       error: NextResponse.json({
@@ -178,6 +221,9 @@ export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchC
   const used = record?.searchCount ?? 0;
 
   if (used >= effectiveLimit) {
+    // Skip the upsell email when the cap is an admin-set override, not the
+    // plan's natural limit — upgrading wouldn't lift a manually-restricted account.
+    if (userRecord?.searchLimitOverride == null) notifyLimitReachedOnce(userId, date, 'search');
     return {
       ok: false,
       error: NextResponse.json({

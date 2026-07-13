@@ -139,6 +139,38 @@ export function passwordResetEmailHtml(name: string, resetUrl: string, appName: 
   return emailShell(appName, body, 'Reset your password — this link expires in 1 hour.');
 }
 
+// ─── Daily limit reached — mirrors UpgradeModal's ai_limit copy exactly, since
+// that same modal (and now this email) fires for both the search and AI caps ──
+
+export function limitReachedEmailHtml(name: string, appUrl: string, appName: string): string {
+  const body = `
+    ${iconBadge('⚡', '#7c3aed')}
+    <h1 style="margin:0 0 16px;font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.6px;">Daily limit reached</h1>
+    <p style="margin:0 0 8px;font-size:16px;color:#475569;line-height:1.7;">Hi <strong style="color:#1e293b;">${name}</strong>,</p>
+    <p style="margin:0 0 24px;font-size:16px;color:#475569;line-height:1.7;">
+      You've used all 15 AI messages on the Free plan today. Upgrade to Pro for 200 messages/day.
+    </p>
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <tr style="background:rgba(124,58,237,0.06);">
+        <td style="padding:16px 18px;">
+          <p style="margin:0 0 10px;font-size:13px;color:#7c3aed;font-weight:700;">⚡ Pro plan includes:</p>
+          <table cellpadding="0" cellspacing="0">
+            ${['200 AI messages/day', 'Unlimited saved prospects', 'Email blast to 100+ businesses', 'AI proposals & market briefs']
+              .map((f) => `<tr><td style="padding:3px 0;font-size:13px;color:#334155;line-height:1.6;"><span style="color:#16a34a;font-weight:700;">&check;</span>&nbsp; ${f}</td></tr>`)
+              .join('')}
+          </table>
+        </td>
+      </tr>
+    </table>
+    ${ctaButton('Upgrade to Pro — ₦9,999/mo', `${appUrl}/pricing`)}
+    <p style="margin:-16px 0 0;text-align:center;">
+      <a href="${appUrl}/pricing" style="font-size:13px;color:#ea580c;font-weight:600;text-decoration:none;">Agency plan — ₦24,999/mo (Unlimited everything) &rarr;</a>
+    </p>
+    ${securityNotice('⏰ Your free limit resets at midnight — or upgrade now and never wait again.')}
+  `;
+  return emailShell(appName, body, "You've hit today's free limit — upgrade to keep finding and pitching clients.");
+}
+
 // ─── #4 Welcome (sent immediately at signup, alongside the verification email) ──
 
 export function welcomeEmailHtml(name: string, appUrl: string, appName: string): string {

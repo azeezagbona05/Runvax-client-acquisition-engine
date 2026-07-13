@@ -7,12 +7,19 @@ interface Particle { x: number; y: number; vx: number; vy: number; }
 const NODE_COLOR = '124,58,237'; // purple-600 — matches the brand blobs
 const LINK_DIST = 130;
 
+interface Props {
+  /** Full auth-page treatment includes large blurred color blobs behind the
+   *  network. Set false for shorter, content-dense containers (e.g. the
+   *  search page hero) where the blobs would feel oversized. */
+  blobs?: boolean;
+}
+
 /**
- * Shared signin/signup backdrop: the brand color blobs plus a quiet canvas
- * particle network (nodes drift, nearby ones link) — evokes "finding
- * connections" without competing with the form in front of it.
+ * Shared backdrop: the brand color blobs plus a quiet canvas particle
+ * network (nodes drift, nearby ones link) — evokes "finding connections"
+ * without competing with the content in front of it.
  */
-export default function AuthBackground() {
+export default function AuthBackground({ blobs = true }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -99,25 +106,29 @@ export default function AuthBackground() {
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div
-        className="animate-blob-drift absolute -top-40 -left-20 w-[28rem] h-[28rem] rounded-full blur-3xl"
-        style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.35), transparent 65%)' }}
-      />
-      <div
-        className="animate-blob-drift absolute -bottom-40 -right-20 w-[30rem] h-[30rem] rounded-full blur-3xl"
-        style={{
-          background: 'radial-gradient(circle, rgba(249,115,22,0.25), transparent 65%)',
-          animationDelay: '-4s',
-          animationDirection: 'alternate-reverse',
-        }}
-      />
-      <div
-        className="animate-blob-drift absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[20rem] h-[20rem] rounded-full blur-3xl"
-        style={{
-          background: 'radial-gradient(circle, rgba(124,58,237,0.12), transparent 65%)',
-          animationDelay: '-2s',
-        }}
-      />
+      {blobs && (
+        <>
+          <div
+            className="animate-blob-drift absolute -top-40 -left-20 w-[28rem] h-[28rem] rounded-full blur-3xl"
+            style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.35), transparent 65%)' }}
+          />
+          <div
+            className="animate-blob-drift absolute -bottom-40 -right-20 w-[30rem] h-[30rem] rounded-full blur-3xl"
+            style={{
+              background: 'radial-gradient(circle, rgba(249,115,22,0.25), transparent 65%)',
+              animationDelay: '-4s',
+              animationDirection: 'alternate-reverse',
+            }}
+          />
+          <div
+            className="animate-blob-drift absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[20rem] h-[20rem] rounded-full blur-3xl"
+            style={{
+              background: 'radial-gradient(circle, rgba(124,58,237,0.12), transparent 65%)',
+              animationDelay: '-2s',
+            }}
+          />
+        </>
+      )}
       <canvas ref={canvasRef} className="absolute inset-0" />
     </div>
   );

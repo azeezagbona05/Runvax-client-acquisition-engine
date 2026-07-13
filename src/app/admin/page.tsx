@@ -7,12 +7,13 @@ import {
   Users, CreditCard, TrendingUp, ShieldCheck,
   LogOut, RefreshCw, Search, ChevronDown, SlidersHorizontal, Check,
   Infinity as InfinityIcon, Plus, Trash2, X, AlertTriangle,
-  MapPin, Activity, Ban, Save, ShieldOff,
+  MapPin, Activity, Ban, Save, ShieldOff, Sun, Moon, Mail,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
 import { AREAS, TIER_CONFIG } from '@/lib/areas';
+import { useTheme } from '@/context/ThemeContext';
 
 interface SearchActivity {
   industry: string; location: string; totalCount: number;
@@ -749,6 +750,7 @@ function botScore(u: AdminUser): number {
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [stats, setStats]       = useState<Stats | null>(null);
   const [loading, setLoading]   = useState(true);
   const [tab, setTab]           = useState<'users' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs'>('users');
@@ -764,6 +766,8 @@ export default function AdminPage() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [singleDeleting, setSingleDeleting] = useState<Record<string, boolean>>({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [resendResult, setResendResult] = useState<string | null>(null);
 
   // API Costs filter state
   const [costsSearch, setCostsSearch]     = useState('');
@@ -906,6 +910,35 @@ export default function AdminPage() {
     }
   };
 
+  // ── Resend verification email to selected (unverified) users ────────────
+  const handleResendVerification = async () => {
+    const ids = Array.from(selectedUsers);
+    if (ids.length === 0) return;
+    setResendingVerification(true);
+    setResendResult(null);
+    try {
+      const res = await fetch('/api/admin/users/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json() as { sent?: number; failed?: number; skipped?: number; error?: string };
+      if (res.ok) {
+        const parts = [`${data.sent ?? 0} sent`];
+        if (data.skipped) parts.push(`${data.skipped} already verified`);
+        if (data.failed) parts.push(`${data.failed} failed`);
+        setResendResult(parts.join(' · '));
+      } else {
+        setResendResult(data.error ?? 'Failed to resend');
+      }
+    } catch {
+      setResendResult('Failed to resend');
+    } finally {
+      setResendingVerification(false);
+      setTimeout(() => setResendResult(null), 5000);
+    }
+  };
+
   const toggleUserSelected = (userId: string) => {
     setSelectedUsers((prev) => {
       const next = new Set(prev);
@@ -929,6 +962,10 @@ export default function AdminPage() {
   }, [stats, search, planFilter]);
 
   const allFilteredSelected = filteredUsers.length > 0 && filteredUsers.every((u) => selectedUsers.has(u.id));
+  const selectedUnverifiedCount = useMemo(
+    () => filteredUsers.filter((u) => selectedUsers.has(u.id) && !u.emailVerified).length,
+    [filteredUsers, selectedUsers],
+  );
 
   const toggleSelectAll = () => {
     setSelectedUsers((prev) => {
@@ -1010,6 +1047,15 @@ export default function AdminPage() {
           <a href="/" className="text-xs text-gray-500 hover:text-gray-300 transition-colors hidden sm:block">
             ← Back to app
           </a>
+          <button
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-colors flex-shrink-0"
+          >
+            {theme === 'dark'
+              ? <Sun className="w-4 h-4 text-yellow-400" />
+              : <Moon className="w-4 h-4 text-purple-400" />}
+          </button>
           <button
             onClick={() => signOut({ callbackUrl: '/admin/login' })}
             className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 bg-white/5 hover:bg-red-500/10 border border-white/10 px-3 py-2 rounded-xl transition-colors"
@@ -1179,6 +1225,18 @@ export default function AdminPage() {
                         className="px-3 py-2 text-xs font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
                       >
                         Clear
+                      </button>
+                      {resendResult && (
+                        <span className="text-xs font-semibold text-gray-300 hidden sm:inline">{resendResult}</span>
+                      )}
+                      <button
+                        onClick={handleResendVerification}
+                        disabled={resendingVerification || selectedUnverifiedCount === 0}
+                        title={selectedUnverifiedCount === 0 ? 'None of the selected users are unverified' : undefined}
+                        className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 disabled:opacity-40 disabled:cursor-not-allowed border border-purple-500/30 text-purple-300 text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+                      >
+                        {resendingVerification ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                        {resendingVerification ? 'Sending…' : `Resend Verification${selectedUnverifiedCount > 0 ? ` (${selectedUnverifiedCount})` : ''}`}
                       </button>
                       <button
                         onClick={() => setConfirmBulkDelete(true)}

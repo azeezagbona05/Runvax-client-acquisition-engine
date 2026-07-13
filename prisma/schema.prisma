@@ -202,6 +202,10 @@ model UsageRecord {
   geminiOutputTokens  Int    @default(0)
   // Google Places API requests (each search can make up to 3 paginated requests)
   googlePlacesReqs    Int    @default(0)
+  // Guards against re-sending the "limit reached — upgrade" email on every
+  // subsequent request once a user has already been notified for the day
+  searchLimitEmailSent Boolean @default(false)
+  aiLimitEmailSent     Boolean @default(false)
 
   @@unique([userId, date])
 }
