@@ -7,8 +7,9 @@ import { createTransporter, verificationEmailHtml } from '@/lib/email';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const { email } = await req.json() as { email: string };
-  if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 });
+  const { email: rawEmail } = await req.json() as { email: string };
+  if (!rawEmail) return NextResponse.json({ error: 'Email required' }, { status: 400 });
+  const email = rawEmail.trim().toLowerCase();
 
   const user = await prisma.user.findUnique({ where: { email } });
 

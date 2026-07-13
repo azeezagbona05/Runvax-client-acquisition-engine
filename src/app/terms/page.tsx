@@ -37,7 +37,8 @@ export default function TermsPage() {
             <li>Free accounts have limited daily AI usage. Pro and Agency plans unlock higher limits.</li>
             <li>Payments are processed by Paystack. By subscribing, you agree to Paystack&apos;s terms.</li>
             <li>Subscriptions renew monthly unless cancelled before the renewal date.</li>
-            <li>Refunds are not provided for partial billing periods.</li>
+            <li>First-time subscribers may request a full refund within 7 days of their first payment if unsatisfied — email info@runvax.com. This guarantee applies once per account and does not extend to renewal charges.</li>
+            <li>Outside of the 7-day first-time guarantee above, refunds are not provided for partial billing periods.</li>
             <li>We reserve the right to change pricing with 14 days&apos; notice to subscribers.</li>
           </ul>
         </section>

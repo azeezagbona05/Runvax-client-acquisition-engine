@@ -5,5 +5,5 @@ export function getAppUrl(): string {
 }
 
 export function getAppName(): string {
-  return process.env.APP_NAME ?? 'AI Prospect Finder';
+  return process.env.APP_NAME ?? 'Runvax';
 }

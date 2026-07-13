@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { CheckCircle, MailCheck, Fingerprint, Loader2 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/types';
+import AuthBackground from '@/components/AuthBackground';
 
 function LoginForm() {
   const router = useRouter();
@@ -20,8 +21,9 @@ function LoginForm() {
   const [checkingBiometric, setCheckingBiometric] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const justReset    = params.get('reset') === '1';
-  const justVerified = params.get('verified') === '1';
+  const justReset      = params.get('reset') === '1';
+  const justVerified   = params.get('verified') === '1';
+  const justRegistered = params.get('registered') === '1';
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
@@ -68,8 +70,9 @@ function LoginForm() {
       });
       const verifyJson = await verifyRes.json() as { ok?: boolean; error?: string };
       if (!verifyRes.ok || !verifyJson.ok) throw new Error(verifyJson.error ?? 'Verification failed');
-      router.push('/');
-      router.refresh();
+      // Full reload (not router.push) — the session cookie was set via raw fetch,
+      // so next-auth/react's SessionProvider cache needs a fresh mount to see it.
+      window.location.href = '/';
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Biometric login failed';
       if (msg.includes('cancelled') || msg.includes('abort') || msg.toLowerCase().includes('not allowed')) {
@@ -104,28 +107,7 @@ function LoginForm() {
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {/* Animated background blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="animate-blob-drift absolute -top-40 -left-20 w-[28rem] h-[28rem] rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.35), transparent 65%)' }}
-        />
-        <div
-          className="animate-blob-drift absolute -bottom-40 -right-20 w-[30rem] h-[30rem] rounded-full blur-3xl"
-          style={{
-            background: 'radial-gradient(circle, rgba(249,115,22,0.25), transparent 65%)',
-            animationDelay: '-4s',
-            animationDirection: 'alternate-reverse',
-          }}
-        />
-        <div
-          className="animate-blob-drift absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[20rem] h-[20rem] rounded-full blur-3xl"
-          style={{
-            background: 'radial-gradient(circle, rgba(124,58,237,0.12), transparent 65%)',
-            animationDelay: '-2s',
-          }}
-        />
-      </div>
+      <AuthBackground />
 
       {/* ── Logo / branding section ── */}
       <div className="flex-1 sm:flex-none flex flex-col items-center justify-center px-6 pt-8 pb-4 sm:pb-8 relative z-10">
@@ -134,7 +116,7 @@ function LoginForm() {
           className={`transition-opacity duration-100 ${mounted ? 'animate-logo-pop' : 'opacity-0'}`}
         >
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-600 to-orange-500 flex items-center justify-center shadow-2xl shadow-purple-900/50 mb-6">
-            <img src="/logo.svg" alt="AI Prospect Finder" className="w-12 h-12" />
+            <img src="/logo.svg" alt="Runvax" className="w-12 h-12" />
           </div>
         </div>
 
@@ -142,7 +124,7 @@ function LoginForm() {
           className={`text-3xl font-black text-white text-center leading-tight mb-2 ${mounted ? 'animate-fade-up' : 'opacity-0'}`}
           style={{ animationDelay: '150ms' }}
         >
-          AI Prospect Finder
+          Runvax
         </h1>
         <p
           className={`text-gray-400 text-sm text-center ${mounted ? 'animate-fade-up' : 'opacity-0'}`}
@@ -171,6 +153,11 @@ function LoginForm() {
         {justReset && (
           <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/25 text-green-400 text-sm rounded-xl px-4 py-3 mb-4">
             <CheckCircle className="w-4 h-4 flex-shrink-0" /> Password reset. Login with your new password.
+          </div>
+        )}
+        {justRegistered && (
+          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/25 text-green-400 text-sm rounded-xl px-4 py-3 mb-4">
+            <CheckCircle className="w-4 h-4 flex-shrink-0" /> Account created! Log in below to get started.
           </div>
         )}
         {error && (

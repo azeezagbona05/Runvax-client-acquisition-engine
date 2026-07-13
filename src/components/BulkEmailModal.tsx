@@ -230,7 +230,7 @@ export default function BulkEmailModal({ businesses, onClose }: Props) {
               <Mail className="w-5 h-5 text-blue-400" /> Email Blast
             </h2>
             <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-              <span className="text-sm text-gray-500">{rows.length} no-website businesses</span>
+              <span className="text-sm text-gray-500">{rows.length} businesses selected</span>
               {foundCount > 0 && <span className="text-xs text-green-400 font-semibold">{foundCount} emails found</span>}
               {notFoundCount > 0 && <span className="text-xs text-gray-600">{notFoundCount} not found</span>}
               {sentCount > 0 && <span className="text-xs text-blue-400 font-semibold">{sentCount} sent</span>}

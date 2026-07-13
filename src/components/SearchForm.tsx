@@ -315,14 +315,14 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
         {/* Hero */}
         <div className="text-center mb-5">
           <div className="inline-flex items-center gap-2 bg-purple-500/20 border border-purple-500/30 rounded-full px-4 py-1.5 text-purple-300 text-sm font-semibold mb-4">
-            🎯 AI Prospect Discovery
+            🎯 AI Business Discovery
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-white mb-2 leading-tight">
-            Find Businesses That<br className="hidden md:block" />{' '}
-            <span className="bg-gradient-to-r from-purple-500 to-purple-400 bg-clip-text text-transparent">Need a Website</span>
+            <span className="bg-gradient-to-r from-purple-500 to-purple-400 bg-clip-text text-transparent">Runvax</span> — Find businesses<br className="hidden md:block" />{' '}
+            that need your service
           </h1>
           <p className="text-gray-400 text-sm md:text-base max-w-lg mx-auto">
-            Search any business type in any city worldwide. Find your next client in seconds.
+            Search by industry, location, reviews, and online presence to discover high-potential businesses you can confidently approach.
           </p>
         </div>
 

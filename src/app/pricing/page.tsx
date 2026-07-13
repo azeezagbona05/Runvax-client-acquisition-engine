@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Check, Zap, Building2, Sparkles, Loader2, CheckCircle, AlertCircle, LucideIcon } from 'lucide-react';
+import { Check, Zap, Building2, Sparkles, Loader2, CheckCircle, AlertCircle, ShieldCheck, LucideIcon } from 'lucide-react';
 import { ALL_FEATURES, FeatureId } from '@/lib/features';
 
 // ── Plan config fetched from /api/plans (admin-editable, DB-backed) ──
@@ -86,12 +86,20 @@ function PricingContent() {
   const [plans, setPlans] = useState<ApiPlan[]>(FALLBACK_PLANS);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [stats, setStats] = useState<{ businessesThisMonth: number; countryCount: number } | null>(null);
 
   useEffect(() => {
     fetch('/api/plans')
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then((data: ApiPlan[]) => { if (Array.isArray(data) && data.length) setPlans(data); })
       .catch(() => { /* keep fallback */ });
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/public-stats')
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((data: { businessesThisMonth: number; countryCount: number }) => setStats(data))
+      .catch(() => { /* stats are optional — hide silently if unavailable */ });
   }, []);
 
   useEffect(() => {
@@ -142,9 +150,15 @@ function PricingContent() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-black text-white mb-3">Simple, honest pricing</h1>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Find leads. Send outreach. Close deals — all from one tool built for Nigerian web developers.
+          <p className="text-gray-400 text-lg max-w-xl mx-auto mb-4">
+            Find leads. Send outreach. Close deals — built for web designers, freelancers, and agencies worldwide.
           </p>
+          {stats && stats.businessesThisMonth > 0 && (
+            <p className="text-gray-500 text-sm">
+              <strong className="text-white">{stats.businessesThisMonth.toLocaleString()}</strong> businesses found this month across{' '}
+              <strong className="text-white">{stats.countryCount}</strong> countries
+            </p>
+          )}
         </div>
 
         {/* Flash message */}
@@ -248,6 +262,14 @@ function PricingContent() {
               </div>
             );
           })}
+        </div>
+
+        {/* Money-back guarantee */}
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <ShieldCheck className="w-4 h-4 text-green-400 flex-shrink-0" />
+          <p className="text-sm font-semibold text-gray-300">
+            7-day money-back guarantee — not the right fit? Get a full refund, no questions asked.
+          </p>
         </div>
 
         {/* Secure payment note */}

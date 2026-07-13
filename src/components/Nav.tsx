@@ -48,12 +48,12 @@ export default function Nav() {
 
   const userPlan = (session?.user as { plan?: string })?.plan ?? 'free';
 
-  const tabs: { href: string; icon: React.ElementType; label: string; badge?: number; badgeColor?: string }[] = [
+  const tabs: { href: string; icon: React.ElementType; label: string; badge?: number; badgeColor?: string; authOnly?: boolean }[] = [
     { href: '/',             icon: Search,    label: 'Find' },
-    { href: '/pipeline',     icon: Columns3,  label: 'Pipeline', badge: savedCount },
-    { href: '/market-brief', icon: Sparkles,  label: 'Insights' },
-    { href: '/settings',     icon: Settings,  label: 'Settings' },
-  ];
+    { href: '/pipeline',     icon: Columns3,  label: 'Pipeline', badge: savedCount, authOnly: true },
+    { href: '/market-brief', icon: Sparkles,  label: 'Insights', authOnly: true },
+    { href: '/settings',     icon: Settings,  label: 'Settings', authOnly: true },
+  ].filter((t) => !t.authOnly || session?.user);
 
   const emailVerified = (session?.user as { emailVerified?: Date | null })?.emailVerified;
   const showVerifyBanner = session?.user && !emailVerified && !pathname.startsWith('/auth');

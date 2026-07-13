@@ -24,6 +24,7 @@ model User {
   registrationIp          String?           // IP address captured at signup
   lastSeenIp              String?           // IP address from most recent sign-in
   isSuspended             Boolean       @default(false)  // blocks sign-in and API usage when true
+  termsAcceptedAt         DateTime?         // set at registration when user checks the Terms/Privacy consent box
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   accounts       Account[]

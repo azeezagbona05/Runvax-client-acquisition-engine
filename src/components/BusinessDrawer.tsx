@@ -49,9 +49,10 @@ interface Props {
   onGenerate: () => void;
   generating: boolean;
   generateError?: string | null;
+  initialAction?: 'outreach' | 'proposal' | 'weakness' | null;
 }
 
-export default function BusinessDrawer({ business, onClose, onGenerate, generating, generateError }: Props) {
+export default function BusinessDrawer({ business, onClose, onGenerate, generating, generateError, initialAction }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
   const dragDy = useRef(0);
@@ -101,6 +102,25 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
   const [showOutreach, setShowOutreach] = useState(false);
   const [showProposal, setShowProposal] = useState(false);
   const [showWeakness, setShowWeakness] = useState(false);
+
+  const handleOutreachClick = useCallback(() => {
+    requireAuth(() => setShowOutreach(true));
+  }, [requireAuth]);
+  const handleProposalClick = useCallback(() => {
+    requireAuth(() => canProposal ? setShowProposal(true) : triggerUpgrade('feature', 'AI Proposals'));
+  }, [requireAuth, canProposal, triggerUpgrade]);
+  const handleWeaknessClick = useCallback(() => {
+    requireAuth(() => canWeakness ? setShowWeakness(true) : triggerUpgrade('feature', 'Website Weakness Analysis'));
+  }, [requireAuth, canWeakness, triggerUpgrade]);
+
+  // Deep-link into a specific action when opened from a list row's Actions column.
+  useEffect(() => {
+    if (!initialAction) return;
+    if (initialAction === 'outreach') handleOutreachClick();
+    else if (initialAction === 'proposal') handleProposalClick();
+    else if (initialAction === 'weakness') handleWeaknessClick();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAction, business.id]);
   const [auditText, setAuditText] = useState<string | null>(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditCopied, setAuditCopied] = useState(false);
@@ -411,7 +431,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
               )}
 
               <button
-                onClick={() => requireAuth(() => setShowOutreach(true))}
+                onClick={handleOutreachClick}
                 className="w-full flex items-center gap-3 px-4 py-4 bg-green-600/15 hover:bg-green-600/25 text-green-400 border border-green-500/20 rounded-xl text-sm font-semibold transition-colors"
               >
                 <MessageCircle className="w-5 h-5 flex-shrink-0" />
@@ -421,7 +441,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                 </div>
               </button>
               <button
-                onClick={() => requireAuth(() => canProposal ? setShowProposal(true) : triggerUpgrade('feature', 'AI Proposals'))}
+                onClick={handleProposalClick}
                 className="w-full flex items-center gap-3 px-4 py-4 bg-purple-600/15 hover:bg-purple-600/25 text-purple-400 border border-purple-500/20 rounded-xl text-sm font-semibold transition-colors"
               >
                 {canProposal ? <FileText className="w-5 h-5 flex-shrink-0" /> : <Lock className="w-5 h-5 flex-shrink-0" />}
@@ -452,7 +472,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
               )}
               {business.hasWebsite && (
                 <button
-                  onClick={() => requireAuth(() => canWeakness ? setShowWeakness(true) : triggerUpgrade('feature', 'Website Weakness Analysis'))}
+                  onClick={handleWeaknessClick}
                   className="w-full flex items-center gap-3 px-4 py-4 bg-yellow-600/15 hover:bg-yellow-600/25 text-yellow-400 border border-yellow-500/20 rounded-xl text-sm font-semibold transition-colors"
                 >
                   {canWeakness ? <AlertTriangle className="w-5 h-5 flex-shrink-0" /> : <Lock className="w-5 h-5 flex-shrink-0" />}

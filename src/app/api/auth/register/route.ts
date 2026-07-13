@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getAppUrl, getAppName } from '@/lib/url';
-import { createTransporter, verificationEmailHtml } from '@/lib/email';
+import { createTransporter, verificationEmailHtml, welcomeEmailHtml } from '@/lib/email';
 import { rateLimit, getIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
@@ -18,13 +18,24 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { name, email, password } = await req.json() as { name: string; email: string; password: string };
+  const body = await req.json() as { name: string; email: string; password: string; acceptedTerms?: boolean; company?: string };
+  const { name, password, acceptedTerms, company } = body;
+  const email = body.email?.trim().toLowerCase();
+
+  // Honeypot — a real user never fills this hidden field; a bot form-filler usually does.
+  // Return a fake success so the bot doesn't learn its submission was rejected.
+  if (company) {
+    return NextResponse.json({ id: 'ok', email, name }, { status: 201 });
+  }
 
   if (!email || !password || !name) {
     return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
   }
   if (password.length < 8) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+  }
+  if (!acceptedTerms) {
+    return NextResponse.json({ error: 'You must accept the Terms and Privacy Policy' }, { status: 400 });
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -39,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   const hashed = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
-    data: { name, email, password: hashed, plan: 'free', registrationIp },
+    data: { name, email, password: hashed, plan: 'free', registrationIp, termsAcceptedAt: new Date() },
   });
 
   // Create verification token (24hr expiry)
@@ -54,6 +65,7 @@ export async function POST(req: NextRequest) {
 
   // Send verification email (fire-and-forget — don't block registration)
   const verifyUrl = `${getAppUrl()}/api/auth/verify-email?token=${token}`;
+  const appUrl = getAppUrl();
   const senderName = getAppName();
   try {
     const transporter = createTransporter();
@@ -66,6 +78,20 @@ export async function POST(req: NextRequest) {
     });
   } catch {
     // Verification email failed — user can resend later. Don't break signup.
+  }
+
+  // Send welcome email right away too — don't gate it behind email verification,
+  // since that's exactly when interest (and drop-off risk) is highest.
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"${senderName}" <${process.env.SMTP_FROM}>`,
+      to: email,
+      subject: `Welcome to ${senderName} — let's find your first client 🚀`,
+      html: welcomeEmailHtml(name, appUrl, senderName),
+    });
+  } catch {
+    // Welcome email is non-critical — never block signup on it.
   }
 
   return NextResponse.json({ id: user.id, email: user.email, name: user.name }, { status: 201 });

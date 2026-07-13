@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Send, X, Search, RefreshCw, LayoutGrid, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Send, X, Search, RefreshCw, LayoutGrid, List, FileSpreadsheet, FileText } from 'lucide-react';
 
 import SearchForm from '@/components/SearchForm';
 import BusinessGrid from '@/components/BusinessGrid';
@@ -18,13 +18,8 @@ import { useSession } from 'next-auth/react';
 import { saveToHistory, getBestTimeStatus } from '@/lib/searchHistory';
 import { scoreProspect } from '@/lib/scoring';
 import { useFeature } from '@/context/PlanFeaturesContext';
-
-type FilterMode = 'all' | 'no-website' | 'new';
-
-const STAGE_SORT_ORDER: Record<string, number> = {
-  found: 2, contacted: 3, interested: 3, proposal: 4, won: 5, lost: 5,
-};
-const CONTACTED_STAGES_SET = new Set(['contacted', 'interested', 'proposal', 'won', 'lost']);
+import { whatsappLink } from '@/lib/phone';
+import { buildQuickWAMessage } from '@/lib/waMessage';
 
 const PER_PAGE = 20;
 
@@ -36,10 +31,57 @@ interface SearchMeta {
   resultsLimit: number;
 }
 
+interface ExportMenuProps {
+  onCSV: () => void;
+  onExcel: () => void;
+  onPDF: () => void;
+}
+
+function ExportMenu({ onCSV, onExcel, onPDF }: ExportMenuProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const item = (label: string, Icon: typeof Download, onClick: () => void) => (
+    <button
+      onClick={() => { onClick(); setOpen(false); }}
+      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 text-sm text-gray-200 transition-colors"
+    >
+      <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" /> {label}
+    </button>
+  );
+
+  return (
+    <div className="relative flex-shrink-0" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold bg-white/8 text-gray-400 border border-white/10 hover:bg-white/15 hover:text-gray-200 transition-colors"
+      >
+        <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Export</span>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-44 bg-gray-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-30 p-1.5">
+          {item('CSV', Download, onCSV)}
+          {item('Excel', FileSpreadsheet, onExcel)}
+          {item('PDF', FileText, onPDF)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const { data: session } = useSession();
-  const { isSaved, get, prospects, settings } = useProspects();
+  const { isSaved, get, save, prospects, settings, markOutreachSent, updateStage, incrementToday } = useProspects();
   const { triggerUpgrade } = useUpgrade();
   const canEmailBlast = useFeature('emailBlast');
 
@@ -47,15 +89,11 @@ export default function Home() {
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [filter, setFilter]           = useState<FilterMode>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage]               = useState(0);
   const [searchMeta, setSearchMeta]   = useState<SearchMeta | null>(null);
   const [lastSearch, setLastSearch]   = useState<{ industry: string; location: string } | null>(null);
 
-  const [phoneOnly, setPhoneOnly]           = useState(false);
-  const [reviewedOnly, setReviewedOnly]     = useState(false);
-  const [sortByScore, setSortByScore]       = useState(false);
-  const [showContacted, setShowContacted]   = useState(false);
   const [selectMode, setSelectMode]         = useState(false);
   const [selectedIds, setSelectedIds]       = useState<Set<string>>(new Set());
   const [resultsView, setResultsView]       = useState<'grid' | 'table'>('grid');
@@ -63,11 +101,13 @@ export default function Home() {
   const [bulkProgress, setBulkProgress]     = useState<{ done: number; total: number } | null>(null);
 
   const [selected, setSelected]             = useState<Business | null>(null);
+  const [initialDrawerAction, setInitialDrawerAction] = useState<'outreach' | 'proposal' | 'weakness' | null>(null);
   const [detailLoading, setDetailLoading]   = useState(false);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [generating, setGenerating]         = useState(false);
   const [showQuickFire, setShowQuickFire]   = useState(false);
   const [showBulkEmail, setShowBulkEmail]   = useState(false);
+  const [bulkEmailTargets, setBulkEmailTargets] = useState<Business[]>([]);
   const [guestGate, setGuestGate]           = useState(false);
   const [guestStats, setGuestStats]         = useState({ total: 0, noWebsite: 0, location: '' });
   const [generateError, setGenerateError]   = useState<string | null>(null);
@@ -133,16 +173,14 @@ export default function Home() {
       if (!raw) return;
       const d = JSON.parse(raw) as {
         businesses: Business[]; hasSearched: boolean;
-        filter: FilterMode; page: number;
+        searchQuery?: string; page: number;
         searchMeta: (SearchMeta & { unlimited?: boolean }) | null;
         lastSearch: { industry: string; location: string } | null;
-        phoneOnly: boolean; reviewedOnly: boolean; sortByScore: boolean;
-        showContacted: boolean;
       };
       if (!d.businesses?.length) return;
       setBusinesses(d.businesses);
       setHasSearched(d.hasSearched ?? true);
-      setFilter(d.filter ?? 'all');
+      setSearchQuery(d.searchQuery ?? '');
       setPage(d.page ?? 0);
       if (d.searchMeta) {
         setSearchMeta({
@@ -151,10 +189,6 @@ export default function Home() {
         });
       }
       setLastSearch(d.lastSearch ?? null);
-      setPhoneOnly(d.phoneOnly ?? false);
-      setReviewedOnly(d.reviewedOnly ?? false);
-      setSortByScore(d.sortByScore ?? false);
-      setShowContacted(d.showContacted ?? false);
     } catch { /* */ }
   }, []);
 
@@ -165,19 +199,15 @@ export default function Home() {
       sessionStorage.setItem('aip_search_state', JSON.stringify({
         businesses,
         hasSearched,
-        filter,
+        searchQuery,
         page,
         searchMeta: searchMeta
           ? { ...searchMeta, unlimited: searchMeta.resultsLimit === Infinity, resultsLimit: searchMeta.resultsLimit === Infinity ? null : searchMeta.resultsLimit }
           : null,
         lastSearch,
-        phoneOnly,
-        reviewedOnly,
-        sortByScore,
-        showContacted,
       }));
     } catch { /* storage full */ }
-  }, [businesses, hasSearched, filter, page, searchMeta, lastSearch, phoneOnly, reviewedOnly, sortByScore, showContacted]);
+  }, [businesses, hasSearched, searchQuery, page, searchMeta, lastSearch]);
 
   const handleSearch = async (data: SearchFormData, forceRefresh = false) => {
     setLastSearchData(data);
@@ -199,7 +229,7 @@ export default function Home() {
     setGeneratedPrompt(null);
     setCacheInfo(null);
     setPage(0);
-    setShowContacted(false);
+    setSearchQuery('');
 
     try {
       const res = await fetch('/api/search', {
@@ -325,8 +355,9 @@ export default function Home() {
     finally { setLoadingMore(false); }
   };
 
-  const handleSelect = async (business: Business) => {
+  const handleSelect = async (business: Business, action?: 'outreach' | 'proposal' | 'weakness') => {
     setSelected(business);
+    setInitialDrawerAction(action ?? null);
     setGeneratedPrompt(null);
     // OSM businesses have no Google placeId — skip the details fetch
     if (business.id.startsWith('osm_')) return;
@@ -369,7 +400,6 @@ export default function Home() {
   );
 
   const noWebsiteCount = useMemo(() => businesses.filter((b) => !b.hasWebsite).length, [businesses]);
-  const newCount       = useMemo(() => businesses.filter((b) => !isSaved(b.id)).length, [businesses, isSaved]);
   const hotCount       = useMemo(() => businesses.filter((b) => (scoreMap.get(b.id) ?? 0) >= 8).length, [businesses, scoreMap]);
 
   // Opportunity density — % of the returned set that has no website
@@ -379,38 +409,28 @@ export default function Home() {
     noWebsiteRate >= 35 ? { label: '✅ Good opportunity density',  cls: 'bg-green-500/15 border-green-500/25 text-green-400' } :
                           { label: 'Lower density here',           cls: 'bg-white/5 border-white/10 text-gray-400' };
 
-  const sorted = useMemo(() => [...businesses].sort((a, b) => {
-    if (sortByScore) return (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0);
-    const aStage = isSaved(a.id) ? STAGE_SORT_ORDER[get(a.id)?.stage ?? 'found'] ?? 2 : 1;
-    const bStage = isSaved(b.id) ? STAGE_SORT_ORDER[get(b.id)?.stage ?? 'found'] ?? 2 : 1;
-    return aStage - bStage;
-  }), [businesses, sortByScore, scoreMap, isSaved, get]);
-
-  const isContacted = useCallback((b: Business) => {
-    const stage = get(b.id)?.stage;
-    return !!stage && CONTACTED_STAGES_SET.has(stage);
-  }, [get]);
-
-  const contactedCount = useMemo(() => sorted.filter(isContacted).length, [sorted, isContacted]);
-
-  const primaryFiltered = useMemo(() => (
-    filter === 'no-website' ? sorted.filter((b) => !b.hasWebsite) :
-    filter === 'new'        ? sorted.filter((b) => !isSaved(b.id)) :
-    sorted
-  ), [sorted, filter, isSaved]);
-
-  const filtered = useMemo(() => primaryFiltered
-    .filter((b) => showContacted || !isContacted(b))
-    .filter((b) => !phoneOnly || !!b.phone)
-    .filter((b) => !reviewedOnly || (b.reviewCount != null && b.reviewCount > 0)),
-    [primaryFiltered, showContacted, isContacted, phoneOnly, reviewedOnly],
+  // Hottest leads always sort to the top — the list itself is the "hottest leads" view.
+  const sorted = useMemo(
+    () => [...businesses].sort((a, b) => (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0)),
+    [businesses, scoreMap],
   );
 
-  // Hot leads pinned strip (score ≥ 8, only when not already sorted by score)
-  const hotLeads = useMemo(() =>
-    !sortByScore && page === 0 ? filtered.filter((b) => (scoreMap.get(b.id) ?? 0) >= 8).slice(0, 3) : [],
-    [sortByScore, page, filtered, scoreMap],
-  );
+  // Global search — matches name, category, address, phone, or website host.
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((b) => {
+      let host = '';
+      if (b.website) { try { host = new URL(b.website).hostname; } catch { host = b.website; } }
+      return (
+        b.name.toLowerCase().includes(q) ||
+        (b.category ?? '').toLowerCase().includes(q) ||
+        (b.address ?? '').toLowerCase().includes(q) ||
+        (b.phone ?? '').toLowerCase().includes(q) ||
+        host.toLowerCase().includes(q)
+      );
+    });
+  }, [sorted, searchQuery]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = useMemo(() => filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE), [filtered, page]);
@@ -420,21 +440,51 @@ export default function Home() {
   const maxAllowedPages = resultsLimit === Infinity ? totalPages : Math.ceil(resultsLimit / PER_PAGE);
   const nextLocked      = page >= maxAllowedPages - 1 && totalPages > maxAllowedPages;
 
-  // CSV export
+  // ── Export ──
+  const exportRows = () => filtered.map((b) => {
+    const stage = get(b.id)?.stage ?? '';
+    return {
+      Name: b.name, Category: b.category, Address: b.address,
+      Phone: b.phone ?? '', Website: b.website ?? '',
+      Rating: b.rating ?? '', Reviews: b.reviewCount ?? '',
+      Score: scoreProspect(b), Stage: stage,
+    };
+  });
+  const exportFilename = (ext: string) => `prospects-${lastSearch?.location ?? 'export'}.${ext}`;
+
   const exportCSV = () => {
     const headers = ['Name', 'Category', 'Address', 'Phone', 'Website', 'Rating', 'Reviews', 'Score', 'Stage'];
-    const rows = filtered.map((b) => {
-      const stage = get(b.id)?.stage ?? '';
-      return [b.name, b.category, b.address, b.phone ?? '', b.website ?? '',
-        b.rating ?? '', b.reviewCount ?? '', scoreProspect(b), stage]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',');
-    });
+    const rows = exportRows().map((r) =>
+      Object.values(r).map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','));
     const csv = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `prospects-${lastSearch?.location ?? 'export'}.csv`;
+    a.href = url; a.download = exportFilename('csv');
     a.click(); URL.revokeObjectURL(url);
+  };
+
+  const exportExcel = async () => {
+    const XLSX = await import('xlsx');
+    const ws = XLSX.utils.json_to_sheet(exportRows());
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Prospects');
+    XLSX.writeFile(wb, exportFilename('xlsx'));
+  };
+
+  const exportPDF = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'), import('jspdf-autotable'),
+    ]);
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const rows = exportRows();
+    autoTable(doc, {
+      head: [['Name', 'Category', 'Address', 'Phone', 'Website', 'Rating', 'Reviews', 'Score', 'Stage']],
+      body: rows.map((r) => Object.values(r).map((v) => String(v))),
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [124, 58, 237] },
+    });
+    doc.save(exportFilename('pdf'));
   };
 
   // Bulk send
@@ -442,7 +492,12 @@ export default function Home() {
   const toggleSelect = (id: string) => setSelectedIds((prev) => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
-  const selectAll = () => setSelectedIds(new Set(filtered.filter((b) => b.phone).map((b) => b.id)));
+  const selectAll = () => setSelectedIds(new Set(filtered.map((b) => b.id)));
+  const openBulkEmail = (targets: Business[]) => {
+    if (!canEmailBlast) { triggerUpgrade('feature', 'Email Blast'); return; }
+    setBulkEmailTargets(targets);
+    setShowBulkEmail(true);
+  };
   const handleBulkSend = async () => {
     const targets = filtered.filter((b) => selectedIds.has(b.id) && b.phone);
     if (!targets.length) return;
@@ -460,6 +515,26 @@ export default function Home() {
     }
     setBulkSending(false);
     setBulkProgress(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  // Fallback for accounts without the official WhatsApp Business API connected —
+  // opens a wa.me tab per selected business, same pattern as Quick-Fire and the
+  // pipeline's bulk outreach modal, and logs each as contacted.
+  const handleBulkWhatsAppOpen = async () => {
+    const targets = filtered.filter((b) => selectedIds.has(b.id) && b.phone);
+    if (!targets.length) return;
+    for (const b of targets) {
+      const msg = buildQuickWAMessage(b);
+      const link = whatsappLink(b, msg);
+      if (!link) continue;
+      window.open(link, '_blank');
+      if (!isSaved(b.id)) await save(b);
+      await markOutreachSent(b.id, msg, 'whatsapp');
+      await updateStage(b.id, 'contacted');
+      void incrementToday();
+    }
     setSelectMode(false);
     setSelectedIds(new Set());
   };
@@ -493,7 +568,7 @@ export default function Home() {
     pullStartY.current = null;
   };
 
-  const handleFilterChange = (f: FilterMode) => { setFilter(f); setPage(0); };
+  const handleSearchQueryChange = (q: string) => { setSearchQuery(q); setPage(0); };
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   const goNext = () => {
     if (nextLocked) { triggerUpgrade('feature'); return; }
@@ -672,10 +747,20 @@ export default function Home() {
 
           {!guestGate && !loading && !error && businesses.length > 0 && (
             <>
-              {/* Mobile filter bar — single scrollable row */}
+              {/* Mobile toolbar — search + actions */}
               <div className="sm:hidden mb-4 space-y-2">
-                <div className="flex items-center justify-end">
-                  <div className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border ${
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => handleSearchQueryChange(e.target.value)}
+                      placeholder="Search name, category, phone, website…"
+                      className="w-full bg-white/5 border border-white/10 rounded-full pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                    />
+                  </div>
+                  <div className={`flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border ${
                     timeStatus.level === 'low' ? 'bg-red-500/10 border-red-500/30'
                     : timeStatus.level === 'good' ? 'bg-green-500/10 border-green-500/25'
                     : 'bg-amber-500/10 border-amber-500/30'}`}>
@@ -684,38 +769,12 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-                  <button onClick={() => handleFilterChange('all')}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'all' ? 'bg-purple-600 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                    All
-                  </button>
-                  <button onClick={() => handleFilterChange('no-website')}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'no-website' ? 'bg-orange-500 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                    No Website{noWebsiteCount > 0 ? ` (${noWebsiteCount})` : ''}
-                  </button>
-                  <button onClick={() => handleFilterChange('new')}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === 'new' ? 'bg-green-600 text-white' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                    Unsaved
-                  </button>
-                  <span className="flex-shrink-0 text-gray-700 text-xs mx-1">·</span>
-                  <button onClick={() => setPhoneOnly((v) => !v)} title="Phone only"
-                    className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${phoneOnly ? 'bg-green-700 text-green-200 border border-green-600/50' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                    📞
-                  </button>
-                  <button onClick={() => setReviewedOnly((v) => !v)} title="Reviewed only"
-                    className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${reviewedOnly ? 'bg-yellow-700 text-yellow-200 border border-yellow-600/50' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                    ⭐
-                  </button>
-                  <button onClick={() => { setSortByScore((v) => !v); setPage(0); }} title="Hot first"
-                    className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${sortByScore ? 'bg-red-700 text-red-200 border border-red-600/50' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                    🔥
-                  </button>
-                  {contactedCount > 0 && (
-                    <button onClick={() => setShowContacted((v) => !v)} title="Toggle contacted"
-                      className={`flex-shrink-0 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${!showContacted ? 'bg-yellow-600/30 text-yellow-300 border border-yellow-500/40' : 'bg-white/8 text-gray-400 border border-white/10'}`}>
-                      📱 {contactedCount}
-                    </button>
+                  {hotCount > 0 && (
+                    <span className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-500/10 text-red-400 border border-red-500/25">
+                      🔥 {hotCount} hot
+                    </span>
                   )}
-                  <span className="flex-shrink-0 text-gray-700 text-xs mx-1">·</span>
+                  <ExportMenu onCSV={exportCSV} onExcel={exportExcel} onPDF={exportPDF} />
                   {quickFireTargets.length > 0 && (
                     <button onClick={() => setShowQuickFire(true)}
                       className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/25">
@@ -723,140 +782,110 @@ export default function Home() {
                     </button>
                   )}
                   <button
-                    onClick={() => { if (!canEmailBlast) { triggerUpgrade('feature', 'Email Blast'); return; } setShowBulkEmail(true); }}
+                    onClick={() => openBulkEmail(emailBlastTargets)}
                     className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold bg-blue-500/15 text-blue-400 border border-blue-500/25">
                     {canEmailBlast ? <Mail className="w-3 h-3" /> : <Lock className="w-3 h-3" />} {emailBlastTargets.length}
                   </button>
-                  <button onClick={exportCSV} title="Export CSV"
-                    className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-white/8 text-gray-400 border border-white/10">
-                    <Download className="w-3 h-3" />
-                  </button>
-                  {waApiConnected && (
+                  <div className="flex-shrink-0 flex items-center gap-0.5 bg-white/8 border border-white/10 rounded-full p-0.5">
                     <button
-                      onClick={() => { setSelectMode((v) => !v); setSelectedIds(new Set()); }}
-                      className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selectMode ? 'bg-green-600/30 text-green-300 border-green-500/40' : 'bg-white/8 text-gray-400 border-white/10'}`}>
-                      <CheckSquare className="w-3 h-3" />
+                      onClick={() => setResultsView('grid')}
+                      title="Grid view"
+                      className={`p-1.5 rounded-full transition-colors ${resultsView === 'grid' ? 'bg-white/15 text-white' : 'text-gray-500'}`}>
+                      <LayoutGrid className="w-3.5 h-3.5" />
                     </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Desktop filter bar */}
-              <div className="hidden sm:flex items-center gap-3 mb-6 flex-wrap">
-
-              {/* Time indicator */}
-              <div className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${
-                timeStatus.level === 'low'
-                  ? 'bg-red-500/10 border-red-500/30'
-                  : timeStatus.level === 'good'
-                  ? 'bg-green-500/10 border-green-500/25'
-                  : 'bg-amber-500/10 border-amber-500/30'
-              }`}>
-                <span className="relative flex w-1.5 h-1.5">
-                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} ${
-                    timeStatus.level === 'low' ? 'animate-ping' : 'animate-pulse'
-                  }`} />
-                  <span className={`relative inline-flex w-1.5 h-1.5 rounded-full ${timeStatus.dot}`} />
-                </span>
-                <span className={`font-semibold ${timeStatus.color}`}>{timeStatus.label}</span>
-              </div>
-
-              <div className="flex items-center gap-2 ml-auto flex-wrap">
-                {quickFireTargets.length > 0 && (
-                  <button
-                    onClick={() => setShowQuickFire(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/25 hover:bg-yellow-500/25 transition-colors"
-                  >
-                    <Zap className="w-3.5 h-3.5" /> Quick-Fire ({quickFireTargets.length})
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    if (!canEmailBlast) { triggerUpgrade('feature', 'Email Blast'); return; }
-                    setShowBulkEmail(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 transition-colors"
-                >
-                  {canEmailBlast ? <Mail className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} Email Blast ({emailBlastTargets.length})
-                </button>
-                <button onClick={() => handleFilterChange('all')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                    filter === 'all' ? 'bg-purple-600 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                  All
-                </button>
-                <button onClick={() => handleFilterChange('no-website')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                    filter === 'no-website' ? 'bg-orange-500 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                  No Website {noWebsiteCount > 0 && <span className="opacity-70">({noWebsiteCount})</span>}
-                </button>
-                <button onClick={() => handleFilterChange('new')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                    filter === 'new' ? 'bg-green-600 text-white' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                  Unsaved
-                </button>
-                <span className="text-gray-700 text-xs hidden sm:inline">|</span>
-                <button
-                  onClick={() => setPhoneOnly((v) => !v)}
-                  title="Only show businesses with a phone number (WhatsApp-ready)"
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                    phoneOnly ? 'bg-green-700 text-green-200 border border-green-600/50' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                  📞 Phone only
-                </button>
-                <button
-                  onClick={() => setReviewedOnly((v) => !v)}
-                  title="Only show businesses with at least one Google review (active & real)"
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                    reviewedOnly ? 'bg-yellow-700 text-yellow-200 border border-yellow-600/50' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                  ⭐ Reviewed
-                </button>
-                <button
-                  onClick={() => { setSortByScore((v) => !v); setPage(0); }}
-                  title="Sort by lead score — hottest prospects first"
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                    sortByScore ? 'bg-red-700 text-red-200 border border-red-600/50' : 'bg-white/8 text-gray-400 hover:bg-white/15 border border-white/10'}`}>
-                  🔥 Hot first {hotCount > 0 && `(${hotCount})`}
-                </button>
-                {contactedCount > 0 && (
-                  <button
-                    onClick={() => setShowContacted((v) => !v)}
-                    title="Toggle visibility of already-contacted businesses"
-                    className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                      showContacted ? 'bg-white/5 text-gray-500 hover:text-gray-300 border border-white/8' : 'bg-yellow-600/30 text-yellow-300 border border-yellow-500/40'}`}>
-                    📱 {showContacted ? 'Hide' : 'Show'} contacted ({contactedCount})
-                  </button>
-                )}
-                <span className="text-gray-700 text-xs hidden sm:inline">|</span>
-                <div className="flex items-center gap-0.5 bg-white/8 border border-white/10 rounded-full p-0.5">
-                  <button
-                    onClick={() => setResultsView('grid')}
-                    title="Grid view"
-                    className={`p-1.5 rounded-full transition-colors ${resultsView === 'grid' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setResultsView('table')}
-                    title="Table view"
-                    className={`p-1.5 rounded-full transition-colors ${resultsView === 'table' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-                    <List className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <button
-                  onClick={exportCSV}
-                  title="Export current results to CSV"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold bg-white/8 text-gray-400 hover:bg-white/15 hover:text-gray-200 border border-white/10 transition-colors">
-                  <Download className="w-3.5 h-3.5" /> CSV
-                </button>
-                {waApiConnected && (
+                    <button
+                      onClick={() => setResultsView('table')}
+                      title="Table view"
+                      className={`p-1.5 rounded-full transition-colors ${resultsView === 'table' ? 'bg-white/15 text-white' : 'text-gray-500'}`}>
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                   <button
                     onClick={() => { setSelectMode((v) => !v); setSelectedIds(new Set()); }}
-                    title="Select businesses to bulk-send WhatsApp messages"
+                    title="Select businesses for bulk WhatsApp or email"
+                    className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selectMode ? 'bg-green-600/30 text-green-300 border-green-500/40' : 'bg-white/8 text-gray-400 border-white/10'}`}>
+                    <CheckSquare className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Desktop toolbar — search + actions */}
+              <div className="hidden sm:flex items-center gap-3 mb-6 flex-wrap">
+
+                <div className="relative w-72 flex-shrink-0">
+                  <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchQueryChange(e.target.value)}
+                    placeholder="Search name, category, phone, website…"
+                    className="w-full bg-white/5 border border-white/10 rounded-full pl-10 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
+
+                {hotCount > 0 && (
+                  <span className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold bg-red-500/10 text-red-400 border border-red-500/25">
+                    🔥 {hotCount} hot leads
+                  </span>
+                )}
+
+                {/* Time indicator */}
+                <div className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${
+                  timeStatus.level === 'low'
+                    ? 'bg-red-500/10 border-red-500/30'
+                    : timeStatus.level === 'good'
+                    ? 'bg-green-500/10 border-green-500/25'
+                    : 'bg-amber-500/10 border-amber-500/30'
+                }`}>
+                  <span className="relative flex w-1.5 h-1.5">
+                    <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${timeStatus.dot} ${
+                      timeStatus.level === 'low' ? 'animate-ping' : 'animate-pulse'
+                    }`} />
+                    <span className={`relative inline-flex w-1.5 h-1.5 rounded-full ${timeStatus.dot}`} />
+                  </span>
+                  <span className={`font-semibold ${timeStatus.color}`}>{timeStatus.label}</span>
+                </div>
+
+                <div className="flex items-center gap-2 ml-auto flex-wrap">
+                  {quickFireTargets.length > 0 && (
+                    <button
+                      onClick={() => setShowQuickFire(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/25 hover:bg-yellow-500/25 transition-colors"
+                    >
+                      <Zap className="w-3.5 h-3.5" /> Quick-Fire ({quickFireTargets.length})
+                    </button>
+                  )}
+                  <button
+                    onClick={() => openBulkEmail(emailBlastTargets)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 transition-colors"
+                  >
+                    {canEmailBlast ? <Mail className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} Email Blast ({emailBlastTargets.length})
+                  </button>
+                  <span className="text-gray-700 text-xs hidden sm:inline">|</span>
+                  <div className="flex items-center gap-0.5 bg-white/8 border border-white/10 rounded-full p-0.5">
+                    <button
+                      onClick={() => setResultsView('grid')}
+                      title="Grid view"
+                      className={`p-1.5 rounded-full transition-colors ${resultsView === 'grid' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setResultsView('table')}
+                      title="Table view"
+                      className={`p-1.5 rounded-full transition-colors ${resultsView === 'table' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <ExportMenu onCSV={exportCSV} onExcel={exportExcel} onPDF={exportPDF} />
+                  <button
+                    onClick={() => { setSelectMode((v) => !v); setSelectedIds(new Set()); }}
+                    title="Select businesses for bulk WhatsApp or email"
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
                       selectMode ? 'bg-green-600/30 text-green-300 border-green-500/40' : 'bg-white/8 text-gray-400 hover:bg-white/15 border-white/10'}`}>
-                    <CheckSquare className="w-3.5 h-3.5" /> {selectMode ? 'Cancel select' : 'Bulk send'}
+                    <CheckSquare className="w-3.5 h-3.5" /> {selectMode ? 'Cancel select' : 'Select'}
                   </button>
-                )}
+                </div>
               </div>
-            </div>
             </>
           )}
 
@@ -889,19 +918,6 @@ export default function Home() {
             );
           })()}
 
-          {/* Hot leads pinned strip */}
-          {!guestGate && hotLeads.length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[11px] font-bold text-red-400 uppercase tracking-widest">🔥 Hottest Leads</span>
-                <span className="text-[10px] text-gray-600">Score 8–10 · pitch these first</span>
-              </div>
-              <BusinessGrid businesses={hotLeads} loading={false} error={null} onSelect={handleSelect} competitors={competitorNames} />
-              <div className="border-t border-white/8 mt-6 mb-2" />
-              <p className="text-[11px] text-gray-600 mb-4">All results below</p>
-            </div>
-          )}
-
           {selectMode && !guestGate && (
             <div className="flex items-center justify-between gap-3 mb-3 px-1">
               <span className="text-sm text-gray-400">
@@ -909,7 +925,7 @@ export default function Home() {
               </span>
               <div className="flex items-center gap-2">
                 <button onClick={selectAll} className="text-xs text-green-400 hover:text-green-300 font-bold underline underline-offset-2 transition-colors">
-                  Select all with phone
+                  Select all
                 </button>
                 <button onClick={() => setSelectedIds(new Set())} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">Clear</button>
               </div>
@@ -922,9 +938,9 @@ export default function Home() {
             <BusinessGrid businesses={paginated} loading={loading} error={error} onSelect={handleSelect} competitors={competitorNames} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} hasSearched={hasSearched} />
           )}
 
-          {/* Bulk send action bar */}
+          {/* Bulk action bar — WhatsApp and/or Email for the checked rows */}
           {selectMode && selectedIds.size > 0 && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 border border-green-500/40 shadow-2xl rounded-2xl px-5 py-3">
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 border border-white/10 shadow-2xl rounded-2xl px-5 py-3">
               {bulkSending && bulkProgress ? (
                 <>
                   <div className="w-32 h-1.5 bg-gray-700 rounded-full overflow-hidden">
@@ -936,11 +952,18 @@ export default function Home() {
                 <>
                   <span className="text-sm text-white font-semibold">{selectedIds.size} selected</span>
                   <button
-                    onClick={handleBulkSend}
+                    onClick={waApiConnected ? handleBulkSend : handleBulkWhatsAppOpen}
                     disabled={bulkSending}
+                    title={waApiConnected ? 'Send via the connected WhatsApp Business API' : 'Opens a WhatsApp chat tab for each selected business'}
                     className="flex items-center gap-1.5 text-sm font-bold px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl transition-colors disabled:opacity-50"
                   >
-                    <Send className="w-3.5 h-3.5" /> Send all via WA API
+                    <Send className="w-3.5 h-3.5" /> WhatsApp
+                  </button>
+                  <button
+                    onClick={() => openBulkEmail(filtered.filter((b) => selectedIds.has(b.id)))}
+                    className="flex items-center gap-1.5 text-sm font-bold px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors"
+                  >
+                    {canEmailBlast ? <Mail className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} Email
                   </button>
                   <button onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} className="text-gray-500 hover:text-gray-300 transition-colors">
                     <X className="w-4 h-4" />
@@ -1060,10 +1083,11 @@ export default function Home() {
       {selected && (
         <BusinessDrawer
           business={selected}
-          onClose={() => { setSelected(null); setGeneratedPrompt(null); setGenerateError(null); }}
+          onClose={() => { setSelected(null); setGeneratedPrompt(null); setGenerateError(null); setInitialDrawerAction(null); }}
           onGenerate={handleGenerate}
           generating={generating || detailLoading}
           generateError={generateError}
+          initialAction={initialDrawerAction}
         />
       )}
       {generatedPrompt && selected && (
@@ -1079,7 +1103,7 @@ export default function Home() {
         <QuickFireModal businesses={businesses} onClose={() => setShowQuickFire(false)} />
       )}
       {showBulkEmail && (
-        <BulkEmailModal businesses={emailBlastTargets} onClose={() => setShowBulkEmail(false)} />
+        <BulkEmailModal businesses={bulkEmailTargets} onClose={() => setShowBulkEmail(false)} />
       )}
     </div>
   );

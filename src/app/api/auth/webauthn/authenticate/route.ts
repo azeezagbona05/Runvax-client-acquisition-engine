@@ -19,8 +19,9 @@ function getOriginAndRpId(req: NextRequest) {
 // GET — generate authentication options (challenge)
 // Called with ?email= so we can look up the user's credentials
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get('email');
-  if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 });
+  const emailParam = req.nextUrl.searchParams.get('email');
+  if (!emailParam) return NextResponse.json({ error: 'email required' }, { status: 400 });
+  const email = emailParam.trim().toLowerCase();
 
   const user = await prisma.user.findUnique({
     where: { email },
