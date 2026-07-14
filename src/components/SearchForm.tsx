@@ -320,8 +320,8 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
             🎯 AI Business Discovery
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-white mb-2 leading-tight">
-            <span className="bg-gradient-to-r from-purple-500 to-purple-400 bg-clip-text text-transparent">Runvax</span> — Find businesses<br className="hidden md:block" />{' '}
-            that need your service
+            {/* <span className="bg-gradient-to-r from-purple-500 to-purple-400 bg-clip-text text-transparent">Runvax</span> — */} Find businesses<br className="hidden md:block" />{' '}
+            that need a website
           </h1>
           <p className="text-gray-400 text-sm md:text-base max-w-lg mx-auto">
             Search by industry, location, reviews, and online presence to discover high-potential businesses you can confidently approach.
