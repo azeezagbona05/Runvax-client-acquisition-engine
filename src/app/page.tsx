@@ -598,7 +598,7 @@ export default function Home() {
   return (
     <div className="min-h-dvh bg-gray-950 text-white">
 
-      <SearchForm onSearch={handleSearch} loading={loading} landing={!hasSearched} />
+      <SearchForm onSearch={handleSearch} loading={loading} landing={!hasSearched} businesses={businesses} />
 
       {/* ── Mobile compact sticky bar (shows when scrolled past form) ── */}
       {scrolled && hasSearched && lastSearch && (

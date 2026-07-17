@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, MapPin, Loader2, Clock, Sparkles, ChevronDown, X, ArrowLeft, Navigation } from 'lucide-react';
-import { SearchFormData } from '@/types';
+import { Search, MapPin, Loader2, Clock, Sparkles, ChevronDown, X, ArrowLeft, Navigation, Map as MapIcon } from 'lucide-react';
+import { SearchFormData, Business } from '@/types';
 import { getSearchHistory, getBestTimeStatus, SearchHistoryEntry } from '@/lib/searchHistory';
 import { AREAS, STATES, TIER_CONFIG, Area } from '@/lib/areas';
 import AuthBackground from '@/components/AuthBackground';
+import SearchMap from '@/components/SearchMap';
 
 const INDUSTRIES = [
   'Restaurants & Eateries', 'Beauty Salons & Spas', 'Barbers & Hair Salons',
@@ -46,9 +47,10 @@ interface SearchFormProps {
   onSearch: (data: SearchFormData) => void;
   loading: boolean;
   landing?: boolean;
+  businesses?: Business[];
 }
 
-export default function SearchForm({ onSearch, loading, landing = true }: SearchFormProps) {
+export default function SearchForm({ onSearch, loading, landing = true, businesses = [] }: SearchFormProps) {
   const [industry, setIndustry]           = useState('');
   const [country, setCountry]             = useState('NG');
   const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -74,6 +76,16 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
   const [mobileExpanded, setMobileExpanded]       = useState(false);
   const [activeHowStep, setActiveHowStep]         = useState(0);
   const howCarouselRef = useRef<HTMLDivElement>(null);
+
+  // Inline map preview — opens while picking a location, tucks away once you move on
+  const [mapOpen, setMapOpen]             = useState(false);
+  const mapManuallyClosed                 = useRef(false);
+  const openMap = (force = false) => {
+    if (force) mapManuallyClosed.current = false;
+    if (!mapManuallyClosed.current) setMapOpen(true);
+  };
+  const closeMapIfAuto = () => { if (!mapManuallyClosed.current) setMapOpen(false); };
+  const toggleMap = () => { mapManuallyClosed.current = mapOpen; setMapOpen((v) => !v); };
 
   const locationRef      = useRef<HTMLInputElement>(null);
   const mobileLocRef     = useRef<HTMLInputElement>(null);
@@ -205,6 +217,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     setLocationError('');
     setShowCountryDd(false);
     setCountrySearch('');
+    openMap();
     // Auto-focus state if country has states, otherwise focus location
     setTimeout(() => {
       if (stateSelectRef.current) stateSelectRef.current.focus();
@@ -219,6 +232,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     setLat(undefined);
     setLng(undefined);
     setLocationError('');
+    openMap();
     setTimeout(() => locationRef.current?.focus(), 50);
   };
 
@@ -236,6 +250,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
     }
     if (!location.trim() && !lat) { setLocationError('Please enter a location or use your GPS.'); return; }
     setMobileExpanded(false);
+    openMap(true);
     runSearch(industry, location, lat, lng);
   };
 
@@ -320,8 +335,8 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
             🎯 AI Business Discovery
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-white mb-2 leading-tight">
-            {/* <span className="bg-gradient-to-r from-purple-500 to-purple-400 bg-clip-text text-transparent">Runvax</span> — */} Find businesses<br className="hidden md:block" />{' '}
-            that need a website
+            Find businesses<br className="hidden md:block" />{' '}
+            that need your service
           </h1>
           <p className="text-gray-400 text-sm md:text-base max-w-lg mx-auto">
             Search by industry, location, reviews, and online presence to discover high-potential businesses you can confidently approach.
@@ -460,6 +475,43 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
             )}
           </div>
 
+          {/* ── Inline map preview — opens while picking Country/State, tucks away for Industry/Area ── */}
+          <div>
+            <div
+              className="grid overflow-hidden rounded-xl border border-purple-500/20 transition-[grid-template-rows] duration-300 ease-out"
+              style={{ gridTemplateRows: mapOpen ? '1fr' : '0fr' }}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-900/70 border-b border-purple-500/15">
+                  <span className="text-[11px] font-bold text-purple-300 truncate">
+                    {selectedCountry.flag} {selectedCountry.name}
+                    {selectedState && <span className="text-gray-400 font-medium"> · {STATES.find((s) => s.code === selectedState)?.name}</span>}
+                    {location && <span className="text-gray-400 font-medium"> · {location}</span>}
+                  </span>
+                  {loading && <span className="text-[10px] text-purple-400 font-semibold flex-shrink-0">Scanning…</span>}
+                </div>
+                <div className="h-[190px]">
+                  <SearchMap
+                    countryName={country === 'OTHER' ? null : selectedCountry.name}
+                    stateName={selectedState ? STATES.find((s) => s.code === selectedState)?.name ?? null : null}
+                    areaName={location || null}
+                    radiusKm={radius}
+                    businesses={businesses}
+                    searching={loading}
+                  />
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={toggleMap}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 mt-1 text-[11px] font-semibold text-gray-500 hover:text-purple-300 border border-dashed border-white/10 hover:border-purple-500/25 rounded-lg transition-colors"
+            >
+              <MapIcon className="w-3 h-3" /> {mapOpen ? 'Hide map' : 'Show map'}
+              <ChevronDown className={`w-3 h-3 transition-transform ${mapOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
           {/* ── Step 3: Industry + Area ── */}
           <div className="grid md:grid-cols-2 gap-4">
 
@@ -471,7 +523,7 @@ export default function SearchForm({ onSearch, loading, landing = true }: Search
               <div className="relative">
                 <input type="text" value={industry}
                   onChange={(e) => { setIndustry(e.target.value); setShowIndSug(true); setIndustryError(''); }}
-                  onFocus={() => setShowIndSug(true)}
+                  onFocus={() => { setShowIndSug(true); closeMapIfAuto(); }}
                   onBlur={() => setTimeout(() => {
                     setShowIndSug(false);
                     // Clear if typed text doesn't match any category

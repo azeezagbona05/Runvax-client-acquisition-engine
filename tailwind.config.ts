@@ -15,6 +15,7 @@ const config: Config = {
         "logo-pop": "logoPop 0.7s cubic-bezier(0.34,1.56,0.64,1) both",
         "fade-up": "fadeUp 0.5s ease-out both",
         "blob-drift": "blobDrift 8s ease-in-out infinite alternate",
+        "map-sweep": "mapSweep 1.5s linear infinite",
       },
       keyframes: {
         fadeIn: { from: { opacity: "0" }, to: { opacity: "1" } },
@@ -38,6 +39,9 @@ const config: Config = {
         blobDrift: {
           from: { transform: "translate(0, 0) scale(1)" },
           to:   { transform: "translate(30px, -20px) scale(1.08)" },
+        },
+        mapSweep: {
+          to: { transform: "rotate(360deg)" },
         },
       },
     },
