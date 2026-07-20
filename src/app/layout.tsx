@@ -25,7 +25,7 @@ export const viewport: Viewport = {
   ],
 };
 
-const TITLE = 'Runvax — Find Businesses That Need Your Service';
+const TITLE = 'Find Businesses That Need Your Service';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

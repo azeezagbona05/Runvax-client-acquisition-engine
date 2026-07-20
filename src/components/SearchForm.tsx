@@ -36,6 +36,9 @@ const COUNTRIES = [
   { code: 'OTHER', name: 'Other',       flag: '🌍' },
 ];
 
+// Inline map preview is built but paused until the Maps API key is set up — flip to true to bring it back.
+const SHOW_MAP_PREVIEW = false;
+
 // Nigeria first, then alphabetical, Other last
 const COUNTRIES_SORTED = [
   COUNTRIES.find((c) => c.code === 'NG')!,
@@ -475,7 +478,9 @@ export default function SearchForm({ onSearch, loading, landing = true, business
             )}
           </div>
 
-          {/* ── Inline map preview — opens while picking Country/State, tucks away for Industry/Area ── */}
+          {/* ── Inline map preview — opens while picking Country/State, tucks away for Industry/Area ──
+               Disabled for now (SHOW_MAP_PREVIEW) — flip back on once the Maps API key is ready. */}
+          {SHOW_MAP_PREVIEW && (
           <div>
             <div
               className="grid overflow-hidden rounded-xl border border-purple-500/20 transition-[grid-template-rows] duration-300 ease-out"
@@ -511,6 +516,7 @@ export default function SearchForm({ onSearch, loading, landing = true, business
               <ChevronDown className={`w-3 h-3 transition-transform ${mapOpen ? 'rotate-180' : ''}`} />
             </button>
           </div>
+          )}
 
           {/* ── Step 3: Industry + Area ── */}
           <div className="grid md:grid-cols-2 gap-4">

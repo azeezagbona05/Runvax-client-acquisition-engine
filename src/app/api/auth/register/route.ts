@@ -3,10 +3,12 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getAppUrl, getAppName } from '@/lib/url';
-import { createTransporter, verificationEmailHtml, welcomeEmailHtml } from '@/lib/email';
+import { createTransporter, verificationEmailHtml, welcomeEmailHtml, newUserRegisteredEmailHtml } from '@/lib/email';
 import { rateLimit, getIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
+
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
 export async function POST(req: NextRequest) {
   // 10 registrations per IP per hour
@@ -92,6 +94,22 @@ export async function POST(req: NextRequest) {
     });
   } catch {
     // Welcome email is non-critical — never block signup on it.
+  }
+
+  // Notify admins of the new signup, with the running total user count.
+  if (ADMIN_EMAILS.length > 0) {
+    try {
+      const totalUsers = await prisma.user.count();
+      const transporter = createTransporter();
+      await transporter.sendMail({
+        from: `"${senderName}" <${process.env.SMTP_FROM}>`,
+        to: ADMIN_EMAILS.join(', '),
+        subject: `New user registered — ${totalUsers} total users`,
+        html: newUserRegisteredEmailHtml(name, email, totalUsers, appUrl, senderName),
+      });
+    } catch {
+      // Admin notification is non-critical — never block signup on it.
+    }
   }
 
   return NextResponse.json({ id: user.id, email: user.email, name: user.name }, { status: 201 });

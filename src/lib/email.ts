@@ -202,6 +202,37 @@ export function welcomeEmailHtml(name: string, appUrl: string, appName: string):
   return emailShell(appName, body, `Here's how to land your first paying client with ${appName} this week.`);
 }
 
+// ─── Admin notification — new user registered ───────────────────────────────
+
+export function newUserRegisteredEmailHtml(
+  name: string,
+  email: string,
+  totalUsers: number,
+  appUrl: string,
+  appName: string,
+): string {
+  const body = `
+    ${iconBadge('👤', '#16a34a')}
+    <h1 style="margin:0 0 16px;font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.6px;">New user registered</h1>
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 24px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <tr style="background:rgba(124,58,237,0.08);">
+        <td style="padding:13px 18px;font-size:13px;color:#64748b;font-weight:600;">Name</td>
+        <td style="padding:13px 18px;font-size:14px;color:#1e293b;font-weight:700;">${name}</td>
+      </tr>
+      <tr style="background:#ffffff;">
+        <td style="padding:13px 18px;font-size:13px;color:#64748b;font-weight:600;">Email</td>
+        <td style="padding:13px 18px;font-size:14px;color:#1e293b;">${email}</td>
+      </tr>
+      <tr style="background:rgba(124,58,237,0.08);">
+        <td style="padding:13px 18px;font-size:13px;color:#64748b;font-weight:600;">Total users</td>
+        <td style="padding:13px 18px;font-size:14px;color:#16a34a;font-weight:700;">${totalUsers}</td>
+      </tr>
+    </table>
+    ${ctaButton('View in admin', `${appUrl}/admin`)}
+  `;
+  return emailShell(appName, body, `${name} just signed up — you now have ${totalUsers} total users.`);
+}
+
 // ─── #1 Payment confirmed ────────────────────────────────────────────────────
 
 export function paymentConfirmationHtml(
