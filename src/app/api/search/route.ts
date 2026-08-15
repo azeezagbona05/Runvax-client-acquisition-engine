@@ -184,9 +184,30 @@ export async function POST(req: NextRequest) {
             ),
           ]);
 
+          // Capture today's snapshot of each business so change detection has
+          // something to compare against later. createMany + skipDuplicates
+          // relies on the (placeId, date) unique constraint to make this a
+          // no-op when the business was already searched earlier today.
+          void prisma.businessSnapshot.createMany({
+            data: businesses.map((b) => ({
+              placeId: b.id as string,
+              date: now.toISOString().slice(0, 10),
+              rating: b.rating as number | undefined,
+              reviewCount: b.reviewCount as number | undefined,
+              hasWebsite: b.hasWebsite,
+            })),
+            skipDuplicates: true,
+          }).catch(() => { /* not critical — snapshots are best-effort */ });
+
           // Lazily clean up searchCache entries older than 7 days
           void prisma.searchCache.deleteMany({
             where: { createdAt: { lt: new Date(Date.now() - CACHE_TTL_MS) } },
+          }).catch(() => {});
+
+          // Snapshots hold cached Places content, so they fall under the same
+          // 90-day retention policy as cachedBusiness below.
+          void prisma.businessSnapshot.deleteMany({
+            where: { capturedAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
           }).catch(() => {});
 
           // Lazily clean up cachedBusiness entries not seen in 90 days (Google Places ToS compliance)

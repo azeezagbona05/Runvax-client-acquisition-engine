@@ -150,6 +150,50 @@ model OutreachSignal {
   @@index([businessId, lastSentAt])
 }
 
+// Point-in-time capture of a business's mutable Places fields.
+//
+// CachedBusiness only ever holds current values, so there is nothing to compare
+// against — these rows are what make change detection possible. Written at most
+// once per business per day (the unique constraint enforces it) from the search
+// path, which already refreshes this exact data.
+//
+// Subject to the same 90-day retention as CachedBusiness: this is cached Places
+// content and the existing ToS cleanup policy applies to it too.
+model BusinessSnapshot {
+  id          String   @id @default(cuid())
+  placeId     String
+  date        String   // YYYY-MM-DD — matches the DailyLog / UsageRecord convention
+  rating      Float?
+  reviewCount Int?
+  hasWebsite  Boolean  @default(false)
+  capturedAt  DateTime @default(now())
+
+  @@unique([placeId, date])
+  @@index([placeId, date])
+  @@index([capturedAt])
+}
+
+// A detected buying signal — the local-business equivalent of a "changed jobs"
+// alert. One active trigger per (business, type): re-detecting refreshes the
+// detail and timestamp rather than piling up duplicates.
+model LeadTrigger {
+  id           String   @id @default(cuid())
+  placeId      String
+  type         String   // new_business | review_surge | rating_drop | website_lost | website_gained
+  businessName String
+  category     String?
+  city         String?
+  country      String   @default("NG")
+  detail       String   @db.Text  // human-readable, e.g. "reviews jumped 12 → 47 in 14 days"
+  strength     String   // hot | warm | negative
+  detectedAt   DateTime @default(now())
+
+  @@unique([placeId, type])
+  @@index([city, detectedAt])
+  @@index([category, detectedAt])
+  @@index([detectedAt])
+}
+
 model UserSettings {
   id           String   @id @default(cuid())
   userId       String   @unique
