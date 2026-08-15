@@ -395,24 +395,43 @@ export async function POST(req: NextRequest) {
 
   if (!name) return NextResponse.json({ email: null, source: null });
 
-  // ── 2. Nigerian directories — run first as primary Nigeria-specific sources ──
-  // Phone number is the key link: same number they registered with Google is on Jiji/VConnect/BusinessList
-  const [vcResult, blResult, jijiResult] = await Promise.allSettled([
-    tryVConnect(name, city, phone),
-    tryBusinessList(name, city, phone),
+  // ── 2. Nigerian directories ──
+  // Phone number is the key link: the number they registered with Google is the
+  // same one on the directory listing.
+  //
+  // VConnect and BusinessList are disabled by default. Probed 2026-08-15:
+  // VConnect is unreachable entirely (connection times out, even the root
+  // domain), and BusinessList still serves its homepage but every search URL
+  // pattern 404s. Left behind an env flag rather than deleted, so they can be
+  // re-enabled cheaply if either comes back.
+  //
+  // This matters for latency, not just hit rate: with all three enabled every
+  // lookup paid ~7s of timeouts per dead source, which made a single enrichment
+  // take ~20s. Jiji alone answers in about a second.
+  const directories = [
     tryJiji(name, city, phone),
-  ]);
-  for (const r of [vcResult, blResult, jijiResult]) {
+    ...(process.env.ENRICH_ENABLE_LEGACY_DIRECTORIES === 'true'
+      ? [tryVConnect(name, city, phone), tryBusinessList(name, city, phone)]
+      : []),
+  ];
+  for (const r of await Promise.allSettled(directories)) {
     if (r.status === 'fulfilled' && r.value) return NextResponse.json(r.value);
   }
 
   // ── 3. Web search strategies in parallel ──
-  // Bing first (more lenient with server IPs), DDG as fallback, optional paid APIs
+  // Bing is the only free scrape that still works from a server IP. DuckDuckGo
+  // is dropped: its html/ and lite/ endpoints both answer 202 with a ~14KB bot
+  // challenge page whose only email address is DDG's own error contact, so it
+  // returned pure noise. Brave and Google CSE stay — both are dormant unless
+  // their keys are set, and CSE in particular is the best available source once
+  // GOOGLE_CSE_KEY is configured (GOOGLE_CSE_ID alone is not enough).
   const settled = await Promise.allSettled([
     tryBing(name, city, phone),
-    tryDuckDuckGo(name, city, phone),
     tryBraveSearch(name, city, phone),
     tryGoogleCSE(name, city, phone),
+    ...(process.env.ENRICH_ENABLE_LEGACY_DIRECTORIES === 'true'
+      ? [tryDuckDuckGo(name, city, phone)]
+      : []),
   ]);
 
   for (const r of settled) {
