@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { ProspectsProvider } from '@/context/ProspectsContext';
+import { SaturationProvider } from '@/context/SaturationContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { UpgradeProvider } from '@/context/UpgradeContext';
 import { PlanFeaturesProvider } from '@/context/PlanFeaturesContext';
@@ -351,6 +352,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <ThemeProvider>
             <ProspectsProvider>
+              <SaturationProvider>
               <PlanFeaturesProvider>
                 <UpgradeProvider>
                   <ToastProvider>
@@ -362,6 +364,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </ToastProvider>
                 </UpgradeProvider>
               </PlanFeaturesProvider>
+              </SaturationProvider>
             </ProspectsProvider>
           </ThemeProvider>
         </AuthProvider>

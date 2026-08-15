@@ -4,6 +4,10 @@ import { checkAndIncrementAI } from '@/lib/usage';
 import { getEffectiveProfile } from '@/lib/userProfile';
 import { generate } from '@/lib/outreach/generate';
 import { scoreProspect } from '@/lib/scoring';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getSaturationFor } from '@/lib/outreachSignal';
+import { daysSince } from '@/lib/saturation';
 import type { ProspectContext, ProspectTemperature } from '@/lib/outreach/types';
 
 export const dynamic = 'force-dynamic';
@@ -42,6 +46,7 @@ function businessToContext(
   framework: OutreachFramework | undefined,
   competitors: string[] | undefined,
   timeOfDay?: 'morning' | 'afternoon' | 'evening',
+  saturation?: { otherSenders: number; daysSinceLastSend: number | null },
 ): ProspectContext {
   const leadScore = scoreProspect(business);
   const country = detectCountry(business.address ?? '');
@@ -65,6 +70,8 @@ function businessToContext(
     // Pass the UI picker value so the router uses the user's chosen framework.
     forceFrameworkId: framework,
     timeOfDay,
+    otherSenders: saturation?.otherSenders ?? 0,
+    daysSinceLastSend: saturation?.daysSinceLastSend ?? null,
   };
 }
 
@@ -80,7 +87,22 @@ export async function POST(req: NextRequest) {
   if (!usage.ok) return usage.error!;
 
   const profile = await getEffectiveProfile();
-  const ctx = businessToContext(business, framework, competitors, timeOfDay);
+
+  // Look up how crowded this lead already is, so the composer can steer away
+  // from the angles other senders have already used. Best-effort: a tracker
+  // failure must never block message generation.
+  let saturation: { otherSenders: number; daysSinceLastSend: number | null } | undefined;
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id && business?.id) {
+      const s = await getSaturationFor(business.id, session.user.id);
+      saturation = { otherSenders: s.otherCount, daysSinceLastSend: daysSince(s.lastSentAt) };
+    }
+  } catch (err) {
+    console.error('[/api/outreach] saturation lookup failed', err);
+  }
+
+  const ctx = businessToContext(business, framework, competitors, timeOfDay, saturation);
 
   try {
     const result = await generate(ctx, profile);

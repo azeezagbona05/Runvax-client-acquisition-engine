@@ -13,6 +13,7 @@ import { whatsappLink } from '@/lib/phone';
 import { buildQuickWAMessage } from '@/lib/waMessage';
 import { useWaPaceTimer } from '@/lib/waRateLimit';
 import { useToast } from './Toast';
+import SaturationBadge from './SaturationBadge';
 
 function getDomain(website?: string): string {
   if (!website) return '';
@@ -254,12 +255,15 @@ function BusinessCard({ business, onClick, competitors }: Props) {
             : 'border-white/10 hover:border-purple-500/40'
         }`}
       >
-        {/* Stage banner */}
-        {stageMeta && (
-          <div className={`text-[10px] font-bold px-2 py-1 rounded-lg border inline-flex items-center gap-1 w-fit ${stageMeta.color}`}>
-            {stageMeta.label}
-          </div>
-        )}
+        {/* Stage banner + how many other Runvax users have already messaged this */}
+        <div className="flex items-center gap-1.5 flex-wrap empty:hidden">
+          {stageMeta && (
+            <div className={`text-[10px] font-bold px-2 py-1 rounded-lg border inline-flex items-center gap-1 w-fit ${stageMeta.color}`}>
+              {stageMeta.label}
+            </div>
+          )}
+          <SaturationBadge businessId={business.id} />
+        </div>
 
         {/* Top row: category badge + website status */}
         <div className="flex items-start justify-between gap-2">

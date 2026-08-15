@@ -56,6 +56,13 @@ export interface ProspectContext {
   followupStep?: 1 | 2 | 3;
   forceFrameworkId?: string;
   timeOfDay?: 'morning' | 'afternoon' | 'evening';
+  /** How many *other* Runvax users have already messaged this business, from the
+   *  shared tracker. Drives the anti-sameness instruction in the composer — a
+   *  crowded inbox needs a different angle, not a better version of the same one. */
+  otherSenders?: number;
+  /** Days since the most recent send by anyone. Distinguishes a live bidding war
+   *  from a lead everyone contacted months ago and gave up on. */
+  daysSinceLastSend?: number | null;
   // nullable — outreach often runs on unsaved search results
   prospectId?: string;
   userId?: string;

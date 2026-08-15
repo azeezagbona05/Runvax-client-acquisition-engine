@@ -39,6 +39,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   demoSites               DemoSite[]
   webAuthnCredentials     WebAuthnCredential[]
+  outreachSignals         OutreachSignal[]
 }
 
 model WebAuthnCredential {
@@ -123,6 +124,30 @@ model Conversation {
   replyType  String?
   framework  String?
   createdAt  DateTime @default(now())
+}
+
+// Cross-user outreach tracker ("lead saturation").
+//
+// One row per (business, user) pair — the unique constraint is what makes the
+// aggregate honest: contacting the same business five times still counts as one
+// user. Reads are always aggregates (COUNT / MAX), never identities: no endpoint
+// exposes which users are in the count.
+//
+// businessId is the globally stable provider id (Google Place ID, or osm_<id>).
+// Locally-generated `manual_*` ids are never written here — they are unique per
+// user, so they would only ever report a count of 1 and dilute nothing but trust.
+model OutreachSignal {
+  id          String   @id @default(cuid())
+  businessId  String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel     String   // whatsapp | email | dm | call — channel of the most recent send
+  sendCount   Int      @default(1)
+  firstSentAt DateTime @default(now())
+  lastSentAt  DateTime @default(now())
+
+  @@unique([businessId, userId])
+  @@index([businessId, lastSentAt])
 }
 
 model UserSettings {

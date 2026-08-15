@@ -9,6 +9,7 @@ import type { OutreachFramework } from '@/app/api/outreach/route';
 import { whatsappLink } from '@/lib/phone';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import EditablePitch from './EditablePitch';
+import SaturationBadge from './SaturationBadge';
 
 interface Props {
   business: Business;
@@ -262,6 +263,11 @@ export default function OutreachModal({ business, onClose }: Props) {
                 </div>
               </div>
             )}
+
+            {/* Competition check — shown before and after generating, so the user
+                can decide whether this lead is worth a message at all, and knows
+                to sharpen the angle when others have already been here. */}
+            <SaturationBadge businessId={business.id} variant="full" />
 
             {/* Generate CTA */}
             {!data && !loading && (

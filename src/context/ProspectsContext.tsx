@@ -7,6 +7,7 @@ import {
   Business, SavedProspect, ProspectStage, AppSettings, DailyLog,
   ConversationEntry, ConversationChannel, FollowUpStep,
 } from '@/types';
+import { recordSaturationSend } from '@/lib/saturationClient';
 
 interface Ctx {
   prospects: SavedProspect[];
@@ -212,6 +213,12 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
       if (p.business.id !== businessId) return p;
       return { ...p, outreachSentAt, stage: p.stage === 'found' ? 'contacted' : p.stage };
     }));
+
+    // Contribute to the cross-user saturation tracker. Fire-and-forget and never
+    // awaited: this is the one choke point every send path funnels through, and
+    // a tracker hiccup must not slow down or fail an outreach the user just made.
+    void recordSaturationSend(businessId, channel);
+
     await Promise.all([
       patch(businessId, {
         outreachSentAt,

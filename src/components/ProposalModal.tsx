@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle, Send, Share2 } from 'lucide-react';
+import { X, Loader2, RefreshCw, Printer, Copy, Check, MessageCircle, Send, Share2, Eye, Pencil } from 'lucide-react';
 import { Business } from '@/types';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
+import ProposalEnhanceBar from './ProposalEnhanceBar';
+import EditablePitch from './EditablePitch';
 import { useProspects } from '@/context/ProspectsContext';
 import { estimatePrice, } from '@/lib/scoring';
 import { formatPrice } from '@/lib/rateCard';
@@ -19,6 +21,7 @@ export default function ProposalModal({ business, onClose }: Props) {
 
   const [loading, setLoading] = useState(false);
   const [proposal, setProposal] = useState('');
+  const [editingProposal, setEditingProposal] = useState(false);
   const [coverMessage, setCoverMessage] = useState('');
   const [agentMeta, setAgentMeta] = useState<{ name: string; phone: string; email: string; website: string; tagline: string; city: string } | null>(null);
   const [error, setError] = useState('');
@@ -29,7 +32,6 @@ export default function ProposalModal({ business, onClose }: Props) {
   const [priceTo, setPriceTo] = useState('₦' + estimated.max.toLocaleString('en-NG'));
   const [timeline, setTimeline] = useState('7–8 business days');
   const [copied, setCopied] = useState(false);
-  const [coverCopied, setCoverCopied] = useState(false);
   const [prospectEmail, setProspectEmail] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -362,32 +364,61 @@ export default function ProposalModal({ business, onClose }: Props) {
                   <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1.5">
                     <MessageCircle className="w-3.5 h-3.5" /> Send this on WhatsApp first
                   </p>
-                  <div className="bg-green-950/30 border border-green-500/20 rounded-xl px-4 py-3 text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
-                    {coverMessage}
-                  </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(coverMessage).catch(() => {});
-                      setCoverCopied(true);
-                      setTimeout(() => setCoverCopied(false), 2500);
+                  {/* Editable + enhanceable, same as any other outreach message */}
+                  <EditablePitch
+                    value={coverMessage}
+                    onChange={setCoverMessage}
+                    kind="whatsapp"
+                    minHeight={110}
+                    context={{
+                      businessName: business.name,
+                      industry: business.category,
+                      purpose: 'cover message sent on WhatsApp just before the proposal',
                     }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-                      coverCopied ? 'bg-green-600 text-white' : 'bg-green-600/20 hover:bg-green-600/35 text-green-400 border border-green-500/30'
-                    }`}
-                  >
-                    {coverCopied ? <><Check className="w-4 h-4" /> Copied!</> : <><Copy className="w-4 h-4" /> Copy Cover Message</>}
-                  </button>
+                  />
                 </div>
               )}
 
               {/* Full proposal */}
-              <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Full Proposal</p>
-              <div ref={contentRef} className="prose prose-invert prose-sm max-w-none">
-                <div
-                  className="bg-white/[0.03] border border-white/8 rounded-xl p-5 text-gray-300 text-sm leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(proposal) }}
-                />
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Full Proposal</p>
+                <button
+                  onClick={() => setEditingProposal((v) => !v)}
+                  className="ml-auto flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 transition-colors"
+                >
+                  {editingProposal ? <><Eye className="w-3.5 h-3.5" /> Preview</> : <><Pencil className="w-3.5 h-3.5" /> Edit</>}
+                </button>
               </div>
+
+              <ProposalEnhanceBar
+                value={proposal}
+                onChange={setProposal}
+                context={{
+                  businessName: business.name,
+                  industry: business.category,
+                  address: business.address,
+                  hasWebsite: business.hasWebsite,
+                  rating: business.rating,
+                  reviewCount: business.reviewCount,
+                }}
+              />
+
+              {editingProposal ? (
+                <textarea
+                  value={proposal}
+                  onChange={(e) => setProposal(e.target.value)}
+                  spellCheck
+                  className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-5 text-gray-200 text-sm leading-relaxed font-mono focus:outline-none focus:border-purple-500/60 resize-y"
+                  style={{ minHeight: 420 }}
+                />
+              ) : (
+                <div ref={contentRef} className="prose prose-invert prose-sm max-w-none">
+                  <div
+                    className="bg-white/[0.03] border border-white/8 rounded-xl p-5 text-gray-300 text-sm leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(proposal) }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
