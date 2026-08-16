@@ -734,6 +734,25 @@ export default function SearchForm({ onSearch, loading, landing = true, business
         </div>
       )}
 
+      {/* ── Trust strip ── */}
+      <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+        {[
+          { icon: '🌍', label: 'Works in 50+ countries' },
+          { icon: '⚡', label: 'Results in seconds' },
+          { icon: '🤖', label: 'AI-powered outreach' },
+        ].map(({ icon, label }) => (
+          <div
+            key={label}
+            className="flex items-center gap-2.5 px-5 py-3.5 rounded-2xl bg-gray-900 border border-white/10 shadow-sm"
+          >
+            <span className="text-xl sm:text-2xl leading-none">{icon}</span>
+            <span className="text-base sm:text-lg font-black text-gray-100 tracking-tight whitespace-nowrap">
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+
     </div>
     )}
 
