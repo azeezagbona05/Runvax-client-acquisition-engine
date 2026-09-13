@@ -203,6 +203,16 @@ export default function VsFiverrPage() {
             </div>
           </div>
 
+          {/* Related */}
+          <p className="mb-16 text-sm text-gray-400 text-center">
+            <span className="font-semibold text-gray-300">Related:</span>{' '}
+            <a href="/ai-for-client-acquisition" className="text-indigo-400 hover:underline">AI for client acquisition</a>
+            {' · '}
+            <a href="/for-web-developers" className="text-indigo-400 hover:underline">For web developers</a>
+            {' · '}
+            <a href="/vs-clay" className="text-indigo-400 hover:underline">Runvax vs Clay</a>
+          </p>
+
           {/* CTA */}
           <div className="rounded-2xl bg-indigo-900/30 border border-indigo-800/50 p-10 text-center">
             <h2 className="text-3xl font-bold mb-3">

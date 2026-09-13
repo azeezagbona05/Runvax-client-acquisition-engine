@@ -1,3 +1,6 @@
+import { getPlanConfig } from './plans';
+import { priceToKobo } from './planDefaults';
+
 const BASE = 'https://api.paystack.co';
 
 function headers() {
@@ -68,8 +71,21 @@ export function planCodeForPlan(plan: 'pro' | 'agency'): string {
   return code;
 }
 
-export function amountForPlan(plan: 'pro' | 'agency'): number {
-  return plan === 'pro' ? 999900 : 2499900; // kobo
+/**
+ * The amount to charge, in kobo, derived from the same plan price the pricing
+ * page shows (DB row first, ./planDefaults as fallback) so the two can't drift.
+ *
+ * Note: this only sets the *first* charge. Every renewal is billed at the amount
+ * configured on the Paystack plan (PLN_xxx), so a price change here must be
+ * mirrored on the plan in the Paystack dashboard.
+ */
+export async function amountForPlan(plan: 'pro' | 'agency'): Promise<number> {
+  const { price } = await getPlanConfig(plan);
+  const kobo = priceToKobo(price);
+  if (kobo == null) {
+    throw new Error(`No valid price configured for "${plan}" (got ${JSON.stringify(price)}) — set it in the admin panel.`);
+  }
+  return kobo;
 }
 
 export function generateReference(userId: string): string {

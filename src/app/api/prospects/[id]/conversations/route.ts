@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logAgentActivity } from '@/lib/agentActivity';
 import type { ConversationEntry } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,15 @@ export async function POST(req: NextRequest, { params }: Params) {
       content: JSON.stringify(full),
     },
   });
+
+  if (entry.type === 'sent') {
+    await logAgentActivity({
+      userId: session.user.id,
+      agentKey: 'outreach',
+      action: 'message_sent',
+      title: `Sent ${entry.channel} message to ${prospect.businessName}`,
+    });
+  }
 
   return NextResponse.json(full, { status: 201 });
 }

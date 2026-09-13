@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { logAgentActivity } from '@/lib/agentActivity';
 
 export const dynamic = 'force-dynamic';
 
@@ -265,6 +266,15 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await callGPT(client, prompt);
+
+    await logAgentActivity({
+      userId: session.user.id,
+      agentKey: 'seo',
+      action: 'content_generated',
+      title: `Ran the ${agentType} agent`,
+      detail: JSON.stringify(result),
+    });
+
     return NextResponse.json({ agentType, result });
 
   } catch (err: unknown) {

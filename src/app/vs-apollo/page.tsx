@@ -172,6 +172,16 @@ export default function VsApolloPage() {
             </p>
           </div>
 
+          {/* Related */}
+          <p className="mb-16 text-sm text-gray-400 text-center">
+            <span className="font-semibold text-gray-300">Related:</span>{' '}
+            <a href="/vs-clay" className="text-indigo-400 hover:underline">Runvax vs Clay</a>
+            {' · '}
+            <a href="/ai-for-client-acquisition" className="text-indigo-400 hover:underline">AI for client acquisition</a>
+            {' · '}
+            <a href="/for-ai-agent-builders" className="text-indigo-400 hover:underline">For AI agent builders</a>
+          </p>
+
           {/* CTA */}
           <div className="rounded-2xl bg-indigo-900/30 border border-indigo-800/50 p-10 text-center">
             <h2 className="text-3xl font-bold mb-3">

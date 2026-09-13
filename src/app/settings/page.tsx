@@ -26,12 +26,34 @@ function AutoProspectingSettings() {
   const [running, setRunning]     = useState(false);
   const [queueCount, setQueueCount] = useState<number | null>(null);
   const [runMsg, setRunMsg]       = useState('');
+  const [autoDraft, setAutoDraft] = useState(false);
 
   useEffect(() => {
+    // Server settings are the source of truth (Ava's daily cron reads them) —
+    // localStorage is just a fast fallback if that fetch hasn't landed yet.
     try {
       const saved = localStorage.getItem(AP_KEY);
       if (saved) setCfg(JSON.parse(saved) as AutoProspectConfig);
     } catch { /* */ }
+
+    fetch('/api/user/settings').then(r => r.json()).then((s: {
+      autoProspectEnabled?: boolean; autoProspectIndustry?: string | null;
+      autoProspectLocation?: string | null; autoProspectMinRating?: number;
+      autoProspectNoWebsiteOnly?: boolean; autoDraftEnabled?: boolean;
+    }) => {
+      if (s.autoDraftEnabled !== undefined) setAutoDraft(s.autoDraftEnabled);
+      if (s.autoProspectEnabled === undefined) return;
+      const next: AutoProspectConfig = {
+        enabled: s.autoProspectEnabled,
+        industry: s.autoProspectIndustry ?? '',
+        location: s.autoProspectLocation ?? 'Lagos, Nigeria',
+        minRating: s.autoProspectMinRating ?? 0,
+        noWebsiteOnly: s.autoProspectNoWebsiteOnly ?? true,
+      };
+      setCfg(next);
+      try { localStorage.setItem(AP_KEY, JSON.stringify(next)); } catch { /* */ }
+    }).catch(() => { /* */ });
+
     // Check how many prospects are queued for review
     fetch('/api/prospects/queue-count').then(r => r.json()).then(d => {
       if (typeof d.count === 'number') setQueueCount(d.count);
@@ -42,8 +64,30 @@ function AutoProspectingSettings() {
     setCfg(prev => {
       const next = { ...prev, ...patch };
       try { localStorage.setItem(AP_KEY, JSON.stringify(next)); } catch { /* */ }
+      // Fire-and-forget: Ava's cron reads these server-side, so a save failure
+      // here shouldn't block the UI — the next successful save catches up.
+      fetch('/api/user/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autoProspectEnabled: next.enabled,
+          autoProspectIndustry: next.industry,
+          autoProspectLocation: next.location,
+          autoProspectMinRating: next.minRating,
+          autoProspectNoWebsiteOnly: next.noWebsiteOnly,
+        }),
+      }).catch(() => { /* */ });
       return next;
     });
+  }, []);
+
+  const toggleAutoDraft = useCallback((next: boolean) => {
+    setAutoDraft(next);
+    fetch('/api/user/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autoDraftEnabled: next }),
+    }).catch(() => { /* */ });
   }, []);
 
   const runNow = async () => {
@@ -165,6 +209,34 @@ function AutoProspectingSettings() {
           </p>
         </div>
       )}
+
+      {/* Rex — autonomous drafting, independent of Ava's scanning toggle above */}
+      <button
+        onClick={() => toggleAutoDraft(!autoDraft)}
+        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all ${
+          autoDraft
+            ? 'bg-green-600/20 border-green-500/40 text-white'
+            : 'bg-white/5 border-white/10 text-gray-400'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <Send className={`w-5 h-5 ${autoDraft ? 'text-green-400' : 'text-gray-600'}`} />
+          <div className="text-left">
+            <p className="text-sm font-bold">{autoDraft ? 'Auto Drafting ON' : 'Auto Drafting OFF'}</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {autoDraft
+                ? 'Rex drafts messages daily for un-contacted prospects — review in Command Centre before sending'
+                : 'Toggle on to let Rex prepare outreach drafts while you’re away'}
+            </p>
+          </div>
+        </div>
+        {autoDraft
+          ? <ToggleRight className="w-6 h-6 text-green-400 flex-shrink-0" />
+          : <ToggleLeft className="w-6 h-6 text-gray-600 flex-shrink-0" />}
+      </button>
+      <p className="text-[11px] text-gray-600 leading-relaxed">
+        Rex never sends on its own — every draft waits in Command Centre for you to review and send.
+      </p>
     </div>
   );
 }
@@ -228,9 +300,20 @@ interface PortfolioItem {
 
 type Tab = 'profile' | 'email' | 'payment' | 'goals' | 'ratecard' | 'portfolio' | 'whatsapp-api' | 'security';
 
+const TAB_IDS: Tab[] = ['profile', 'email', 'payment', 'goals', 'ratecard', 'portfolio', 'whatsapp-api', 'security'];
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [tab, setTab] = useState<Tab>('profile');
+
+  // Deep links like /settings?tab=ratecard — used by the assistant and by
+  // upgrade/setup prompts to drop the user on the exact tab they need.
+  // Read from location rather than useSearchParams so this page needs no
+  // Suspense boundary.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    if (requested && (TAB_IDS as string[]).includes(requested)) setTab(requested as Tab);
+  }, []);
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

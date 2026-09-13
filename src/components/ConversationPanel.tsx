@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   MessageCircle, Mail, Send, Copy, Check, Loader2,
   Phone, StickyNote, ChevronDown, ChevronUp, RefreshCw,
@@ -9,6 +9,7 @@ import { Business, ConversationEntry, ReplyType, ConversationChannel } from '@/t
 import { useProspects } from '@/context/ProspectsContext';
 import { whatsappLink } from '@/lib/phone';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
+import { detectOpportunities } from '@/lib/opportunity/detect';
 
 interface Props {
   business: Business;
@@ -133,6 +134,11 @@ export default function ConversationPanel({ business }: Props) {
     ? Math.floor((Date.now() - new Date(lastSent.timestamp).getTime()) / 86400000)
     : null;
 
+  // Which offer this conversation is about. Detection is pure, so this costs
+  // nothing; a business with no website still resolves to 'website' and the reply
+  // copy is unchanged from before.
+  const offer = useMemo(() => detectOpportunities(business).primary?.type ?? 'website', [business]);
+
   const generate = async (rt: ReplyType, fn?: number) => {
     setGenerating(true);
     setAiResponse('');
@@ -147,6 +153,7 @@ export default function ConversationPanel({ business }: Props) {
           ourLastMessage: lastSent?.content,
           channel,
           followupNumber: fn,
+          offer,
         }),
       });
       const json = await res.json();

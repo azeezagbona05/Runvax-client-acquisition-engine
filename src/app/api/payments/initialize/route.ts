@@ -35,13 +35,24 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Charge the same price the pricing page advertises, not a hardcoded amount.
+  let amount: number;
+  try {
+    amount = await amountForPlan(plan);
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : `No price configured for "${plan}".` },
+      { status: 500 }
+    );
+  }
+
   const reference = generateReference(session.user.id);
   const appUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
 
   try {
     const data = await initializeTransaction({
       email: session.user.email,
-      amount: amountForPlan(plan),
+      amount,
       reference,
       plan: planCode,
       callback_url: `${appUrl}/api/payments/verify?reference=${reference}`,

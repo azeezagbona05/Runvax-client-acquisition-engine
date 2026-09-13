@@ -23,6 +23,9 @@ export async function GET() {
       smtpPass: null, smtpFrom: null,
       bankName: null, bankAccount: null, bankAcctName: null, paymentLink: null,
       waPhoneNumberId: null, waAccessToken: null, waTemplateName: null,
+      autoProspectEnabled: false, autoProspectIndustry: null, autoProspectLocation: null,
+      autoProspectMinRating: 0, autoProspectNoWebsiteOnly: true,
+      autoDraftEnabled: false,
     });
   }
 
@@ -66,6 +69,12 @@ export async function PATCH(req: NextRequest) {
     waPhoneNumberId?: string;
     waAccessToken?: string;
     waTemplateName?: string;
+    autoProspectEnabled?: boolean;
+    autoProspectIndustry?: string;
+    autoProspectLocation?: string;
+    autoProspectMinRating?: number;
+    autoProspectNoWebsiteOnly?: boolean;
+    autoDraftEnabled?: boolean;
   };
 
   // Strip auto-managed / identity fields so Prisma uses regular CreateInput (not Unchecked),

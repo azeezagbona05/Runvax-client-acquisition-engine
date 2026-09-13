@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   X, Star, Phone, Globe, MapPin, MessageCircle,
   Trash2, FileText, Copy, Check, Loader2,
@@ -11,6 +11,7 @@ import { useProspects } from '@/context/ProspectsContext';
 import { SavedProspect, ProspectStage, ReplyType } from '@/types';
 import { scoreLabel, formatPrice } from '@/lib/scoring';
 import { whatsappLink } from '@/lib/phone';
+import { detectOpportunities } from '@/lib/opportunity/detect';
 
 const STAGES: Array<{ id: ProspectStage; icon: string; label: string; color: string }> = [
   { id: 'found',      icon: '🔵', label: 'Found',      color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
@@ -68,6 +69,10 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
 
   const [tab, setTab] = useState<Tab>('reply');
 
+  // Which offer this conversation is about. Businesses with no website still
+  // resolve to 'website', so existing reply copy is unaffected.
+  const offer = useMemo(() => detectOpportunities(business).primary?.type ?? 'website', [business]);
+
   // Last sent message — gives the AI context of what we said to the prospect
   const lastSent = [...conversations].reverse().find((c) => c.type === 'sent' || c.type === 'ai_response');
 
@@ -97,6 +102,7 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
           theirMessage: theirMsg,
           ourLastMessage: lastSent?.content,
           channel: 'whatsapp',
+          offer,
         }),
       });
       const json = await res.json();

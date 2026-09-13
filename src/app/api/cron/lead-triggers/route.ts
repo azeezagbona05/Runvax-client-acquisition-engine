@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { detectTriggers, type BusinessThen } from '@/lib/triggers';
+import { guardCron } from '@/lib/cron';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -8,11 +9,6 @@ export const maxDuration = 60;
 // Scans cached businesses for buying signals and persists them as LeadTriggers.
 // Called by Vercel Cron daily at 5am WAT (4am UTC) — before the onboarding-email
 // cron at 7am UTC, so any digest built later in the day has fresh triggers.
-
-function guardCron(req: NextRequest): boolean {
-  const authHeader = req.headers.get('authorization');
-  return authHeader === `Bearer ${process.env.CRON_SECRET}`;
-}
 
 // How far back to look for the comparison snapshot. Long enough that real change
 // is visible, short enough that the signal is still actionable.

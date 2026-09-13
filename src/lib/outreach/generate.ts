@@ -48,7 +48,7 @@ export async function generate(
   });
 
   let output = parseOutput(aiRes.text, ctx);
-  let qg = runQualityGate(output, ctx);
+  let qg = runQualityGate(output, ctx, profile.businessName);
 
   // Tier-2 retry: only if QUALITY_GATE_LLM=true and gate failed.
   if (!qg.pass && process.env.QUALITY_GATE_LLM === 'true') {
@@ -61,7 +61,7 @@ export async function generate(
       feature: 'outreach',
     });
     output = parseOutput(retryRes.text, ctx);
-    qg = runQualityGate(output, ctx);
+    qg = runQualityGate(output, ctx, profile.businessName);
   }
 
   const result: GenerationResult = {

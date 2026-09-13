@@ -7,6 +7,18 @@
     {
       "path": "/api/cron/lead-triggers",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/auto-prospect",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/prepare-drafts",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/generate-post",
+      "schedule": "0 8 * * 1"
     }
   ]
 }

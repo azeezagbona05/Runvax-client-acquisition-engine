@@ -7,6 +7,7 @@ import TopBar from './TopBar';
 import OnboardingGate from './OnboardingGate';
 import QuestTracker from './QuestTracker';
 import CoachHint from './CoachHint';
+import AssistantWidget from './AssistantWidget';
 import { SidebarProvider, useSidebar } from '@/context/SidebarContext';
 
 function AppShell({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       {!isAuth && <QuestTracker />}
+      {!isAuth && <AssistantWidget />}
     </>
   );
 }

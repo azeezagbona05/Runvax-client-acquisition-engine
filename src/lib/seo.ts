@@ -10,6 +10,6 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3
 
 export const SITE_NAME = 'Runvax';
 
-// 163 chars — includes location keywords, CTA, removes friction
+// ≤160 chars — leads with the category term, names the three offers and audiences
 export const SITE_DESCRIPTION =
-  'Find local businesses with no website in Lagos, Accra, Nairobi, London, or anywhere worldwide. Generate AI cold emails in one click. Free plan — no card needed.';
+  'AI for client acquisition. Runvax finds local businesses that need a website, booking, or AI automation anywhere worldwide, then writes the outreach. Free plan.';

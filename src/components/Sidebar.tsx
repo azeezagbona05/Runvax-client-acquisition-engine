@@ -9,7 +9,7 @@ import { useSidebar } from '@/context/SidebarContext';
 import { useTheme } from '@/context/ThemeContext';
 import {
   Search, Columns3, BarChart3, Settings, PanelLeftClose, PanelLeftOpen,
-  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, Sparkles,
+  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, Sparkles, Bot,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -38,6 +38,7 @@ export default function Sidebar() {
   const initials = session?.user?.name?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? '?';
 
   const tabs = [
+    { href: '/command-centre', icon: Bot,       label: 'Command Centre', badge: undefined,                             badgeColor: 'bg-purple-600', authOnly: true },
     { href: '/market-brief', icon: Sparkles,    label: 'Market Brief',  badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
     { href: '/',             icon: Search,      label: 'Find Prospects', badge: undefined,                            badgeColor: 'bg-purple-600', authOnly: false },
     { href: '/pipeline',     icon: Columns3,    label: 'Pipeline',  badge: savedCount > 0 ? savedCount : undefined,  badgeColor: 'bg-purple-600', authOnly: true },

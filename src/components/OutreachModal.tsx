@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, RefreshCw, MessageCircle, Mail, Loader2, Send, Lock } from 'lucide-react';
+import { X, RefreshCw, MessageCircle, Mail, Loader2, Send, Lock, Check, AlertTriangle } from 'lucide-react';
 import { Business } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
 import type { OutreachFramework } from '@/app/api/outreach/route';
+import type { OfferType } from '@/lib/opportunity/types';
+import { detectOpportunities } from '@/lib/opportunity/detect';
 import { whatsappLink } from '@/lib/phone';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import EditablePitch from './EditablePitch';
@@ -14,16 +16,38 @@ import SaturationBadge from './SaturationBadge';
 interface Props {
   business: Business;
   onClose: () => void;
+  /** Pre-composed draft (from Rex's autonomous queue) — skips the "Ready to generate" step. */
+  initialData?: OutreachData;
+  /** When set, sending marks this OutreachDraft as sent so it leaves the queue. */
+  draftId?: string;
 }
 
 type Tab = 'whatsapp' | 'email';
 
-interface OutreachData {
+interface OpportunitySummary {
+  type: OfferType;
+  title: string;
+  score: number;
+  band: string;
+  confidence: string;
+  reason: string;
+  evidence: string[];
+  components: string[];
+}
+
+export interface OutreachData {
   whatsapp: string;
   emailSubject: string;
   emailBody: string;
   framework: OutreachFramework;
+  opportunity?: OpportunitySummary | null;
+  availableOffers?: Array<{ type: OfferType; title: string; score: number }>;
 }
+
+const OFFER_LABEL: Record<OfferType, string> = {
+  website: 'Website',
+  ai_system: 'AI Automation',
+};
 
 
 function renderWhatsApp(text: string): React.ReactNode {
@@ -72,13 +96,13 @@ function renderWhatsApp(text: string): React.ReactNode {
   });
 }
 
-export default function OutreachModal({ business, onClose }: Props) {
+export default function OutreachModal({ business, onClose, initialData, draftId }: Props) {
   const router = useRouter();
   const { markOutreachSent, incrementToday, updateStage, isSaved, save } = useProspects();
   const handleAIResponse = useHandleAIResponse();
   const [tab, setTab] = useState<Tab>('whatsapp');
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<OutreachData | null>(null);
+  const [data, setData] = useState<OutreachData | null>(initialData ?? null);
   const [error, setError] = useState('');
   const [recipientEmail, setRecipientEmail] = useState(business.email ?? '');
   const [sending, setSending] = useState(false);
@@ -87,6 +111,19 @@ export default function OutreachModal({ business, onClose }: Props) {
   const [findingEmail, setFindingEmail] = useState(false);
   const [emailNotFound, setEmailNotFound] = useState(false);
   const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Detection is a pure function over the business record, so the modal can show
+  // what this business qualifies for before spending an AI call.
+  const detected = useMemo(() => detectOpportunities(business), [business]);
+  const [offer, setOffer] = useState<OfferType | null>(null);
+
+  // The default is what detection suggests. When nothing qualifies we still have
+  // to pick something sensible: pitching a website to a business that already has
+  // one is the one answer that is always wrong.
+  const defaultOffer: OfferType =
+    detected.primary?.type ?? (business.hasWebsite ? 'ai_system' : 'website');
+  const activeOffer: OfferType = offer ?? defaultOffer;
+  const activeOpportunity = detected.all.find((o) => o.type === activeOffer) ?? null;
 
   useEffect(() => () => { if (lockTimer.current) clearTimeout(lockTimer.current); }, []);
 
@@ -135,7 +172,7 @@ export default function OutreachModal({ business, onClose }: Props) {
       const res = await fetch('/api/outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, competitors: business.competitors, timeOfDay: (() => { const h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; })() }),
+        body: JSON.stringify({ business, competitors: business.competitors, offer: activeOffer, timeOfDay: (() => { const h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; })() }),
       });
       const json = await res.json();
       const handled = handleAIResponse(res, json);
@@ -156,6 +193,13 @@ export default function OutreachModal({ business, onClose }: Props) {
     markOutreachSent(business.id, content ?? '', channel, data?.framework);
     updateStage(business.id, 'contacted');
     incrementToday();
+    if (draftId) {
+      fetch(`/api/outreach-drafts/${draftId}/dismiss`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'sent' }),
+      }).catch(() => { /* best-effort — the draft just stays in the queue if this fails */ });
+    }
   };
 
   const sendEmailDirectly = async () => {
@@ -269,13 +313,79 @@ export default function OutreachModal({ business, onClose }: Props) {
                 to sharpen the angle when others have already been here. */}
             <SaturationBadge businessId={business.id} variant="full" />
 
+            {/* What to pitch. Always shown before generating — the user picks the
+                offer rather than discovering it in the finished message. */}
+            <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">
+                What are you pitching?
+              </p>
+
+              <div className="flex gap-2">
+                {(['website', 'ai_system'] as OfferType[]).map((type) => {
+                  const opp = detected.all.find((o) => o.type === type);
+                  const active = type === activeOffer;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => { setOffer(type); setData(null); }}
+                      className={`flex-1 rounded-lg px-3 py-2.5 text-left transition-colors border ${
+                        active
+                          ? 'bg-purple-600/20 border-purple-500/50'
+                          : 'bg-white/5 border-transparent hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                          active ? 'bg-purple-500 border-purple-500' : 'border-gray-600'
+                        }`}>
+                          {active && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+                        </span>
+                        <span className={`text-xs font-semibold ${active ? 'text-white' : 'text-gray-400'}`}>
+                          {OFFER_LABEL[type]}
+                        </span>
+                      </span>
+                      {opp && (
+                        <span className="block mt-1 pl-[22px] text-[10px] text-gray-500 capitalize">
+                          {opp.band} · {opp.confidence} confidence
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Pitching a website to a business that already has one is the one
+                  mistake worth interrupting for. */}
+              {activeOffer === 'website' && business.hasWebsite && (
+                <p className="mt-2.5 flex items-start gap-2 text-xs leading-snug text-gray-300">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+                  <span>This business already has a website. Consider pitching AI automation instead.</span>
+                </p>
+              )}
+
+              {activeOpportunity && (
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <p className="text-sm font-bold text-white">{activeOpportunity.title}</p>
+                  <p className="text-xs text-gray-400 mt-1">{activeOpportunity.reason}</p>
+                  <ul className="mt-2.5 space-y-1">
+                    {activeOpportunity.evidence.slice(0, 4).map((e, i) => (
+                      <li key={i} className="text-[11px] text-gray-500 flex gap-2">
+                        <span className="text-gray-600">•</span>
+                        <span>{e}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
             {/* Generate CTA */}
             {!data && !loading && (
               <div className="text-center py-6">
                 <div className="text-4xl mb-3">✍️</div>
                 <p className="text-gray-300 font-semibold mb-1">Ready to generate</p>
                 <p className="text-gray-500 text-sm mb-5 max-w-xs mx-auto">
-                  AI will write a personalised message for {business.name} — WhatsApp and email.
+                  AI will write a personalised {OFFER_LABEL[activeOffer].toLowerCase()} message for {business.name} — WhatsApp and email.
                 </p>
                 {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
                 <button

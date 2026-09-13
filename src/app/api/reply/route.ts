@@ -3,6 +3,9 @@ import OpenAI from 'openai';
 import { checkAndIncrementAI } from '@/lib/usage';
 import { Business, ReplyType } from '@/types';
 import { getEffectiveProfile } from '@/lib/userProfile';
+import { AGENT_REPLY_CONTEXTS, AGENT_REPLY_SYSTEM, agentFollowupLabel } from '@/lib/outreach/agent-replies';
+import { angleFor } from '@/lib/opportunity/industryAngles';
+import type { OfferType } from '@/lib/opportunity/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -129,6 +132,7 @@ export async function POST(req: NextRequest) {
     ourLastMessage,
     channel = 'whatsapp',
     followupNumber,
+    offer,
   }: {
     business: Business;
     replyType: ReplyType;
@@ -136,7 +140,11 @@ export async function POST(req: NextRequest) {
     ourLastMessage?: string;
     channel?: 'whatsapp' | 'email';
     followupNumber?: number;
+    /** Omitted or 'website' keeps the original website reply behaviour exactly. */
+    offer?: OfferType;
   } = await req.json();
+
+  const isAgent = offer === 'ai_system';
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });
@@ -148,16 +156,20 @@ export async function POST(req: NextRequest) {
   const profile = await getEffectiveProfile();
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const replyContext = REPLY_CONTEXTS[replyType] ?? REPLY_CONTEXTS.custom;
+  const replyContext = isAgent
+    ? AGENT_REPLY_CONTEXTS[replyType] ?? AGENT_REPLY_CONTEXTS.custom
+    : REPLY_CONTEXTS[replyType] ?? REPLY_CONTEXTS.custom;
 
   const isFollowUp = replyType === 'no_reply';
-  const followupLabel = followupNumber
+  const followupLabel = isAgent
+    ? agentFollowupLabel(followupNumber)
+    : followupNumber
     ? followupNumber === 1 ? 'Day 3 follow-up (first nudge)'
     : followupNumber === 2 ? 'Day 7 follow-up (new angle)'
     : 'Day 14 final "breakup" message (last chance — often triggers replies)'
     : 'follow-up';
 
-  const systemPrompt = `You are a world-class sales conversation specialist for Nigerian web developers.
+  const websiteSystemPrompt = `You are a world-class sales conversation specialist for Nigerian web developers.
 
 You write replies that:
 ✅ Feel completely human — not templated, not robotic
@@ -168,12 +180,28 @@ You write replies that:
 ✅ Keep the 2026 digital angle (GEO/AIEO/SEO) available but only use it if it fits naturally
 ✅ Sound like a knowledgeable, patient friend — not a salesperson`;
 
+  const systemPrompt = isAgent ? AGENT_REPLY_SYSTEM : websiteSystemPrompt;
+
+  // Trade knowledge, so the reply speaks in patients and appointments rather than
+  // in features. Only attached for the AI-system offer — the website prompt is
+  // left exactly as it was.
+  const angle = isAgent ? angleFor(business.category, business.categoryTypes) : null;
+  const angleBlock = angle
+    ? `\nTHIS TRADE:
+- How it runs: ${angle.characteristic}
+- Done by hand today: ${angle.manualProcess}
+- What the system would do: ${angle.outcome}
+- The moment enquiries go cold: ${angle.scenario}
+${angle.guardrail ? `- HARD GUARDRAIL, overrides everything else: ${angle.guardrail}` : ''}
+`
+    : '';
+
   const userPrompt = `PROSPECT:
 - Business: ${business.name}
 - Type: ${business.category}
 - Location: ${business.address || 'Nigeria'}
 - Has website: ${business.hasWebsite ? 'Yes' : 'No'}
-
+${angleBlock}
 ${ourLastMessage ? `OUR LAST MESSAGE:\n"${ourLastMessage}"\n` : ''}
 ${theirMessage ? `THEIR REPLY:\n"${theirMessage}"\n` : `SITUATION: ${isFollowUp ? `No reply yet — this is ${followupLabel}` : 'See reply type below'}\n`}
 

@@ -1,3 +1,5 @@
+import type { OfferType } from '@/lib/opportunity/types';
+
 export type Channel = 'whatsapp' | 'email' | 'dm';
 export type ProspectTemperature = 'cold' | 'warm' | 'hot';
 export type PipelineStage =
@@ -49,6 +51,32 @@ export interface ProspectContext {
   stage: PipelineStage;
   channel: Channel;
   intent: OutreachIntent;
+  /** Which offer this message is pitching. Defaults to 'website' so every existing
+   *  caller keeps its current behaviour. */
+  offer?: OfferType;
+  /** Title of the detected opportunity, e.g. "AI Patient Enquiry & Appointment
+   *  System". Gives the message something concrete to name. */
+  solutionTitle?: string;
+  /** The angle detect.ts chose — the message leads with this rather than a
+   *  generic observation. */
+  outreachAngle?: string;
+  /** Observed facts the model is allowed to reference. Anything not in this list
+   *  must not be stated as fact about the business. */
+  evidence?: string[];
+  /** Opt-in A/B variant of the website opener (Scenario A). Omitted means the
+   *  original website pitch, unchanged. */
+  websiteOpener?: 'reputation_first';
+  /** How this trade normally operates. True of the industry, not of this business —
+   *  the composer keeps the two apart deliberately. */
+  industryAngle?: {
+    label: string;
+    primaryAngle: string;
+    characteristic: string;
+    scenario: string;
+    manualProcess: string;
+    outcome: string;
+    guardrail?: string;
+  };
   objectionText?: string;
   rating?: number;
   reviewCount?: number;

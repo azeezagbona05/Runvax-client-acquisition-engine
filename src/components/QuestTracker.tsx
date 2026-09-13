@@ -68,8 +68,9 @@ export default function QuestTracker() {
 
   const dismiss = () => { try { localStorage.setItem('aip_quests_hidden', '1'); } catch { /* */ } setHidden(true); };
 
+  // Anchored left of the assistant launcher, which owns the bottom-right corner.
   return (
-    <div className="hidden sm:block fixed right-4 bottom-4 z-40">
+    <div className="hidden sm:block fixed right-[4.75rem] bottom-4 z-40">
       {celebrated && allDone && <Confetti />}
 
       {open ? (

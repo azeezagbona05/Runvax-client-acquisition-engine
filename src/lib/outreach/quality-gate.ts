@@ -1,4 +1,5 @@
 import type { OutreachOutput, ProspectContext } from './types';
+import { findAiTells } from './humanize';
 
 const CURRENCY_SYMBOLS: Record<string, string[]> = {
   NG: ['₦'],
@@ -38,8 +39,19 @@ function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
+// A bare number is not a price. Review counts and ratings are numbers, and
+// treating them as prices failed the currency check on every message that
+// mentioned "4.5 from 900 reviews". A price needs a currency marker or a
+// money word sitting near the number.
+const CURRENCY_TOKEN = /[₦$£€]|\b(?:ngn|usd|gbp|ghs|kes|zar|ugx|tzs|rwf|cfa|fcfa|naira|dollars?|pounds?|cedis|shillings?|rand)\b/i;
+const MONEY_WORD = /\b(?:costs?|price[sd]?|pricing|fee[s]?|budget|charge[sd]?|quote[sd]?|invoice|deposit|retainer|per month|monthly|upfront)\b/i;
+
 function hasPriceMention(text: string): boolean {
-  return /\d[\d,.]*(k|thousand|hundred|million)?/.test(text.toLowerCase());
+  if (CURRENCY_TOKEN.test(text)) return true;
+  // A money word in the same sentence as a number reads as a price.
+  return text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .some((sentence) => MONEY_WORD.test(sentence) && /\d/.test(sentence));
 }
 
 function correctCurrencyUsed(text: string, country: string): boolean {
@@ -71,6 +83,7 @@ function runChecksOnText(
   channel: string,
   country: string,
   notes: string[],
+  exemptNames: string[],
 ): boolean {
   let pass = true;
   const lower = text.toLowerCase();
@@ -108,6 +121,11 @@ function runChecksOnText(
   // Word count
   if (!checkChannel(text, channel, notes)) pass = false;
 
+  // AI tells are advisory: they are recorded for telemetry but must not flip
+  // `pass`, because a failed gate triggers a second LLM call in generate.ts and
+  // a lexical nitpick does not justify one.
+  notes.push(...findAiTells(text, label, exemptNames));
+
   // CTA question count (only for whatsapp/dm)
   if (channel === 'whatsapp' || channel === 'dm') {
     const questions = (text.match(/\?/g) || []).length;
@@ -127,21 +145,25 @@ function runChecksOnText(
 export function runQualityGate(
   output: OutreachOutput,
   ctx: ProspectContext,
+  senderBusinessName?: string,
 ): { pass: boolean; notes: string[] } {
   const notes: string[] = [];
   let pass = true;
 
+  // Proper nouns the AI-tell detector must ignore — see findAiTells().
+  const exemptNames = [ctx.businessName, senderBusinessName ?? ''];
+
   if (output.whatsapp) {
-    if (!runChecksOnText(output.whatsapp, 'WhatsApp', 'whatsapp', ctx.country, notes)) pass = false;
+    if (!runChecksOnText(output.whatsapp, 'WhatsApp', 'whatsapp', ctx.country, notes, exemptNames)) pass = false;
   }
   if (output.emailBody) {
-    if (!runChecksOnText(output.emailBody, 'Email', 'email', ctx.country, notes)) pass = false;
+    if (!runChecksOnText(output.emailBody, 'Email', 'email', ctx.country, notes, exemptNames)) pass = false;
   }
   if (output.dm) {
-    if (!runChecksOnText(output.dm, 'DM', 'dm', ctx.country, notes)) pass = false;
+    if (!runChecksOnText(output.dm, 'DM', 'dm', ctx.country, notes, exemptNames)) pass = false;
   }
   if (output.message) {
-    if (!runChecksOnText(output.message, 'Message', ctx.channel, ctx.country, notes)) pass = false;
+    if (!runChecksOnText(output.message, 'Message', ctx.channel, ctx.country, notes, exemptNames)) pass = false;
   }
 
   return { pass, notes };

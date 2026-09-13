@@ -410,3 +410,79 @@ Interlinking: chain siblings within pillar, all link to hub, cross-pillar links 
 3. Spot-check interlinks resolve to real slugs (no 404s).
 4. Submit updated sitemap.xml to Google Search Console once deployed.
 5. Update `llms.txt` to reflect the expanded content scope for AI answer engines.
+
+---
+
+## PHASE 5 — AI Client Acquisition for Builders & Developers (2026-09-01 addition)
+
+Rationale: the product now has a second offer (`ai_system` — AI enquiry/booking/automation
+systems, see `src/lib/opportunity/`) alongside the website pitch, but all existing SEO
+positions Runvax as "for web *designers* finding no-website businesses". Three high-intent
+spaces the product serves have zero coverage:
+
+1. **"AI for client acquisition"** — the emerging category head term.
+2. **AI agent / automation-agency owners looking for clients** — rising query, thin SERPs.
+3. **Web *developers*** (broader deliverable than designers) building a pipeline.
+
+**Research findings (live web search, 2026-09-01):**
+- "AI client acquisition tools" results are dominated by SyncGTM (~$99/mo), Clay ($149+/mo),
+  Apollo ($49/mo), ZoomInfo — all **list-enrichment / enterprise B2B**, no local-SMB or
+  no-website angle. Positioning gap: *"they enrich a list you bring; Runvax builds the list
+  and detects the gap."*
+- AI-automation-agency client acquisition: LinkedIn outbound → first meeting 1–2 weeks
+  (15–25 msgs/day); cold email → first reply 3–4 weeks; partnerships 4–8 weeks to establish.
+  "We do AI automation" as a tagline is invisible — buyers act on a **named operational pain**.
+  Fastest-ROI verticals: e-commerce ops, B2B SaaS sales ops, HR/recruitment, support;
+  local services (dental, legal, real estate, hospitality) are slower per deal but far less
+  contested.
+
+### Landing pages (hand-coded routes, `/vs-apollo` pattern — in `src/app/`, sitemap, JSON-LD)
+
+| Route | Primary kw | Type |
+|---|---|---|
+| `/ai-for-client-acquisition` | "AI for client acquisition" | Category-definition + FAQPage |
+| `/for-ai-agent-builders` | "find clients for AI automation agency" | Audience + FAQPage |
+| `/for-web-developers` | "how web developers find clients" | Audience + FAQPage |
+| `/vs-clay` | "Clay alternative" | Comparison + FAQPage |
+
+Cross-linked to each other and from `/vs-apollo`, `/vs-fiverr`, `/vs-upwork` (Related line).
+
+### PILLAR M — AI Client Acquisition for Builders & Developers (12 posts)
+
+All 12 dated 2026-09-01 (honest publish date — this batch was written together; do NOT
+back/forward-date to fake an organic cadence). Chain-interlink siblings, all link the HUB,
+1 cross-pillar link each into Pillar A/B/F/L hubs. Money-page CTAs use absolute
+`https://runvax.com/<page>`.
+
+**Deploy guidance:** drip the 12 posts + 4 pages out over 2–3 weeks via staged deploys
+(real cadence, not fake dates). Do not publish all 16 URLs in one push.
+
+1. **HUB** `ai-for-client-acquisition-guide` — "AI for Client Acquisition: The Complete 2026 Guide" — *AI for client acquisition*
+2. `how-ai-automation-agencies-find-clients` — *how to find clients for AI automation agency*
+3. `how-to-find-clients-for-an-ai-agent-business` — *clients for AI agent business*
+4. `finding-businesses-that-need-ai-automation` — *businesses that need AI automation*
+5. `lead-generation-for-ai-agencies` — *lead generation for AI agency*
+6. `best-ai-client-acquisition-tools-2026` — *best AI client acquisition tools* (Clay/Apollo/SyncGTM/Runvax, honestly placed)
+7. `how-web-developers-find-clients-2026` — *how do web developers find clients*
+8. `cold-outreach-for-ai-automation-agencies` — *cold outreach AI automation agency* (scripts + cadence)
+9. `where-to-find-ai-automation-clients` — *where to find AI automation clients* (11 sources ranked)
+10. `signals-a-local-business-needs-an-ai-agent` — *signs a business needs AI automation* (grounded in `src/lib/opportunity/signals.ts`)
+11. `ai-agency-client-acquisition-playbook` — *AI agency client acquisition* (weekly system)
+12. `web-developer-vs-web-designer-finding-clients` — *web developer vs web designer clients* (bridge into Pillar C)
+
+Deliberately does NOT overlap existing `how-to-find-clients-for-ai-services`,
+`building-an-ai-services-agency-from-scratch`,
+`how-to-pitch-ai-powered-services-to-skeptical-business-owners` — links to them instead.
+
+### Infra changes shipped with this phase
+- `src/lib/seo.ts` — `SITE_DESCRIPTION` rewritten to lead with "AI for client acquisition"
+  and name the three offers (website / booking / AI automation). 160 chars.
+- `src/app/layout.tsx` — 4 head terms added to `keywords` (the meta tag is a non-signal
+  for Google; kept minimal deliberately — do not stuff this array further).
+- `src/app/sitemap.ts` — 4 new routes added.
+- `src/app/llms.txt/route.ts` — intro, "Who Uses Runvax", "Why Runvax vs", "Key Pages",
+  "Blog & Content Library" (12th topic area), "Common Questions" all expanded; count 190+.
+- `content/blog/ai-tools-for-lead-generation-2026.mdx` + `how-to-make-money-with-ai-skills-2026.mdx`
+  — one contextual link each into the new HUB.
+
+**Phase 5 total: 12 new posts + 4 landing pages.**

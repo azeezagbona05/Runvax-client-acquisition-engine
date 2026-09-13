@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createTransporter } from '@/lib/email';
 import { getAppUrl, getAppName } from '@/lib/url';
+import { guardCron } from '@/lib/cron';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 // Called by Vercel Cron daily at 8am WAT (7am UTC)
 // Configure in vercel.json: { "crons": [{ "path": "/api/cron/onboarding-emails", "schedule": "0 7 * * *" }] }
-
-function guardCron(req: NextRequest): boolean {
-  const authHeader = req.headers.get('authorization');
-  return authHeader === `Bearer ${process.env.CRON_SECRET}`;
-}
 
 function day3Html(name: string, appUrl: string, appName: string): string {
   return `

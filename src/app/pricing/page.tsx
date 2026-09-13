@@ -5,7 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Check, Zap, Building2, Sparkles, Loader2, CheckCircle, AlertCircle, ShieldCheck, LucideIcon } from 'lucide-react';
-import { ALL_FEATURES, FeatureId } from '@/lib/features';
+import { ALL_FEATURES, FeatureId, defaultFeaturesFor } from '@/lib/features';
+import { PLAN_DEFAULTS, PlanId } from '@/lib/planDefaults';
 
 // ── Plan config fetched from /api/plans (admin-editable, DB-backed) ──
 interface ApiPlan {
@@ -64,12 +65,29 @@ const FEATURE_BULLET: Record<FeatureId, string> = {
   weaknessAnalysis: 'Website weakness analysis',
 };
 
-// Sensible defaults shown instantly while the live config loads (and if it fails).
-const FALLBACK_PLANS: ApiPlan[] = [
-  { planId: 'free',   name: 'Free',   price: null,      priceNote: 'No credit card needed', searchesPerDay: 5,  resultsPerSearch: 20,   aiCallsPerDay: 15,   maxProspects: 30,   features: [],                 highlight: false },
-  { planId: 'pro',    name: 'Pro',    price: '₦9,999',  priceNote: 'per month',             searchesPerDay: 20, resultsPerSearch: 60,   aiCallsPerDay: 200,  maxProspects: null, features: [...ALL_FEATURES],  highlight: true  },
-  { planId: 'agency', name: 'Agency', price: '₦24,999', priceNote: 'per month',             searchesPerDay: null, resultsPerSearch: null, aiCallsPerDay: null, maxProspects: null, features: [...ALL_FEATURES], highlight: false },
-];
+// Shown instantly while the live config loads (and if it fails). Built from the
+// same PLAN_DEFAULTS the server falls back to, so this list can't drift from the
+// limits actually enforced. /api/plans still wins once it resolves.
+const FALLBACK_PLANS: ApiPlan[] = (['free', 'pro', 'agency'] as PlanId[]).map((planId) => {
+  const d = PLAN_DEFAULTS[planId];
+  return {
+    planId,
+    name: d.name,
+    price: d.price,
+    priceNote: d.priceNote,
+    searchesPerDay:   numOrNull(d.searchesPerDay),
+    resultsPerSearch: numOrNull(d.resultsPerSearch),
+    aiCallsPerDay:    numOrNull(d.aiCallsPerDay),
+    maxProspects:     numOrNull(d.maxProspects),
+    features:         defaultFeaturesFor(planId),
+    highlight:        d.highlight,
+  };
+});
+
+// The API sends null for unlimited; PLAN_DEFAULTS uses Infinity.
+function numOrNull(n: number): number | null {
+  return n === Infinity ? null : n;
+}
 
 function limitBullets(p: ApiPlan): string[] {
   const searches  = p.searchesPerDay   == null ? 'Unlimited searches'         : `${p.searchesPerDay} searches/day`;

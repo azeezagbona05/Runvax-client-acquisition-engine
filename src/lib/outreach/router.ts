@@ -30,6 +30,16 @@ export function selectFrameworks(ctx: ProspectContext): RouterSelection {
   const { intent, channel, hasWebsite, followupStep } = ctx;
 
   if (intent === 'cold_first_touch') {
+    // The AI-system pitch has no "you're missing something" hook to open on, so
+    // it runs problem-agitate-solution off the customer friction instead.
+    if (ctx.offer === 'ai_system') {
+      return {
+        primary: getFramework('pas'),
+        secondary: getFramework('three_line'),
+        principle: 'authority',
+        ctaLevel: 'micro',
+      };
+    }
     if (channel === 'whatsapp' && !hasWebsite) {
       return {
         primary: getFramework('three_line'),

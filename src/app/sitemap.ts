@@ -22,6 +22,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/vs-fiverr`,    lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/vs-upwork`,    lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/vs-apollo`,    lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${SITE_URL}/vs-clay`,      lastModified: new Date('2026-09-01'), changeFrequency: 'monthly', priority: 0.9 },
+
+    // Category & audience pages — AI client acquisition positioning
+    { url: `${SITE_URL}/ai-for-client-acquisition`, lastModified: new Date('2026-09-01'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${SITE_URL}/for-ai-agent-builders`,     lastModified: new Date('2026-09-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${SITE_URL}/for-web-developers`,        lastModified: new Date('2026-09-01'), changeFrequency: 'monthly', priority: 0.8 },
 
     // City landing pages — local SEO
     { url: `${SITE_URL}/web-design-clients-lagos`,        lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.8 },

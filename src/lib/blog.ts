@@ -14,6 +14,8 @@ export interface BlogPost {
   tags: string[];
   readingTime: string;
   content: string;
+  /** True for a post Nova drafted that hasn't been reviewed/merged as final yet. */
+  draft: boolean;
 }
 
 export interface BlogPostMeta extends Omit<BlogPost, 'content'> {}
@@ -33,8 +35,10 @@ export function getAllPosts(): BlogPostMeta[] {
         category: data.category ?? 'Guide',
         tags: data.tags ?? [],
         readingTime: readingTime(content).text,
+        draft: data.draft === true,
       };
     })
+    .filter((post) => !post.draft)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
@@ -43,6 +47,7 @@ export function getPost(slug: string): BlogPost | null {
   if (!fs.existsSync(filePath)) return null;
   const raw = fs.readFileSync(filePath, 'utf8');
   const { data, content } = matter(raw);
+  if (data.draft === true) return null;
   return {
     slug,
     title: data.title,
@@ -52,5 +57,6 @@ export function getPost(slug: string): BlogPost | null {
     tags: data.tags ?? [],
     readingTime: readingTime(content).text,
     content,
+    draft: false,
   };
 }

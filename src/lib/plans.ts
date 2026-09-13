@@ -1,7 +1,8 @@
 import { prisma } from './prisma';
 import { FeatureId, defaultFeaturesFor, resolveFeatures } from './features';
+import { PLAN_DEFAULTS, PlanId } from './planDefaults';
 
-export type PlanId = 'free' | 'pro' | 'agency';
+export type { PlanId };
 
 export interface PlanConfig {
   name: string;
@@ -19,47 +20,12 @@ export interface PlanConfig {
   allowedCountries?: string | null;  // raw JSON string from DB
 }
 
-// Hardcoded defaults — used as fallback when DB row is missing
+// Fallback when the DB row is missing. Limits and prices live in ./planDefaults
+// so the marketing pricing page can share them without importing prisma.
 export const PLANS: Record<PlanId, PlanConfig> = {
-  free: {
-    name: 'Free',
-    price: null,
-    priceNote: 'No credit card needed',
-    aiCallsPerDay: 15,
-    searchesPerDay: 5,
-    resultsPerSearch: 20,
-    maxProspects: 30,
-    features: defaultFeaturesFor('free'),
-    badge: 'FREE',
-    badgeClass: 'bg-gray-700 text-gray-300',
-    highlight: false,
-  },
-  pro: {
-    name: 'Pro',
-    price: '₦9,999',
-    priceNote: 'per month',
-    aiCallsPerDay: 200,
-    searchesPerDay: 20,
-    resultsPerSearch: 40,
-    maxProspects: Infinity,
-    features: defaultFeaturesFor('pro'),
-    badge: 'PRO',
-    badgeClass: 'bg-purple-600 text-white',
-    highlight: true,
-  },
-  agency: {
-    name: 'Agency',
-    price: '₦24,999',
-    priceNote: 'per month',
-    aiCallsPerDay: Infinity,
-    searchesPerDay: Infinity,
-    resultsPerSearch: Infinity,
-    maxProspects: Infinity,
-    features: defaultFeaturesFor('agency'),
-    badge: 'AGENCY',
-    badgeClass: 'bg-orange-500 text-white',
-    highlight: false,
-  },
+  free:   { ...PLAN_DEFAULTS.free,   features: defaultFeaturesFor('free') },
+  pro:    { ...PLAN_DEFAULTS.pro,    features: defaultFeaturesFor('pro') },
+  agency: { ...PLAN_DEFAULTS.agency, features: defaultFeaturesFor('agency') },
 };
 
 // DB stores -1 for unlimited

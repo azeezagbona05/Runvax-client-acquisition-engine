@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "es2020", "module": "commonjs", "moduleResolution": "node",
+    "esModuleInterop": true, "skipLibCheck": true, "strict": false,
+    "outDir": "/private/tmp/claude-501/-Users-user-Documents-ai-prospect-tool/82682bda-89ee-4819-ae23-ff55cb1ed4b2/scratchpad/hout", "rootDir": "./src", "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }, "noEmit": false, "incremental": false
+  },
+  "include": ["src/lib/outreach/humanize.ts"]
+}

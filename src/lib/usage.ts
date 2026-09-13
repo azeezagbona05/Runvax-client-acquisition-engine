@@ -92,6 +92,56 @@ interface UsageCheckResult {
   remaining?: number;
 }
 
+export interface AIUsageResult {
+  ok: boolean;
+  code?: 'SUSPENDED' | 'LIMIT_REACHED';
+  used?: number;
+  limit?: number;
+  remaining?: number;
+}
+
+/**
+ * Req-free core of the AI daily-cap check, so a cron job (no session/request)
+ * can enforce the same per-user quota an interactive request would hit.
+ */
+export async function checkAndIncrementAIForUser(userId: string, userPlan: string): Promise<AIUsageResult> {
+  const planConfig = await getPlanConfig(userPlan);
+  const date = todayStr();
+
+  const [userRecord, record] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { isSuspended: true } }),
+    prisma.usageRecord.findUnique({ where: { userId_date: { userId, date } } }),
+  ]);
+
+  if (userRecord?.isSuspended) {
+    return { ok: false, code: 'SUSPENDED' };
+  }
+
+  if (planConfig.aiCallsPerDay === Infinity) {
+    await prisma.usageRecord.upsert({
+      where: { userId_date: { userId, date } },
+      create: { userId, date, aiCalls: 1 },
+      update: { aiCalls: { increment: 1 } },
+    });
+    return { ok: true };
+  }
+
+  const used = record?.aiCalls ?? 0;
+
+  if (used >= planConfig.aiCallsPerDay) {
+    notifyLimitReachedOnce(userId, date, 'ai');
+    return { ok: false, code: 'LIMIT_REACHED', used, limit: planConfig.aiCallsPerDay };
+  }
+
+  await prisma.usageRecord.upsert({
+    where: { userId_date: { userId, date } },
+    create: { userId, date, aiCalls: 1 },
+    update: { aiCalls: { increment: 1 } },
+  });
+
+  return { ok: true, remaining: planConfig.aiCallsPerDay - used - 1 };
+}
+
 export async function checkAndIncrementAI(req: NextRequest): Promise<UsageCheckResult> {
   const token = await getToken({ req });
   const userId = (token?.id ?? token?.sub) as string | undefined;
@@ -103,59 +153,28 @@ export async function checkAndIncrementAI(req: NextRequest): Promise<UsageCheckR
   }
 
   const userPlan = (token?.plan as string) ?? 'free';
-  const planConfig = await getPlanConfig(userPlan);
-  const date = todayStr();
+  const result = await checkAndIncrementAIForUser(userId, userPlan);
 
-  // Run suspension check and usage lookup in parallel
-  const [userRecord, record] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { isSuspended: true } }),
-    prisma.usageRecord.findUnique({ where: { userId_date: { userId, date } } }),
-  ]);
-
-  if (userRecord?.isSuspended) {
-    return {
-      ok: false,
-      error: NextResponse.json({ error: 'This account has been suspended.', code: 'SUSPENDED' }, { status: 403 }),
-    };
-  }
-
-  if (planConfig.aiCallsPerDay === Infinity) {
-    await prisma.usageRecord.upsert({
-      where: { userId_date: { userId, date } },
-      create: { userId, date, aiCalls: 1 },
-      update: { aiCalls: { increment: 1 } },
-    });
-    return { ok: true, userId, plan: userPlan };
-  }
-
-  const used = record?.aiCalls ?? 0;
-
-  if (used >= planConfig.aiCallsPerDay) {
-    notifyLimitReachedOnce(userId, date, 'ai');
+  if (!result.ok) {
+    if (result.code === 'SUSPENDED') {
+      return {
+        ok: false,
+        error: NextResponse.json({ error: 'This account has been suspended.', code: 'SUSPENDED' }, { status: 403 }),
+      };
+    }
     return {
       ok: false,
       error: NextResponse.json({
         error: 'Daily AI limit reached',
         code: 'LIMIT_REACHED',
         plan: userPlan,
-        used,
-        limit: planConfig.aiCallsPerDay,
+        used: result.used,
+        limit: result.limit,
       }, { status: 402 }),
     };
   }
 
-  await prisma.usageRecord.upsert({
-    where: { userId_date: { userId, date } },
-    create: { userId, date, aiCalls: 1 },
-    update: { aiCalls: { increment: 1 } },
-  });
-
-  return {
-    ok: true,
-    userId,
-    plan: userPlan,
-    remaining: planConfig.aiCallsPerDay - used - 1,
-  };
+  return { ok: true, userId, plan: userPlan, remaining: result.remaining };
 }
 
 export async function getUsageToday(userId: string): Promise<number> {
@@ -176,6 +195,72 @@ export interface SearchCheckResult {
   resultsPerSearch?: number;
 }
 
+export interface SearchUsageResult {
+  ok: boolean;
+  code?: 'SUSPENDED' | 'SEARCH_LIMIT';
+  used?: number;
+  limit?: number;
+  remaining?: number;
+  resultsPerSearch?: number;
+}
+
+/**
+ * Req-free core of the search daily-cap check, so a cron job (no session/request)
+ * can enforce the same per-user quota an interactive request would hit.
+ */
+export async function checkAndIncrementSearchForUser(userId: string, userPlan: string): Promise<SearchUsageResult> {
+  const planConfig = await getPlanConfig(userPlan);
+  const date = todayStr();
+
+  const [userRecord, record] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { searchLimitOverride: true, isSuspended: true },
+    }),
+    prisma.usageRecord.findUnique({ where: { userId_date: { userId, date } } }),
+  ]);
+
+  if (userRecord?.isSuspended) {
+    return { ok: false, code: 'SUSPENDED' };
+  }
+
+  const effectiveLimit = userRecord?.searchLimitOverride != null
+    ? userRecord.searchLimitOverride
+    : planConfig.searchesPerDay;
+
+  if (effectiveLimit === Infinity || effectiveLimit === -1) {
+    await prisma.usageRecord.upsert({
+      where: { userId_date: { userId, date } },
+      create: { userId, date, searchCount: 1 },
+      update: { searchCount: { increment: 1 } },
+    });
+    return { ok: true, resultsPerSearch: planConfig.resultsPerSearch };
+  }
+
+  const used = record?.searchCount ?? 0;
+
+  if (used >= effectiveLimit) {
+    // Skip the upsell email when the cap is an admin-set override, not the
+    // plan's natural limit — upgrading wouldn't lift a manually-restricted account.
+    if (userRecord?.searchLimitOverride == null) notifyLimitReachedOnce(userId, date, 'search');
+    return { ok: false, code: 'SEARCH_LIMIT', used, limit: effectiveLimit };
+  }
+
+  await prisma.usageRecord.upsert({
+    where: { userId_date: { userId, date } },
+    create: { userId, date, searchCount: 1 },
+    update: { searchCount: { increment: 1 } },
+  });
+
+  return {
+    ok: true,
+    used: used + 1,
+    limit: effectiveLimit,
+    remaining: effectiveLimit - used - 1,
+    resultsPerSearch: planConfig.resultsPerSearch,
+  };
+}
+
 export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchCheckResult> {
   const token = await getToken({ req });
   const userId = (token?.id ?? token?.sub) as string | undefined;
@@ -187,69 +272,35 @@ export async function checkAndIncrementSearch(req: NextRequest): Promise<SearchC
   }
 
   const userPlan = (token?.plan as string) ?? 'free';
-  const planConfig = await getPlanConfig(userPlan);
-  const date = todayStr();
+  const result = await checkAndIncrementSearchForUser(userId, userPlan);
 
-  // Run suspension/override check and usage lookup in parallel
-  const [userRecord, record] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { searchLimitOverride: true, isSuspended: true },
-    }),
-    prisma.usageRecord.findUnique({ where: { userId_date: { userId, date } } }),
-  ]);
-
-  if (userRecord?.isSuspended) {
-    return {
-      ok: false,
-      error: NextResponse.json({ error: 'This account has been suspended.', code: 'SUSPENDED' }, { status: 403 }),
-    };
-  }
-  const effectiveLimit = userRecord?.searchLimitOverride != null
-    ? userRecord.searchLimitOverride
-    : planConfig.searchesPerDay;
-
-  if (effectiveLimit === Infinity || effectiveLimit === -1) {
-    await prisma.usageRecord.upsert({
-      where: { userId_date: { userId, date } },
-      create: { userId, date, searchCount: 1 },
-      update: { searchCount: { increment: 1 } },
-    });
-    return { ok: true, userId, plan: userPlan, resultsPerSearch: planConfig.resultsPerSearch };
-  }
-
-  const used = record?.searchCount ?? 0;
-
-  if (used >= effectiveLimit) {
-    // Skip the upsell email when the cap is an admin-set override, not the
-    // plan's natural limit — upgrading wouldn't lift a manually-restricted account.
-    if (userRecord?.searchLimitOverride == null) notifyLimitReachedOnce(userId, date, 'search');
+  if (!result.ok) {
+    if (result.code === 'SUSPENDED') {
+      return {
+        ok: false,
+        error: NextResponse.json({ error: 'This account has been suspended.', code: 'SUSPENDED' }, { status: 403 }),
+      };
+    }
     return {
       ok: false,
       error: NextResponse.json({
         error: `Daily search limit reached. Upgrade for more searches.`,
         code: 'SEARCH_LIMIT',
         plan: userPlan,
-        used,
-        limit: effectiveLimit,
+        used: result.used,
+        limit: result.limit,
       }, { status: 402 }),
     };
   }
-
-  await prisma.usageRecord.upsert({
-    where: { userId_date: { userId, date } },
-    create: { userId, date, searchCount: 1 },
-    update: { searchCount: { increment: 1 } },
-  });
 
   return {
     ok: true,
     userId,
     plan: userPlan,
-    used: used + 1,
-    limit: effectiveLimit,
-    remaining: effectiveLimit - used - 1,
-    resultsPerSearch: planConfig.resultsPerSearch,
+    used: result.used,
+    limit: result.limit,
+    remaining: result.remaining,
+    resultsPerSearch: result.resultsPerSearch,
   };
 }
 

@@ -40,6 +40,8 @@ model User {
   demoSites               DemoSite[]
   webAuthnCredentials     WebAuthnCredential[]
   outreachSignals         OutreachSignal[]
+  agentActivities         AgentActivity[]
+  outreachDrafts          OutreachDraft[]
 }
 
 model WebAuthnCredential {
@@ -110,6 +112,7 @@ model Prospect {
   followUpSequence Json?
   source           String?        // 'manual' | 'auto-prospect'
   conversations    Conversation[]
+  outreachDrafts   OutreachDraft[]
 
   @@unique([userId, businessId])
 }
@@ -148,6 +151,44 @@ model OutreachSignal {
 
   @@unique([businessId, userId])
   @@index([businessId, lastSentAt])
+}
+
+// Feeds the Command Centre activity log — a short, human-readable trace of
+// what each named agent (research/outreach/seo/support) actually did, so the
+// feed only ever shows real, verifiable events rather than decorative copy.
+model AgentActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentKey  String   // research | outreach | seo | support
+  action    String   // e.g. opportunity_flagged, message_sent, content_generated, question_answered
+  title     String   // human-readable one-liner shown in the feed
+  detail    String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// Rex (outreach agent) working 24/7 without ever sending on its own — a
+// message is composed and parked here for a human to review and send. Never
+// written to Conversation/OutreachSignal until a person actually sends it.
+model OutreachDraft {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prospectId        String
+  prospect          Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  channel           String   // whatsapp | email
+  whatsapp          String?  @db.Text
+  emailSubject      String?
+  emailBody         String?  @db.Text
+  framework         String?
+  opportunityTitle  String?
+  opportunityReason String?  @db.Text
+  status            String   @default("pending") // pending | sent | dismissed
+  createdAt         DateTime @default(now())
+
+  @@index([userId, status])
 }
 
 // Point-in-time capture of a business's mutable Places fields.
@@ -235,6 +276,20 @@ model UserSettings {
 
   // Onboarding
   onboardingDone Boolean @default(false)
+
+  // Autonomous prospecting — Ava (research agent) scans on this user's behalf
+  // daily via cron when enabled. Persisted server-side (not just localStorage)
+  // so the cron can see it.
+  autoProspectEnabled       Boolean @default(false)
+  autoProspectIndustry      String?
+  autoProspectLocation      String?
+  autoProspectMinRating     Float   @default(0)
+  autoProspectNoWebsiteOnly Boolean @default(true)
+
+  // Rex (outreach agent) drafts messages for un-contacted prospects daily via
+  // cron when enabled. Off by default — never touches a user's prospects or
+  // AI-call quota until they explicitly opt in, same consent model as Ava above.
+  autoDraftEnabled Boolean @default(false)
 
   // WhatsApp Business API
   waPhoneNumberId  String?
