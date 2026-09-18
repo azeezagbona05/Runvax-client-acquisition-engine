@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 
-export type AgentKey = 'research' | 'outreach' | 'seo' | 'support';
+export type AgentKey = 'research' | 'outreach' | 'seo' | 'support' | 'atlas';
 
 /**
  * Records one real, user-visible thing an agent did, for the Command Centre

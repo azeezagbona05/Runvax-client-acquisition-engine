@@ -6,7 +6,7 @@ import type { AgentKey } from '@/lib/agentActivity';
 
 export const dynamic = 'force-dynamic';
 
-const AGENT_KEYS: AgentKey[] = ['research', 'outreach', 'seo', 'support'];
+const AGENT_KEYS: AgentKey[] = ['research', 'outreach', 'seo', 'support', 'atlas'];
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const weekly: Record<AgentKey, number> = { research: 0, outreach: 0, seo: 0, support: 0 };
+  const weekly: Record<AgentKey, number> = { research: 0, outreach: 0, seo: 0, support: 0, atlas: 0 };
   for (const row of weeklyGrouped) {
     if (AGENT_KEYS.includes(row.agentKey as AgentKey)) {
       weekly[row.agentKey as AgentKey] = row._count._all;

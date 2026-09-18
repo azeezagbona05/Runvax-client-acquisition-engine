@@ -3,12 +3,25 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Bot, Search, Send, TrendingUp, LifeBuoy, Loader2, ChevronDown, ChevronUp, MessageCircle, Mail,
+  Bot, Search, Send, TrendingUp, LifeBuoy, Loader2, ChevronDown, ChevronUp, MessageCircle, Mail, Brain,
 } from 'lucide-react';
 import OutreachModal, { type OutreachData } from '@/components/OutreachModal';
 import type { Business } from '@/types';
 
-type AgentKey = 'research' | 'outreach' | 'seo' | 'support';
+type AgentKey = 'research' | 'outreach' | 'seo' | 'support' | 'atlas';
+
+interface AtlasRecommendation {
+  type: 'reactivate_cold_leads' | 'scan_more_prospects';
+  label: string;
+  detail: string;
+  count: number;
+  done: boolean;
+}
+
+interface AtlasBriefData {
+  summary: string;
+  recommendations: AtlasRecommendation[];
+}
 
 interface Draft {
   id: string;
@@ -45,7 +58,12 @@ const AGENTS: Array<{
   { key: 'outreach', name: 'Rex',  role: 'Outreach',  icon: Send,       border: 'border-green-500/30',  bg: 'bg-green-500/10',  text: 'text-green-400' },
   { key: 'seo',      name: 'Nova', role: 'SEO & Growth', icon: TrendingUp, border: 'border-orange-500/30', bg: 'bg-orange-500/10', text: 'text-orange-400' },
   { key: 'support',  name: 'Zee',  role: 'Support',   icon: LifeBuoy,   border: 'border-cyan-500/30',   bg: 'bg-cyan-500/10',   text: 'text-cyan-400' },
+  { key: 'atlas',    name: 'Atlas', role: 'Orchestrator', icon: Brain,   border: 'border-pink-500/30',   bg: 'bg-pink-500/10',   text: 'text-pink-400' },
 ];
+
+// The 4 peer agents shown in the grid — Atlas is the orchestrator above them,
+// rendered as its own banner, not a grid card.
+const PEER_AGENTS = AGENTS.filter((a) => a.key !== 'atlas');
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -99,11 +117,45 @@ export default function CommandCentrePage() {
   const [error, setError] = useState('');
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [openDraft, setOpenDraft] = useState<Draft | null>(null);
+  const [brief, setBrief] = useState<AtlasBriefData | null>(null);
+  const [actingOn, setActingOn] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState('');
 
   const loadDrafts = () => {
     fetch('/api/outreach-drafts').then((r) => r.json()).then((json) => {
       if (Array.isArray(json.drafts)) setDrafts(json.drafts);
     }).catch(() => { /* */ });
+  };
+
+  const loadBrief = () => {
+    fetch('/api/atlas/brief').then((r) => r.json()).then((json) => {
+      if (json.summary) setBrief(json);
+    }).catch(() => { /* */ });
+  };
+
+  const loadActivity = () => {
+    fetch('/api/agent-activity').then((r) => r.json()).then((json) => setData(json)).catch(() => { /* */ });
+  };
+
+  const act = async (type: AtlasRecommendation['type']) => {
+    setActingOn(type);
+    setActionMsg('');
+    try {
+      const res = await fetch('/api/atlas/act', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      });
+      const json = await res.json() as { ok: boolean; message: string };
+      setActionMsg(json.message);
+      loadBrief();
+      loadDrafts();
+      loadActivity();
+    } catch {
+      setActionMsg('Something went wrong — try again.');
+    } finally {
+      setActingOn(null);
+    }
   };
 
   useEffect(() => {
@@ -121,6 +173,7 @@ export default function CommandCentrePage() {
       }
     })();
     loadDrafts();
+    loadBrief();
     return () => { cancelled = true; };
   }, []);
 
@@ -154,9 +207,48 @@ export default function CommandCentrePage() {
         </div>
       </div>
 
+      {/* Atlas — orchestrator banner, above the peer agents */}
+      {brief && (
+        <div className="mb-6 rounded-2xl border border-pink-500/30 bg-gradient-to-br from-pink-500/10 to-purple-500/5 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-pink-500/15 text-pink-400 flex items-center justify-center flex-shrink-0">
+              <Brain className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-pink-400 mb-1">Atlas · Orchestrator</p>
+              <p className="text-sm text-gray-200 leading-relaxed">{brief.summary}</p>
+
+              {brief.recommendations.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {brief.recommendations.map((rec) => (
+                    <button
+                      key={rec.type}
+                      onClick={() => act(rec.type)}
+                      disabled={rec.done || actingOn === rec.type}
+                      title={rec.detail}
+                      className={`text-xs font-bold px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+                        rec.done
+                          ? 'bg-white/5 text-gray-600 cursor-default'
+                          : 'bg-pink-600/20 border border-pink-500/40 text-pink-300 hover:bg-pink-600/30'
+                      }`}
+                    >
+                      {actingOn === rec.type && <Loader2 className="w-3 h-3 animate-spin" />}
+                      {rec.done ? `✓ ${rec.label}` : `${rec.label} →`}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {actionMsg && (
+                <p className="text-xs text-pink-300 mt-2.5">{actionMsg}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Agent cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {AGENTS.map((agent) => {
+        {PEER_AGENTS.map((agent) => {
           const Icon = agent.icon;
           const count = data?.weekly[agent.key] ?? 0;
           const last = lastActiveFor(agent.key);

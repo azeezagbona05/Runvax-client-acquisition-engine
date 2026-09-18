@@ -42,6 +42,7 @@ model User {
   outreachSignals         OutreachSignal[]
   agentActivities         AgentActivity[]
   outreachDrafts          OutreachDraft[]
+  atlasBriefs             AtlasBrief[]
 }
 
 model WebAuthnCredential {
@@ -160,7 +161,7 @@ model AgentActivity {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agentKey  String   // research | outreach | seo | support
+  agentKey  String   // research | outreach | seo | support | atlas
   action    String   // e.g. opportunity_flagged, message_sent, content_generated, question_answered
   title     String   // human-readable one-liner shown in the feed
   detail    String?  @db.Text
@@ -189,6 +190,22 @@ model OutreachDraft {
   createdAt         DateTime @default(now())
 
   @@index([userId, status])
+}
+
+// ATLAS — the orchestrator. One cached brief per user per day: a rule-based
+// (no LLM call) synthesis of that user's own pipeline + agent activity, plus
+// recommended actions the user can delegate with one click. Regenerating the
+// same day's brief is idempotent (unique on [userId, date]).
+model AtlasBrief {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            String   // YYYY-MM-DD, matches DailyLog/UsageRecord convention
+  summary         String   @db.Text
+  recommendations Json     // [{ type, label, detail, count, done }]
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, date])
 }
 
 // Point-in-time capture of a business's mutable Places fields.
