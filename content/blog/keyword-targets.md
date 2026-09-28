@@ -486,3 +486,126 @@ Deliberately does NOT overlap existing `how-to-find-clients-for-ai-services`,
   — one contextual link each into the new HUB.
 
 **Phase 5 total: 12 new posts + 4 landing pages.**
+
+---
+
+## PHASE 6 — Technical SEO Layer (2026-09-27 addition)
+
+Rationale: Phases 1-5 covered topical authority (content). They did not cover technical
+health — crawlability, indexation, canonical correctness, structured data, internal-link
+graph integrity, Core Web Vitals, or AI-crawler discoverability. A site can have excellent
+content and still lose visibility to orphaned pages, broken canonicals, or crawl waste.
+This phase adds that layer as a **standing audit checklist**, run whenever new content
+ships or on request — not a one-time pass.
+
+### The 22-agent conceptual framework (how to think about technical SEO here)
+
+Organize technical SEO checks into named responsibilities, mapped to a single closed loop:
+`DETECT → PRIORITIZE → EXECUTE → VALIDATE → VERIFY → MONITOR`. The "agents" are checklists,
+not separate running processes — one session runs through them:
+
+1. **Crawlability/Indexability** — robots.txt syntax, sitemap validity, accidental noindex/nofollow, redirect chains, 404/5xx.
+2. **Sitemap** — `src/app/sitemap.ts` stays in sync with actual indexable routes; split into multiple sitemaps only once volume justifies it (not yet — 190ish URLs is fine as one).
+3. **Robots.txt** — never let an automated change block production without a human check first. Any robots.txt edit is a P0-risk change requiring explicit confirmation before deploy.
+4. **Canonical** — every indexable page self-canonicalizes; canonical target must resolve 200, not redirect/404/noindex.
+5. **Metadata** — no missing/duplicate titles or descriptions; titles describe search intent, not generic labels ("Home | Runvax").
+6. **Heading structure** — semantic clarity over rigid one-H1 rules; check for skipped hierarchy or keyword-stuffed headings.
+7. **Internal Link Execution / Orphan Pages** — the highest-value recurring check. Every new post must (a) receive links from 2-3 topically related existing posts and (b) link out to the hub + siblings. Run the orphan check (comm of referenced vs. actual slugs) after every content batch.
+8. **Schema/Structured Data** — Organization/WebSite on layout, Article/BlogPosting on posts, FAQPage only where genuine FAQs exist, BreadcrumbList where useful. Never fabricate ratings, reviews, or authorship.
+9. **JS rendering** — Next.js SSG/SSR pages are crawler-safe by default; spot-check only if a page moves to client-only rendering.
+10. **Core Web Vitals/Performance** — `next.config.js` already has avif/webp, compression, image caching. Don't chase a perfect score; prioritize real UX regressions.
+11. **Mobile parity** — content/metadata/schema must match desktop; nothing hidden mobile-only.
+12. **Image SEO** — descriptive filenames/alt text, modern formats, no oversized images.
+13. **API/app health** — dynamic routes (`/demo/[slug]`, `/blog/[slug]`) must not 500 or silently return empty on bad params.
+14. **Status codes** — classify by severity: important page 5xx = critical, important page 404 = high, redirect chain = medium, old redirect = low. Not every 404 is an emergency.
+15. **Duplicate content** — near-identical programmatic pages (city/industry pages) need genuinely unique data per page, not templated filler.
+16. **AI crawler discoverability** — `robots.txt` already allows GPTBot/ClaudeBot/PerplexityBot/etc.; `llms.txt` is the AI-facing summary — keep it current with new pillars.
+
+Priority tiers for any finding: 🔴 Critical (site down, important page 5xx, robots blocking prod, sitemap broken, sitewide noindex) → 🟠 High (important page unindexed, canonical errors, broken internal links, major duplicate content) → 🟡 Medium (missing metadata, weak internal linking, image optimization) → 🟢 Low (minor metadata polish, image naming).
+
+### 2026-09-27 audit results (first run)
+
+Checked: robots.txt, sitemap.ts coverage, metadataBase/canonical setup, noindex occurrences,
+JSON-LD coverage (15 pages), duplicate titles/descriptions (187 posts), missing frontmatter,
+internal link graph (848 blog-to-blog links + landing-page links).
+
+**Clean:** robots.txt, sitemap coverage, canonical setup, zero accidental noindex, schema
+coverage, zero duplicate metadata, zero broken internal links.
+
+**Found (🟠 High): 11 orphan pages** — zero inbound internal links despite being indexed via
+sitemap, including two load-bearing hub pages (`freelance-web-designer-nigeria-guide`,
+`how-to-get-web-design-clients-uk`). Full list was: `ai-tools-for-web-designers-nigeria-2026`,
+`b2b-lead-generation-strategies-2026`, `build-websites-with-ai-nigeria`,
+`cold-email-templates-web-designers-2025`, `cold-outreach-for-web-designers-what-works-2026`,
+`freelance-web-designer-nigeria-guide`, `how-to-find-web-design-clients-in-ghana`,
+`how-to-find-web-design-clients-in-kenya`, `how-to-find-web-design-clients-in-nigeria`,
+`how-to-get-web-design-clients-uk`, `web-design-course-nigeria-2026`.
+
+**Fixed same session:** added contextual backlinks from topically-related existing posts
+(city guides → country hub, hub → AI-tools/course sub-pages, cold-outreach hub → its two
+missing sub-guides, `lead-generation-for-agencies` → the B2B post, London/Manchester →
+UK hub). Verified zero orphans and zero broken links remain; `npm run build` passed (187
+posts, all routes).
+
+**Not testable without live infra** (no GSC/crawler access in this environment): actual
+indexation counts, Core Web Vitals field data, rendered-vs-raw-HTML diffs, AI-visibility
+question-set tracking. Re-run this checklist manually until those integrations exist.
+
+### 2026-09-27 content-depth finding (thin-content check) — PILLAR M
+
+The thin-content check surfaced a pillar-wide quality problem, not a per-post one. Site word-count
+distribution across 187 posts: min 578, p10 899, **median 1100**, p90 1238, max 1598. **11 of the 12
+PILLAR M (Phase 5) posts sat below the site p10** — the newest and most commercially important pillar
+was also the thinnest content on the site, targeting the hardest SERPs (Clay/Apollo/SyncGTM et al.).
+
+Diagnosis: the Phase 5 batch is **table-shaped**. Structure, answer-first openers and interlinking are
+all good (keep them), but the tables carry the substance and the prose around them doesn't deliver
+enough for a reader to act. Several titles under-delivered on their own promise — "11 Sources, Ranked"
+gave depth on 3 of 11; the playbook's five "fixed decisions" got one line each.
+
+Deepened this session (3 of 4 sub-600w posts), all verified against real sources — no invented stats:
+- `signals-a-local-business-needs-an-ai-agent` 578 → 1422w. Grounded in the actual product code as
+  Phase 5 intended but never did: the strength-gate-before-opportunity-gate rule and the
+  "dormant business looks like a perfect opportunity" trap (`src/lib/opportunity/rank.ts`), the
+  fact-vs-interpretation/evidence-string discipline, the five review-friction complaint clusters, and
+  the `info_gap` → **website not agent** fork (`src/lib/opportunity/signals.ts`). This is genuine
+  first-party E-E-A-T material competitors structurally cannot copy — **prefer this source for future
+  PILLAR M depth over generic research.**
+- `where-to-find-ai-automation-clients` 594 → 1216w. Added a "time to first result" column and
+  mechanics for sources 4–7, using the Phase 5 recorded research (LinkedIn 1–2 wks to first meeting at
+  15–25/day; cold email 3–4 wks to first reply; partnerships 4–8 wks to establish; named-operational-pain
+  positioning; fast-ROI vs less-contested verticals).
+- `ai-agency-client-acquisition-playbook` 599 → 1468w. Added the pain-sentence formula
+  (event + consequence + frequency) with per-vertical examples, the demo-first close mechanics
+  (build against public info, show the handoff boundary), an eight-week ramp table explaining why
+  weeks 1–2 look like failure, and per-metric diagnosis.
+
+**Still thin — next content action:** `web-developer-vs-web-designer-finding-clients` (593w) and the
+600–850w band: `lead-generation-for-ai-agencies` (616), `how-web-developers-find-clients-2026` (621),
+`finding-businesses-that-need-ai-automation` (638), `how-to-find-clients-for-an-ai-agent-business` (670),
+`best-ai-client-acquisition-tools-2026` (702), `cold-outreach-for-ai-automation-agencies` (746),
+`how-ai-automation-agencies-find-clients` (837).
+
+**Process rule going forward:** deepening the newest commercial pillar beats publishing post #188.
+Per the role spec — one article that answers the question better than ten generic ones. Add the
+word-count distribution check to every content-batch QA pass.
+
+**Deferred (not built):** the blog frontmatter/`src/lib/blog.ts` schema has no `updated` field, so a
+substantive content refresh cannot be signalled honestly to crawlers (sitemap `lastModified` uses
+`date`). Publish dates were deliberately left untouched rather than bumped to fake freshness. Adding
+`updated` to the schema + post template + `sitemap.ts` is a worthwhile small follow-up.
+
+### How to re-run this audit
+```
+# orphan/broken-link check
+ls content/blog/*.mdx | xargs -n1 basename | sed 's/\.mdx$//' | sort > actual_slugs.txt
+{ grep -rhoE '/blog/[a-z0-9-]+' content/blog/*.mdx; grep -rhoE '/blog/[a-z0-9-]+' src/app --include="*.tsx" -r; } \
+  | sed 's#/blog/##' | sort -u > referenced_slugs.txt
+comm -23 referenced_slugs.txt actual_slugs.txt   # broken links (should be empty)
+comm -23 actual_slugs.txt referenced_slugs.txt   # orphans (should be empty)
+
+# duplicate metadata check
+grep -h '^title:' content/blog/*.mdx | sort | uniq -d
+grep -h '^description:' content/blog/*.mdx | sort | uniq -d
+```
+Run after every content batch, before considering it "shipped."

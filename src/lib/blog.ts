@@ -10,6 +10,9 @@ export interface BlogPost {
   title: string;
   description: string;
   date: string;
+  /** Set only when a post has been substantively revised after publication. Drives
+   *  dateModified and sitemap lastModified; never used for ordering. */
+  updated?: string;
   category: string;
   tags: string[];
   readingTime: string;
@@ -32,6 +35,7 @@ export function getAllPosts(): BlogPostMeta[] {
         title: data.title,
         description: data.description,
         date: data.date,
+        updated: data.updated ?? undefined,
         category: data.category ?? 'Guide',
         tags: data.tags ?? [],
         readingTime: readingTime(content).text,
@@ -53,6 +57,7 @@ export function getPost(slug: string): BlogPost | null {
     title: data.title,
     description: data.description,
     date: data.date,
+    updated: data.updated ?? undefined,
     category: data.category ?? 'Guide',
     tags: data.tags ?? [],
     readingTime: readingTime(content).text,

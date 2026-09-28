@@ -24,6 +24,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       url: `${SITE_URL}/blog/${post.slug}`, siteName: SITE_NAME,
       type: 'article',
       publishedTime: post.date,
+      ...(post.updated ? { modifiedTime: post.updated } : {}),
       images: [{ url: `${SITE_URL}/og`, width: 1200, height: 630 }],
     },
     twitter: { card: 'summary_large_image', title: post.title, description: post.description, images: [`${SITE_URL}/og`] },
@@ -86,7 +87,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
         headline: post.title,
         description: post.description,
         datePublished: post.date,
-        dateModified: post.date,
+        dateModified: post.updated ?? post.date,
         author: { '@type': 'Organization', name: 'Runvax' },
         publisher: {
           '@type': 'Organization',
@@ -126,6 +127,12 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
               <Clock className="w-3.5 h-3.5" />
               {post.readingTime}
             </span>
+            {post.updated && (
+              <span>
+                Updated{' '}
+                {new Date(post.updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+            )}
           </div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white leading-tight mb-4">
             {post.title}
