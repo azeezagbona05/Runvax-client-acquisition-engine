@@ -63,7 +63,7 @@ const comparisons = [
   },
   {
     feature: 'Pricing',
-    clay: 'Free tier is limited; useful plans from ~$149–$349/month',
+    clay: 'Free tier is limited; paid plans from ~$167–$185/month, metered in credits',
     runvax: '₦9,999/month (~$6 USD). Free plan, no card',
   },
 ];
@@ -83,7 +83,7 @@ const faqs = [
   },
   {
     q: 'Which is cheaper?',
-    a: 'Runvax. It has a free plan with no card, and its paid plan is roughly $6/month. Clay’s useful plans start around $149/month.',
+    a: 'Runvax. It has a free plan with no card, and its paid plan is roughly $6/month. Clay also has a free tier, and its paid plans start around $167–$185/month depending on billing term (checked September 2026).',
   },
 ];
 

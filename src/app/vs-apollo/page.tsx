@@ -47,7 +47,7 @@ const comparisons = [
   },
   {
     feature: 'Pricing',
-    apollo: '$49–$119/month USD minimum for useful features',
+    apollo: '~$49–$119/month per user — priced per seat, so it scales with headcount',
     runvax: '₦9,999/month (~$6 USD). Free plan available.',
   },
   {

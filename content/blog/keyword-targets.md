@@ -580,20 +580,60 @@ Deepened this session (3 of 4 sub-600w posts), all verified against real sources
   (build against public info, show the handoff boundary), an eight-week ramp table explaining why
   weeks 1–2 look like failure, and per-metric diagnosis.
 
-**Still thin — next content action:** `web-developer-vs-web-designer-finding-clients` (593w) and the
-600–850w band: `lead-generation-for-ai-agencies` (616), `how-web-developers-find-clients-2026` (621),
-`finding-businesses-that-need-ai-automation` (638), `how-to-find-clients-for-an-ai-agent-business` (670),
-`best-ai-client-acquisition-tools-2026` (702), `cold-outreach-for-ai-automation-agencies` (746),
-`how-ai-automation-agencies-find-clients` (837).
+**Still thin — next content action** (updated 2026-09-29): `web-developer-vs-web-designer-finding-clients`
+(593w), `lead-generation-for-ai-agencies` (616), `how-web-developers-find-clients-2026` (621),
+`how-to-find-clients-for-an-ai-agent-business` (670), `cold-outreach-for-ai-automation-agencies` (746),
+`how-ai-automation-agencies-find-clients` (837). Done: `signals-…` (1422), `where-to-find-…` (1216),
+`ai-agency-…-playbook` (1468), `best-ai-client-acquisition-tools-2026` (1229),
+`finding-businesses-that-need-ai-automation` (1249).
 
 **Process rule going forward:** deepening the newest commercial pillar beats publishing post #188.
 Per the role spec — one article that answers the question better than ten generic ones. Add the
 word-count distribution check to every content-batch QA pass.
 
-**Deferred (not built):** the blog frontmatter/`src/lib/blog.ts` schema has no `updated` field, so a
-substantive content refresh cannot be signalled honestly to crawlers (sitemap `lastModified` uses
-`date`). Publish dates were deliberately left untouched rather than bumped to fake freshness. Adding
-`updated` to the schema + post template + `sitemap.ts` is a worthwhile small follow-up.
+### 2026-09-29 — citation-freshness finding (NEW standing check)
+
+Deepening `best-ai-client-acquisition-tools-2026` surfaced a problem class the technical checklist
+did not cover: **posts making factual claims about third parties go stale silently, and a comparison
+page is the worst place for that.** Every competitor entry price in that post was wrong:
+
+| Claimed | Actual (verified 2026-09-29) |
+|---|---|
+| Clay ~$149/mo | Starter $149 was **retired for new customers in the March 2026 pricing change** — legacy only. Paid now starts ~$167–185/mo depending on billing term; free tier exists. |
+| Apollo $49/mo | ~$49–59 **per user** per month (annual vs monthly). Per-seat, which the table never flagged. Free-forever Starter tier exists. |
+| SyncGTM ~$99/mo | $99 is the Growth tier, not entry. Entry is ~$44–49/mo. **No** free plan (trial only). |
+
+Note the Clay figure was already stale when Phase 5 recorded it on 2026-09-01 — the change predated
+that research by six months. So this is a sourcing-rigour failure, not just decay.
+
+**Rules adopted:**
+- Verify third-party facts against the **vendor's own page**, not competitor blogs — "Clay alternative"
+  content has an obvious incentive to misstate Clay's pricing.
+- Where a vendor page renders prices client-side (Apollo does), say so and mark those figures
+  approximate rather than implying primary verification. Never cite a URL not actually fetched.
+- Carry a visible "checked <date>" line plus source links on any post quoting third-party prices.
+- Re-verify comparison posts quarterly. Currently in scope: `best-ai-client-acquisition-tools-2026`,
+  `/vs-clay`, `/vs-apollo`, `/vs-fiverr`, `/vs-upwork`, `lead-generation-tools-comparison-2026`,
+  `apollo-io-alternatives`, `hunter-io-alternatives`, `snov-io-vs-hunter-vs-runvax-comparison`,
+  `best-cold-email-tools-2026`, `best-lead-generation-tools-2026`.
+
+**The same stale figures were on the money pages, including inside structured data.** A sweep found
+`/vs-clay` repeating the retired Clay pricing twice — once in the comparison table and once in an
+**FAQPage JSON-LD answer**, which is the copy Google may surface directly as a rich result. Misstating
+a named competitor's price inside schema markup is the worst version of this problem. Both fixed, plus
+`/vs-apollo`, which quoted Apollo's range without flagging that it is **per seat** — materially
+understating cost for any team above one person. A repo-wide grep now shows no retired Clay tiers left.
+**Whenever a price is corrected in a post, grep the landing pages and JSON-LD for the same number.**
+
+Also added to that post: a "**When Runvax Is the Wrong Choice**" section. A comparison that never says
+this reads as an advert; naming the four cases where a competitor is the right answer is both honest
+and better for lead quality.
+
+**Shipped (was deferred):** the `updated` frontmatter field now exists — `src/lib/blog.ts`
+(`updated?: string`), Article `dateModified`, OpenGraph `modifiedTime`, sitemap `lastModified`, and a
+visible "Updated <date>" line on the post. **Deliberately excluded from `getAllPosts()` ordering** so a
+refreshed post cannot jump the blog index. Publish dates are never bumped to fake freshness — set
+`updated` instead, and only for a substantive revision.
 
 ### How to re-run this audit
 ```
