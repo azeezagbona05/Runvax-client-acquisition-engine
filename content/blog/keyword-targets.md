@@ -688,6 +688,31 @@ sitemap URLs, `lastmod` correctly reflecting the new `updated` frontmatter field
 at `/logo-preview.html` and not blocked by robots.txt — thin indexable junk. Low priority; deleting it
 is a judgement call for whoever made it.
 
+### 2026-09-30 — duplicate-content check on the geo pages: PASS
+
+The framework flags programmatic/templated location pages as a thin-content risk, so the 20 geo posts
+(16 `web-design-clients-*`, 3 country guides, 1 UK guide) were measured rather than eyeballed. Script:
+`scratchpad/dupcheck.py` — 6-word shingle Jaccard for pairwise similarity, H2-sequence fingerprints for
+structural templating, plus verbatim-sentence overlap. Run with `python3 scripts/seo-dupcheck.py` from
+the repo root.
+
+| Measure | Result | Read |
+|---|---|---|
+| Distinct H2 structures | **20 of 20** | Zero templating — every post has its own outline |
+| Median pair similarity | **0.3%** | Effectively no overlap |
+| Highest pair | 20.8% (Los Angeles ↔ Vancouver) | Modest, and expected for two North American city guides |
+| Sentences verbatim in 4+ posts | **2** | One is an internal-link line; one is a derived-arithmetic claim |
+
+**Conclusion: these were hand-written, not generated, and carry no duplicate-content risk.** That is
+load-bearing for strategy, not just hygiene — it means the geo-page approach is safe to *extend* to
+more cities. Had it come back templated, adding cities would have been actively harmful. Re-run
+`scripts/seo-dupcheck.py` before any future geo expansion, and treat a median pair similarity above
+~15% or repeated H2 fingerprints as the point to stop.
+
+Minor: *"Four focused searches a week gets you 80 qualified prospects with under an hour of actual
+work"* appears verbatim in 5 posts. It is self-evident arithmetic (4 × 20 results), not a sourced
+statistic, so it was left alone — but it is the kind of line that should vary per post.
+
 ### How to re-run this audit
 ```
 # orphan/broken-link check
