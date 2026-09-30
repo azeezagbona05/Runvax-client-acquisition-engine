@@ -8,41 +8,47 @@ datasource db {
 }
 
 model User {
-  id             String        @id @default(cuid())
-  name           String?
-  email          String?       @unique
-  emailVerified  DateTime?
-  image          String?
-  password       String?
-  plan                    String        @default("free")
-  paystackCustomerCode    String?
+  id                       String                   @id @default(cuid())
+  name                     String?
+  email                    String?                  @unique
+  emailVerified            DateTime?
+  image                    String?
+  password                 String?
+  plan                     String                   @default("free")
+  paystackCustomerCode     String?
   paystackSubscriptionCode String?
-  planExpiresAt           DateTime?
-  searchLimitOverride     Int?          // null = use plan default; set to override daily search limit
-  blockedLocations        String? @db.Text  // JSON string[] of blocked location keywords
-  blockedCountries        String? @db.Text  // JSON string[] of blocked country codes e.g. ["NG","GH"]
-  registrationIp          String?           // IP address captured at signup
-  lastSeenIp              String?           // IP address from most recent sign-in
-  isSuspended             Boolean       @default(false)  // blocks sign-in and API usage when true
-  termsAcceptedAt         DateTime?         // set at registration when user checks the Terms/Privacy consent box
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  accounts       Account[]
-  sessions       Session[]
-  prospects      Prospect[]
-  settings       UserSettings?
-  dailyLogs      DailyLog[]
-  usageRecords        UsageRecord[]
-  searchHistory       SearchHistory[]
-  payments                Payment[]
-  passwordResetTokens     PasswordResetToken[]
-  emailVerificationTokens EmailVerificationToken[]
-  demoSites               DemoSite[]
-  webAuthnCredentials     WebAuthnCredential[]
-  outreachSignals         OutreachSignal[]
-  agentActivities         AgentActivity[]
-  outreachDrafts          OutreachDraft[]
-  atlasBriefs             AtlasBrief[]
+  planExpiresAt            DateTime?
+  expiryReminderSentAt     DateTime? // set when Argus emails a renewal reminder; cleared whenever planExpiresAt is (re)extended
+  searchLimitOverride      Int? // null = use plan default; set to override daily search limit
+  blockedLocations         String?                  @db.Text // JSON string[] of blocked location keywords
+  blockedCountries         String?                  @db.Text // JSON string[] of blocked country codes e.g. ["NG","GH"]
+  registrationIp           String? // IP address captured at signup
+  lastSeenIp               String? // IP address from most recent sign-in
+  lastActiveAt             DateTime? // last time the user actually used the app (touched on sign-in + throttled on every session refresh)
+  isSuspended              Boolean                  @default(false) // blocks sign-in and API usage when true
+  termsAcceptedAt          DateTime? // set at registration when user checks the Terms/Privacy consent box
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  accounts                 Account[]
+  sessions                 Session[]
+  prospects                Prospect[]
+  settings                 UserSettings?
+  dailyLogs                DailyLog[]
+  usageRecords             UsageRecord[]
+  searchHistory            SearchHistory[]
+  payments                 Payment[]
+  passwordResetTokens      PasswordResetToken[]
+  emailVerificationTokens  EmailVerificationToken[]
+  demoSites                DemoSite[]
+  webAuthnCredentials      WebAuthnCredential[]
+  outreachSignals          OutreachSignal[]
+  agentActivities          AgentActivity[]
+  outreachDrafts           OutreachDraft[]
+  atlasBriefs              AtlasBrief[]
+  billingBriefs            BillingBrief[]
+  agentTasks               AgentTask[]
+  campaigns                Campaign[]
+  prospectMemories         ProspectMemory[]
 }
 
 model WebAuthnCredential {
@@ -94,28 +100,30 @@ model VerificationToken {
 }
 
 model Prospect {
-  id             String         @id @default(cuid())
-  userId         String
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  businessId     String
-  businessName   String
-  businessData   Json
-  stage          String         @default("found")
-  notes          String?        @db.Text
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId        String
+  businessName      String
+  businessData      Json
+  stage             String          @default("found")
+  notes             String?         @db.Text
   score             Int?
   estimatedPriceMin Int?
   estimatedPriceMax Int?
-  savedAt           DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  outreachSentAt   DateTime?
-  reminderDate     String?
-  reminderNote     String?
-  followUpSequence Json?
-  source           String?        // 'manual' | 'auto-prospect'
-  conversations    Conversation[]
-  outreachDrafts   OutreachDraft[]
+  savedAt           DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  outreachSentAt    DateTime?
+  reminderDate      String?
+  reminderNote      String?
+  followUpSequence  Json?
+  source            String? // 'manual' | 'auto-prospect' | 'campaign'
+  campaignId        String?
+  conversations     Conversation[]
+  outreachDrafts    OutreachDraft[]
 
   @@unique([userId, businessId])
+  @@index([campaignId])
 }
 
 model Conversation {
@@ -145,7 +153,7 @@ model OutreachSignal {
   businessId  String
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channel     String   // whatsapp | email | dm | call — channel of the most recent send
+  channel     String // whatsapp | email | dm | call — channel of the most recent send
   sendCount   Int      @default(1)
   firstSentAt DateTime @default(now())
   lastSentAt  DateTime @default(now())
@@ -161,9 +169,9 @@ model AgentActivity {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agentKey  String   // research | outreach | seo | support | atlas
-  action    String   // e.g. opportunity_flagged, message_sent, content_generated, question_answered
-  title     String   // human-readable one-liner shown in the feed
+  agentKey  String // research | outreach | seo | support | atlas
+  action    String // e.g. opportunity_flagged, message_sent, content_generated, question_answered
+  title     String // human-readable one-liner shown in the feed
   detail    String?  @db.Text
   createdAt DateTime @default(now())
 
@@ -179,13 +187,14 @@ model OutreachDraft {
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   prospectId        String
   prospect          Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-  channel           String   // whatsapp | email
+  channel           String // whatsapp | email
   whatsapp          String?  @db.Text
   emailSubject      String?
   emailBody         String?  @db.Text
   framework         String?
   opportunityTitle  String?
   opportunityReason String?  @db.Text
+  priorContext      Json? // recalled prospect facts used while composing, for display before send
   status            String   @default("pending") // pending | sent | dismissed
   createdAt         DateTime @default(now())
 
@@ -200,12 +209,53 @@ model AtlasBrief {
   id              String   @id @default(cuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date            String   // YYYY-MM-DD, matches DailyLog/UsageRecord convention
+  date            String // YYYY-MM-DD, matches DailyLog/UsageRecord convention
   summary         String   @db.Text
-  recommendations Json     // [{ type, label, detail, count, done }]
+  recommendations Json // [{ type, label, detail, count, done }]
   createdAt       DateTime @default(now())
 
   @@unique([userId, date])
+}
+
+// MILO — the billing/upsell agent. Same cache-once-per-day pattern as
+// AtlasBrief, but read-only: there is no delegated server-side action here
+// (the only real "action" is paying, which can't be automated), so
+// recommendations render as plain links rather than one-click delegations.
+model BillingBrief {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            String
+  summary         String   @db.Text
+  recommendations Json // [{ type, label, detail, count, href }]
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+// ARGUS — the admin-ops agent. Platform-wide daily brief (no userId: there is
+// no admin-user model, admin-ness is the ADMIN_EMAILS env allowlist), same
+// cache-once-per-day pattern as AtlasBrief. Recommendations are surfaced in
+// the admin dashboard and can be delegated with one click.
+model AdminBrief {
+  id              String   @id @default(cuid())
+  date            String   @unique // YYYY-MM-DD
+  summary         String   @db.Text
+  recommendations Json // [{ type, label, detail, count, done }]
+  createdAt       DateTime @default(now())
+}
+
+// Audit trail for actions an admin delegates to Argus (e.g. batch-sending
+// renewal reminders), so there's a record of who triggered what and when.
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorEmail String // admin who triggered the action
+  action     String // e.g. sent_expiry_reminders
+  title      String
+  detail     String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // Point-in-time capture of a business's mutable Places fields.
@@ -220,7 +270,7 @@ model AtlasBrief {
 model BusinessSnapshot {
   id          String   @id @default(cuid())
   placeId     String
-  date        String   // YYYY-MM-DD — matches the DailyLog / UsageRecord convention
+  date        String // YYYY-MM-DD — matches the DailyLog / UsageRecord convention
   rating      Float?
   reviewCount Int?
   hasWebsite  Boolean  @default(false)
@@ -237,13 +287,13 @@ model BusinessSnapshot {
 model LeadTrigger {
   id           String   @id @default(cuid())
   placeId      String
-  type         String   // new_business | review_surge | rating_drop | website_lost | website_gained
+  type         String // new_business | review_surge | rating_drop | website_lost | website_gained
   businessName String
   category     String?
   city         String?
   country      String   @default("NG")
-  detail       String   @db.Text  // human-readable, e.g. "reviews jumped 12 → 47 in 14 days"
-  strength     String   // hot | warm | negative
+  detail       String   @db.Text // human-readable, e.g. "reviews jumped 12 → 47 in 14 days"
+  strength     String // hot | warm | negative
   detectedAt   DateTime @default(now())
 
   @@unique([placeId, type])
@@ -253,14 +303,14 @@ model LeadTrigger {
 }
 
 model UserSettings {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Prospecting goals
-  dailyGoal    Int      @default(10)
-  avgDealValue Int      @default(300000)
-  closeRatePct Int      @default(10)
+  dailyGoal    Int @default(10)
+  avgDealValue Int @default(300000)
+  closeRatePct Int @default(10)
 
   // Sender identity — used in proposals, email signatures, outreach
   senderName   String?
@@ -273,23 +323,23 @@ model UserSettings {
   website      String?
 
   // Custom SMTP — overrides platform SMTP when filled in
-  smtpHost     String?
-  smtpPort     Int?
-  smtpUser     String?
-  smtpPass     String?  @db.Text
-  smtpFrom     String?
+  smtpHost String?
+  smtpPort Int?
+  smtpUser String?
+  smtpPass String? @db.Text
+  smtpFrom String?
 
   // Bank / payment details — printed in proposals
-  bankName      String?
-  bankAccount   String?
-  bankAcctName  String?
-  paymentLink   String?
+  bankName     String?
+  bankAccount  String?
+  bankAcctName String?
+  paymentLink  String?
 
   // Rate card — JSON blob storing packages, maintenance plans, add-ons, and payment terms
-  rateCard     Json?
+  rateCard Json?
 
   // Portfolio — array of { url, description } website examples
-  portfolio    Json?
+  portfolio Json?
 
   // Onboarding
   onboardingDone Boolean @default(false)
@@ -310,13 +360,13 @@ model UserSettings {
 
   // WhatsApp Business API
   waPhoneNumberId  String?
-  waAccessToken    String?  @db.Text
+  waAccessToken    String? @db.Text
   waTemplateName   String?
   wabaId           String?
   waDisplayPhone   String?
   waTemplateStatus String?
 
-  updatedAt    DateTime @updatedAt
+  updatedAt DateTime @updatedAt
 }
 
 model DailyLog {
@@ -330,19 +380,19 @@ model DailyLog {
 }
 
 model UsageRecord {
-  id                  String @id @default(cuid())
-  userId              String
-  user                User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date                String
-  aiCalls             Int    @default(0)
-  searchCount         Int    @default(0)
+  id                   String  @id @default(cuid())
+  userId               String
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                 String
+  aiCalls              Int     @default(0)
+  searchCount          Int     @default(0)
   // Token tracking for cost calculation
-  openaiInputTokens   Int    @default(0)
-  openaiOutputTokens  Int    @default(0)
-  geminiInputTokens   Int    @default(0)
-  geminiOutputTokens  Int    @default(0)
+  openaiInputTokens    Int     @default(0)
+  openaiOutputTokens   Int     @default(0)
+  geminiInputTokens    Int     @default(0)
+  geminiOutputTokens   Int     @default(0)
   // Google Places API requests (each search can make up to 3 paginated requests)
-  googlePlacesReqs    Int    @default(0)
+  googlePlacesReqs     Int     @default(0)
   // Guards against re-sending the "limit reached — upgrade" email on every
   // subsequent request once a user has already been notified for the day
   searchLimitEmailSent Boolean @default(false)
@@ -365,13 +415,13 @@ model Payment {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }
@@ -453,35 +503,35 @@ model SearchCache {
 // Every business ever returned from Google Places is cached here.
 // Outcome data (contacted, converted, deal values) accumulates across all users anonymously.
 model CachedBusiness {
-  id             String   @id @default(cuid())
-  placeId        String   @unique
-  name           String
-  category       String
-  address        String?
-  city           String?
-  country        String   @default("NG")
-  phone          String?
-  website        String?  @db.Text
-  hasWebsite     Boolean  @default(false)
-  rating         Float?
-  reviewCount    Int?
+  id                 String    @id @default(cuid())
+  placeId            String    @unique
+  name               String
+  category           String
+  address            String?
+  city               String?
+  country            String    @default("NG")
+  phone              String?
+  website            String?   @db.Text
+  hasWebsite         Boolean   @default(false)
+  rating             Float?
+  reviewCount        Int?
   // Rich detail fields — populated on first drawer open, cached for 7 days
-  description      String?   @db.Text
-  openingHours     Json?
-  categoryTypes    Json?
-  reviews          Json?
-  competitors      Json?
+  description        String?   @db.Text
+  openingHours       Json?
+  categoryTypes      Json?
+  reviews            Json?
+  competitors        Json?
   detailsRefreshedAt DateTime?
 
   // Discovered emails — crawled from business website, cached for 30 days
-  discoveredEmails  Json?     // [{email, source, page}]
-  emailsCrawledAt   DateTime?
+  discoveredEmails Json? // [{email, source, page}]
+  emailsCrawledAt  DateTime?
 
   // PageSpeed Insights — mobile + desktop performance scores 0-100, checked on demand
   psiScore        Int?
   psiDesktopScore Int?
   psiDetails      Json?
-  psiScreenshot   String?  @db.MediumText
+  psiScreenshot   String?   @db.MediumText
   psiCheckedAt    DateTime?
 
   // Aggregate outcome data (anonymized, accumulated across all users)
@@ -495,4 +545,70 @@ model CachedBusiness {
   @@index([country, city])
   @@index([category])
   @@index([hasWebsite])
+}
+
+// The hand-off queue between agents. An agent never calls another agent: it
+// finishes, then enqueues the next task (parentTaskId keeps the chain), and a
+// runner claims pending tasks. Gives retries, a per-prospect trail, and one
+// place to see where work is stuck.
+model AgentTask {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String // detect_opportunity | draft_outreach
+  status       String    @default("pending") // pending | running | completed | failed | skipped
+  prospectId   String?
+  parentTaskId String?
+  input        Json?
+  output       Json?
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(3)
+  scheduledAt  DateTime  @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  error        String?   @db.Text
+  createdAt    DateTime  @default(now())
+
+  @@index([status, scheduledAt])
+  @@index([userId, createdAt])
+  @@index([prospectId])
+}
+
+// A standing instruction ("dental clinics in Lagos, 20 a day") that the
+// campaign runner executes daily: import prospects up to dailyCap, then hand
+// each to the agent task queue. Pausing stops imports; it never deletes data.
+model Campaign {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  industry      String
+  location      String
+  noWebsiteOnly Boolean   @default(true)
+  minRating     Float     @default(0)
+  dailyCap      Int       @default(20)
+  status        String    @default("active") // active | paused
+  lastRunAt     DateTime?
+  totalImported Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  @@index([userId, status])
+}
+
+// What the agents have learned about one prospect, kept as short facts with a
+// source and a confidence so any agent (or the user) can see where a claim
+// came from. Append-only; identical facts are not stored twice.
+model ProspectMemory {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prospectId String
+  kind       String // opportunity | reply | note
+  content    String   @db.Text
+  source     String // e.g. ava_detection | reply_analysis
+  confidence String   @default("medium") // low | medium | high
+  createdAt  DateTime @default(now())
+
+  @@index([prospectId, createdAt])
+  @@index([userId])
 }

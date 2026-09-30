@@ -7,6 +7,9 @@ import { rateLimit } from './rateLimiter';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase());
 
+// Minimum gap between lastActiveAt writes for a single session (5 minutes)
+const ACTIVITY_TOUCH_MS = 5 * 60 * 1000;
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt' },
@@ -40,14 +43,17 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) return null;
 
-        // Record the IP from this sign-in (fire-and-forget)
+        // Record the IP + activity timestamp from this sign-in (fire-and-forget)
         const ip =
           (((req as { headers?: Record<string, string> }).headers?.['x-forwarded-for'] ?? '').split(',')[0].trim()) ||
           (req as { headers?: Record<string, string> }).headers?.['x-real-ip'] ||
           null;
-        if (ip) {
-          void prisma.user.update({ where: { id: user.id }, data: { lastSeenIp: ip } }).catch(() => {});
-        }
+        void prisma.user
+          .update({
+            where: { id: user.id },
+            data: { lastActiveAt: new Date(), ...(ip ? { lastSeenIp: ip } : {}) },
+          })
+          .catch(() => {});
 
         const isAdmin = ADMIN_EMAILS.includes((user.email ?? '').toLowerCase());
         return { id: user.id, email: user.email, name: user.name, plan: user.plan, emailVerified: user.emailVerified, isAdmin };
@@ -62,6 +68,7 @@ export const authOptions: NextAuthOptions = {
         token.plan = (user as { plan?: string }).plan ?? 'free';
         token.emailVerified = (user as { emailVerified?: Date | null }).emailVerified ?? null;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
+        token.lastTouch = Date.now();
       } else if (token.id && !token.emailVerified) {
         // Poll DB on every token refresh until the user verifies, so the
         // banner disappears without requiring a sign-out/sign-in cycle.
@@ -71,6 +78,22 @@ export const authOptions: NextAuthOptions = {
         });
         if (dbUser?.emailVerified) token.emailVerified = dbUser.emailVerified;
       }
+
+      // Stamp lastActiveAt so the admin dashboard can show when a user was last
+      // on the platform. This callback runs on every session refresh, so it is
+      // throttled to one write per ACTIVITY_TOUCH_MS per session (the last write
+      // time rides along in the JWT itself — no extra read).
+      if (token.id) {
+        const lastTouch = typeof token.lastTouch === 'number' ? token.lastTouch : 0;
+        const now = Date.now();
+        if (now - lastTouch > ACTIVITY_TOUCH_MS) {
+          token.lastTouch = now;
+          void prisma.user
+            .update({ where: { id: token.id as string }, data: { lastActiveAt: new Date(now) } })
+            .catch(() => {});
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {

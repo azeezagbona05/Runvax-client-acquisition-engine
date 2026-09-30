@@ -78,6 +78,11 @@ export interface ProspectContext {
     guardrail?: string;
   };
   objectionText?: string;
+  /** Recalled facts about this specific prospect — a past reply, an objection,
+   *  a user's own note. Distinct from `evidence`: these came from prior
+   *  interaction, not the business record, so the model may use them for tone
+   *  and continuity but must not present them as facts about the business. */
+  priorContext?: string[];
   rating?: number;
   reviewCount?: number;
   competitorWithSite?: string;

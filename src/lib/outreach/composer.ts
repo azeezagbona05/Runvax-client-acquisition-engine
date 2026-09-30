@@ -269,6 +269,10 @@ If any check fails, rewrite first.`,
     solutionTitle: ctx.solutionTitle ?? null,
     // The complete set of things you may state as fact about this business.
     observedFacts: ctx.evidence?.length ? ctx.evidence : null,
+    // What you already know from prior contact with this specific prospect —
+    // use for tone and continuity (e.g. don't repeat a question they already
+    // answered), never restate as a new observation about the business.
+    priorContext: ctx.priorContext?.length ? ctx.priorContext : null,
     // How this trade normally works. Not a claim about this business.
     businessCharacteristic: ctx.industryAngle?.characteristic ?? null,
     scenario: ctx.industryAngle?.scenario ?? null,

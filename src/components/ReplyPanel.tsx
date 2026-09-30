@@ -72,6 +72,7 @@ export default function ReplyPanel({ business, currentStage, onStageChange }: Pr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           replyText,
+          businessId: business.id,
           businessName: business.name,
           businessCategory: business.category,
           currentStage,

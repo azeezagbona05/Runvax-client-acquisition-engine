@@ -28,6 +28,7 @@ export async function GET(req: Request) {
         blockedCountries: true,
         registrationIp: true,
         lastSeenIp: true,
+        lastActiveAt: true,
         isSuspended: true,
         _count: { select: { prospects: true } },
         searchHistory: {
@@ -105,11 +106,19 @@ export async function GET(req: Request) {
     };
   }
 
+  // lastActiveAt is only written from the point this feature shipped, so for
+  // users who have not signed in since, fall back to their most recent search —
+  // the best pre-existing activity signal we already load here.
+  const usersWithActivity = users.map((u) => ({
+    ...u,
+    lastActiveAt: u.lastActiveAt ?? u.searchHistory[0]?.searchedAt ?? null,
+  }));
+
   const totalRevenue = payments.reduce((s, p) => s + p.amount, 0);
   const byPlan = users.reduce((acc, u) => {
     acc[u.plan] = (acc[u.plan] ?? 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  return NextResponse.json({ users, payments, totalRevenue, byPlan, costByUser, costSince });
+  return NextResponse.json({ users: usersWithActivity, payments, totalRevenue, byPlan, costByUser, costSince });
 }

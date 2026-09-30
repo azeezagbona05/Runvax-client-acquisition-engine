@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { guardCron } from '@/lib/cron';
-import { checkAndIncrementAIForUser } from '@/lib/usage';
-import { composeOutreach } from '@/lib/outreach/compose';
-import { logAgentActivity } from '@/lib/agentActivity';
-import type { Business } from '@/types';
+import { enqueueTask, drainTasks } from '@/lib/tasks/queue';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -31,50 +28,20 @@ export async function GET(req: NextRequest) {
       user: { isSuspended: false, plan: { in: ['pro', 'agency'] }, settings: { autoDraftEnabled: true } },
       outreachDrafts: { none: { status: 'pending' } },
     },
-    include: { user: { select: { id: true, plan: true } } },
+    include: { user: { select: { id: true } } },
     orderBy: { savedAt: 'asc' },
     take: BATCH,
   });
 
-  let drafted = 0;
-  let skipped = 0;
-
+  // Hand-off, not inline work: queue one detect_opportunity task per prospect
+  // and let the runner carry each through detect → draft with retries.
+  let queued = 0;
   for (const prospect of prospects) {
-    try {
-      const usage = await checkAndIncrementAIForUser(prospect.user.id, prospect.user.plan);
-      if (!usage.ok) { skipped++; continue; }
-
-      const business = prospect.businessData as unknown as Business;
-      const result = await composeOutreach({ business, userId: prospect.user.id });
-
-      await prisma.outreachDraft.create({
-        data: {
-          userId: prospect.user.id,
-          prospectId: prospect.id,
-          channel: 'whatsapp',
-          whatsapp: result.whatsapp,
-          emailSubject: result.emailSubject,
-          emailBody: result.emailBody,
-          framework: result.framework,
-          opportunityTitle: result.opportunity?.title,
-          opportunityReason: result.opportunity?.reason,
-          status: 'pending',
-        },
-      });
-
-      await logAgentActivity({
-        userId: prospect.user.id,
-        agentKey: 'outreach',
-        action: 'draft_prepared',
-        title: `Prepared a message for ${prospect.businessName}`,
-      });
-
-      drafted++;
-    } catch (err) {
-      console.error('[/api/cron/prepare-drafts] prospect failed', prospect.id, err);
-      skipped++;
-    }
+    const id = await enqueueTask({ userId: prospect.user.id, type: 'detect_opportunity', prospectId: prospect.id });
+    if (id) queued++;
   }
 
-  return NextResponse.json({ ok: true, scanned: prospects.length, drafted, skipped });
+  const run = await drainTasks(BATCH);
+
+  return NextResponse.json({ ok: true, scanned: prospects.length, queued, ...run });
 }

@@ -3,15 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Bot, Search, Send, TrendingUp, LifeBuoy, Loader2, ChevronDown, ChevronUp, MessageCircle, Mail, Brain,
+  Bot, Search, Send, TrendingUp, LifeBuoy, Loader2, ChevronDown, ChevronUp, MessageCircle, Mail, Brain, CreditCard,
 } from 'lucide-react';
+import CampaignsPanel from '@/components/CampaignsPanel';
 import OutreachModal, { type OutreachData } from '@/components/OutreachModal';
 import type { Business } from '@/types';
 
-type AgentKey = 'research' | 'outreach' | 'seo' | 'support' | 'atlas';
+type AgentKey = 'research' | 'outreach' | 'seo' | 'support' | 'atlas' | 'billing';
 
 interface AtlasRecommendation {
-  type: 'reactivate_cold_leads' | 'scan_more_prospects';
+  type: 'reactivate_cold_leads' | 'scan_more_prospects' | 'follow_up_interested';
   label: string;
   detail: string;
   count: number;
@@ -23,6 +24,19 @@ interface AtlasBriefData {
   recommendations: AtlasRecommendation[];
 }
 
+interface BillingRecommendation {
+  type: 'usage_near_limit' | 'plan_expiring_soon';
+  label: string;
+  detail: string;
+  count: number;
+  href: string;
+}
+
+interface BillingBriefData {
+  summary: string;
+  recommendations: BillingRecommendation[];
+}
+
 interface Draft {
   id: string;
   channel: string;
@@ -32,6 +46,7 @@ interface Draft {
   framework: string | null;
   opportunityTitle: string | null;
   opportunityReason: string | null;
+  priorContext: string[] | null;
   createdAt: string;
   prospect: { id: string; businessName: string; businessData: unknown };
 }
@@ -44,6 +59,34 @@ interface Activity {
   detail: string | null;
   createdAt: string;
 }
+
+interface QueueTask {
+  id: string;
+  type: string;
+  status: 'pending' | 'running' | 'completed' | 'skipped' | 'failed';
+  businessName: string | null;
+  attempts: number;
+  error: string | null;
+  createdAt: string;
+}
+
+interface QueueResponse {
+  counts: Record<string, number>;
+  tasks: QueueTask[];
+}
+
+const TASK_LABEL: Record<string, string> = {
+  detect_opportunity: 'Ava · opportunity check',
+  draft_outreach: 'Rex · draft message',
+};
+
+const TASK_STATUS_STYLE: Record<QueueTask['status'], string> = {
+  pending: 'text-gray-400',
+  running: 'text-blue-400',
+  completed: 'text-green-400',
+  skipped: 'text-gray-500',
+  failed: 'text-red-400',
+};
 
 interface ActivityResponse {
   activities: Activity[];
@@ -58,10 +101,11 @@ const AGENTS: Array<{
   { key: 'outreach', name: 'Rex',  role: 'Outreach',  icon: Send,       border: 'border-green-500/30',  bg: 'bg-green-500/10',  text: 'text-green-400' },
   { key: 'seo',      name: 'Nova', role: 'SEO & Growth', icon: TrendingUp, border: 'border-orange-500/30', bg: 'bg-orange-500/10', text: 'text-orange-400' },
   { key: 'support',  name: 'Zee',  role: 'Support',   icon: LifeBuoy,   border: 'border-cyan-500/30',   bg: 'bg-cyan-500/10',   text: 'text-cyan-400' },
+  { key: 'billing',  name: 'Milo', role: 'Billing',   icon: CreditCard, border: 'border-yellow-500/30',  bg: 'bg-yellow-500/10', text: 'text-yellow-400' },
   { key: 'atlas',    name: 'Atlas', role: 'Orchestrator', icon: Brain,   border: 'border-pink-500/30',   bg: 'bg-pink-500/10',   text: 'text-pink-400' },
 ];
 
-// The 4 peer agents shown in the grid — Atlas is the orchestrator above them,
+// The peer agents shown in the grid — Atlas is the orchestrator above them,
 // rendered as its own banner, not a grid card.
 const PEER_AGENTS = AGENTS.filter((a) => a.key !== 'atlas');
 
@@ -118,6 +162,8 @@ export default function CommandCentrePage() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [openDraft, setOpenDraft] = useState<Draft | null>(null);
   const [brief, setBrief] = useState<AtlasBriefData | null>(null);
+  const [billing, setBilling] = useState<BillingBriefData | null>(null);
+  const [queue, setQueue] = useState<QueueResponse | null>(null);
   const [actingOn, setActingOn] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState('');
 
@@ -130,6 +176,18 @@ export default function CommandCentrePage() {
   const loadBrief = () => {
     fetch('/api/atlas/brief').then((r) => r.json()).then((json) => {
       if (json.summary) setBrief(json);
+    }).catch(() => { /* */ });
+  };
+
+  const loadBilling = () => {
+    fetch('/api/billing/brief').then((r) => r.json()).then((json) => {
+      if (json.summary !== undefined) setBilling(json);
+    }).catch(() => { /* */ });
+  };
+
+  const loadQueue = () => {
+    fetch('/api/agent-tasks').then((r) => r.json()).then((json) => {
+      if (json.counts) setQueue(json);
     }).catch(() => { /* */ });
   };
 
@@ -174,6 +232,8 @@ export default function CommandCentrePage() {
     })();
     loadDrafts();
     loadBrief();
+    loadQueue();
+    loadBilling();
     return () => { cancelled = true; };
   }, []);
 
@@ -246,8 +306,35 @@ export default function CommandCentrePage() {
         </div>
       )}
 
+      {/* Milo — billing nudge, only shown when there's actually something to flag */}
+      {billing && billing.recommendations.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-orange-500/5 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-yellow-500/15 text-yellow-400 flex items-center justify-center flex-shrink-0">
+              <CreditCard className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-yellow-400 mb-1">Milo · Billing</p>
+              <p className="text-sm text-gray-200 leading-relaxed">{billing.summary}</p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {billing.recommendations.map((rec) => (
+                  <a
+                    key={rec.type}
+                    href={rec.href}
+                    title={rec.detail}
+                    className="text-xs font-bold px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1.5 bg-yellow-600/20 border border-yellow-500/40 text-yellow-300 hover:bg-yellow-600/30"
+                  >
+                    {rec.label} →
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Agent cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         {PEER_AGENTS.map((agent) => {
           const Icon = agent.icon;
           const count = data?.weekly[agent.key] ?? 0;
@@ -307,6 +394,35 @@ export default function CommandCentrePage() {
         </div>
       )}
 
+      <CampaignsPanel />
+
+      {/* Work queue — the hand-offs between agents */}
+      {queue && queue.tasks.length > 0 && (
+        <div className="mb-6 bg-gray-800/40 border border-white/8 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Work queue · last 7 days</p>
+            <p className="text-[11px] text-gray-500">
+              {queue.counts.pending + queue.counts.running} queued · {queue.counts.completed} done
+              {queue.counts.failed > 0 && <span className="text-red-400"> · {queue.counts.failed} failed</span>}
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            {queue.tasks.map((t) => (
+              <div key={t.id} className="flex items-baseline gap-2 text-xs">
+                <span className={`w-16 flex-shrink-0 font-semibold ${TASK_STATUS_STYLE[t.status]}`}>{t.status}</span>
+                <span className="text-gray-300 truncate">
+                  {TASK_LABEL[t.type] ?? t.type}{t.businessName ? ` — ${t.businessName}` : ''}
+                </span>
+                {t.error && t.status !== 'completed' && (
+                  <span className="text-gray-600 truncate ml-auto max-w-[40%]" title={t.error}>{t.error}</span>
+                )}
+                <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(t.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Activity feed */}
       {loading && (
         <div className="flex items-center justify-center py-16 text-gray-500">
@@ -350,6 +466,7 @@ export default function CommandCentrePage() {
             emailSubject: openDraft.emailSubject ?? '',
             emailBody: openDraft.emailBody ?? '',
             framework: (openDraft.framework ?? 'PAS') as OutreachData['framework'],
+            priorContext: openDraft.priorContext ?? undefined,
           }}
         />
       )}

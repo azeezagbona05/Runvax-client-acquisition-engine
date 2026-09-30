@@ -233,6 +233,31 @@ export function newUserRegisteredEmailHtml(
   return emailShell(appName, body, `${name} just signed up — you now have ${totalUsers} total users.`);
 }
 
+// ─── Argus — admin ops daily brief digest ──────────────────────────────────
+
+export function adminDailyBriefHtml(
+  summary: string,
+  recommendations: Array<{ label: string; count: number }>,
+  appUrl: string,
+  appName: string,
+): string {
+  const body = `
+    ${iconBadge('🛡️', '#7c3aed')}
+    <h1 style="margin:0 0 16px;font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.6px;">Today's admin brief</h1>
+    <p style="margin:0 0 24px;font-size:16px;color:#475569;line-height:1.7;">${summary}</p>
+    ${recommendations.length > 0 ? `
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 28px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      ${recommendations.map((r, i) => `
+      <tr style="background:${i % 2 === 0 ? 'rgba(124,58,237,0.08)' : '#ffffff'};">
+        <td style="padding:13px 18px;font-size:14px;color:#1e293b;font-weight:600;">${r.label}</td>
+        <td style="padding:13px 18px;font-size:14px;color:#7c3aed;font-weight:700;text-align:right;">${r.count}</td>
+      </tr>`).join('')}
+    </table>` : ''}
+    ${ctaButton('Review in admin', `${appUrl}/admin`)}
+  `;
+  return emailShell(appName, body, summary);
+}
+
 // ─── #1 Payment confirmed ────────────────────────────────────────────────────
 
 export function paymentConfirmationHtml(
@@ -292,6 +317,56 @@ export function paymentFailedHtml(name: string, plan: string, appUrl: string, ap
     ${securityNotice('💳 Common causes: expired card, insufficient funds, or bank declined the transaction. Update your payment method and resubscribe to restore access.')}
   `;
   return emailShell(appName, body, `Your ${planLabel} plan payment failed — you've been moved to the free tier.`);
+}
+
+// ─── #2b Plan expired (natural expiry, not a failed payment) ───────────────
+
+export function planExpiredHtml(name: string, plan: string, appUrl: string, appName: string): string {
+  const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
+  const body = `
+    ${iconBadge('⏰', '#d97706')}
+    <h1 style="margin:0 0 16px;font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.6px;">Your plan has expired</h1>
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;line-height:1.7;">Hi <strong style="color:#1e293b;">${name}</strong>,</p>
+    <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.7;">
+      Your <strong style="color:#d97706;">${planLabel} plan</strong> subscription period has ended. Your account has been moved to the free tier.
+    </p>
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 28px;border:1px solid rgba(217,119,6,0.25);border-radius:14px;overflow:hidden;">
+      <tr style="background:rgba(217,119,6,0.08);">
+        <td style="padding:16px 18px;">
+          <p style="margin:0 0 6px;font-size:14px;color:#b45309;font-weight:700;">What happens now?</p>
+          <p style="margin:0;font-size:13px;color:#475569;line-height:1.6;">Your data is safe. You keep all saved prospects. Pro features (AI outreach, proposals, email blast) are paused until you renew.</p>
+        </td>
+      </tr>
+    </table>
+    ${ctaButton('Renew your plan', `${appUrl}/pricing`)}
+    ${securityNotice('Questions about your subscription? Reply to this email and we\'ll help you out.')}
+  `;
+  return emailShell(appName, body, `Your ${planLabel} plan has expired — you've been moved to the free tier.`);
+}
+
+// ─── #2c Plan expiring soon (renewal reminder, sent ahead of natural expiry) ─
+
+export function planExpiringSoonHtml(name: string, plan: string, expiryDateStr: string, appUrl: string, appName: string): string {
+  const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
+  const body = `
+    ${iconBadge('⏳', '#7c3aed')}
+    <h1 style="margin:0 0 16px;font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.6px;">Your plan expires soon</h1>
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;line-height:1.7;">Hi <strong style="color:#1e293b;">${name}</strong>,</p>
+    <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.7;">
+      Your <strong style="color:#7c3aed;">${planLabel} plan</strong> expires on <strong style="color:#1e293b;">${expiryDateStr}</strong>. Renew before then to keep uninterrupted access.
+    </p>
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 28px;border:1px solid rgba(124,58,237,0.25);border-radius:14px;overflow:hidden;">
+      <tr style="background:rgba(124,58,237,0.08);">
+        <td style="padding:16px 18px;">
+          <p style="margin:0 0 6px;font-size:14px;color:#6d28d9;font-weight:700;">What happens if it lapses?</p>
+          <p style="margin:0;font-size:13px;color:#475569;line-height:1.6;">Your data stays safe, but you'll be moved to the free tier and lose Pro features (AI outreach, proposals, email blast) until you renew.</p>
+        </td>
+      </tr>
+    </table>
+    ${ctaButton('Renew your plan', `${appUrl}/pricing`)}
+    ${securityNotice('Already renewed? You can ignore this — it can take a few minutes to reflect.')}
+  `;
+  return emailShell(appName, body, `Your ${planLabel} plan expires on ${expiryDateStr} — renew to keep access.`);
 }
 
 // ─── #3 WhatsApp template rejected ──────────────────────────────────────────

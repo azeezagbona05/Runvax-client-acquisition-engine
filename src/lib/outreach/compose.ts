@@ -10,6 +10,7 @@ import { angleFor } from '@/lib/opportunity/industryAngles';
 import type { OfferType, Opportunity } from '@/lib/opportunity/types';
 import { prisma } from '@/lib/prisma';
 import { logAgentActivity } from '@/lib/agentActivity';
+import { recall } from '@/lib/prospectMemory';
 
 export type OutreachFramework = 'PAS' | 'AIDA' | 'BAB' | 'STORY' | 'SPIN' | '4PS' | 'HSO' | 'FAB';
 
@@ -62,6 +63,7 @@ function businessToContext(
   chosenOffer: OfferType = 'website',
   opportunity?: Opportunity | null,
   websiteOpener?: 'reputation_first',
+  priorContext?: string[],
 ): ProspectContext {
   const leadScore = scoreProspect(business);
   const country = detectCountry(business.address ?? '');
@@ -98,6 +100,7 @@ function businessToContext(
     // still gets what it needs to write a real message.
     industryAngle: opportunity?.angle
       ?? (chosenOffer === 'ai_system' ? industryAngleFor(business) : undefined),
+    priorContext,
   };
 }
 
@@ -134,6 +137,10 @@ export interface ComposeOutreachResult {
   meta: unknown;
   opportunity: OpportunitySummary | null;
   availableOffers: Array<{ type: OfferType; title: string; score: number }>;
+  /** What was recalled about this specific prospect and used while writing this
+   *  message — surfaced in the review UI so the sender can see what it's
+   *  drawing on before they send it. Undefined when there was nothing to recall. */
+  priorContext?: string[];
 }
 
 /**
@@ -161,6 +168,26 @@ export async function composeOutreach(params: ComposeOutreachParams): Promise<Co
     console.error('[composeOutreach] saturation lookup failed', err);
   }
 
+  // Recall what the agents (or the user) already know about this specific
+  // prospect — a past reply, an objection, a manual note — so a second
+  // message doesn't read like a first one. Best-effort, same as saturation:
+  // a memory failure must never block message generation.
+  let priorContext: string[] | undefined;
+  try {
+    if (userId && business?.id) {
+      const prospect = await prisma.prospect.findUnique({
+        where: { userId_businessId: { userId, businessId: business.id } },
+        select: { id: true },
+      });
+      if (prospect) {
+        const memories = await recall(userId, prospect.id, 5);
+        if (memories.length > 0) priorContext = memories.map((m) => m.content);
+      }
+    }
+  } catch (err) {
+    console.error('[composeOutreach] memory recall failed', err);
+  }
+
   // Detection is deterministic and free, so it runs on every request. It informs
   // the default, but an explicit `offer` from the caller always wins: a website
   // may be offered to a business that did not clear the AI-system bar, and
@@ -181,7 +208,7 @@ export async function composeOutreach(params: ComposeOutreachParams): Promise<Co
     }
   }
 
-  const ctx = businessToContext(business, framework, competitors, timeOfDay, saturation, chosenOffer, opportunity, websiteOpener);
+  const ctx = businessToContext(business, framework, competitors, timeOfDay, saturation, chosenOffer, opportunity, websiteOpener, priorContext);
   const result = await generate(ctx, profile);
 
   return {
@@ -204,5 +231,6 @@ export async function composeOutreach(params: ComposeOutreachParams): Promise<Co
         }
       : null,
     availableOffers: detected.all.map((o) => ({ type: o.type, title: o.title, score: o.score })),
+    priorContext,
   };
 }

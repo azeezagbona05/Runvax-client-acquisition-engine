@@ -7,10 +7,16 @@ export interface AutoProspectCriteria {
   location: string;
   noWebsiteOnly?: boolean;
   minRating?: number;
+  /** Tags imported prospects as belonging to a campaign. */
+  campaignId?: string;
+  /** Import at most this many new prospects. */
+  limit?: number;
 }
 
 export interface AutoProspectResult {
   found: number;
+  /** Ids of the prospects created by this run. */
+  prospectIds: string[];
 }
 
 /**
@@ -20,7 +26,7 @@ export interface AutoProspectResult {
  * both take the exact same path.
  */
 export async function runAutoProspectSearch({
-  userId, industry, location, noWebsiteOnly = true, minRating = 0,
+  userId, industry, location, noWebsiteOnly = true, minRating = 0, campaignId, limit,
 }: AutoProspectCriteria): Promise<AutoProspectResult> {
   const query = `${industry.trim()} in ${location.trim()}`;
   const data = await searchPlaces({ query, radius: 10, maxPages: 1 });
@@ -51,7 +57,7 @@ export async function runAutoProspectSearch({
     return true;
   });
 
-  if (filtered.length === 0) return { found: 0 };
+  if (filtered.length === 0) return { found: 0, prospectIds: [] };
 
   const existingIds = new Set(
     (await prisma.prospect.findMany({
@@ -60,8 +66,8 @@ export async function runAutoProspectSearch({
     })).map((p) => p.businessId),
   );
 
-  const newOnes = filtered.filter((b) => !existingIds.has(b.id));
-  if (newOnes.length === 0) return { found: 0 };
+  const newOnes = filtered.filter((b) => !existingIds.has(b.id)).slice(0, limit ?? Infinity);
+  if (newOnes.length === 0) return { found: 0, prospectIds: [] };
 
   await prisma.prospect.createMany({
     data: newOnes.map((b) => ({
@@ -70,10 +76,16 @@ export async function runAutoProspectSearch({
       businessName: b.name,
       businessData: b as object,
       stage:        'found',
-      source:       'auto-prospect',
+      source:       campaignId ? 'campaign' : 'auto-prospect',
+      campaignId:   campaignId ?? null,
     })),
     skipDuplicates: true,
   });
 
-  return { found: newOnes.length };
+  const created = await prisma.prospect.findMany({
+    where: { userId, businessId: { in: newOnes.map((b) => b.id) } },
+    select: { id: true },
+  });
+
+  return { found: newOnes.length, prospectIds: created.map((p) => p.id) };
 }

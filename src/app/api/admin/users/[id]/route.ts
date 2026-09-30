@@ -16,6 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const body = await req.json() as {
     plan?: string;
+    months?: number;
     searchLimitOverride?: number | null;
     blockedLocations?: string[] | null;
     blockedCountries?: string[] | null;
@@ -29,9 +30,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
     updateData.plan = body.plan;
-    updateData.planExpiresAt = body.plan === 'free'
-      ? null
-      : new Date(Date.now() + 35 * 24 * 60 * 60 * 1000);
+
+    if (body.plan === 'free') {
+      updateData.planExpiresAt = null;
+      updateData.expiryReminderSentAt = null;
+    } else {
+      const months = Number.isFinite(body.months) && (body.months as number) > 0
+        ? Math.floor(body.months as number)
+        : 1; // default: one-month subscription
+      const expiry = new Date();
+      expiry.setMonth(expiry.getMonth() + Math.min(months, 24));
+      updateData.planExpiresAt = expiry;
+      updateData.expiryReminderSentAt = null; // plan was (re)activated — allow future reminders again
+    }
   }
 
   if ('searchLimitOverride' in body) {

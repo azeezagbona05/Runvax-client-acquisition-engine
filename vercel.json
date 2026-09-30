@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/expire-plans",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/cron/onboarding-emails",
       "schedule": "0 7 * * *"
     },
@@ -13,12 +17,24 @@
       "schedule": "0 5 * * *"
     },
     {
+      "path": "/api/cron/run-campaigns",
+      "schedule": "30 5 * * *"
+    },
+    {
       "path": "/api/cron/prepare-drafts",
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/run-tasks",
+      "schedule": "0 */6 * * *"
+    },
+    {
       "path": "/api/cron/generate-post",
       "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/cron/admin-daily-brief",
+      "schedule": "30 8 * * *"
     }
   ]
 }

@@ -20,5 +20,7 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
     plan: string;
+    /** epoch ms of the last lastActiveAt write for this session — throttles the write */
+    lastTouch?: number;
   }
 }

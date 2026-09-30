@@ -5,7 +5,7 @@ import { runAutoProspectSearch } from '@/lib/autoProspect';
 import { logAgentActivity } from '@/lib/agentActivity';
 import type { Business } from '@/types';
 
-export type AtlasRecommendationType = 'reactivate_cold_leads' | 'scan_more_prospects';
+export type AtlasRecommendationType = 'reactivate_cold_leads' | 'scan_more_prospects' | 'follow_up_interested';
 
 export interface AtlasRecommendation {
   type: AtlasRecommendationType;
@@ -22,6 +22,7 @@ export interface AtlasBriefData {
 
 const COLD_DAYS = 14;
 const REACTIVATE_BATCH = 10;
+const FOLLOWUP_STALE_DAYS = 5;
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
@@ -38,17 +39,42 @@ function coldLeadWhere(userId: string) {
 }
 
 /**
+ * Prospects who showed interest (or got a proposal) and then went quiet —
+ * distinct from coldLeadWhere, which only covers never-contacted/first-touch
+ * prospects. A prospect with no logged Conversation at all is left alone:
+ * that isn't "gone quiet," it's just missing a manual log entry.
+ */
+async function staleInterestedProspects(userId: string) {
+  const cutoff = new Date(Date.now() - FOLLOWUP_STALE_DAYS * 24 * 60 * 60 * 1000);
+  const candidates = await prisma.prospect.findMany({
+    where: {
+      userId,
+      stage: { in: ['interested', 'proposal'] },
+      reminderDate: null,
+      outreachDrafts: { none: { status: 'pending' } },
+    },
+    include: { conversations: { orderBy: { createdAt: 'desc' }, take: 1 } },
+    orderBy: { updatedAt: 'asc' },
+    take: 50,
+  });
+  return candidates.filter((p) => p.conversations[0] && p.conversations[0].createdAt < cutoff);
+}
+
+/**
  * Pure, rule-based synthesis over data that already exists — no LLM call, so
  * viewing a brief costs nothing and never touches a user's AI-call quota.
  * Only the delegated actions below spend quota, and only on an explicit click.
  */
 export async function buildBrief(userId: string): Promise<AtlasBriefData> {
-  const [settings, stageGroups, coldCount, pendingDrafts, dailyLog] = await Promise.all([
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [settings, stageGroups, coldCount, pendingDrafts, dailyLog, queuedTasks, failedTasks] = await Promise.all([
     prisma.userSettings.findUnique({ where: { userId } }),
     prisma.prospect.groupBy({ by: ['stage'], where: { userId }, _count: { _all: true } }),
     prisma.prospect.count({ where: coldLeadWhere(userId) }),
     prisma.outreachDraft.count({ where: { userId, status: 'pending' } }),
     prisma.dailyLog.findUnique({ where: { userId_date: { userId, date: todayStr() } } }),
+    prisma.agentTask.count({ where: { userId, status: { in: ['pending', 'running'] } } }),
+    prisma.agentTask.count({ where: { userId, status: 'failed', createdAt: { gte: weekAgo } } }),
   ]);
 
   const stages: Record<string, number> = {};
@@ -71,6 +97,12 @@ export async function buildBrief(userId: string): Promise<AtlasBriefData> {
   if (pendingDrafts > 0) {
     lines.push(`Rex has ${pendingDrafts} draft${pendingDrafts === 1 ? '' : 's'} waiting for your review in Command Centre.`);
   }
+  if (queuedTasks > 0) {
+    lines.push(`${queuedTasks} agent task${queuedTasks === 1 ? ' is' : 's are'} queued and will run on the next cycle.`);
+  }
+  if (failedTasks > 0) {
+    lines.push(`${failedTasks} agent task${failedTasks === 1 ? '' : 's'} failed after retries this week — see the work queue below.`);
+  }
   const todayCount = dailyLog?.count ?? 0;
   if (todayCount < dailyGoal) {
     lines.push(`You're at ${todayCount} of your ${dailyGoal} daily goal so far today.`);
@@ -78,7 +110,18 @@ export async function buildBrief(userId: string): Promise<AtlasBriefData> {
     lines.push(`You've hit your daily goal of ${dailyGoal} already — nice work.`);
   }
 
+  const staleInterested = await staleInterestedProspects(userId);
+
   const recommendations: AtlasRecommendation[] = [];
+  if (staleInterested.length > 0) {
+    recommendations.push({
+      type: 'follow_up_interested',
+      label: `Follow up with ${staleInterested.length} interested lead${staleInterested.length === 1 ? '' : 's'}`,
+      detail: `Have Rex draft a follow-up for ${staleInterested.length} prospect${staleInterested.length === 1 ? '' : 's'} who showed interest but went quiet — nothing sends until you review it.`,
+      count: staleInterested.length,
+      done: false,
+    });
+  }
   if (coldCount > 0) {
     const batch = Math.min(coldCount, REACTIVATE_BATCH);
     recommendations.push({
@@ -129,6 +172,39 @@ export interface DelegateResult {
   message: string;
 }
 
+/** Shared drafting loop for both reactivate_cold_leads and follow_up_interested. */
+async function draftMessagesFor(
+  userId: string,
+  userPlan: string,
+  prospects: Array<{ id: string; businessName: string; businessData: unknown }>,
+  activityAction: string,
+): Promise<number> {
+  let drafted = 0;
+  for (const prospect of prospects) {
+    const usage = await checkAndIncrementAIForUser(userId, userPlan);
+    if (!usage.ok) break;
+
+    const business = prospect.businessData as unknown as Business;
+    const result = await composeOutreach({ business, userId });
+
+    await prisma.outreachDraft.create({
+      data: {
+        userId, prospectId: prospect.id, channel: 'whatsapp',
+        whatsapp: result.whatsapp, emailSubject: result.emailSubject, emailBody: result.emailBody,
+        framework: result.framework, opportunityTitle: result.opportunity?.title,
+        opportunityReason: result.opportunity?.reason, priorContext: result.priorContext ?? undefined,
+        status: 'pending',
+      },
+    });
+    await logAgentActivity({
+      userId, agentKey: 'outreach', action: activityAction,
+      title: `Prepared a message for ${prospect.businessName}`,
+    });
+    drafted++;
+  }
+  return drafted;
+}
+
 /**
  * Executes one recommendation. Reuses the exact same quota-checked functions
  * Ava's and Rex's crons already use — ATLAS never bypasses those limits, it
@@ -145,28 +221,7 @@ export async function runDelegatedAction(userId: string, type: AtlasRecommendati
       take: REACTIVATE_BATCH,
     });
 
-    let drafted = 0;
-    for (const prospect of prospects) {
-      const usage = await checkAndIncrementAIForUser(userId, user.plan);
-      if (!usage.ok) break;
-
-      const business = prospect.businessData as unknown as Business;
-      const result = await composeOutreach({ business, userId });
-
-      await prisma.outreachDraft.create({
-        data: {
-          userId, prospectId: prospect.id, channel: 'whatsapp',
-          whatsapp: result.whatsapp, emailSubject: result.emailSubject, emailBody: result.emailBody,
-          framework: result.framework, opportunityTitle: result.opportunity?.title,
-          opportunityReason: result.opportunity?.reason, status: 'pending',
-        },
-      });
-      await logAgentActivity({
-        userId, agentKey: 'outreach', action: 'draft_prepared',
-        title: `Prepared a message for ${prospect.businessName}`,
-      });
-      drafted++;
-    }
+    const drafted = await draftMessagesFor(userId, user.plan, prospects, 'draft_prepared');
 
     await markRecommendationDone(userId, type);
     if (drafted === 0) return { ok: false, message: 'Daily AI limit reached — try again tomorrow.' };
@@ -175,6 +230,19 @@ export async function runDelegatedAction(userId: string, type: AtlasRecommendati
       title: `Delegated ${drafted} cold lead${drafted === 1 ? '' : 's'} to Rex for drafting`,
     });
     return { ok: true, message: `Rex drafted ${drafted} message${drafted === 1 ? '' : 's'} — review them below.` };
+  }
+
+  if (type === 'follow_up_interested') {
+    const prospects = await staleInterestedProspects(userId);
+    const drafted = await draftMessagesFor(userId, user.plan, prospects, 'follow_up_drafted');
+
+    await markRecommendationDone(userId, type);
+    if (drafted === 0) return { ok: false, message: 'Daily AI limit reached — try again tomorrow.' };
+    await logAgentActivity({
+      userId, agentKey: 'atlas', action: 'delegated',
+      title: `Delegated ${drafted} follow-up${drafted === 1 ? '' : 's'} to Rex for drafting`,
+    });
+    return { ok: true, message: `Rex drafted ${drafted} follow-up${drafted === 1 ? '' : 's'} — review them below.` };
   }
 
   if (type === 'scan_more_prospects') {

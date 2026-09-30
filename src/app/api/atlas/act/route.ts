@@ -5,7 +5,7 @@ import { runDelegatedAction, type AtlasRecommendationType } from '@/lib/atlas';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_TYPES: AtlasRecommendationType[] = ['reactivate_cold_leads', 'scan_more_prospects'];
+const VALID_TYPES: AtlasRecommendationType[] = ['reactivate_cold_leads', 'scan_more_prospects', 'follow_up_interested'];
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);

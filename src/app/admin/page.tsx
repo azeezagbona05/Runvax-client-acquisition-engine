@@ -7,7 +7,7 @@ import {
   Users, CreditCard, TrendingUp, ShieldCheck,
   LogOut, RefreshCw, Search, ChevronDown, SlidersHorizontal, Check,
   Infinity as InfinityIcon, Plus, Trash2, X, AlertTriangle,
-  MapPin, Activity, Ban, Save, ShieldOff, Sun, Moon, Mail,
+  MapPin, Activity, Ban, Save, ShieldOff, Sun, Moon, Mail, Loader2, ShieldAlert,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
@@ -28,6 +28,7 @@ interface AdminUser {
   blockedCountries: string | null;
   registrationIp: string | null;
   lastSeenIp: string | null;
+  lastActiveAt: string | null;
   isSuspended: boolean;
   searchHistory: SearchActivity[];
   _count: { prospects: number };
@@ -71,6 +72,29 @@ const PLAN_BADGE: Record<string, string> = {
 const PLAN_OPTIONS = ['free', 'pro', 'agency'] as const;
 type Plan = typeof PLAN_OPTIONS[number];
 
+// "Last active" — short relative label, plus the exact timestamp on hover.
+function lastActiveLabel(iso: string | null): { text: string; tone: string; title: string } {
+  if (!iso) return { text: 'Never', tone: 'text-gray-600', title: 'No recorded activity' };
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return { text: 'Never', tone: 'text-gray-600', title: 'No recorded activity' };
+
+  const mins = Math.floor((Date.now() - then) / 60000);
+  const title = new Date(iso).toLocaleString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  let text: string;
+  if (mins < 1)        text = 'Just now';
+  else if (mins < 60)  text = `${mins}m ago`;
+  else if (mins < 1440) text = `${Math.floor(mins / 60)}h ago`;
+  else if (mins < 43200) text = `${Math.floor(mins / 1440)}d ago`;
+  else                 text = `${Math.floor(mins / 43200)}mo ago`;
+
+  // Green = active today, amber = this week, grey = gone cold
+  const tone = mins < 1440 ? 'text-green-400' : mins < 10080 ? 'text-amber-400' : 'text-gray-500';
+  return { text, tone, title };
+}
+
 interface PlanRow {
   planId: string;
   name: string;
@@ -112,6 +136,101 @@ function FeatureToggles({ value, onChange }: { value: FeatureId[]; onChange: (v:
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+interface AdminOpsRecommendation {
+  type: string; label: string; detail: string; count: number; done: boolean;
+  meta?: { userIds: string[] };
+}
+interface AdminOpsBriefData {
+  summary: string;
+  recommendations: AdminOpsRecommendation[];
+}
+
+// ARGUS — admin-ops agent banner. Self-contained: fetches its own brief and
+// posts its own delegated actions, same pattern as the Atlas banner in
+// Command Centre, scoped to platform ops instead of one user's pipeline.
+// review_flagged_signups is the one exception: it's client-side only (no
+// server action — Argus never suspends anyone by itself), so it's routed to
+// onReviewFlagged instead of the act endpoint.
+function AdminOpsPanel({ onReviewFlagged }: { onReviewFlagged: (userIds: string[]) => void }) {
+  const [brief, setBrief] = useState<AdminOpsBriefData | null>(null);
+  const [actingOn, setActingOn] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState('');
+
+  const loadBrief = useCallback(() => {
+    fetch('/api/admin/ops/brief')
+      .then((r) => r.json())
+      .then((json) => { if (json.summary) setBrief(json); })
+      .catch(() => { /* silent — informational panel only */ });
+  }, []);
+
+  useEffect(() => { loadBrief(); }, [loadBrief]);
+
+  const act = async (type: string) => {
+    setActingOn(type);
+    setActionMsg('');
+    try {
+      const res = await fetch('/api/admin/ops/act', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      });
+      const json = await res.json() as { ok: boolean; message: string };
+      setActionMsg(json.message);
+      loadBrief();
+    } catch {
+      setActionMsg('Something went wrong — try again.');
+    } finally {
+      setActingOn(null);
+    }
+  };
+
+  const handleClick = (rec: AdminOpsRecommendation) => {
+    if (rec.type === 'review_flagged_signups') {
+      onReviewFlagged(rec.meta?.userIds ?? []);
+      return;
+    }
+    act(rec.type);
+  };
+
+  if (!brief) return null;
+
+  return (
+    <div className="rounded-2xl border border-pink-500/30 bg-gradient-to-br from-pink-500/10 to-purple-500/5 p-4 sm:p-5">
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl bg-pink-500/15 text-pink-400 flex items-center justify-center flex-shrink-0">
+          <ShieldAlert className="w-5 h-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-pink-400 mb-1">Argus · Admin Ops</p>
+          <p className="text-sm text-gray-300 leading-relaxed">{brief.summary}</p>
+
+          {brief.recommendations.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {brief.recommendations.map((rec) => (
+                <button
+                  key={rec.type}
+                  onClick={() => handleClick(rec)}
+                  disabled={rec.done || actingOn === rec.type}
+                  title={rec.detail}
+                  className={`text-xs font-bold px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+                    rec.done
+                      ? 'bg-white/5 text-gray-600 cursor-default'
+                      : 'bg-pink-600/20 border border-pink-500/40 text-pink-300 hover:bg-pink-600/30'
+                  }`}
+                >
+                  {actingOn === rec.type && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {rec.done ? `✓ ${rec.label}` : `${rec.label} →`}
+                </button>
+              ))}
+            </div>
+          )}
+          {actionMsg && <p className="text-xs text-pink-300 mt-2.5">{actionMsg}</p>}
+        </div>
       </div>
     </div>
   );
@@ -768,6 +887,8 @@ export default function AdminPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [resendResult, setResendResult] = useState<string | null>(null);
+  const [bulkSuspending, setBulkSuspending] = useState(false);
+  const [confirmBulkSuspend, setConfirmBulkSuspend] = useState(false);
 
   // API Costs filter state
   const [costsSearch, setCostsSearch]     = useState('');
@@ -800,6 +921,8 @@ export default function AdminPage() {
 
   // Inline plan-change state: userId → loading
   const [planChanging, setPlanChanging] = useState<Record<string, boolean>>({});
+  // Inline plan-change state: userId → months to activate for (default 1 month)
+  const [planMonths, setPlanMonths] = useState<Record<string, number>>({});
   // Expanded user rows for restrictions panel
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
@@ -843,18 +966,20 @@ export default function AdminPage() {
   const handlePlanChange = async (userId: string, newPlan: Plan) => {
     setPlanChanging((p) => ({ ...p, [userId]: true }));
     try {
+      const months = planMonths[userId] ?? 1;
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: newPlan }),
+        body: JSON.stringify({ plan: newPlan, months }),
       });
       if (res.ok) {
+        const updated = await res.json() as { planExpiresAt: string | null };
         setStats((prev) => {
           if (!prev) return prev;
           return {
             ...prev,
             users: prev.users.map((u) =>
-              u.id === userId ? { ...u, plan: newPlan } : u
+              u.id === userId ? { ...u, plan: newPlan, planExpiresAt: updated.planExpiresAt } : u
             ),
             byPlan: prev.users.reduce((acc, u) => {
               const p = u.id === userId ? newPlan : u.plan;
@@ -907,6 +1032,31 @@ export default function AdminPage() {
       }
     } finally {
       setBulkDeleting(false);
+    }
+  };
+
+  // ── Bulk suspend selected users ──────────────────────────────────────────
+  const handleBulkSuspend = async () => {
+    const ids = Array.from(selectedUsers);
+    if (ids.length === 0) return;
+    setBulkSuspending(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, isSuspended: true }),
+      });
+      if (res.ok) {
+        const idSet = new Set(ids);
+        setStats((prev) => prev ? {
+          ...prev,
+          users: prev.users.map((u) => idSet.has(u.id) ? { ...u, isSuspended: true } : u),
+        } : prev);
+        setSelectedUsers(new Set());
+        setConfirmBulkSuspend(false);
+      }
+    } finally {
+      setBulkSuspending(false);
     }
   };
 
@@ -1082,6 +1232,13 @@ export default function AdminPage() {
           </button>
         </div>
 
+        {/* Argus — admin ops banner */}
+        <AdminOpsPanel onReviewFlagged={(ids) => {
+          setTab('users');
+          setPlanFilter('suspicious');
+          setSelectedUsers(new Set(ids));
+        }} />
+
         {/* Summary stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-gray-900 border border-white/10 rounded-2xl p-5">
@@ -1218,6 +1375,25 @@ export default function AdminPage() {
                         Cancel
                       </button>
                     </>
+                  ) : confirmBulkSuspend ? (
+                    <>
+                      <span className="text-xs text-orange-300 hidden sm:inline">Suspend these users?</span>
+                      <button
+                        onClick={handleBulkSuspend}
+                        disabled={bulkSuspending}
+                        className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-60 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+                      >
+                        {bulkSuspending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
+                        {bulkSuspending ? 'Suspending…' : 'Confirm Suspend'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmBulkSuspend(false)}
+                        disabled={bulkSuspending}
+                        className="px-3 py-2 text-xs font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button
@@ -1237,6 +1413,12 @@ export default function AdminPage() {
                       >
                         {resendingVerification ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
                         {resendingVerification ? 'Sending…' : `Resend Verification${selectedUnverifiedCount > 0 ? ` (${selectedUnverifiedCount})` : ''}`}
+                      </button>
+                      <button
+                        onClick={() => setConfirmBulkSuspend(true)}
+                        className="flex items-center gap-1.5 bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/30 text-orange-300 text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+                      >
+                        <Ban className="w-3.5 h-3.5" /> Suspend Selected
                       </button>
                       <button
                         onClick={() => setConfirmBulkDelete(true)}
@@ -1269,6 +1451,7 @@ export default function AdminPage() {
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Prospects</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Verified</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Joined</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Last Active</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Expires</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Change Plan</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-widest">Activity</th>
@@ -1327,27 +1510,49 @@ export default function AdminPage() {
                             <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
                               {new Date(u.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                             </td>
+                            <td className="px-4 py-3 text-xs whitespace-nowrap">
+                              {(() => {
+                                const la = lastActiveLabel(u.lastActiveAt);
+                                return <span className={`font-semibold ${la.tone}`} title={la.title}>{la.text}</span>;
+                              })()}
+                            </td>
                             <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
                               {u.planExpiresAt
                                 ? new Date(u.planExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
                                 : '—'}
                             </td>
                             <td className="px-4 py-3">
-                              <div className="relative">
-                                <select
-                                  value={u.plan}
-                                  disabled={planChanging[u.id]}
-                                  onChange={(e) => handlePlanChange(u.id, e.target.value as Plan)}
-                                  className="appearance-none text-xs font-bold bg-gray-800 border border-white/10 text-white rounded-lg pl-3 pr-7 py-1.5 focus:outline-none focus:border-purple-500/50 disabled:opacity-50 cursor-pointer hover:border-white/25 transition-colors"
-                                >
-                                  {PLAN_OPTIONS.map((p) => (
-                                    <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-                                  ))}
-                                </select>
-                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
-                                {planChanging[u.id] && (
-                                  <RefreshCw className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-purple-400 animate-spin" />
-                                )}
+                              <div className="flex items-center gap-1.5">
+                                <div className="relative">
+                                  <select
+                                    value={planMonths[u.id] ?? 1}
+                                    disabled={planChanging[u.id]}
+                                    onChange={(e) => setPlanMonths((p) => ({ ...p, [u.id]: Number(e.target.value) }))}
+                                    title="Months to activate for"
+                                    className="appearance-none text-xs font-bold bg-gray-800 border border-white/10 text-white rounded-lg pl-2 pr-6 py-1.5 focus:outline-none focus:border-purple-500/50 disabled:opacity-50 cursor-pointer hover:border-white/25 transition-colors"
+                                  >
+                                    {[1, 2, 3, 6, 12].map((m) => (
+                                      <option key={m} value={m}>{m}mo</option>
+                                    ))}
+                                  </select>
+                                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
+                                </div>
+                                <div className="relative">
+                                  <select
+                                    value={u.plan}
+                                    disabled={planChanging[u.id]}
+                                    onChange={(e) => handlePlanChange(u.id, e.target.value as Plan)}
+                                    className="appearance-none text-xs font-bold bg-gray-800 border border-white/10 text-white rounded-lg pl-3 pr-7 py-1.5 focus:outline-none focus:border-purple-500/50 disabled:opacity-50 cursor-pointer hover:border-white/25 transition-colors"
+                                  >
+                                    {PLAN_OPTIONS.map((p) => (
+                                      <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                                    ))}
+                                  </select>
+                                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
+                                  {planChanging[u.id] && (
+                                    <RefreshCw className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-purple-400 animate-spin" />
+                                  )}
+                                </div>
                               </div>
                             </td>
                             <td className="px-4 py-3">
@@ -1397,7 +1602,7 @@ export default function AdminPage() {
                           </tr>
                           {isExpanded && (
                             <tr key={`${u.id}-expand`} className="border-b border-white/5">
-                              <td colSpan={10} className="p-0">
+                              <td colSpan={11} className="p-0">
                                 <UserRestrictionsPanel
                                   user={u}
                                   duplicateIp={isDupIp}
@@ -1421,7 +1626,7 @@ export default function AdminPage() {
                     })}
                     {filteredUsers.length === 0 && (
                       <tr>
-                        <td colSpan={10} className="px-4 py-10 text-center text-gray-600 text-sm">
+                        <td colSpan={11} className="px-4 py-10 text-center text-gray-600 text-sm">
                           {search || planFilter !== 'all' ? 'No users match your filters' : 'No users yet'}
                         </td>
                       </tr>

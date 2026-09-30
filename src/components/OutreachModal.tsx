@@ -42,6 +42,8 @@ export interface OutreachData {
   framework: OutreachFramework;
   opportunity?: OpportunitySummary | null;
   availableOffers?: Array<{ type: OfferType; title: string; score: number }>;
+  /** What Rex recalled about this prospect and used while writing this message. */
+  priorContext?: string[];
 }
 
 const OFFER_LABEL: Record<OfferType, string> = {
@@ -312,6 +314,25 @@ export default function OutreachModal({ business, onClose, initialData, draftId 
                 can decide whether this lead is worth a message at all, and knows
                 to sharpen the angle when others have already been here. */}
             <SaturationBadge businessId={business.id} variant="full" />
+
+            {/* What the message drew on from prior contact with this prospect —
+                a past reply, an objection, a note. Shown so the sender can check
+                it before sending, not just trust it. */}
+            {data?.priorContext && data.priorContext.length > 0 && (
+              <div className="mb-4 rounded-xl border border-purple-500/20 bg-purple-500/[0.04] p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-purple-400 mb-2">
+                  What Rex remembers about this prospect
+                </p>
+                <ul className="space-y-1.5">
+                  {data.priorContext.map((fact, i) => (
+                    <li key={i} className="text-sm text-gray-300 leading-snug flex gap-2">
+                      <span className="text-purple-500 flex-shrink-0">•</span>
+                      <span>{fact}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* What to pitch. Always shown before generating — the user picks the
                 offer rather than discovering it in the finished message. */}

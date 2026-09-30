@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { getToken } from 'next-auth/jwt';
 import { checkAndIncrementAI } from '@/lib/usage';
+import { prisma } from '@/lib/prisma';
+import { remember } from '@/lib/prospectMemory';
 import type { ProspectStage } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +20,8 @@ export interface ReplyAnalysis {
 
 export async function POST(req: NextRequest) {
   try {
-    const { replyText, businessName, businessCategory, currentStage } = await req.json() as {
+    const { replyText, businessName, businessCategory, currentStage, businessId } = await req.json() as {
+      businessId?: string;
       replyText: string;
       businessName: string;
       businessCategory?: string;
@@ -77,6 +81,31 @@ Stage mapping guide:
     });
 
     const result = JSON.parse(completion.choices[0]?.message?.content ?? '{}') as ReplyAnalysis;
+
+    // Best-effort: analysis must never fail because memory couldn't be written.
+    try {
+      const token = await getToken({ req });
+      const userId = (token?.id ?? token?.sub) as string | undefined;
+      if (userId && businessId && result.summary) {
+        const prospect = await prisma.prospect.findUnique({
+          where: { userId_businessId: { userId, businessId } },
+          select: { id: true },
+        });
+        if (prospect) {
+          await remember({
+            userId,
+            prospectId: prospect.id,
+            kind: 'reply',
+            content: `Replied (${result.intent}, ${result.sentiment}): ${result.summary}`,
+            source: 'reply_analysis',
+            confidence: 'medium',
+          });
+        }
+      }
+    } catch (memErr) {
+      console.error('[/api/reply-intelligence] memory write failed', memErr);
+    }
+
     return NextResponse.json({ result });
 
   } catch (err: unknown) {

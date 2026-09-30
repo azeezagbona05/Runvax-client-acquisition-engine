@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
         paystackSubscriptionCode: tx.subscription?.subscription_code ?? null,
         // Plan active for 35 days (5 day buffer on monthly)
         planExpiresAt: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000),
+        expiryReminderSentAt: null, // plan just renewed — allow future reminders again
       },
     });
 

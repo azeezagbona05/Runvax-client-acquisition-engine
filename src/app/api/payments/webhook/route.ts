@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
           }),
           prisma.user.update({
             where: { id: userId },
-            data: { plan, planExpiresAt: renewalDate },
+            data: { plan, planExpiresAt: renewalDate, expiryReminderSentAt: null },
             select: { email: true, name: true },
           }),
         ]);
@@ -100,8 +100,19 @@ export async function POST(req: NextRequest) {
 
         await prisma.user.updateMany({
           where: { paystackSubscriptionCode: subCode },
-          data: { plan: 'free', planExpiresAt: null },
+          data: { plan: 'free', planExpiresAt: null, expiryReminderSentAt: null },
         });
+
+        // Durable churn trail for Argus's Revenue/Growth signal.
+        if (affected.length > 0) {
+          await prisma.adminAuditLog.createMany({
+            data: affected.map((u) => ({
+              actorEmail: 'system',
+              action: 'plan_downgraded_payment_failed',
+              title: `${u.email ?? u.id} auto-downgraded (${event.event})`,
+            })),
+          });
+        }
 
         if (process.env.SMTP_HOST) {
           const appName = getAppName();
