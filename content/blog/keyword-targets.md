@@ -635,39 +635,54 @@ visible "Updated <date>" line on the post. **Deliberately excluded from `getAllP
 refreshed post cannot jump the blog index. Publish dates are never bumped to fake freshness — set
 `updated` instead, and only for a substantive revision.
 
-### 2026-09-30 — 🔴 CRITICAL: `public/llms.txt` was shadowing the dynamic route
+### 2026-09-30 — `public/llms.txt` route collision (CORRECTED — was mis-reported as critical)
 
-The single worst finding of the Phase 6 audit, and it had been live since Phase 5.
+**Read the correction before the finding.** This was first written up as a live critical incident. It
+was not. The error is instructive enough to keep on the record.
 
-`public/llms.txt` (committed 2026-07-04, 5.3KB) and `src/app/llms.txt/route.ts` (9.4KB, expanded in
-Phase 5) both claimed `/llms.txt`. **In Next.js, static files in `public/` are served ahead of an App
-Router route at the same path** — so the stale July file won. Verified empirically against a production
-server, not assumed:
+**What is true:** `public/llms.txt` (committed 2026-07-04, 5.3KB, using the pre-rename product name
+"ProspectAI") and `src/app/llms.txt/route.ts` (9.4KB, expanded in Phase 5) both claimed `/llms.txt`.
+Under stock Next.js, `public/` is served ahead of an App Router route at the same path. Reproduced
+against a local `next start`:
 
 ```
-GET /llms.txt  →  "# ProspectAI"
-ProspectAI: 13 hits   Runvax: 0 hits
+localhost  GET /llms.txt  →  "# ProspectAI"   (ProspectAI 13, Runvax 0)
 ```
 
-The live site was describing itself to every AI crawler under **the pre-rename product name**, with the
-old "lead generation for web designers" positioning. Every llms.txt change Phase 5 made — the rewritten
-intro, "Who Uses Runvax", "Why Runvax vs", "Key Pages", "Blog & Content Library", "Common Questions",
-the 190+ post count — **was never served to anyone.** llms.txt is the one file AI answer engines read
-to learn what the product is, so this silently undercut the entire GEO effort while every other check
-(robots, sitemap, schema, canonicals) passed clean.
+**What is NOT true:** that production was serving it. A fetch of the real endpoint shows Vercel
+resolving the collision the other way, in favour of the route handler:
 
-Fixed by `git rm public/llms.txt` so the maintained route serves. Re-verified: `# Runvax`, 25 Runvax
-hits, 0 ProspectAI. Recoverable from commit `c99a06a` if ever needed.
+```
+https://runvax.com/llms.txt  →  "# Runvax"    (correct, Phase 5 content)
+```
 
-**Why no earlier check caught it:** every check to that point read the *repo*, and in the repo both
-files look correct in isolation. Nothing compared them for URL collision, and nothing fetched the
-served bytes.
+Both files were present in the deployed tree, so this is a genuine platform difference between
+`next start` and Vercel's routing — not a stale deploy. **Phase 5's llms.txt work was reaching AI
+crawlers the whole time.**
+
+So the real severity is 🟡: a latent, environment-dependent hazard plus a stale file carrying the old
+product name. Removing it (commit `95f3251`) is still correct — one URL should not have two sources,
+and any environment behaving like stock Next.js would serve the wrong one — but it was cleanup, not a
+rescue. **Note: commit `95f3251`'s message states the incorrect version and should be read against
+this entry.**
+
+**The actual lesson, and it is the more useful one:** the rule written one session earlier — *fetch the
+served bytes, reading the source file is not verification* — was applied to `localhost` and then used
+to assert a conclusion about **production**. Verifying against a local server is not verifying the live
+site. Same class of error as the original, one level up.
 
 **Rules adopted:**
-- **Fetch the served bytes for critical text endpoints** — `/llms.txt`, `/robots.txt`, `/sitemap.xml` —
-  against a real server. Reading the source file is not verification.
-- Grep `public/` against `src/app/` route names on every audit; a shadow is silent and total.
-- Grep the repo for pre-rename strings (`ProspectAI`) after any rebrand — one survived 3 months.
+- For any claim about what the live site serves, **fetch the production URL.** `localhost` proves what
+  the code does on your machine, nothing more.
+- Grep `public/` against `src/app/` route names on every audit; a collision is silent either way.
+- Grep the repo for pre-rename strings (`ProspectAI`) after any rebrand — one survived three months.
+- State the environment in any finding: "on `next start`" and "on production" are different claims.
+
+**Also verified 2026-09-30 (no action needed):** local `sitemap.xml` emits `http://localhost:3000`
+because `NEXT_PUBLIC_SITE_URL` is unset in `.env`/`.env.local`, and `src/lib/seo.ts` falls back to
+localhost. **Production is fine** — `runvax.com/sitemap.xml` emits `https://runvax.com/...`, so the var
+is set on the host. Do not re-raise this as a bug from local output alone. Also confirmed live: 208
+sitemap URLs, `lastmod` correctly reflecting the new `updated` frontmatter field.
 
 **Left alone, flagged:** `public/logo-preview.html` is an unreferenced dev artifact, publicly crawlable
 at `/logo-preview.html` and not blocked by robots.txt — thin indexable junk. Low priority; deleting it
