@@ -635,6 +635,44 @@ visible "Updated <date>" line on the post. **Deliberately excluded from `getAllP
 refreshed post cannot jump the blog index. Publish dates are never bumped to fake freshness — set
 `updated` instead, and only for a substantive revision.
 
+### 2026-09-30 — 🔴 CRITICAL: `public/llms.txt` was shadowing the dynamic route
+
+The single worst finding of the Phase 6 audit, and it had been live since Phase 5.
+
+`public/llms.txt` (committed 2026-07-04, 5.3KB) and `src/app/llms.txt/route.ts` (9.4KB, expanded in
+Phase 5) both claimed `/llms.txt`. **In Next.js, static files in `public/` are served ahead of an App
+Router route at the same path** — so the stale July file won. Verified empirically against a production
+server, not assumed:
+
+```
+GET /llms.txt  →  "# ProspectAI"
+ProspectAI: 13 hits   Runvax: 0 hits
+```
+
+The live site was describing itself to every AI crawler under **the pre-rename product name**, with the
+old "lead generation for web designers" positioning. Every llms.txt change Phase 5 made — the rewritten
+intro, "Who Uses Runvax", "Why Runvax vs", "Key Pages", "Blog & Content Library", "Common Questions",
+the 190+ post count — **was never served to anyone.** llms.txt is the one file AI answer engines read
+to learn what the product is, so this silently undercut the entire GEO effort while every other check
+(robots, sitemap, schema, canonicals) passed clean.
+
+Fixed by `git rm public/llms.txt` so the maintained route serves. Re-verified: `# Runvax`, 25 Runvax
+hits, 0 ProspectAI. Recoverable from commit `c99a06a` if ever needed.
+
+**Why no earlier check caught it:** every check to that point read the *repo*, and in the repo both
+files look correct in isolation. Nothing compared them for URL collision, and nothing fetched the
+served bytes.
+
+**Rules adopted:**
+- **Fetch the served bytes for critical text endpoints** — `/llms.txt`, `/robots.txt`, `/sitemap.xml` —
+  against a real server. Reading the source file is not verification.
+- Grep `public/` against `src/app/` route names on every audit; a shadow is silent and total.
+- Grep the repo for pre-rename strings (`ProspectAI`) after any rebrand — one survived 3 months.
+
+**Left alone, flagged:** `public/logo-preview.html` is an unreferenced dev artifact, publicly crawlable
+at `/logo-preview.html` and not blocked by robots.txt — thin indexable junk. Low priority; deleting it
+is a judgement call for whoever made it.
+
 ### How to re-run this audit
 ```
 # orphan/broken-link check
