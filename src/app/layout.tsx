@@ -71,7 +71,9 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: SITE_URL },
   manifest: '/manifest.json',
-  icons: { apple: '/icon-192.png' },
+  // No explicit `icons` field: src/app/icon.png and src/app/apple-icon.png
+  // (file-convention icons) cover favicon + apple touch icon automatically —
+  // there was previously no real favicon at all, only this apple override.
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
