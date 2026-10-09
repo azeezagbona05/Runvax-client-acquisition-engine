@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
+import OperationsPanel from './OperationsPanel';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
 import { AREAS, TIER_CONFIG } from '@/lib/areas';
 import { useTheme } from '@/context/ThemeContext';
@@ -872,7 +873,7 @@ export default function AdminPage() {
   const { theme, toggle: toggleTheme } = useTheme();
   const [stats, setStats]       = useState<Stats | null>(null);
   const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<'users' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs'>('users');
+  const [tab, setTab]           = useState<'users' | 'operations' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs'>('users');
   const [costSince, setCostSince] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Users filter state
@@ -1281,6 +1282,7 @@ export default function AdminPage() {
         <div className="flex gap-1 border-b border-white/8 overflow-x-auto">
           {([
             ['users',    `Users (${users.length})`],
+            ['operations', 'Operations'],
             ['behaviour', 'Behaviour'],
             ['payments', `Payments (${payments.length})`],
             ['revenue',  'Revenue by Month'],
@@ -1300,6 +1302,8 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+
+        {tab === 'operations' && <OperationsPanel />}
 
         {/* ── BEHAVIOUR TAB ── */}
         {tab === 'behaviour' && <BehaviorPanel />}
