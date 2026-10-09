@@ -37,8 +37,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/web-design-clients-port-harcourt`, lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.7 },
 
     // App pages
-    { url: `${SITE_URL}/growth`,       lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${SITE_URL}/growth/seo`,   lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.6 },
     { url: `${SITE_URL}/market-brief`, lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.5 },
 
     // Legal

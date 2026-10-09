@@ -19,9 +19,16 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // The SEO/GEO growth engine is RUNVAX's own marketing tooling — admin only.
+  if (pathname === '/growth' || pathname.startsWith('/growth/')) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (!token) return NextResponse.redirect(new URL('/admin/login', req.url));
+    if (!token.isAdmin) return NextResponse.redirect(new URL('/command-centre', req.url));
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/growth', '/growth/:path*'],
 };

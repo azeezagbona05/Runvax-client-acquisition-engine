@@ -68,9 +68,9 @@ export default function CampaignsPanel() {
   };
 
   return (
-    <div className="mb-6 bg-gray-800/40 border border-white/8 rounded-2xl p-4">
+    <div className="bg-gray-800/60 border border-white/5 rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Campaigns</p>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Campaigns</h2>
         <button onClick={() => setOpen((v) => !v)} className="text-xs font-bold text-purple-400 hover:text-purple-300">
           {open ? 'Cancel' : '+ New campaign'}
         </button>
@@ -102,9 +102,14 @@ export default function CampaignsPanel() {
       )}
 
       {campaigns.length === 0 && !open && (
-        <p className="text-xs text-gray-500">
-          No campaigns yet. Set a niche and location and the agents will source and prepare prospects daily.
-        </p>
+        <div>
+          <p className="text-xs text-gray-400 mb-2.5">
+            A campaign finds and prepares new prospects for you every day. Pick a niche and a location to start one.
+          </p>
+          <button onClick={() => setOpen(true)} className="text-xs font-bold px-3.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200">
+            Create your first campaign
+          </button>
+        </div>
       )}
 
       <div className="space-y-2">

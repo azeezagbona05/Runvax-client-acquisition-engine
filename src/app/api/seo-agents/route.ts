@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAdmin } from '@/lib/adminAuth';
 import { logAgentActivity } from '@/lib/agentActivity';
 
 export const dynamic = 'force-dynamic';
@@ -243,8 +242,9 @@ Respond ONLY with valid JSON:
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // RUNVAX's own SEO/GEO engine — platform operations, admin only.
+    const admin = await requireAdmin();
+    if (!admin.ok) return admin.response;
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 });
@@ -268,7 +268,7 @@ export async function POST(req: NextRequest) {
     const result = await callGPT(client, prompt);
 
     await logAgentActivity({
-      userId: session.user.id,
+      userId: admin.userId,
       agentKey: 'seo',
       action: 'content_generated',
       title: `Ran the ${agentType} agent`,

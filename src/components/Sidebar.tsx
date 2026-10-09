@@ -9,7 +9,8 @@ import { useSidebar } from '@/context/SidebarContext';
 import { useTheme } from '@/context/ThemeContext';
 import {
   Search, Columns3, BarChart3, Settings, PanelLeftClose, PanelLeftOpen,
-  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, Sparkles, Bot,
+  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, Sparkles, LayoutDashboard,
+  Send, BellRing, Megaphone,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -37,13 +38,19 @@ export default function Sidebar() {
 
   const initials = session?.user?.name?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? '?';
 
+  // Customer navigation: acquisition first. Outreach / Follow-ups / Campaigns
+  // are sections of the Dashboard (no duplicate modules); the badge on
+  // Prospect CRM and Analytics keeps the existing counts.
   const tabs = [
-    { href: '/command-centre', icon: Bot,       label: 'Command Centre', badge: undefined,                             badgeColor: 'bg-purple-600', authOnly: true },
-    { href: '/market-brief', icon: Sparkles,    label: 'Market Brief',  badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
-    { href: '/',             icon: Search,      label: 'Find Prospects', badge: undefined,                            badgeColor: 'bg-purple-600', authOnly: false },
-    { href: '/pipeline',     icon: Columns3,    label: 'Pipeline',  badge: savedCount > 0 ? savedCount : undefined,  badgeColor: 'bg-purple-600', authOnly: true },
-    { href: '/dashboard',    icon: BarChart3,   label: 'Analytics', badge: wonCount > 0 ? wonCount : undefined,      badgeColor: 'bg-green-500', authOnly: true },
-    { href: '/settings',     icon: Settings,    label: 'Settings',  badge: undefined,                                badgeColor: 'bg-purple-600', authOnly: true },
+    { href: '/command-centre',          icon: LayoutDashboard, label: 'Dashboard',      badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
+    { href: '/',                        icon: Search,          label: 'Find Prospects', badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: false },
+    { href: '/pipeline',                icon: Columns3,        label: 'Prospect CRM',   badge: savedCount > 0 ? savedCount : undefined, badgeColor: 'bg-purple-600', authOnly: true },
+    { href: '/command-centre#outreach', icon: Send,            label: 'Outreach',       badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
+    { href: '/command-centre#follow-ups', icon: BellRing,      label: 'Follow-ups',     badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
+    { href: '/command-centre#campaigns', icon: Megaphone,      label: 'Campaigns',      badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
+    { href: '/market-brief',            icon: Sparkles,        label: 'Learn & Improve', badge: undefined,                             badgeColor: 'bg-purple-600', authOnly: true },
+    { href: '/dashboard',               icon: BarChart3,       label: 'Analytics',      badge: wonCount > 0 ? wonCount : undefined,    badgeColor: 'bg-green-500', authOnly: true },
+    { href: '/settings',                icon: Settings,        label: 'Settings',       badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
   ].filter((t) => !t.authOnly || session?.user);
 
   const closeMenu = () => setMenuOpen(false);
@@ -81,7 +88,7 @@ export default function Sidebar() {
         {/* Nav links */}
         <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
           {tabs.map(({ href, icon: Icon, label, badge, badgeColor }) => {
-            const active = pathname === href;
+            const active = !href.includes('#') && pathname === href;
             return (
               <Link
                 key={href}

@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 import { SITE_URL } from '@/lib/seo';
 
-const DISALLOWED = ['/api/', '/admin/', '/settings', '/pipeline', '/dashboard', '/auth/'];
+const DISALLOWED = ['/api/', '/admin/', '/growth', '/settings', '/pipeline', '/dashboard', '/auth/'];
 
 export default function robots(): MetadataRoute.Robots {
   return {

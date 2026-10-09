@@ -225,7 +225,7 @@ function AutoProspectingSettings() {
             <p className="text-sm font-bold">{autoDraft ? 'Auto Drafting ON' : 'Auto Drafting OFF'}</p>
             <p className="text-xs text-gray-500 mt-0.5">
               {autoDraft
-                ? 'Rex drafts messages daily for un-contacted prospects — review in Command Centre before sending'
+                ? 'RUNVAX drafts messages daily for un-contacted prospects — review on your Dashboard before sending'
                 : 'Toggle on to let Rex prepare outreach drafts while you’re away'}
             </p>
           </div>
@@ -235,7 +235,7 @@ function AutoProspectingSettings() {
           : <ToggleLeft className="w-6 h-6 text-gray-600 flex-shrink-0" />}
       </button>
       <p className="text-[11px] text-gray-600 leading-relaxed">
-        Rex never sends on its own — every draft waits in Command Centre for you to review and send.
+        RUNVAX never sends on its own — every draft waits on your Dashboard for you to review and send.
       </p>
     </div>
   );

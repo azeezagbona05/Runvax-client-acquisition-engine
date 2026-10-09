@@ -1,41 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import {
-  Bot, Search, Send, TrendingUp, LifeBuoy, Loader2, ChevronDown, ChevronUp, MessageCircle, Mail, Brain, CreditCard,
+  Search, Loader2, ChevronDown, ChevronUp, MessageCircle, Mail, Sparkles, Send,
+  Reply, Handshake, FileText, Clock, AlertCircle, ArrowRight, CreditCard,
 } from 'lucide-react';
 import CampaignsPanel from '@/components/CampaignsPanel';
 import OutreachModal, { type OutreachData } from '@/components/OutreachModal';
 import type { Business } from '@/types';
-
-type AgentKey = 'research' | 'outreach' | 'seo' | 'support' | 'atlas' | 'billing';
-
-interface AtlasRecommendation {
-  type: 'reactivate_cold_leads' | 'scan_more_prospects' | 'follow_up_interested';
-  label: string;
-  detail: string;
-  count: number;
-  done: boolean;
-}
-
-interface AtlasBriefData {
-  summary: string;
-  recommendations: AtlasRecommendation[];
-}
-
-interface BillingRecommendation {
-  type: 'usage_near_limit' | 'plan_expiring_soon';
-  label: string;
-  detail: string;
-  count: number;
-  href: string;
-}
-
-interface BillingBriefData {
-  summary: string;
-  recommendations: BillingRecommendation[];
-}
+import type { DashboardSummary, DashboardOpportunity, FollowUpItem, ActivityItem } from '@/lib/dashboardSummary';
 
 interface Draft {
   id: string;
@@ -45,69 +20,28 @@ interface Draft {
   emailBody: string | null;
   framework: string | null;
   opportunityTitle: string | null;
-  opportunityReason: string | null;
   priorContext: string[] | null;
-  createdAt: string;
   prospect: { id: string; businessName: string; businessData: unknown };
 }
 
-interface Activity {
-  id: string;
-  agentKey: AgentKey;
-  action: string;
-  title: string;
-  detail: string | null;
-  createdAt: string;
+interface NextStep {
+  type: 'reactivate_cold_leads' | 'scan_more_prospects' | 'follow_up_interested';
+  label: string;
+  detail: string;
+  done: boolean;
 }
 
-interface QueueTask {
-  id: string;
-  type: string;
-  status: 'pending' | 'running' | 'completed' | 'skipped' | 'failed';
-  businessName: string | null;
-  attempts: number;
-  error: string | null;
-  createdAt: string;
+interface PlanNotice {
+  summary: string;
+  recommendations: Array<{ type: string; label: string; detail: string; href: string }>;
 }
 
-interface QueueResponse {
-  counts: Record<string, number>;
-  tasks: QueueTask[];
+interface OpenModal {
+  business: Business;
+  draft: Draft | null;
 }
 
-const TASK_LABEL: Record<string, string> = {
-  detect_opportunity: 'Ava · opportunity check',
-  draft_outreach: 'Rex · draft message',
-};
-
-const TASK_STATUS_STYLE: Record<QueueTask['status'], string> = {
-  pending: 'text-gray-400',
-  running: 'text-blue-400',
-  completed: 'text-green-400',
-  skipped: 'text-gray-500',
-  failed: 'text-red-400',
-};
-
-interface ActivityResponse {
-  activities: Activity[];
-  weekly: Record<AgentKey, number>;
-}
-
-const AGENTS: Array<{
-  key: AgentKey; name: string; role: string; icon: React.ElementType;
-  border: string; bg: string; text: string;
-}> = [
-  { key: 'research', name: 'Ava',  role: 'Research', icon: Search,     border: 'border-blue-500/30',   bg: 'bg-blue-500/10',   text: 'text-blue-400' },
-  { key: 'outreach', name: 'Rex',  role: 'Outreach',  icon: Send,       border: 'border-green-500/30',  bg: 'bg-green-500/10',  text: 'text-green-400' },
-  { key: 'seo',      name: 'Nova', role: 'SEO & Growth', icon: TrendingUp, border: 'border-orange-500/30', bg: 'bg-orange-500/10', text: 'text-orange-400' },
-  { key: 'support',  name: 'Zee',  role: 'Support',   icon: LifeBuoy,   border: 'border-cyan-500/30',   bg: 'bg-cyan-500/10',   text: 'text-cyan-400' },
-  { key: 'billing',  name: 'Milo', role: 'Billing',   icon: CreditCard, border: 'border-yellow-500/30',  bg: 'bg-yellow-500/10', text: 'text-yellow-400' },
-  { key: 'atlas',    name: 'Atlas', role: 'Orchestrator', icon: Brain,   border: 'border-pink-500/30',   bg: 'bg-pink-500/10',   text: 'text-pink-400' },
-];
-
-// The peer agents shown in the grid — Atlas is the orchestrator above them,
-// rendered as its own banner, not a grid card.
-const PEER_AGENTS = AGENTS.filter((a) => a.key !== 'atlas');
+const CARD = 'bg-gray-800/60 border border-white/5 rounded-2xl';
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -120,83 +54,180 @@ function timeAgo(iso: string) {
   return `${days}d ago`;
 }
 
-function ActivityRow({ activity }: { activity: Activity }) {
-  const agent = AGENTS.find((a) => a.key === activity.agentKey) ?? AGENTS[0];
-  const Icon = agent.icon;
-  const [expanded, setExpanded] = useState(false);
-  const hasDetail = !!activity.detail && activity.detail.length > 0;
+function greeting(name?: string | null) {
+  const h = new Date().getHours();
+  const part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const first = name?.split(' ')[0];
+  return first ? `${part}, ${first}.` : `${part}.`;
+}
 
+const CONFIDENCE_STYLE: Record<DashboardOpportunity['confidence'], string> = {
+  high: 'text-green-400',
+  medium: 'text-yellow-500',
+  low: 'text-gray-500',
+};
+
+function MetricCard({ icon: Icon, value, label, hint, tone }: {
+  icon: React.ElementType; value: number; label: string; hint: string; tone: string;
+}) {
   return (
-    <div className={`flex gap-3 p-3.5 rounded-xl bg-gray-800/60 border-l-4 ${agent.border} border-y border-r border-white/5`}>
-      <div className={`w-8 h-8 rounded-lg ${agent.bg} ${agent.text} flex items-center justify-center flex-shrink-0`}>
-        <Icon className="w-4 h-4" />
+    <div className={`${CARD} p-4`}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className={`w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center ${tone}`}>
+          <Icon className="w-3.5 h-3.5" />
+        </span>
+        <span className="text-xs font-semibold text-gray-400 leading-tight">{label}</span>
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-bold uppercase tracking-wider ${agent.text}`}>{agent.name} · {agent.role}</span>
-          <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(activity.createdAt)}</span>
+      <p className={`text-3xl font-black leading-none ${tone}`}>{value}</p>
+      <p className="text-[11px] text-gray-600 mt-1.5">{hint}</p>
+    </div>
+  );
+}
+
+function OpportunityRow({ opp, onPitch, onDismiss }: {
+  opp: DashboardOpportunity; onPitch: () => void; onDismiss: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`${CARD} p-4`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-white leading-tight truncate">{opp.name}</p>
+          <p className="text-xs text-gray-500 mt-0.5 truncate">
+            {opp.category}{opp.location ? ` · ${opp.location}` : ''}
+          </p>
         </div>
-        <p className="text-sm text-gray-200 leading-snug mt-0.5 break-words">{activity.title}</p>
-        {hasDetail && (
-          <>
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="text-[11px] text-gray-600 hover:text-gray-400 flex items-center gap-0.5 mt-1 transition-colors"
-            >
-              {expanded ? <><ChevronUp className="w-3 h-3" /> Less</> : <><ChevronDown className="w-3 h-3" /> Details</>}
-            </button>
-            {expanded && (
-              <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap break-words">{activity.detail}</p>
-            )}
-          </>
-        )}
+        <span className="text-[11px] font-semibold text-gray-500 flex-shrink-0 capitalize">{opp.band} fit</span>
+      </div>
+
+      <p className="text-sm text-gray-300 mt-2.5 leading-snug">{opp.problem}</p>
+      <p className="text-xs text-gray-500 mt-1.5">
+        <span className="font-semibold text-gray-400">Suggested offer:</span> {opp.offer}
+      </p>
+      <p className="text-[11px] text-gray-600 mt-1">{opp.websiteStatus} · {opp.contact}</p>
+
+      {open && (
+        <div className="mt-3 pt-3 border-t border-white/5 text-xs text-gray-400 space-y-1.5">
+          <p className="font-semibold text-gray-300">
+            Why we think so{' '}
+            <span className={`font-bold ${CONFIDENCE_STYLE[opp.confidence]}`}>({opp.confidence} confidence)</span>
+          </p>
+          {opp.evidence.length > 0 ? (
+            <ul className="list-disc pl-4 space-y-0.5">
+              {opp.evidence.map((e) => <li key={e}>{e}</li>)}
+            </ul>
+          ) : (
+            <p>Based on the business category only — no specific observations yet.</p>
+          )}
+          <p className="text-gray-600">Estimates are inferred from public listing data, not verified with the business.</p>
+        </div>
+      )}
+
+      <div className="flex items-center gap-4 mt-3">
+        <button
+          onClick={onPitch}
+          className="text-xs font-bold px-3.5 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white transition-colors"
+        >
+          {opp.draftId ? 'Review & send pitch' : 'Write pitch'}
+        </button>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="text-xs font-bold text-gray-500 hover:text-gray-300 flex items-center gap-0.5"
+        >
+          {open ? <>Hide why <ChevronUp className="w-3 h-3" /></> : <>Why this? <ChevronDown className="w-3 h-3" /></>}
+        </button>
+        <button onClick={onDismiss} className="text-xs font-bold text-gray-600 hover:text-gray-400 ml-auto">
+          Dismiss
+        </button>
       </div>
     </div>
   );
 }
 
+function FollowUpRow({ item }: { item: FollowUpItem }) {
+  const tone =
+    item.kind === 'reply' ? 'text-green-400 bg-green-500/10'
+    : item.kind === 'overdue' ? 'text-red-400 bg-red-500/10'
+    : 'text-yellow-500 bg-yellow-500/10';
+  const Icon = item.kind === 'reply' ? Reply : item.kind === 'overdue' ? AlertCircle : Clock;
+  return (
+    <Link href="/pipeline" className="flex items-start gap-3 py-2.5 group">
+      <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${tone}`}>
+        <Icon className="w-3.5 h-3.5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-white truncate group-hover:text-purple-400">{item.name}</span>
+        <span className="block text-xs text-gray-500">{item.label}</span>
+        {item.detail && <span className="block text-xs text-gray-600 line-clamp-1 mt-0.5">“{item.detail}”</span>}
+      </span>
+    </Link>
+  );
+}
+
+function ActivityRow({ item }: { item: ActivityItem }) {
+  const Icon = item.kind === 'sent' ? Send : item.kind === 'pitch' ? FileText : Search;
+  return (
+    <div className="flex items-start gap-2.5 py-2">
+      <Icon className="w-3.5 h-3.5 text-gray-500 mt-0.5 flex-shrink-0" />
+      <p className="text-xs text-gray-300 leading-snug flex-1 min-w-0 break-words">{item.title}</p>
+      <span className="text-[10px] text-gray-600 flex-shrink-0">{timeAgo(item.at)}</span>
+    </div>
+  );
+}
+
 export default function CommandCentrePage() {
-  const [data, setData] = useState<ActivityResponse | null>(null);
+  const { data: session } = useSession();
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [drafts, setDrafts] = useState<Draft[]>([]);
-  const [openDraft, setOpenDraft] = useState<Draft | null>(null);
-  const [brief, setBrief] = useState<AtlasBriefData | null>(null);
-  const [billing, setBilling] = useState<BillingBriefData | null>(null);
-  const [queue, setQueue] = useState<QueueResponse | null>(null);
-  const [actingOn, setActingOn] = useState<string | null>(null);
+  const [modal, setModal] = useState<OpenModal | null>(null);
+  const [nextSteps, setNextSteps] = useState<NextStep[]>([]);
+  const [plan, setPlan] = useState<PlanNotice | null>(null);
+  const [acting, setActing] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState('');
+  const [showActivity, setShowActivity] = useState(false);
+  const [activityExpanded, setActivityExpanded] = useState(false);
 
-  const loadDrafts = () => {
+  const loadSummary = useCallback(async () => {
+    try {
+      const res = await fetch('/api/dashboard/summary');
+      if (!res.ok) throw new Error('Could not load your dashboard');
+      setSummary(await res.json());
+      setError('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load your dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadDrafts = useCallback(() => {
     fetch('/api/outreach-drafts').then((r) => r.json()).then((json) => {
       if (Array.isArray(json.drafts)) setDrafts(json.drafts);
-    }).catch(() => { /* */ });
-  };
+    }).catch(() => { /* non-critical */ });
+  }, []);
 
-  const loadBrief = () => {
+  const loadNextSteps = useCallback(() => {
     fetch('/api/atlas/brief').then((r) => r.json()).then((json) => {
-      if (json.summary) setBrief(json);
-    }).catch(() => { /* */ });
-  };
+      if (Array.isArray(json.recommendations)) setNextSteps(json.recommendations);
+    }).catch(() => { /* non-critical */ });
+  }, []);
 
-  const loadBilling = () => {
+  useEffect(() => {
+    void loadSummary();
+    loadDrafts();
+    loadNextSteps();
     fetch('/api/billing/brief').then((r) => r.json()).then((json) => {
-      if (json.summary !== undefined) setBilling(json);
-    }).catch(() => { /* */ });
-  };
+      if (json.recommendations?.length) setPlan(json);
+    }).catch(() => { /* non-critical */ });
+  }, [loadSummary, loadDrafts, loadNextSteps]);
 
-  const loadQueue = () => {
-    fetch('/api/agent-tasks').then((r) => r.json()).then((json) => {
-      if (json.counts) setQueue(json);
-    }).catch(() => { /* */ });
-  };
+  const refresh = () => { void loadSummary(); loadDrafts(); loadNextSteps(); };
 
-  const loadActivity = () => {
-    fetch('/api/agent-activity').then((r) => r.json()).then((json) => setData(json)).catch(() => { /* */ });
-  };
-
-  const act = async (type: AtlasRecommendation['type']) => {
-    setActingOn(type);
+  const runNextStep = async (type: NextStep['type']) => {
+    setActing(type);
     setActionMsg('');
     try {
       const res = await fetch('/api/atlas/act', {
@@ -204,38 +235,15 @@ export default function CommandCentrePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type }),
       });
-      const json = await res.json() as { ok: boolean; message: string };
-      setActionMsg(json.message);
-      loadBrief();
-      loadDrafts();
-      loadActivity();
+      const json = await res.json() as { message?: string };
+      setActionMsg(json.message ?? 'Done.');
+      refresh();
     } catch {
       setActionMsg('Something went wrong — try again.');
     } finally {
-      setActingOn(null);
+      setActing(null);
     }
   };
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/agent-activity');
-        if (!res.ok) throw new Error('Failed to load agent activity');
-        const json = await res.json();
-        if (!cancelled) setData(json);
-      } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    loadDrafts();
-    loadBrief();
-    loadQueue();
-    loadBilling();
-    return () => { cancelled = true; };
-  }, []);
 
   const dismissDraft = async (id: string) => {
     setDrafts((prev) => prev.filter((d) => d.id !== id));
@@ -245,229 +253,252 @@ export default function CommandCentrePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'dismissed' }),
       });
-    } catch { /* */ }
+    } catch { /* optimistic */ }
+    void loadSummary();
   };
 
-  const lastActiveFor = (key: AgentKey) =>
-    data?.activities.find((a) => a.agentKey === key)?.createdAt;
+  // Dismissing an opportunity moves the prospect to "Lost" in the CRM — it is
+  // reversible there — and clears any pitch that was waiting for it.
+  const dismissOpportunity = async (opp: DashboardOpportunity) => {
+    setSummary((s) => s && { ...s, opportunities: s.opportunities.filter((o) => o.prospectId !== opp.prospectId) });
+    try {
+      if (opp.draftId) await dismissDraft(opp.draftId);
+      await fetch(`/api/prospects/${opp.prospectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: 'lost' }),
+      });
+    } catch { /* refresh below restores truth */ }
+    refresh();
+  };
 
-  const isEmpty = !loading && !error && (data?.activities.length ?? 0) === 0 && drafts.length === 0;
+  const openPitch = (opp: DashboardOpportunity) => {
+    const draft = opp.draftId ? drafts.find((d) => d.id === opp.draftId) ?? null : null;
+    setModal({ business: opp.business, draft });
+  };
+
+  const m = summary?.metrics;
+  const opps = summary?.opportunities ?? [];
+  const followUps = summary?.followUps ?? [];
+  const activity = summary?.activity ?? [];
+  const visibleActivity = activityExpanded ? activity : activity.slice(0, 5);
+
+  const subline =
+    !m ? 'Discover businesses, identify opportunities, and turn them into clients.'
+    : m.repliesToFollowUp > 0 ? `${m.repliesToFollowUp} ${m.repliesToFollowUp === 1 ? 'business has' : 'businesses have'} replied — answer them while the conversation is warm.`
+    : m.pitchesReady > 0 ? `${m.pitchesReady} ${m.pitchesReady === 1 ? 'pitch is' : 'pitches are'} ready for you to review and send.`
+    : opps.length > 0 ? `Your best opportunity right now is ${opps[0].name}.`
+    : 'Discover businesses, identify opportunities, and turn them into clients.';
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10">
+    <div className="max-w-6xl mx-auto px-4 py-6 sm:py-10">
 
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-11 h-11 rounded-2xl bg-purple-600/15 text-purple-400 flex items-center justify-center flex-shrink-0">
-          <Bot className="w-6 h-6" />
+      {/* Welcome + primary action */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+            {greeting(session?.user?.name)} Let&apos;s find your next client.
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">{subline}</p>
         </div>
-        <div>
-          <h1 className="text-2xl font-black text-white leading-tight">Command Centre</h1>
-          <p className="text-sm text-gray-500">What your AI team has been doing</p>
-        </div>
+        <Link
+          href="/"
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold transition-colors flex-shrink-0"
+        >
+          <Search className="w-4 h-4" /> Find new opportunities
+        </Link>
       </div>
 
-      {/* Atlas — orchestrator banner, above the peer agents */}
-      {brief && (
-        <div className="mb-6 rounded-2xl border border-pink-500/30 bg-gradient-to-br from-pink-500/10 to-purple-500/5 p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-pink-500/15 text-pink-400 flex items-center justify-center flex-shrink-0">
-              <Brain className="w-5 h-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-pink-400 mb-1">Atlas · Orchestrator</p>
-              <p className="text-sm text-gray-200 leading-relaxed">{brief.summary}</p>
-
-              {brief.recommendations.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {brief.recommendations.map((rec) => (
-                    <button
-                      key={rec.type}
-                      onClick={() => act(rec.type)}
-                      disabled={rec.done || actingOn === rec.type}
-                      title={rec.detail}
-                      className={`text-xs font-bold px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
-                        rec.done
-                          ? 'bg-white/5 text-gray-600 cursor-default'
-                          : 'bg-pink-600/20 border border-pink-500/40 text-pink-300 hover:bg-pink-600/30'
-                      }`}
-                    >
-                      {actingOn === rec.type && <Loader2 className="w-3 h-3 animate-spin" />}
-                      {rec.done ? `✓ ${rec.label}` : `${rec.label} →`}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {actionMsg && (
-                <p className="text-xs text-pink-300 mt-2.5">{actionMsg}</p>
-              )}
-            </div>
-          </div>
+      {error && !loading && (
+        <div className={`${CARD} p-6 text-center mb-6`} role="alert">
+          <p className="text-sm text-red-400 mb-3">{error}</p>
+          <button onClick={() => { setLoading(true); void loadSummary(); }} className="text-sm font-bold text-purple-400 hover:text-purple-300">
+            Try again
+          </button>
         </div>
       )}
 
-      {/* Milo — billing nudge, only shown when there's actually something to flag */}
-      {billing && billing.recommendations.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-orange-500/5 p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-yellow-500/15 text-yellow-400 flex items-center justify-center flex-shrink-0">
-              <CreditCard className="w-5 h-5" />
+      {/* Acquisition metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <div key={i} className={`${CARD} h-[104px] animate-pulse`} />)
+        ) : m && (
+          <>
+            <MetricCard icon={Sparkles} value={m.newOpportunities} label="New opportunities" hint="Qualified, saved in the last 7 days" tone="text-blue-400" />
+            <MetricCard icon={FileText} value={m.pitchesReady} label="Pitches ready" hint="Drafted and waiting for your review" tone="text-green-400" />
+            <MetricCard icon={Reply} value={m.repliesToFollowUp} label="Replies to follow up" hint="Prospects waiting on you" tone="text-orange-400" />
+            <MetricCard icon={Handshake} value={m.dealsInProgress} label="Deals in progress" hint={`${m.clientsWon} won in the last 30 days`} tone="text-purple-400" />
+          </>
+        )}
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6 items-start">
+
+        {/* Main column */}
+        <div className="lg:col-span-2 space-y-8 min-w-0">
+
+          <section aria-labelledby="best-opps">
+            <div className="flex items-center justify-between mb-2.5">
+              <h2 id="best-opps" className="text-xs font-bold text-gray-500 uppercase tracking-widest">Your best opportunities</h2>
+              <Link href="/pipeline" className="text-xs font-bold text-purple-400 hover:text-purple-300">View all →</Link>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-yellow-400 mb-1">Milo · Billing</p>
-              <p className="text-sm text-gray-200 leading-relaxed">{billing.summary}</p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                {billing.recommendations.map((rec) => (
-                  <a
-                    key={rec.type}
-                    href={rec.href}
-                    title={rec.detail}
-                    className="text-xs font-bold px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1.5 bg-yellow-600/20 border border-yellow-500/40 text-yellow-300 hover:bg-yellow-600/30"
-                  >
-                    {rec.label} →
-                  </a>
+            {loading ? (
+              <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className={`${CARD} h-36 animate-pulse`} />)}</div>
+            ) : opps.length === 0 ? (
+              <div className={`${CARD} p-8 text-center`}>
+                <Search className="w-7 h-7 text-gray-600 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-gray-300 mb-1">No opportunities waiting</p>
+                <p className="text-xs text-gray-500 mb-4">Search a niche and location — businesses worth pitching will show up here, ranked.</p>
+                <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-bold text-purple-400 hover:text-purple-300">
+                  Find prospects <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {opps.map((opp) => (
+                  <OpportunityRow
+                    key={opp.prospectId}
+                    opp={opp}
+                    onPitch={() => openPitch(opp)}
+                    onDismiss={() => void dismissOpportunity(opp)}
+                  />
                 ))}
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            )}
+          </section>
 
-      {/* Agent cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-        {PEER_AGENTS.map((agent) => {
-          const Icon = agent.icon;
-          const count = data?.weekly[agent.key] ?? 0;
-          const last = lastActiveFor(agent.key);
-          return (
-            <div key={agent.key} className={`rounded-2xl border ${agent.border} ${agent.bg} p-4`}>
-              <div className={`w-8 h-8 rounded-lg bg-white/5 ${agent.text} flex items-center justify-center mb-2.5`}>
-                <Icon className="w-4 h-4" />
-              </div>
-              <p className="text-sm font-bold text-white leading-tight">{agent.name}</p>
-              <p className="text-[11px] text-gray-500 mb-2">{agent.role}</p>
-              <p className={`text-lg font-black ${agent.text}`}>{count}</p>
-              <p className="text-[10px] text-gray-600 uppercase tracking-wide">this week</p>
-              <p className="text-[10px] text-gray-600 mt-1.5">
-                {last ? `Active ${timeAgo(last)}` : 'Not active yet'}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Rex's draft queue — never auto-sent, always reviewed by a human */}
-      {drafts.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">
-            Ready to send · {drafts.length}
-          </h2>
-          <div className="space-y-2.5">
-            {drafts.map((draft) => (
-              <div key={draft.id} className="flex items-start gap-3 p-3.5 rounded-xl bg-gray-800/60 border-l-4 border-green-500/30 border-y border-r border-white/5">
-                <div className="w-8 h-8 rounded-lg bg-green-500/10 text-green-400 flex items-center justify-center flex-shrink-0">
-                  {draft.channel === 'email' ? <Mail className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-white leading-tight">{draft.prospect.businessName}</p>
-                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                    {draft.opportunityTitle ?? (draft.whatsapp ?? draft.emailBody ?? '').slice(0, 100)}
-                  </p>
-                  <div className="flex items-center gap-3 mt-2">
+          {drafts.length > 0 && (
+            <section aria-labelledby="ready-to-send" id="outreach">
+              <h2 id="ready-to-send" className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">
+                Ready to send · {drafts.length}
+              </h2>
+              <div className={`${CARD} divide-y divide-white/5`}>
+                {drafts.map((draft) => (
+                  <div key={draft.id} className="flex items-center gap-3 px-4 py-3">
+                    <span className="w-7 h-7 rounded-lg bg-green-500/10 text-green-400 flex items-center justify-center flex-shrink-0">
+                      {draft.channel === 'email' ? <Mail className="w-3.5 h-3.5" /> : <MessageCircle className="w-3.5 h-3.5" />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-white truncate">{draft.prospect.businessName}</p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {draft.opportunityTitle ?? (draft.whatsapp ?? draft.emailBody ?? '').slice(0, 100)}
+                      </p>
+                    </div>
                     <button
-                      onClick={() => setOpenDraft(draft)}
-                      className="text-xs font-bold text-purple-400 hover:text-purple-300"
+                      onClick={() => setModal({ business: draft.prospect.businessData as unknown as Business, draft })}
+                      className="text-xs font-bold text-purple-400 hover:text-purple-300 flex-shrink-0"
                     >
-                      Review &amp; Send →
+                      Review &amp; send →
                     </button>
-                    <button
-                      onClick={() => dismissDraft(draft.id)}
-                      className="text-xs font-bold text-gray-600 hover:text-gray-400"
-                    >
+                    <button onClick={() => void dismissDraft(draft.id)} className="text-xs font-bold text-gray-600 hover:text-gray-400 flex-shrink-0">
                       Dismiss
                     </button>
                   </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Side column */}
+        <aside className="space-y-6 min-w-0">
+
+          <section aria-labelledby="follow-ups" id="follow-ups" className={`${CARD} p-4`}>
+            <h2 id="follow-ups" className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Follow-ups</h2>
+            {loading ? (
+              <div className="h-16 animate-pulse" />
+            ) : followUps.length === 0 ? (
+              <p className="text-xs text-gray-500 py-2">Nothing waiting. Replies and overdue follow-ups will appear here.</p>
+            ) : (
+              <div className="divide-y divide-white/5">
+                {followUps.map((f) => <FollowUpRow key={`${f.prospectId}-${f.kind}`} item={f} />)}
+              </div>
+            )}
+          </section>
+
+          {nextSteps.some((s) => !s.done) && (
+            <section aria-labelledby="next-steps" className={`${CARD} p-4`}>
+              <h2 id="next-steps" className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">Suggested next steps</h2>
+              <div className="flex flex-col gap-2">
+                {nextSteps.filter((s) => !s.done).map((s) => (
+                  <button
+                    key={s.type}
+                    onClick={() => void runNextStep(s.type)}
+                    disabled={acting === s.type}
+                    title={s.detail}
+                    className="text-left text-xs font-bold px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 transition-colors flex items-center gap-1.5"
+                  >
+                    {acting === s.type && <Loader2 className="w-3 h-3 animate-spin" />}
+                    {s.label} →
+                  </button>
+                ))}
+              </div>
+              {actionMsg && <p className="text-xs text-gray-400 mt-2.5" role="status">{actionMsg}</p>}
+            </section>
+          )}
+
+          {plan && (
+            <section aria-label="Plan" className={`${CARD} p-4`}>
+              <div className="flex items-start gap-2.5">
+                <CreditCard className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-300 leading-relaxed">{plan.summary}</p>
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {plan.recommendations.map((r) => (
+                      <Link key={r.type} href={r.href} title={r.detail} className="text-xs font-bold text-purple-400 hover:text-purple-300">
+                        {r.label} →
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </section>
+          )}
 
-      <CampaignsPanel />
+          <div id="campaigns"><CampaignsPanel /></div>
 
-      {/* Work queue — the hand-offs between agents */}
-      {queue && queue.tasks.length > 0 && (
-        <div className="mb-6 bg-gray-800/40 border border-white/8 rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Work queue · last 7 days</p>
-            <p className="text-[11px] text-gray-500">
-              {queue.counts.pending + queue.counts.running} queued · {queue.counts.completed} done
-              {queue.counts.failed > 0 && <span className="text-red-400"> · {queue.counts.failed} failed</span>}
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            {queue.tasks.map((t) => (
-              <div key={t.id} className="flex items-baseline gap-2 text-xs">
-                <span className={`w-16 flex-shrink-0 font-semibold ${TASK_STATUS_STYLE[t.status]}`}>{t.status}</span>
-                <span className="text-gray-300 truncate">
-                  {TASK_LABEL[t.type] ?? t.type}{t.businessName ? ` — ${t.businessName}` : ''}
-                </span>
-                {t.error && t.status !== 'completed' && (
-                  <span className="text-gray-600 truncate ml-auto max-w-[40%]" title={t.error}>{t.error}</span>
-                )}
-                <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(t.createdAt)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+          <section aria-labelledby="recent-activity" className={`${CARD} p-4`}>
+            <button
+              onClick={() => setShowActivity((v) => !v)}
+              aria-expanded={showActivity}
+              className="w-full flex items-center justify-between"
+            >
+              <h2 id="recent-activity" className="text-xs font-bold text-gray-500 uppercase tracking-widest">Recent activity</h2>
+              {showActivity ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+            </button>
+            {showActivity && (
+              activity.length === 0 ? (
+                <p className="text-xs text-gray-500 mt-2">No activity yet — new prospects, pitches and replies will show here.</p>
+              ) : (
+                <div className="mt-2 divide-y divide-white/5">
+                  {visibleActivity.map((a) => <ActivityRow key={a.id} item={a} />)}
+                  {activity.length > 5 && (
+                    <button
+                      onClick={() => setActivityExpanded((v) => !v)}
+                      className="w-full text-left text-xs font-bold text-purple-400 hover:text-purple-300 pt-2.5"
+                    >
+                      {activityExpanded ? 'Show less' : `Show all ${activity.length}`}
+                    </button>
+                  )}
+                </div>
+              )
+            )}
+          </section>
+        </aside>
+      </div>
 
-      {/* Activity feed */}
-      {loading && (
-        <div className="flex items-center justify-center py-16 text-gray-500">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading activity…
-        </div>
-      )}
-
-      {error && !loading && (
-        <div className="text-center py-16 text-red-400 text-sm">{error}</div>
-      )}
-
-      {isEmpty && (
-        <div className="text-center py-16 bg-gray-800/40 border border-white/8 rounded-2xl px-6">
-          <Bot className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-300 font-semibold mb-1">Your agents haven&apos;t run yet</p>
-          <p className="text-sm text-gray-500 mb-4">
-            Search for prospects to wake Ava, or send your first message to activate Rex.
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Link href="/" className="text-sm font-bold text-purple-400 hover:text-purple-300">Find prospects →</Link>
-            <Link href="/pipeline" className="text-sm font-bold text-purple-400 hover:text-purple-300">Go to pipeline →</Link>
-          </div>
-        </div>
-      )}
-
-      {!loading && !error && (data?.activities.length ?? 0) > 0 && (
-        <div className="space-y-2.5">
-          {data?.activities.map((activity) => (
-            <ActivityRow key={activity.id} activity={activity} />
-          ))}
-        </div>
-      )}
-
-      {openDraft && (
+      {modal && (
         <OutreachModal
-          business={openDraft.prospect.businessData as unknown as Business}
-          draftId={openDraft.id}
-          onClose={() => { setOpenDraft(null); loadDrafts(); }}
-          initialData={{
-            whatsapp: openDraft.whatsapp ?? '',
-            emailSubject: openDraft.emailSubject ?? '',
-            emailBody: openDraft.emailBody ?? '',
-            framework: (openDraft.framework ?? 'PAS') as OutreachData['framework'],
-            priorContext: openDraft.priorContext ?? undefined,
-          }}
+          business={modal.business}
+          draftId={modal.draft?.id}
+          onClose={() => { setModal(null); refresh(); }}
+          initialData={modal.draft ? {
+            whatsapp: modal.draft.whatsapp ?? '',
+            emailSubject: modal.draft.emailSubject ?? '',
+            emailBody: modal.draft.emailBody ?? '',
+            framework: (modal.draft.framework ?? 'PAS') as OutreachData['framework'],
+            priorContext: modal.draft.priorContext ?? undefined,
+          } : undefined}
         />
       )}
     </div>
