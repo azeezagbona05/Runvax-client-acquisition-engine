@@ -7,7 +7,7 @@
 ## Table of Contents
 
 1. [What is Runvax?](#1-what-is-runvax)
-2. [Getting Started](#2-getting-started)
+2. [Getting Started](#2-getting-started) 
 3. [Searching for Prospects](#3-searching-for-prospects)
 4. [Reading a Prospect Card](#4-reading-a-prospect-card)
 5. [Saving Prospects to Your Pipeline](#5-saving-prospects-to-your-pipeline)
