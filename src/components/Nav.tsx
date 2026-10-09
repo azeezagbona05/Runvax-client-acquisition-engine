@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
 import {
-  Search, Columns3, Sun, Moon, Zap, Settings, MailWarning, Sparkles, LogOut, UserCircle,
+  Search, Columns3, Sun, Moon, Zap, Settings, MailWarning, LayoutDashboard, LogOut, UserCircle,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -49,9 +49,9 @@ export default function Nav() {
   const userPlan = (session?.user as { plan?: string })?.plan ?? 'free';
 
   const tabs: { href: string; icon: React.ElementType; label: string; badge?: number; badgeColor?: string; authOnly?: boolean }[] = [
+    { href: '/command-centre', icon: LayoutDashboard, label: 'Dashboard', authOnly: true },
     { href: '/',             icon: Search,    label: 'Find' },
-    { href: '/pipeline',     icon: Columns3,  label: 'Pipeline', badge: savedCount, authOnly: true },
-    { href: '/market-brief', icon: Sparkles,  label: 'Insights', authOnly: true },
+    { href: '/pipeline',     icon: Columns3,  label: 'CRM', badge: savedCount, authOnly: true },
     { href: '/settings',     icon: Settings,  label: 'Settings', authOnly: true },
   ].filter((t) => !t.authOnly || session?.user);
 

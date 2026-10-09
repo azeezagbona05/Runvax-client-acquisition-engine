@@ -8,9 +8,8 @@ import { useProspects } from '@/context/ProspectsContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { useTheme } from '@/context/ThemeContext';
 import {
-  Search, Columns3, BarChart3, Settings, PanelLeftClose, PanelLeftOpen,
-  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, Sparkles, LayoutDashboard,
-  Send, BellRing, Megaphone,
+  Search, Columns3, Settings, PanelLeftClose, PanelLeftOpen,
+  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, LayoutDashboard,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -38,18 +37,14 @@ export default function Sidebar() {
 
   const initials = session?.user?.name?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? '?';
 
-  // Customer navigation: acquisition first. Outreach / Follow-ups / Campaigns
-  // are sections of the Dashboard (no duplicate modules); the badge on
-  // Prospect CRM and Analytics keeps the existing counts.
+  // Customer navigation is deliberately minimal for now: finding prospects and
+  // pitching them is the value proposition. Outreach, follow-ups and campaigns
+  // still live as sections of the Dashboard; Market Brief and Analytics routes
+  // still exist but are not linked here.
   const tabs = [
     { href: '/command-centre',          icon: LayoutDashboard, label: 'Dashboard',      badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
     { href: '/',                        icon: Search,          label: 'Find Prospects', badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: false },
     { href: '/pipeline',                icon: Columns3,        label: 'Prospect CRM',   badge: savedCount > 0 ? savedCount : undefined, badgeColor: 'bg-purple-600', authOnly: true },
-    { href: '/command-centre#outreach', icon: Send,            label: 'Outreach',       badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
-    { href: '/command-centre#follow-ups', icon: BellRing,      label: 'Follow-ups',     badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
-    { href: '/command-centre#campaigns', icon: Megaphone,      label: 'Campaigns',      badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
-    { href: '/market-brief',            icon: Sparkles,        label: 'Learn & Improve', badge: undefined,                             badgeColor: 'bg-purple-600', authOnly: true },
-    { href: '/dashboard',               icon: BarChart3,       label: 'Analytics',      badge: wonCount > 0 ? wonCount : undefined,    badgeColor: 'bg-green-500', authOnly: true },
     { href: '/settings',                icon: Settings,        label: 'Settings',       badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
   ].filter((t) => !t.authOnly || session?.user);
 
