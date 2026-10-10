@@ -88,6 +88,8 @@ export interface Business {
     time: string;
   }>;
   source?: 'google' | 'osm';
+  /** Named buyer found via an optional lookup (Apollo). Never a verified fact. */
+  decisionMaker?: { name: string; title: string; linkedin?: string; source: 'apollo' };
 }
 
 export interface SearchFormData {

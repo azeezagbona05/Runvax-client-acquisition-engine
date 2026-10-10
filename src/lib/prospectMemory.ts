@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 
-export type MemoryKind = 'opportunity' | 'reply' | 'note';
+export type MemoryKind = 'opportunity' | 'reply' | 'note' | 'contact';
 
 /**
  * Stores one fact about a prospect. Never throws — memory is a side effect of

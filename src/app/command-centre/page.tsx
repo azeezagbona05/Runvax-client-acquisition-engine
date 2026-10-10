@@ -84,10 +84,33 @@ function MetricCard({ icon: Icon, value, label, hint, tone }: {
   );
 }
 
-function OpportunityRow({ opp, onPitch, onDismiss }: {
-  opp: DashboardOpportunity; onPitch: () => void; onDismiss: () => void;
+function OpportunityRow({ opp, canLookup, onPitch, onDismiss, onLookedUp }: {
+  opp: DashboardOpportunity; canLookup: boolean; onPitch: () => void; onDismiss: () => void; onLookedUp: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [looking, setLooking] = useState(false);
+  const [lookupMsg, setLookupMsg] = useState('');
+
+  const lookup = async () => {
+    setLooking(true);
+    setLookupMsg('');
+    try {
+      const res = await fetch('/api/apollo/decision-maker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prospectId: opp.prospectId }),
+      });
+      const json = await res.json() as { error?: string; decisionMaker?: unknown };
+      if (!res.ok) setLookupMsg(json.error ?? 'Lookup failed');
+      else if (!json.decisionMaker) setLookupMsg('No decision-maker found for this business.');
+      else onLookedUp();
+    } catch {
+      setLookupMsg('Lookup failed — try again.');
+    } finally {
+      setLooking(false);
+    }
+  };
+  const dm = opp.business.decisionMaker;
   return (
     <div className={`${CARD} p-4`}>
       <div className="flex items-start justify-between gap-3">
@@ -105,6 +128,18 @@ function OpportunityRow({ opp, onPitch, onDismiss }: {
         <span className="font-semibold text-gray-400">Suggested offer:</span> {opp.offer}
       </p>
       <p className="text-[11px] text-gray-600 mt-1">{opp.websiteStatus} · {opp.contact}</p>
+      {dm && (
+        <p className="text-[11px] text-gray-400 mt-1">
+          Decision-maker: <span className="font-semibold">{dm.name}</span>{dm.title ? `, ${dm.title}` : ''}
+          <span className="text-gray-600"> · found via lookup, unverified</span>
+        </p>
+      )}
+      {!dm && canLookup && opp.business.website && (
+        <button onClick={() => void lookup()} disabled={looking} className="text-[11px] font-bold text-purple-400 hover:text-purple-300 mt-1 inline-flex items-center gap-1">
+          {looking && <Loader2 className="w-3 h-3 animate-spin" />} Find decision-maker
+        </button>
+      )}
+      {lookupMsg && <p className="text-[11px] text-gray-500 mt-1" role="status">{lookupMsg}</p>}
 
       {open && (
         <div className="mt-3 pt-3 border-t border-white/5 text-xs text-gray-400 space-y-1.5">
@@ -359,6 +394,8 @@ export default function CommandCentrePage() {
                   <OpportunityRow
                     key={opp.prospectId}
                     opp={opp}
+                    canLookup={!!summary?.decisionMakerLookup}
+                    onLookedUp={refresh}
                     onPitch={() => openPitch(opp)}
                     onDismiss={() => void dismissOpportunity(opp)}
                   />
