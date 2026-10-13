@@ -9,7 +9,7 @@ import { useHandleAIResponse } from '@/context/UpgradeContext';
 
 const INDUSTRIES = [
   'Restaurants & Eateries', 'Beauty Salons & Spas', 'Barbers & Hair Salons',
-  'Schools & Private Tutors', 'Clinics & Hospitals', 'Pharmacies & Chemists',
+  'Schools & Private Tutors', 'Clinics & Hospitals', 'Dental Clinics', 'Pharmacies & Chemists', 'Pharmaceutical Companies',
   'Real Estate Agencies', 'Hotels & Guesthouses', 'Event Centers & Halls',
   'Law Firms', 'Auto Workshops & Mechanics', 'Fashion & Boutiques',
   'Photography Studios', 'Gyms & Fitness Centers', 'Construction & Contractors',
