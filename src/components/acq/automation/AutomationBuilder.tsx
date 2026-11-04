@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  AlertTriangle, ArrowDown, Bell, Check, Clock, Loader2, Mail, MessageSquare, Plus, Rocket, Send, ShieldCheck, Sparkles, Trash2, Wand2, Zap,
+  AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, Bell, Check, Clock, Flag, Loader2, Mail, MapPin, MessageSquare, Package, Plus, Rocket, Send, ShieldCheck, Sparkles, Target, Trash2, Wand2, Zap,
 } from 'lucide-react';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import {
@@ -36,6 +36,8 @@ const CHIPS = [
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const hour12 = (h: number) => `${h % 12 || 12}:00 ${h % 24 < 12 ? 'AM' : 'PM'}`;
 
+const STEPS = ['Campaign Setup', 'Email Sequence', 'Auto Follow-up', 'Review & Deploy'];
+
 const label = { fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6, display: 'block' } as const;
 
 export default function AutomationBuilder() {
@@ -62,10 +64,12 @@ export default function AutomationBuilder() {
   const [applying, setApplying] = useState(false);
   const [contacts, setContacts] = useState<LeadInput[]>([]);
   const [createdId, setCreatedId] = useState('');
+  const [step, setStep] = useState(1);
   const endRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(1);
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [msgs, busy]);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [step]);
 
   // A template chosen in the library: official ones are built in, saved ones are fetched. Saved ones load exactly as saved.
   useEffect(() => {
@@ -130,6 +134,7 @@ export default function AutomationBuilder() {
       }
       setAuto(plan.automation);
       setOpen(0);
+      setStep((s) => (s === 1 ? 2 : s));
       push({ role: 'assistant', text: current ? 'Updated.' : 'Here is your campaign, built from your goal.', bullets: summarize(plan.automation), notice: plan.notice, source: plan.source });
     } finally { setBusy(false); }
   }, [auto, brief, tpl, handleGate]);
@@ -177,78 +182,96 @@ export default function AutomationBuilder() {
     </div>
   );
 
+  const objLabel = OBJECTIVES.find((o) => o.id === brief.objective)?.label ?? '';
+  const summaryRows: Array<{ icon: typeof Target; k: string; v: string }> = [
+    { icon: Target, k: 'Objective', v: objLabel }, { icon: MapPin, k: 'Target', v: brief.audience }, { icon: Package, k: 'Product', v: brief.offer }, { icon: Flag, k: 'Goal', v: brief.goal },
+  ];
+  const nav = (back: (() => void) | null, next: { label: string; onClick: () => void; disabled?: boolean } | null) => (
+    <div className="acq-footer">
+      {back ? <button className="acq-btn" onClick={back}><ArrowLeft size={16} /> Back</button> : <Link href="/client-acquisition" className="acq-btn">Cancel</Link>}
+      {next && <button className="acq-btn acq-btn-primary" disabled={next.disabled} onClick={next.onClick}>{next.label} <ArrowRight size={16} /></button>}
+    </div>
+  );
+
   return (
     <div className="acq-stack">
-      <div style={{ position: 'relative', paddingTop: 4, minHeight: 72 }}>
-        <div className="acq-only-desktop" style={{ position: 'absolute', right: 0, top: -4, pointerEvents: 'none' }} aria-hidden><div style={{ width: 120, height: 88, overflow: 'hidden' }}><Robot size={120} /></div></div>
-        <h1 className="acq-page-title">Campaign Automation Builder</h1>
-        <p className="acq-sub" style={{ marginTop: 2, maxWidth: 720 }}>Your AI workforce sets up how you approach and engage your next customers: the emails, the waits, the follow-up rules and what happens when someone replies. Type it or press a button, then review.</p>
-      </div>
+      <header className="acq-hero">
+        <span className="acq-hero-icon" aria-hidden><Wand2 size={26} /></span>
+        <div className="acq-hero-text">
+          <h1 className="acq-page-title">Campaign Automation Builder</h1>
+          <p className="acq-sub" style={{ marginTop: 2, maxWidth: 640 }}>Create a complete AI-powered outreach campaign that finds, engages, and converts {brief.audience.trim() || 'your next customers'}.</p>
+        </div>
+        <div className="acq-hero-right acq-only-desktop">
+          {brief.offer.trim() && (
+            <div className="acq-hero-agent">
+              <span style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><Sparkles size={18} /></span>
+              <span style={{ minWidth: 0 }}><b style={{ display: 'block', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brief.offer}</b><span className="acq-sub" style={{ display: 'block', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brief.audience.trim() ? `For ${brief.audience}` : 'Your AI outreach campaign'}</span></span>
+            </div>
+          )}
+          <div aria-hidden style={{ width: 120, height: 88, overflow: 'hidden', pointerEvents: 'none' }}><Robot size={120} /></div>
+        </div>
+      </header>
+
+      <nav className="acq-steps" aria-label="Campaign builder steps">
+        <ol>
+          {STEPS.map((s, i) => {
+            const n = i + 1;
+            return (
+              <Fragment key={s}>
+                {i > 0 && <li className="acq-step-line" aria-hidden />}
+                <li>
+                  <button className={`acq-step${step === n ? ' active' : ''}${step > n ? ' done' : ''}`} disabled={n > 1 && !auto} aria-current={step === n ? 'step' : undefined} onClick={() => setStep(n)}>
+                    <span className="acq-step-num">{step > n ? <Check size={16} strokeWidth={3} /> : n}</span>
+                    <span className="acq-step-label">{s}</span>
+                  </button>
+                </li>
+              </Fragment>
+            );
+          })}
+        </ol>
+      </nav>
+
       {notice && <div className="acq-notice" role="status" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>{notice}</span><button className="acq-link" style={{ color: '#64748b' }} onClick={() => setNotice('')}>Dismiss</button></div>}
 
-
-      {tpl && tpl.source === 'official' && <GuidedSetup tpl={tpl} brief={brief} setBrief={setBrief} featuresText={featuresText} setFeaturesText={setFeaturesText} busy={busy} built={!!auto} contactsCount={contacts.length} onGenerate={() => void ask(input, true)} />}
-      {strategy && <StrategyPanel s={strategy} />}
-      {!(tpl && tpl.source === 'official') && <section className="acq-card" aria-label="Campaign setup">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]" style={{ alignItems: 'start' }}>
+        <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
+          {step === 1 && (
+            <>
+              {tpl && tpl.source === 'official'
+                ? <GuidedSetup tpl={tpl} brief={brief} setBrief={setBrief} featuresText={featuresText} setFeaturesText={setFeaturesText} busy={busy} built={!!auto} contactsCount={contacts.length} onGenerate={() => void ask(input, true)} />
+                : (
+      <section className="acq-card" aria-label="Campaign setup">
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
           <div><h2 className="acq-title" style={{ fontSize: 16.5, fontWeight: 800 }}>Campaign setup</h2><p className="acq-sub" style={{ fontSize: 12.5 }}>Fill in what you can, or just type your goal in the agent box. The agent builds the whole five-email sequence from this.</p></div>
-          <button className="acq-btn acq-btn-primary" disabled={busy || (briefIsBlank(brief) && !input.trim())} onClick={() => void ask(input, true)}>{busy ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />} {auto ? 'Rebuild from setup' : 'Build my campaign'}</button>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div><label style={label} htmlFor="cs-name">Campaign name</label><input id="cs-name" className="acq-input" maxLength={120} value={brief.name} onChange={(e) => setBrief({ ...brief, name: e.target.value })} placeholder="e.g. Dental AI Hub – Clinic Outreach" /></div>
           <div><label style={label} htmlFor="cs-obj">Campaign objective</label><select id="cs-obj" className="acq-select" value={brief.objective} onChange={(e) => setBrief({ ...brief, objective: e.target.value as Objective })}>{OBJECTIVES.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></div>
           <div><label style={label} htmlFor="cs-offer">Product or service</label><input id="cs-offer" className="acq-input" maxLength={200} value={brief.offer} onChange={(e) => setBrief({ ...brief, offer: e.target.value })} placeholder="e.g. Dental AI Hub – AI enquiry and appointment assistant" /></div>
           <div><label style={label} htmlFor="cs-aud">Target market</label><input id="cs-aud" className="acq-input" maxLength={200} value={brief.audience} onChange={(e) => setBrief({ ...brief, audience: e.target.value })} placeholder="e.g. Dental clinics in the UK" /></div>
-          <div className="md:col-span-2"><label style={label} htmlFor="cs-sum">What it does</label><textarea id="cs-sum" className="acq-textarea" rows={2} maxLength={500} value={brief.offerSummary} onChange={(e) => setBrief({ ...brief, offerSummary: e.target.value })} placeholder="One or two sentences on what it does for the customer." /></div>
+          <div className="md:col-span-2"><label style={label} htmlFor="cs-sum">What it does</label><textarea id="cs-sum" className="acq-textarea" rows={2} maxLength={500} value={brief.offerSummary} onChange={(e) => setBrief({ ...brief, offerSummary: e.target.value })} placeholder="One or two sentences on what it does for the customer." /><span className="acq-faint" style={{ display: 'block', textAlign: 'right', fontSize: 11.5, marginTop: 4 }}>{brief.offerSummary.length} / 500</span></div>
           <div><label style={label} htmlFor="cs-feat">What it includes (one per line)</label><textarea id="cs-feat" className="acq-textarea" rows={4} value={featuresText} onChange={(e) => { setFeaturesText(e.target.value); setBrief({ ...brief, features: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 8) }); }} placeholder={'Instant replies to patient enquiries\nAutomated follow-ups\nAppointment booking'} /></div>
           <div style={{ display: 'grid', gap: 12, alignContent: 'start' }}>
             <div><label style={label} htmlFor="cs-goal">Campaign goal</label><input id="cs-goal" className="acq-input" maxLength={200} value={brief.goal} onChange={(e) => setBrief({ ...brief, goal: e.target.value })} placeholder="e.g. Book 20 demos" /></div>
             <div><label style={label} htmlFor="cs-sign">Sign-off</label><input id="cs-sign" className="acq-input" maxLength={200} value={brief.signOff} onChange={(e) => setBrief({ ...brief, signOff: e.target.value })} placeholder="e.g. Azeez, Harzotech Innovative Solutions" /></div>
           </div>
         </div>
-      </section>}
+      </section>
+                )}
+              <section className="acq-banner" aria-label="Set up automatically">
+                <span style={{ width: 52, height: 52, borderRadius: 14, background: '#fff', color: 'var(--brand)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 4px 12px rgba(147,51,234,.15)' }}><Mail size={24} /></span>
+                <div style={{ flex: '1 1 240px', minWidth: 0 }}><h2 className="acq-title" style={{ fontSize: 16.5, fontWeight: 800 }}>Let AI set it up for you</h2><p className="acq-sub" style={{ fontSize: 13 }}>Create the full campaign (emails, follow-ups and timing) instantly with AI.</p></div>
+                <button className="acq-btn acq-btn-primary" style={{ height: 44 }} disabled={busy} onClick={() => void ask(auto ? 'Start again with a sensible default' : '')}>
+                  {busy ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />} {auto ? 'Start over with a default setup' : 'Set up my campaign automatically'}
+                </button>
+              </section>
+              {nav(null, { label: 'Next: Email Sequence', disabled: busy, onClick: () => (auto ? setStep(2) : void ask(input, true)) })}
+            </>
+          )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,.8fr)_minmax(0,1.6fr)]" style={{ alignItems: 'start' }}>
-        {/* the agent */}
-        <section className="acq-card" style={{ padding: 0, overflow: 'hidden', position: 'sticky', top: 76 }}>
-          <div style={{ padding: '16px 18px', background: 'linear-gradient(135deg, #f3e8ff, #faf5ff)', display: 'flex', gap: 12, alignItems: 'center' }}>
-            <span style={{ width: 42, height: 42, borderRadius: 12, background: '#9333ea', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Wand2 size={20} /></span>
-            <div><h2 className="acq-title" style={{ fontSize: 16.5, fontWeight: 800 }}>Campaign Setup Agent</h2><p className="acq-sub" style={{ fontSize: 12.5 }}>Describe it in your own words</p></div>
-          </div>
-          <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-            <button className="acq-btn acq-btn-primary" style={{ height: 48 }} disabled={busy} onClick={() => void ask(auto ? 'Start again with a sensible default' : '')}>
-              {busy ? <Loader2 size={17} className="animate-spin" /> : <Zap size={17} />} {auto ? 'Start over with a default setup' : 'Set up my campaign automatically'}
-            </button>
-            <div role="log" aria-live="polite" style={{ display: 'grid', gap: 10, maxHeight: 340, overflowY: 'auto', padding: '2px 2px 2px 0' }}>
-              {msgs.map(bubble)}
-              {busy && <p className="acq-sub" style={{ fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}><Loader2 size={14} className="animate-spin" /> Setting this up…</p>}
-              <div ref={endRef} />
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {CHIPS.filter((c) => auto || !/^(Make|Add|Only)/.test(c)).slice(0, 5).map((c) => <button key={c} className="acq-chip" style={{ fontSize: 12, padding: '5px 10px', textAlign: 'left' }} disabled={busy} onClick={() => void ask(c)}>{c}</button>)}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <textarea className="acq-textarea" rows={2} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Tell the setup agent what you want"
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && input.trim() && !busy) { e.preventDefault(); send(); } }}
-                placeholder={auto ? 'e.g. "make it more formal", "add a follow-up", "wait 5 days"' : 'e.g. "Pitch our AI receptionist to dental clinics with 3 emails, follow up after 4 days"'} />
-              <button className="acq-btn acq-btn-primary" style={{ height: 'auto', width: 48, padding: 0 }} disabled={!input.trim() || busy} onClick={send} aria-label="Send"><Send size={17} /></button>
-            </div>
-            <p className="acq-faint" style={{ fontSize: 11.5, lineHeight: 1.5 }}><ShieldCheck size={12} style={{ display: 'inline', marginRight: 4 }} />The agent can write and arrange emails. It can never switch on automatic sending, add links, or contact anyone: you review everything first.</p>
-          </div>
-        </section>
-
-        {/* the builder */}
-        <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
-          {!auto ? (
-            <Card>
-              <div style={{ textAlign: 'center', padding: '44px 16px' }}>
-                <span style={{ width: 56, height: 56, borderRadius: 16, background: '#f3e8ff', color: '#9333ea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}><Mail size={26} /></span>
-                <h2 className="acq-title" style={{ fontSize: 18 }}>Your automation will appear here</h2>
-                <p className="acq-sub" style={{ maxWidth: 440, margin: '6px auto 0' }}>Press the button, or tell the agent what you want. You can then edit every email, delay and rule by hand.</p>
-              </div>
-            </Card>
-          ) : (
+          {step === 2 && auto && (
             <>
+              {strategy && <StrategyPanel s={strategy} />}
               <Card>
                 <label style={label} htmlFor="auto-name">Automation name</label>
                 <input id="auto-name" className="acq-input" style={{ height: 44, fontWeight: 600 }} value={auto.name} maxLength={120} onChange={(e) => edit({ name: e.target.value })} />
@@ -294,7 +317,12 @@ export default function AutomationBuilder() {
                 </div>
                 {issues.length > 0 && <p role="alert" style={{ marginTop: 14, color: '#b45309', fontSize: 13, background: '#fff8eb', border: '1px solid #fcd9a6', borderRadius: 10, padding: '8px 12px' }}>{issues[0]}</p>}
               </Card>
+              {nav(() => setStep(1), { label: 'Next: Auto Follow-up', disabled: issues.length > 0, onClick: () => setStep(3) })}
+            </>
+          )}
 
+          {step === 3 && auto && (
+            <>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Card title="Replies and stopping">
                   <div style={{ display: 'grid', gap: 14 }}>
@@ -322,7 +350,6 @@ export default function AutomationBuilder() {
                   </div>
                 </Card>
               </div>
-
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card title="Test it before you run it">
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
@@ -347,14 +374,17 @@ export default function AutomationBuilder() {
                   </div>
                 </Card>
               </div>
+              {nav(() => setStep(2), { label: 'Next: Review & Deploy', onClick: () => setStep(4) })}
+            </>
+          )}
 
+          {step === 4 && auto && (
+            <>
               <Card title="Who should get it?">
                 <LeadPicker leads={contacts} onChange={setContacts} />
                 <p className="acq-faint" style={{ fontSize: 12, marginTop: 10 }}>Upload a CSV or paste addresses. Anyone who has unsubscribed from your campaigns before is skipped automatically.</p>
               </Card>
-
               {tpl && <CampaignReview tpl={tpl} auto={briefIsBlank(brief) ? auto : { ...auto, brief }} contactsCount={contacts.length} approved={approved} setApproved={setApproved} />}
-
               <Card title="Use this automation">
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -372,9 +402,48 @@ export default function AutomationBuilder() {
                   {target && <p className="acq-sub" style={{ fontSize: 12.5 }}>Applying replaces the campaign&apos;s email wording and follow-up settings. Emails already sent are not affected. <Link href={`/client-acquisition/campaigns/${target}`} style={{ color: '#9333ea', fontWeight: 600 }}>Open the campaign</Link></p>}
                 </div>
               </Card>
+              {nav(() => setStep(3), null)}
             </>
           )}
         </div>
+
+        <aside className="acq-sticky-xl" style={{ display: 'grid', gap: 16, minWidth: 0 }}>
+          <section className="acq-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 18px 4px', display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span style={{ width: 42, height: 42, borderRadius: 12, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><Sparkles size={20} /></span>
+              <div><h2 className="acq-title" style={{ fontSize: 17, fontWeight: 800 }}>Campaign Setup Agent</h2><p className="acq-sub" style={{ fontSize: 12.5 }}>Let AI create a complete campaign for you.</p></div>
+            </div>
+            <div style={{ padding: 16, display: 'grid', gap: 12 }}>
+              <div role="log" aria-live="polite" style={{ display: 'grid', gap: 10, maxHeight: 340, overflowY: 'auto', padding: '2px 2px 2px 0' }}>
+                {msgs.map(bubble)}
+                {busy && <p className="acq-sub" style={{ fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}><Loader2 size={14} className="animate-spin" /> Setting this up…</p>}
+                <div ref={endRef} />
+              </div>
+              <div className="acq-suggest">
+                {CHIPS.filter((c) => auto || !/^(Make|Add|Only)/.test(c)).slice(0, 4).map((c) => <button key={c} className="acq-suggest-item" disabled={busy} onClick={() => void ask(c)}><Zap size={14} />{c}</button>)}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <textarea className="acq-textarea" rows={2} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Tell the setup agent what you want"
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && input.trim() && !busy) { e.preventDefault(); send(); } }}
+                  placeholder={auto ? 'e.g. "make it more formal", "add a follow-up", "wait 5 days"' : 'e.g. "Pitch our AI receptionist to dental clinics with 3 emails, follow up after 4 days"'} />
+                <button className="acq-btn acq-btn-primary" style={{ height: 'auto', width: 48, padding: 0 }} disabled={!input.trim() || busy} onClick={send} aria-label="Send"><Send size={17} /></button>
+              </div>
+              <p className="acq-faint" style={{ fontSize: 11.5, lineHeight: 1.5 }}><ShieldCheck size={12} style={{ display: 'inline', marginRight: 4 }} />The agent can write and arrange emails. It can never switch on automatic sending, add links, or contact anyone: you review everything first.</p>
+            </div>
+          </section>
+
+          <Card title="Campaign Summary">
+            <div style={{ display: 'grid', gap: 0 }}>
+              {summaryRows.map((r, i) => (
+                <div key={r.k} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderTop: i ? '1px solid var(--line-soft)' : 0 }}>
+                  <span style={{ width: 32, height: 32, borderRadius: 999, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><r.icon size={15} /></span>
+                  <b style={{ fontSize: 13.5, width: 84, flex: 'none' }}>{r.k}:</b>
+                  <span style={{ fontSize: 13.5, minWidth: 0, overflowWrap: 'anywhere', color: r.v.trim() ? 'var(--ink-2)' : 'var(--mute)' }}>{r.v.trim() || 'Not set yet'}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </aside>
       </div>
     </div>
   );

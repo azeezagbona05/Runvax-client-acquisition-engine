@@ -17,7 +17,7 @@ const NAV = [
   { href: '/client-acquisition', label: 'Overview', icon: Home, exact: true },
   { href: '/client-acquisition/leads', label: 'Lead Lists', icon: Users },
   { href: '/client-acquisition/campaigns', label: 'Campaigns', icon: Send },
-  { href: '/client-acquisition/automation', label: 'Automation', icon: Wand2 },
+  { href: '/client-acquisition/automation', label: 'Automation Builder', icon: Wand2 },
   { href: '/client-acquisition/activity', label: 'Email Activity', icon: Mail },
   { href: '/client-acquisition/inbox', label: 'Inbox & Opportunities', icon: MessageCircle, badge: true },
   { href: '/client-acquisition/agents', label: 'AI Agents', icon: Bot },
