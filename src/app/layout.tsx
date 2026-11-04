@@ -259,7 +259,7 @@ const jsonLd = {
           name: 'Is Runvax free?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Yes. Runvax has a free plan with 5 searches per day and 20 results per search. Paid plans start at ₦9,999 per month (Pro) for 20 searches and 60 results, and ₦24,999 per month (Agency) for unlimited searches and results.',
+            text: 'Yes. Runvax has a free plan with 5 searches per day and 20 results per search. Paid plans start at $6 per month (Pro) for 20 searches and 60 results, and $15 per month (Agency) for unlimited searches and results.',
           },
         },
         {
@@ -299,7 +299,7 @@ const jsonLd = {
           name: 'How much does Runvax cost?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Runvax has a free plan with no credit card required (5 searches/day). Pro is ₦9,999/month (~$6 USD / £5 GBP) with 20 searches/day and 60 results. Agency is ₦24,999/month (~$15 USD / £12 GBP) with unlimited searches, results, and AI calls.',
+            text: 'Runvax has a free plan with no credit card required (5 searches/day). Pro is $6/month (~£5 GBP) with 20 searches/day and 60 results. Agency is $15/month (~£12 GBP) with unlimited searches, results, and AI calls.',
           },
         },
         {
@@ -315,7 +315,7 @@ const jsonLd = {
           name: 'What is the difference between Runvax Free and Pro?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Free plan: 5 searches/day, 20 results/search, 15 AI messages/day — no credit card. Pro plan (₦9,999/month): 20 searches/day, 60 results/search, 200 AI calls/day. Agency plan (₦24,999/month): unlimited everything plus bulk email blast.',
+            text: 'Free plan: 5 searches/day, 20 results/search, 15 AI messages/day — no credit card. Pro plan ($6/month): 20 searches/day, 60 results/search, 200 AI calls/day. Agency plan ($15/month): unlimited everything plus bulk email blast.',
           },
         },
       ],

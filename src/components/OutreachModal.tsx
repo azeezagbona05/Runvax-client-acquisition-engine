@@ -12,6 +12,9 @@ import { whatsappLink } from '@/lib/phone';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import EditablePitch from './EditablePitch';
 import SaturationBadge from './SaturationBadge';
+import DecisionMakerCard from './DecisionMakerCard';
+import { recipientEmail as recipientEmailFor } from '@/lib/decisionMaker';
+import OutreachLink, { useAcquisitionManaged } from './OutreachLink';
 
 interface Props {
   business: Business;
@@ -101,22 +104,34 @@ function renderWhatsApp(text: string): React.ReactNode {
 export default function OutreachModal({ business, onClose, initialData, draftId }: Props) {
   const router = useRouter();
   const { markOutreachSent, incrementToday, updateStage, isSaved, save } = useProspects();
+  const acquisitionManaged = useAcquisitionManaged(business.id);
   const handleAIResponse = useHandleAIResponse();
   const [tab, setTab] = useState<Tab>('whatsapp');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<OutreachData | null>(initialData ?? null);
   const [error, setError] = useState('');
-  const [recipientEmail, setRecipientEmail] = useState(business.email ?? '');
+  // The decision-maker's own address beats the business's shared inbox.
+  const [recipientEmail, setRecipientEmail] = useState(recipientEmailFor(business));
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [signupGate, setSignupGate] = useState(false);
   const [findingEmail, setFindingEmail] = useState(false);
   const [emailNotFound, setEmailNotFound] = useState(false);
+  // Decision-maker the sender found or typed in this session; overrides the saved one.
+  const [dm, setDm] = useState<Business['decisionMaker'] | null | undefined>(undefined);
+  const [dmStale, setDmStale] = useState(false);
   const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Detection is a pure function over the business record, so the modal can show
   // what this business qualifies for before spending an AI call.
   const detected = useMemo(() => detectOpportunities(business), [business]);
+
+  // The business as the sender sees it right now: the email typed in this modal and
+  // any decision-maker they found count, so who-it-reaches and the message agree.
+  const effectiveBusiness = useMemo<Business>(() => {
+    const decisionMaker = dm === undefined ? business.decisionMaker : (dm ?? undefined);
+    return { ...business, email: recipientEmail.trim() || business.email, decisionMaker };
+  }, [business, dm, recipientEmail]);
   const [offer, setOffer] = useState<OfferType | null>(null);
 
   // The default is what detection suggests. When nothing qualifies we still have
@@ -170,11 +185,12 @@ export default function OutreachModal({ business, onClose, initialData, draftId 
     setLoading(true);
     setError('');
     setSignupGate(false);
+    setDmStale(false);
     try {
       const res = await fetch('/api/outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business, competitors: business.competitors, offer: activeOffer, timeOfDay: (() => { const h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; })() }),
+        body: JSON.stringify({ business: effectiveBusiness, competitors: business.competitors, offer: activeOffer, timeOfDay: (() => { const h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; })() }),
       });
       const json = await res.json();
       const handled = handleAIResponse(res, json);
@@ -190,7 +206,7 @@ export default function OutreachModal({ business, onClose, initialData, draftId 
   };
 
   const handleMarkSent = (channel: 'whatsapp' | 'email' = 'whatsapp') => {
-    if (!isSaved(business.id)) save(business);
+    if (!isSaved(business.id)) save(effectiveBusiness);
     const content = channel === 'whatsapp' ? data?.whatsapp : data?.emailBody;
     markOutreachSent(business.id, content ?? '', channel, data?.framework);
     updateStage(business.id, 'contacted');
@@ -314,6 +330,23 @@ export default function OutreachModal({ business, onClose, initialData, draftId 
                 can decide whether this lead is worth a message at all, and knows
                 to sharpen the angle when others have already been here. */}
             <SaturationBadge businessId={business.id} variant="full" />
+
+            {/* Who the message will land in front of — a message to a shared inbox
+                or an unnamed contact needs a different opening than one to the owner. */}
+            <DecisionMakerCard
+              business={effectiveBusiness}
+              onChange={(next) => {
+                setDm(next);
+                if (data) setDmStale(true);
+                // Switch the send-to address to the person's own email unless the sender typed a different one.
+                if (next?.email && (!recipientEmail.trim() || recipientEmail.trim() === recipientEmailFor(business))) setRecipientEmail(next.email);
+              }}
+            />
+            {dmStale && (
+              <p className="text-xs text-yellow-400 -mt-2">
+                You changed who this is for. Regenerate the message so it opens with the right name.
+              </p>
+            )}
 
             {/* What the message drew on from prior contact with this prospect —
                 a past reply, an objection, a note. Shown so the sender can check
@@ -443,15 +476,15 @@ export default function OutreachModal({ business, onClose, initialData, draftId 
                 </div>
                 <div className="flex gap-2 mt-3">
                   {whatsappUrl && (
-                    <a
-                      href={whatsappUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => handleMarkSent('whatsapp')}
+                    <OutreachLink
+                      url={whatsappUrl}
+                      target={{ businessId: business.id, phone: business.phone }}
+                      managed={acquisitionManaged}
+                      onOpened={() => handleMarkSent('whatsapp')}
                       className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl text-sm text-center transition-colors flex items-center justify-center gap-2"
                     >
                       <MessageCircle className="w-4 h-4" /> Open in WhatsApp
-                    </a>
+                    </OutreachLink>
                   )}
                   <button onClick={() => handleMarkSent('whatsapp')} className="px-4 py-3 bg-white/8 hover:bg-white/15 text-gray-300 font-semibold rounded-xl text-sm transition-colors border border-white/10">
                     Mark Sent

@@ -26,9 +26,17 @@ export async function middleware(req: NextRequest) {
     if (!token.isAdmin) return NextResponse.redirect(new URL('/command-centre', req.url));
   }
 
+  // Industry Acquisition is admin-only. The page layout and every API route
+  // also enforce the feature flag and admin check — this is the outer layer.
+  if (pathname === '/acquisition' || pathname.startsWith('/acquisition/')) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (!token) return NextResponse.redirect(new URL('/admin/login', req.url));
+    if (!token.isAdmin) return NextResponse.redirect(new URL('/command-centre', req.url));
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/growth', '/growth/:path*'],
+  matcher: ['/admin/:path*', '/growth', '/growth/:path*', '/acquisition', '/acquisition/:path*'],
 };

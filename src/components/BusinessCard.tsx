@@ -14,6 +14,9 @@ import { buildQuickWAMessage } from '@/lib/waMessage';
 import { useWaPaceTimer } from '@/lib/waRateLimit';
 import { useToast } from './Toast';
 import SaturationBadge from './SaturationBadge';
+import { ACQUISITION_NOTICE, isAcquisitionManaged, openOutreach, reportBlocked } from '@/lib/outreachGate';
+import OutreachLink from '@/components/OutreachLink';
+import DecisionMakerLine from '@/components/DecisionMakerLine';
 
 function getDomain(website?: string): string {
   if (!website) return '';
@@ -60,6 +63,7 @@ function BusinessCard({ business, onClick, competitors }: Props) {
   const waApiConnected = !!(settings.waPhoneNumberId && settings.waTemplateStatus === 'APPROVED');
   const saved = isSaved(business.id);
   const prospect = get(business.id);
+  const acquisitionManaged = isAcquisitionManaged(prospect);
   const score = useMemo(() => scoreProspect(business), [business]);
   const breakdown = useMemo(() => scoreBreakdown(business), [business]);
   const { label: scoreText, color: scoreColor } = useMemo(() => scoreLabel(score), [score]);
@@ -100,6 +104,8 @@ function BusinessCard({ business, onClick, competitors }: Props) {
   const quickWhatsApp = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!business.phone || generating) return;
+    // Industry Acquisition clinics are contacted only through the approved pitch: stop before composing anything.
+    if (acquisitionManaged) { reportBlocked([{ message: ACQUISITION_NOTICE }]); return; }
 
     setGenerating(true);
     let msg: string;
@@ -123,12 +129,14 @@ function BusinessCard({ business, onClick, competitors }: Props) {
     setWaState({ step: 'preview', msg, link });
   };
 
-  const openWhatsApp = () => {
+  const openWhatsApp = async () => {
     if (!waState) return;
     // Rebuild link with the (possibly edited) message
     const finalMsg = editedMsg || waState.msg;
     const finalLink = whatsappLink(business, finalMsg) ?? waState.link;
-    window.open(finalLink, '_blank');
+    // The server decides whether this contact may be messaged (stale pages, suppression, acquisition clinics).
+    const opened = await openOutreach(finalLink, { businessId: business.id, phone: business.phone });
+    if (!opened.ok) { reportBlocked([opened]); return; }
     setWaState({ step: 'confirm', msg: finalMsg, link: finalLink });
   };
 
@@ -314,6 +322,8 @@ function BusinessCard({ business, onClick, competitors }: Props) {
           </h3>
         </div>
 
+        <DecisionMakerLine business={business} />
+
         {/* Address */}
         {business.address && (
           <div className="flex items-start gap-2 text-gray-500 text-xs">
@@ -327,14 +337,16 @@ function BusinessCard({ business, onClick, competitors }: Props) {
           <div className="flex items-center gap-2 text-xs">
             <Phone className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
             <span className="text-gray-400 flex-1 truncate">{business.phone}</span>
-            <a
-              href={`tel:${business.phone.replace(/\s/g, '')}`}
-              onClick={(e) => e.stopPropagation()}
+            <OutreachLink
+              url={`tel:${business.phone.replace(/\s/g, '')}`}
+              target={{ businessId: business.id, phone: business.phone }}
+              managed={acquisitionManaged}
+              sameTab
               title="Call now"
               className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-all"
             >
               <PhoneCall className="w-3 h-3" /> Call
-            </a>
+            </OutreachLink>
             <button
               onClick={copyPhone}
               title="Copy number"
@@ -375,12 +387,15 @@ function BusinessCard({ business, onClick, competitors }: Props) {
           </div>
         )}
 
+        {acquisitionManaged && <p role="note" className="text-[11px] text-amber-400 leading-snug">{ACQUISITION_NOTICE}</p>}
+
         {/* Mobile quick-action strip — 3 big touch targets */}
         <div className="sm:hidden flex border-t border-white/8 -mx-4 -mb-4 mt-2 rounded-b-2xl overflow-hidden">
           {business.phone ? (
             <button
               onClick={quickWhatsApp}
-              disabled={generating}
+              disabled={generating || acquisitionManaged}
+              title={acquisitionManaged ? ACQUISITION_NOTICE : undefined}
               className="flex-1 py-3.5 flex flex-col items-center gap-1 text-green-400 bg-green-500/8 border-r border-white/8 active:bg-green-500/20 transition-colors disabled:opacity-50"
             >
               {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
@@ -393,14 +408,16 @@ function BusinessCard({ business, onClick, competitors }: Props) {
             </div>
           )}
           {business.phone && (
-            <a
-              href={`tel:${business.phone.replace(/\s/g, '')}`}
-              onClick={(e) => e.stopPropagation()}
+            <OutreachLink
+              url={`tel:${business.phone.replace(/\s/g, '')}`}
+              target={{ businessId: business.id, phone: business.phone }}
+              managed={acquisitionManaged}
+              sameTab
               className="flex-1 py-3.5 flex flex-col items-center gap-1 text-purple-400 bg-purple-500/8 border-r border-white/8 active:bg-purple-500/20 transition-colors"
             >
               <PhoneCall className="w-5 h-5" />
               <span className="text-[10px] font-bold">Call</span>
-            </a>
+            </OutreachLink>
           )}
           <button
             onClick={toggleSave}
@@ -479,8 +496,8 @@ function BusinessCard({ business, onClick, competitors }: Props) {
             {business.phone && (
               <button
                 onClick={quickWhatsApp}
-                disabled={generating}
-                title={generating ? 'Writing message…' : 'Preview & send WhatsApp'}
+                disabled={generating || acquisitionManaged}
+                title={acquisitionManaged ? ACQUISITION_NOTICE : generating ? 'Writing message…' : 'Preview & send WhatsApp'}
                 className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors disabled:opacity-60 disabled:cursor-wait"
               >
                 {generating

@@ -83,6 +83,15 @@ export interface ProspectContext {
    *  interaction, not the business record, so the model may use them for tone
    *  and continuity but must not present them as facts about the business. */
   priorContext?: string[];
+  /** Who this message is likely to land in front of. Drives the greeting and the
+   *  ask: a named decision-maker is greeted personally; a gatekeeper inbox gets a
+   *  message that is easy to pass on. Omitted keeps the original behaviour. */
+  recipient?: {
+    level: 'direct' | 'likely' | 'gatekeeper' | 'unknown';
+    firstName?: string;
+    name?: string;
+    title?: string;
+  };
   rating?: number;
   reviewCount?: number;
   competitorWithSite?: string;

@@ -4,10 +4,20 @@ import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
 import { getEffectiveProfile } from '@/lib/userProfile';
 import { requireFeature } from '@/lib/usage';
+import { checkRecipient } from '@/lib/acquisition/recipientGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  // Signed-in, non-suspended users only — without this the platform SMTP
+  // fallback below would relay mail for anyone.
+  const token = await getToken({ req });
+  const userId = (token?.id ?? token?.sub) as string | undefined;
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const account = await prisma.user.findUnique({ where: { id: userId }, select: { isSuspended: true } });
+  if (!account) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (account.isSuspended) return NextResponse.json({ error: 'Account suspended' }, { status: 403 });
+
   const { to, subject, body, fromName, bulk } = await req.json() as {
     to: string; subject: string; body: string; fromName?: string; bulk?: boolean;
   };
@@ -15,6 +25,10 @@ export async function POST(req: NextRequest) {
   if (!to || !subject || !body) {
     return NextResponse.json({ error: 'Missing required fields: to, subject, body' }, { status: 400 });
   }
+
+  // Industry Acquisition clinics and suppressed recipients are never messaged from here.
+  const verdict = await checkRecipient(userId, { email: to });
+  if (!verdict.allowed) return NextResponse.json({ error: verdict.message, code: verdict.code }, { status: verdict.status });
 
   // Bulk (Email Blast) is a Pro feature; single direct sends stay open to all plans.
   if (bulk) {
@@ -29,20 +43,16 @@ export async function POST(req: NextRequest) {
   let pass: string | undefined;
   let displayFrom: string | undefined = fromName;
 
-  const token = await getToken({ req });
-  const userId = (token?.id ?? token?.sub) as string | undefined;
-  if (userId) {
-    const s = await prisma.userSettings.findUnique({
-      where: { userId },
-      select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpFrom: true, businessName: true, senderName: true },
-    });
-    if (s?.smtpHost && s?.smtpUser && s?.smtpPass) {
-      host = s.smtpHost;
-      port = s.smtpPort ?? 587;
-      user = s.smtpUser;
-      pass = s.smtpPass;
-      displayFrom ??= s.smtpFrom ?? s.businessName ?? s.senderName ?? undefined;
-    }
+  const s = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpFrom: true, businessName: true, senderName: true },
+  });
+  if (s?.smtpHost && s?.smtpUser && s?.smtpPass) {
+    host = s.smtpHost;
+    port = s.smtpPort ?? 587;
+    user = s.smtpUser;
+    pass = s.smtpPass;
+    displayFrom ??= s.smtpFrom ?? s.businessName ?? s.senderName ?? undefined;
   }
 
   // Platform SMTP fallback

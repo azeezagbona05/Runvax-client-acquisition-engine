@@ -12,6 +12,9 @@ import { whatsappLink } from '@/lib/phone';
 import { useWaPaceTimer } from '@/lib/waRateLimit';
 import { useProspects } from '@/context/ProspectsContext';
 import { useToast } from './Toast';
+import OutreachLink from './OutreachLink';
+import DecisionMakerLine from './DecisionMakerLine';
+import { isAcquisitionManaged } from '@/lib/outreachGate';
 
 type SortKey = 'name' | 'category' | 'website' | 'rating' | 'score';
 type SortDir = 'asc' | 'desc';
@@ -228,6 +231,7 @@ export default function BusinessTable({ businesses, onSelect, selectMode, select
                       {saved && <Bookmark className="w-3 h-3 text-purple-400 fill-purple-400 flex-shrink-0" />}
                       <span className="font-semibold text-white leading-snug max-w-[220px] truncate">{b.name}</span>
                     </div>
+                    <div className="max-w-[240px] mt-0.5"><DecisionMakerLine business={b} compact /></div>
                   </td>
                   {col('category') && <td className="px-3 py-2.5 text-gray-400 max-w-[160px] truncate">{b.category}</td>}
                   {col('website') && (
@@ -256,25 +260,27 @@ export default function BusinessTable({ businesses, onSelect, selectMode, select
                     <td className="px-3 py-2.5">
                       {b.phone ? (
                         <div className="flex items-center gap-1">
-                          <a
-                            href={`tel:${b.phone.replace(/\s/g, '')}`}
-                            onClick={(e) => e.stopPropagation()}
+                          <OutreachLink
+                            url={`tel:${b.phone.replace(/\s/g, '')}`}
+                            target={{ businessId: b.id, phone: b.phone }}
+                            managed={isAcquisitionManaged(get(b.id))}
+                            sameTab
                             title="Call"
                             className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 text-gray-400 hover:bg-blue-500/15 hover:text-blue-400 transition-colors"
                           >
                             <PhoneCall className="w-3.5 h-3.5" />
-                          </a>
+                          </OutreachLink>
                           {link && (
-                            <a
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => { e.stopPropagation(); recordSend(); }}
+                            <OutreachLink
+                              url={link}
+                              target={{ businessId: b.id, phone: b.phone }}
+                              managed={isAcquisitionManaged(get(b.id))}
+                              onOpened={() => recordSend()}
                               title="WhatsApp"
                               className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 text-gray-400 hover:bg-green-500/15 hover:text-green-400 transition-colors"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
-                            </a>
+                            </OutreachLink>
                           )}
                           <button
                             onClick={(e) => copyPhone(e, b)}

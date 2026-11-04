@@ -48,7 +48,28 @@ model User {
   billingBriefs            BillingBrief[]
   agentTasks               AgentTask[]
   campaigns                Campaign[]
+  lifecycleEmails          LifecycleEmail[]
+  outreachCampaigns        OutreachCampaign[]
   prospectMemories         ProspectMemory[]
+
+  acquisitionProspects       AcquisitionProspect[]
+  acquisitionSources         AcquisitionSource[]
+  acquisitionDecisionMakers  AcquisitionDecisionMaker[]
+  acquisitionFindings        AcquisitionFinding[]
+  acquisitionRecommendations AcquisitionRecommendation[]
+  acquisitionDrafts          AcquisitionDraft[]
+  acquisitionApprovals       AcquisitionApproval[]
+  acquisitionSuppressions    AcquisitionSuppression[]
+  acquisitionTasks           AcquisitionTask[]
+  acquisitionAgentRuns       AcquisitionAgentRun[]
+  acquisitionEvents          AcquisitionPipelineEvent[]
+  acquisitionCandidates      AcquisitionCandidate[]
+  acquisitionImportBatches   AcquisitionImportBatch[]
+  acquisitionIdentities      AcquisitionIdentity[]
+  acquisitionSignals         AcquisitionSignal[]
+  acquisitionScores          AcquisitionScore[]
+  acquisitionPageCache       AcquisitionPageCache[]
+  acquisitionOutcomes        AcquisitionOutcome[]
 }
 
 model WebAuthnCredential {
@@ -100,19 +121,19 @@ model VerificationToken {
 }
 
 model Prospect {
-  id                String          @id @default(cuid())
+  id                String               @id @default(cuid())
   userId            String
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   businessId        String
   businessName      String
   businessData      Json
-  stage             String          @default("found")
-  notes             String?         @db.Text
+  stage             String               @default("found")
+  notes             String?              @db.Text
   score             Int?
   estimatedPriceMin Int?
   estimatedPriceMax Int?
-  savedAt           DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  savedAt           DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
   outreachSentAt    DateTime?
   reminderDate      String?
   reminderNote      String?
@@ -121,6 +142,7 @@ model Prospect {
   campaignId        String?
   conversations     Conversation[]
   outreachDrafts    OutreachDraft[]
+  acquisition       AcquisitionProspect?
 
   @@unique([userId, businessId])
   @@index([campaignId])
@@ -611,4 +633,635 @@ model ProspectMemory {
 
   @@index([prospectId, createdAt])
   @@index([userId])
+}
+
+// ─── Industry Acquisition Engine ─────────────────────────────────────────────
+//
+// Admin-only, behind INDUSTRY_ACQUISITION_ENABLED. Every table here is new and
+// additive: nothing in the existing RUNVAX workflow reads or writes them, and
+// they add no columns to existing tables. Industry rules live in code
+// (src/lib/acquisition/config), not in the database.
+
+// The acquisition view of one existing Prospect row (1:1). The CRM `stage` on
+// Prospect is left alone; `state` is the acquisition lifecycle, changed only
+// through recorded AcquisitionPipelineEvent transitions.
+model AcquisitionProspect {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prospectId      String    @unique
+  prospect        Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  industryKey     String
+  state           String    @default("discovered")
+  fitScore        Int? // model/rule estimate, never an observed result
+  scoreIsEstimate Boolean   @default(true)
+  discoveredAt    DateTime  @default(now())
+  lastVerifiedAt  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  // Phase 2
+  candidateId     String?
+  importBatchId   String?
+  area            String?
+  orgDomain       String? // registrable domain, links branches of one organisation
+  crmConflict     String? // why this clinic is already in the CRM / already contacted
+  lastScoredAt    DateTime?
+
+  sources         AcquisitionSource[]
+  decisionMakers  AcquisitionDecisionMaker[]
+  findings        AcquisitionFinding[]
+  recommendations AcquisitionRecommendation[]
+  drafts          AcquisitionDraft[]
+  tasks           AcquisitionTask[]
+  events          AcquisitionPipelineEvent[]
+  identities      AcquisitionIdentity[]
+  signals         AcquisitionSignal[]
+  scores          AcquisitionScore[]
+  outcomes        AcquisitionOutcome[]
+
+  @@index([userId, industryKey, state])
+}
+
+// Where a fact came from. Content itself is not stored — only a hash, so a
+// re-fetch of identical content is recognised without keeping the page.
+model AcquisitionSource {
+  id            String              @id @default(cuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId String
+  acqProspect   AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  kind          String // places | website | csv | manual
+  url           String?             @db.Text
+  contentHash   String
+  fetchedAt     DateTime            @default(now())
+  // Phase 2
+  method        String? // fetcher | csv_import | manual_entry
+  httpStatus    Int?
+  robotsAllowed Boolean?
+
+  @@unique([acqProspectId, kind, contentHash])
+  @@index([userId])
+}
+
+model AcquisitionDecisionMaker {
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId  String
+  acqProspect    AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  name           String?
+  role           String?
+  email          String?
+  channel        String              @default("email")
+  verification   String              @default("unverified") // unverified | verified | conflicting | bounced
+  sourceId       String?
+  observedAt     DateTime            @default(now())
+  confidence     String              @default("low") // low | medium | high
+  createdAt      DateTime            @default(now())
+  // Phase 2. Automatic research only ever creates role_inbox / business_phone
+  // rows (no person). manual_named rows come from an admin with a source.
+  kind           String              @default("role_inbox") // role_inbox | business_phone | manual_named
+  contactKey     String? // sha256 of the normalised email/phone/name, for idempotency
+  phone          String?
+  sourceUrl      String?             @db.Text
+  sourceNote     String?             @db.Text
+  evidenceQuote  String?             @db.Text
+  mxValid        Boolean?
+  lastVerifiedAt DateTime?
+  lawfulBasis    String              @default("legitimate_interest_b2b")
+  retainUntil    DateTime?
+  flags          Json?
+
+  @@unique([acqProspectId, email])
+  @@unique([acqProspectId, contactKey])
+  @@index([userId])
+}
+
+model AcquisitionFinding {
+  id                 String              @id @default(cuid())
+  userId             String
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId      String
+  acqProspect        AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  category           String
+  polarity           String // strength | weakness
+  basis              String // observed | inferred
+  finding            String              @db.Text
+  evidence           String              @db.Text
+  sourceId           String?
+  observedAt         DateTime            @default(now())
+  impactHypothesis   String?             @db.Text
+  confidence         String              @default("low")
+  validationQuestion String?             @db.Text
+  solutionCategory   String?
+  createdAt          DateTime            @default(now())
+  // Phase 2
+  findingKey         String? // category + rule; makes re-audits update rather than duplicate
+  signalIds          Json?
+
+  @@unique([acqProspectId, findingKey])
+  @@index([acqProspectId, category])
+  @@index([userId])
+}
+
+model AcquisitionRecommendation {
+  id                String              @id @default(cuid())
+  userId            String
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId     String
+  acqProspect       AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  primaryOfferId    String
+  secondaryOfferId  String?
+  rationale         String              @db.Text
+  findingIds        Json // string[]
+  targetRole        String?
+  angle             String?             @db.Text
+  cta               String?             @db.Text
+  confidence        String              @default("low")
+  missingInfo       Json? // string[]
+  createdAt         DateTime            @default(now())
+  // Phase 2
+  scoreId           String?
+  offerStatusAtTime String?
+
+  @@unique([acqProspectId, scoreId])
+  @@index([acqProspectId])
+  @@index([userId])
+}
+
+// Kept apart from OutreachDraft on purpose: the existing draft queue has
+// WhatsApp/email send buttons and an advisory gate. Acquisition drafts can
+// only leave through the blocking gate in src/lib/acquisition/gate.ts.
+model AcquisitionDraft {
+  id                    String              @id @default(cuid())
+  userId                String
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId         String
+  acqProspect           AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  channel               String              @default("email")
+  recipientDmId         String?
+  subject               String?
+  body                  String              @db.Text
+  evidenceFindingIds    Json // string[]
+  offerId               String
+  status                String              @default("draft") // pending_approval | approved | ready | rejected | stale | superseded | blocked | invalidated | sent (legacy: draft | regenerate_requested)
+  riskFlags             Json?
+  gateResult            Json?
+  version               Int                 @default(1)
+  idempotencyKey        String
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  // Sales-workflow phase: what the draft was generated from, so it can be
+  // invalidated when the evidence or the offer configuration changes.
+  evidenceSignalIds     Json? // string[] — the signals the text relies on
+  evidenceHash          String? // hash of those signals' content at generation
+  offerHash             String? // hash of the offer configuration used
+  offerConfigVersion    Int?
+  industryConfigVersion Int?
+  readiness             Json? // last readiness check: { ready, blockers[] }
+  statusReason          String?             @db.Text
+
+  approvals AcquisitionApproval[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, status])
+  @@index([acqProspectId])
+}
+
+// Append-only record of every human decision on a draft.
+model AcquisitionApproval {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  draftId        String
+  draft          AcquisitionDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  action         String // approve | edit | reject | regenerate | mark_ready | invalidate
+  actorEmail     String
+  note           String?          @db.Text
+  bodyHashBefore String?
+  bodyHashAfter  String?
+  // An approval is bound to the exact text AND the evidence and offer
+  // versions it was given for; any change makes it stale.
+  evidenceHash   String?
+  offerHash      String?
+  createdAt      DateTime         @default(now())
+
+  @@index([draftId, createdAt])
+  @@index([userId])
+}
+
+// Contacts that must never be messaged by the acquisition engine.
+model AcquisitionSuppression {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // email | phone | domain | crawl_domain
+  // Phase 2: matching is by valueHash (sha256 of the normalised value). The
+  // plain value is kept only for domain / crawl_domain, never for an email or
+  // phone, so an erasure tombstone does not itself retain the erased value.
+  value     String?
+  valueHash String
+  reason    String // opt_out | objection | erasure | complaint | bounce | manual | retention_expiry
+  source    String
+  expiresAt DateTime? // only retention_expiry markers expire
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, kind, valueHash])
+}
+
+// The acquisition engine's own queue. Separate from AgentTask so the existing
+// drainer and its budget never see acquisition work, and vice versa.
+model AcquisitionTask {
+  id             String               @id @default(cuid())
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           String
+  status         String               @default("pending") // pending | running | completed | skipped | failed | dead | cancelled
+  acqProspectId  String?
+  acqProspect    AcquisitionProspect? @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  parentTaskId   String?
+  idempotencyKey String
+  input          Json?
+  output         Json?
+  attempts       Int                  @default(0)
+  maxAttempts    Int                  @default(3)
+  scheduledAt    DateTime             @default(now())
+  lockedUntil    DateTime?
+  completedAt    DateTime?
+  error          String?              @db.Text
+  createdAt      DateTime             @default(now())
+
+  runs AcquisitionAgentRun[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, scheduledAt])
+  @@index([acqProspectId])
+}
+
+// One row per attempt — what ran, on which model, at what (estimated) cost.
+model AcquisitionAgentRun {
+  id            String          @id @default(cuid())
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId        String
+  task          AcquisitionTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  agent         String
+  attempt       Int
+  status        String // running | succeeded | failed
+  provider      String?
+  model         String?
+  inputTokens   Int?
+  outputTokens  Int?
+  costUsdMicros Int? // estimate from configured prices, not an invoice
+  durationMs    Int?
+  inputHash     String?
+  evidenceRefs  Json?
+  error         String?         @db.Text
+  startedAt     DateTime        @default(now())
+  finishedAt    DateTime?
+
+  @@index([taskId])
+  @@index([userId, startedAt])
+}
+
+model AcquisitionPipelineEvent {
+  id            String              @id @default(cuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId String
+  acqProspect   AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  fromState     String
+  toState       String
+  reason        String              @db.Text
+  actor         String // agent key or admin email
+  createdAt     DateTime            @default(now())
+
+  @@index([acqProspectId, createdAt])
+  @@index([userId])
+}
+
+// ─── Industry Acquisition Engine — Phase 2 (prospect intelligence) ───────────
+
+// A business seen in Google Places. Only place_id is kept (Google Maps
+// Platform Service Specific Terms §A.3); every other Places field is used in
+// memory and dropped. Places discovery is disabled in Phase 2.
+model AcquisitionCandidate {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  industryKey   String
+  placeId       String
+  area          String? // the area WE searched, never derived from Places coordinates
+  queryIndex    Int?
+  status        String   @default("pending_research") // pending_research | promoted | no_independent_source | excluded
+  acqProspectId String?
+  discoveredAt  DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, placeId])
+  @@index([userId, status])
+}
+
+// One CSV upload or manual entry. Parsed rows are held only between preview
+// and commit (cleared on commit or expiry).
+model AcquisitionImportBatch {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  industryKey    String
+  kind           String // csv | manual
+  label          String?
+  fileHash       String
+  status         String    @default("previewed") // previewed | committed | expired
+  rowCount       Int       @default(0)
+  acceptedCount  Int       @default(0)
+  duplicateCount Int       @default(0)
+  rejectedCount  Int       @default(0)
+  rows           Json? // normalised accepted rows, cleared on commit
+  results        Json? // per-row outcome + reasons (no raw values)
+  attestedBy     String?
+  attestedAt     DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+
+  @@unique([userId, fileHash])
+  @@index([userId, createdAt])
+}
+
+// Duplicate-detection keys. Strong kinds (place_id, domain, phone) merge;
+// name_area is weak and only flags a possible duplicate.
+model AcquisitionIdentity {
+  id            String              @id @default(cuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId String
+  acqProspect   AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  kind          String // place_id | domain | phone | name_area
+  value         String
+  createdAt     DateTime            @default(now())
+
+  @@unique([userId, kind, value])
+  @@index([acqProspectId])
+}
+
+// One observed / inferred / unknown fact from an independent source.
+model AcquisitionSignal {
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId  String
+  acqProspect    AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  code           String
+  value          Json?
+  basis          String // observed | inferred | unknown
+  method         String // html_rule | csv | manual | industry_config | psi_api
+  confidence     String // high | medium | low
+  sourceId       String?
+  sourceUrl      String?             @db.Text
+  evidenceQuote  String?             @db.Text
+  contentHash    String
+  observedAt     DateTime            @default(now())
+  lastVerifiedAt DateTime            @default(now())
+  supersededAt   DateTime?
+  createdAt      DateTime            @default(now())
+
+  @@unique([acqProspectId, code, contentHash])
+  @@index([acqProspectId, code])
+  @@index([userId])
+}
+
+// Append-only, versioned score history. inputHash makes re-scoring identical
+// inputs a no-op.
+model AcquisitionScore {
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId  String
+  acqProspect    AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  industryKey    String
+  configVersion  Int
+  scoreVersion   String
+  total          Int
+  band           String
+  coverage       Float
+  contactability String
+  eligible       Boolean
+  eligibility    Json
+  breakdown      Json
+  inputHash      String
+  computedAt     DateTime            @default(now())
+
+  @@unique([acqProspectId, inputHash])
+  @@index([acqProspectId, computedAt])
+  @@index([userId])
+}
+
+// Short-lived page store so contact research and the audit don't fetch twice.
+// Purged after every queue run and by expiresAt (24h).
+model AcquisitionPageCache {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain     String
+  url        String   @db.Text
+  urlHash    String
+  finalUrl   String?  @db.Text
+  status     String // ok | robots_disallowed | blocked | http_error | timeout | too_large | not_html | error
+  httpStatus Int?
+  html       String?  @db.MediumText
+  fetchedAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@unique([userId, urlHash])
+  @@index([expiresAt])
+  @@index([userId, domain])
+}
+
+// Platform-wide daily usage counters (Africa/Lagos calendar day). Every
+// external call reserves a unit here first, atomically — see budget.ts.
+model AcquisitionProviderUsage {
+  id                  String    @id @default(cuid())
+  provider            String // google_places | web_page | pagespeed | dns | acq_tasks
+  day                 String // YYYY-MM-DD in Africa/Lagos
+  calls               Int       @default(0)
+  consecutiveFailures Int       @default(0)
+  lastFailureAt       DateTime?
+  pausedUntil         DateTime?
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([provider, day])
+}
+
+// Manually recorded sales outcomes (append-only), the basis of funnel metrics.
+// Nothing is sent or detected automatically: a reviewer records what happened.
+model AcquisitionOutcome {
+  id            String              @id @default(cuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acqProspectId String
+  acqProspect   AcquisitionProspect @relation(fields: [acqProspectId], references: [id], onDelete: Cascade)
+  draftId       String?
+  type          String // sent | reply | opt_out | objection | meeting_booked | proposal_sent | won | lost
+  sentiment     String? // reply: positive | neutral | negative
+  amount        Int? // proposal_sent / won: whole currency units (e.g. naira, not kobo)
+  currency      String? // ISO 4217, required with an amount
+  reason        String?             @db.Text
+  actorEmail    String
+  occurredAt    DateTime
+  createdAt     DateTime            @default(now())
+
+  @@index([acqProspectId, occurredAt])
+  @@index([userId, type])
+}
+
+// One row per lifecycle email a user has been sent (key = the step), plus 'optout' when they
+// unsubscribe from promotional emails. The unique pair is what makes the onboarding sequence
+// idempotent: a step can be claimed once, however often the cron runs.
+model LifecycleEmail {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key    String
+  sentAt DateTime @default(now())
+
+  @@unique([userId, key])
+  @@index([key])
+}
+
+// ─── Email outreach campaigns ────────────────────────────────────────────────
+//
+// A user uploads leads, writes one pitch, and presses Run: the pitch goes out from
+// the user's own mailbox, a few at a time (dailyCap), and this table pair is the
+// dashboard's source of truth (sent / opened / replied / needs follow-up).
+// Not the same as `Campaign` above, which is a standing prospecting instruction.
+model OutreachCampaign {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  subject           String
+  body              String   @db.Text
+  followUpSubject   String?
+  followUpBody      String?  @db.Text
+  followUpAfterDays Int      @default(3)
+  maxFollowUps      Int      @default(1)
+  dailyCap          Int      @default(30)
+  // The full automation plan from the builder (sequence, conditions, reply rules). The engine runs the subset it supports.
+  automation        Json?
+  status            String   @default("draft") // draft | running | paused | completed
+  startedAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  leads             OutreachLead[]
+  replies           CampaignReply[]
+  logs              CampaignLog[]
+
+  @@index([userId, status])
+}
+
+model OutreachLead {
+  id            String           @id @default(cuid())
+  campaignId    String
+  campaign      OutreachCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId        String
+  email         String
+  name          String?
+  business      String?
+  website       String?
+  // queued | sending | sent | failed | skipped | unsubscribed
+  status        String           @default("queued")
+  // Random per-lead secret used by the open pixel and the unsubscribe link.
+  token         String           @unique
+  messageId     String?
+  // Written for this one lead by the RUNVAX pitch engine; replaces the campaign's template for their first email.
+  customSubject String?
+  customBody    String?          @db.Text
+  sentAt        DateTime?
+  lastSentAt    DateTime?
+  followUpsSent Int              @default(0)
+  openedAt      DateTime?
+  openCount     Int              @default(0)
+  clickedAt     DateTime?
+  clickCount    Int              @default(0)
+  repliedAt     DateTime?
+  // What the sender decided about a reply: interested | not_interested. Null = not looked at yet.
+  outcome       String?
+  // What the reply was, as read by the Reply Intelligence agent: interested | info_request | meeting_request | objection | not_interested | out_of_office | unsubscribe | other.
+  replyClass    String?
+  // Out-of-office: no follow-up before this time.
+  pausedUntil   DateTime?
+  // Set by the sender once a prospect goes past 'interested': demo_booked | proposal_sent | customer | lost.
+  stage         String?
+  demoAt        DateTime?
+  closedAt      DateTime?
+  dealValue     Int?
+  ownerNotifiedAt DateTime?
+  replies       CampaignReply[]
+  unsubscribedAt DateTime?
+  error         String?          @db.Text
+  createdAt     DateTime         @default(now())
+
+  @@unique([campaignId, email])
+  @@index([campaignId, status])
+  @@index([userId, email])
+  @@index([userId, createdAt])
+}
+
+// A reply from a prospect, matched to the campaign and contact it answers. Only messages from addresses that are
+// contacts of a campaign are ever stored; nothing else in a mailbox is read into RUNVAX.
+model CampaignReply {
+  id           String           @id @default(cuid())
+  userId       String
+  campaignId   String
+  campaign     OutreachCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  leadId       String
+  lead         OutreachLead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  messageId    String?
+  source       String           @default("manual") // manual | inbox
+  fromEmail    String
+  subject      String?
+  text         String           @db.Text
+  receivedAt   DateTime
+  replyClass   String
+  confidence   Float            @default(0.7)
+  classifiedBy String           @default("rules") // rules | ai
+  suggestion   String?          @db.Text
+  suggestionBy String?
+  respondedAt  DateTime?
+  createdAt    DateTime         @default(now())
+
+  @@unique([userId, messageId])
+  @@index([userId, receivedAt])
+  @@index([leadId])
+}
+
+// What each agent did on a campaign, in order: the one shared record the whole acquisition workforce writes to.
+model CampaignLog {
+  id         String            @id @default(cuid())
+  userId     String
+  campaignId String?
+  campaign   OutreachCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  leadId     String?
+  agent      String // strategist | audience | content | outreach | followup | reply
+  action     String
+  detail     String?           @db.Text
+  createdAt  DateTime          @default(now())
+
+  @@index([userId, createdAt])
+  @@index([campaignId, createdAt])
+}
+
+// A user's saved campaign template ("My Templates"). Structure only: no contacts, replies or results.
+model CampaignTemplate {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  industry       String
+  description    String?  @db.VarChar(500)
+  baseTemplateId String?
+  data           Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, createdAt])
 }

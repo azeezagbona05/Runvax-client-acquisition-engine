@@ -53,7 +53,7 @@ const comparisons = [
   {
     feature: 'Cost',
     fiverr: '20% on every project (on a ₦50k job = ₦10k gone)',
-    runvax: '₦9,999/month flat — keeps 100% of all revenue',
+    runvax: '$6/month flat — keeps 100% of all revenue',
   },
 ];
 

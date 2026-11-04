@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { rankOpportunities } from '@/lib/opportunity/rank';
 import { detectOpportunities } from '@/lib/opportunity/detect';
-import { apolloEnabled } from '@/lib/apollo';
+import { paidProvidersConfigured } from '@/lib/dmFinder';
 import type { Business } from '@/types';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -231,7 +231,7 @@ export async function getDashboardSummary(userId: string): Promise<DashboardSumm
   }
 
   return {
-    decisionMakerLookup: apolloEnabled(),
+    decisionMakerLookup: paidProvidersConfigured(),
     metrics: { newOpportunities, pitchesReady: pendingDrafts.length, repliesToFollowUp, dealsInProgress, clientsWon },
     opportunities,
     followUps: followUps.slice(0, 8).map(({ priority: _p, ...rest }) => rest),

@@ -41,8 +41,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
 export default function ConditionalNav({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // Admin routes and public demo sites have their own standalone layout
-  if (pathname.startsWith('/admin') || pathname.startsWith('/demo')) return <>{children}</>;
+  // Admin routes, public demo sites and Client Acquisition have their own standalone layout
+  if (pathname.startsWith('/admin') || pathname.startsWith('/demo') || pathname.startsWith('/client-acquisition')) return <>{children}</>;
 
   return (
     <SidebarProvider>

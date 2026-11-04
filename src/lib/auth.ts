@@ -1,9 +1,11 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
 import { rateLimit } from './rateLimiter';
+import { onGoogleUserCreated } from './newUserSetup';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase());
 
@@ -16,8 +18,21 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/auth/signin',
     newUser: '/auth/signup',
+    error: '/auth/signin',
   },
   providers: [
+    // Only registered when both keys are set, so the Google buttons stay hidden until it is configured.
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            // Safe: Google only returns verified addresses (checked in the signIn callback), so someone
+            // who signed up with a password can also use Google with the same email.
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -60,8 +75,34 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+  events: {
+    async createUser({ user }) {
+      // Only OAuth creates users through the adapter (password sign-up uses /api/auth/register).
+      await onGoogleUserCreated(user).catch(() => {});
+    },
+  },
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== 'google') return true;
+      // Never trust an unverified Google address: it would let someone claim another person's account.
+      if (!(profile as { email_verified?: boolean } | undefined)?.email_verified) return false;
+      const existing = user.email ? await prisma.user.findUnique({ where: { email: user.email.toLowerCase() }, select: { isSuspended: true } }) : null;
+      if (existing?.isSuspended) return false;
+      return true;
+    },
+    async jwt({ token, user, account, trigger }) {
+      if (account?.provider === 'google' && user) {
+        // Adapter users lack our extra fields. Google verified the address, so mark it verified
+        // (this also covers a password account that was just linked) and read plan from the DB.
+        const row = await prisma.user.update({
+          where: { id: user.id },
+          data: { lastActiveAt: new Date(), emailVerified: new Date() },
+          select: { plan: true, emailVerified: true, email: true },
+        });
+        (user as { plan?: string }).plan = row.plan;
+        (user as { emailVerified?: Date | null }).emailVerified = row.emailVerified;
+        (user as { isAdmin?: boolean }).isAdmin = ADMIN_EMAILS.includes((row.email ?? '').toLowerCase());
+      }
       if (user) {
         token.id  = user.id;
         token.sub = user.id; // ensure sub is always the DB user id
@@ -79,6 +120,14 @@ export const authOptions: NextAuthOptions = {
         if (dbUser?.emailVerified) token.emailVerified = dbUser.emailVerified;
       }
 
+      // The plan rides in the JWT, so an upgrade, a trial or an expiry would otherwise not show
+      // until the next sign-in. Re-read it when the client asks (session.update()) and, below,
+      // on the same throttle as the activity stamp.
+      if (trigger === 'update' && token.id) {
+        const fresh = await prisma.user.findUnique({ where: { id: token.id as string }, select: { plan: true } });
+        if (fresh) token.plan = fresh.plan;
+      }
+
       // Stamp lastActiveAt so the admin dashboard can show when a user was last
       // on the platform. This callback runs on every session refresh, so it is
       // throttled to one write per ACTIVITY_TOUCH_MS per session (the last write
@@ -88,9 +137,14 @@ export const authOptions: NextAuthOptions = {
         const now = Date.now();
         if (now - lastTouch > ACTIVITY_TOUCH_MS) {
           token.lastTouch = now;
-          void prisma.user
-            .update({ where: { id: token.id as string }, data: { lastActiveAt: new Date(now) } })
-            .catch(() => {});
+          try {
+            const row = await prisma.user.update({
+              where: { id: token.id as string },
+              data: { lastActiveAt: new Date(now) },
+              select: { plan: true },
+            });
+            token.plan = row.plan;
+          } catch { /* a failed refresh keeps the plan we already have */ }
         }
       }
 

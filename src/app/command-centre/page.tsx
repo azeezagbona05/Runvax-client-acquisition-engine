@@ -95,12 +95,19 @@ function OpportunityRow({ opp, canLookup, onPitch, onDismiss, onLookedUp }: {
     setLooking(true);
     setLookupMsg('');
     try {
-      const res = await fetch('/api/apollo/decision-maker', {
+      // Free sources first (website + public search). When they find no one and a paid
+      // source is configured, go one step deeper on the same saved prospect.
+      const post = (deep: boolean) => fetch('/api/decision-maker', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prospectId: opp.prospectId }),
+        body: JSON.stringify({ prospectId: opp.prospectId, deep }),
       });
-      const json = await res.json() as { error?: string; decisionMaker?: unknown };
+      let res = await post(false);
+      let json = await res.json() as { error?: string; decisionMaker?: unknown; paidAvailable?: boolean };
+      if (res.ok && !json.decisionMaker && json.paidAvailable && canLookup) {
+        res = await post(true);
+        json = await res.json() as { error?: string; decisionMaker?: unknown };
+      }
       if (!res.ok) setLookupMsg(json.error ?? 'Lookup failed');
       else if (!json.decisionMaker) setLookupMsg('No decision-maker found for this business.');
       else onLookedUp();
@@ -131,10 +138,10 @@ function OpportunityRow({ opp, canLookup, onPitch, onDismiss, onLookedUp }: {
       {dm && (
         <p className="text-[11px] text-gray-400 mt-1">
           Decision-maker: <span className="font-semibold">{dm.name}</span>{dm.title ? `, ${dm.title}` : ''}
-          <span className="text-gray-600"> · found via lookup, unverified</span>
+          <span className="text-gray-600"> · {dm.source === 'manual' ? 'added by you' : 'found via lookup, unverified'}</span>
         </p>
       )}
-      {!dm && canLookup && opp.business.website && (
+      {!dm && (
         <button onClick={() => void lookup()} disabled={looking} className="text-[11px] font-bold text-purple-400 hover:text-purple-300 mt-1 inline-flex items-center gap-1">
           {looking && <Loader2 className="w-3 h-3 animate-spin" />} Find decision-maker
         </button>

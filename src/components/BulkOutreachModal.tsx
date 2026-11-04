@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { X, MessageCircle, Check, ChevronRight, ExternalLink, Users } from 'lucide-react';
 import { SavedProspect } from '@/types';
 import { buildQuickWAMessage, buildWALink } from '@/lib/waMessage';
 import { useProspects } from '@/context/ProspectsContext';
+import OutreachLink from '@/components/OutreachLink';
+import { ACQUISITION_NOTICE, isAcquisitionManaged, openOutreach, openOutreachBatch, reportBlocked } from '@/lib/outreachGate';
 
 interface Props {
   prospects: SavedProspect[];
@@ -36,11 +38,12 @@ function renderWA(text: string) {
 
 export default function BulkOutreachModal({ prospects, onClose }: Props) {
   const { markOutreachSent, updateStage } = useProspects();
+  const busy = useRef(false); // ignore repeated clicks while a server check is in flight
 
   const items = useMemo(
     () =>
       prospects
-        .filter((p) => p.business.phone)
+        .filter((p) => p.business.phone && !isAcquisitionManaged(p))
         .map((p) => ({
           prospect: p,
           message: buildQuickWAMessage(p.business),
@@ -50,6 +53,8 @@ export default function BulkOutreachModal({ prospects, onClose }: Props) {
   );
 
   const noPhone = prospects.filter((p) => !p.business.phone);
+  // Industry Acquisition clinics are never part of a bulk send: they are contacted only through the approved pitch.
+  const acquisition = prospects.filter((p) => isAcquisitionManaged(p));
 
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -62,12 +67,15 @@ export default function BulkOutreachModal({ prospects, onClose }: Props) {
     await updateStage(bizId, 'contacted');
   };
 
-  const openAll = () => {
-    items.forEach((item, i) => {
-      if (!sentIds.has(item.prospect.business.id) && item.link) {
-        window.open(item.link, `_wa_bulk_${i}`);
-      }
-    });
+  const openAll = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+    const todo = items.filter((item) => !sentIds.has(item.prospect.business.id) && item.link);
+    // One server check for the whole batch (stale selections, suppressed contacts); only allowed links open.
+    const { blocked } = await openOutreachBatch(todo.map((item) => ({ url: item.link as string, target: { businessId: item.prospect.business.id, phone: item.prospect.business.phone } })));
+    reportBlocked(blocked);
+    } finally { busy.current = false; }
   };
 
   const currentItem = items[currentIdx];
@@ -90,9 +98,16 @@ export default function BulkOutreachModal({ prospects, onClose }: Props) {
     };
 
     const openAndMarkSent = async () => {
-      if (currentItem.link) window.open(currentItem.link, '_blank');
-      await markSent(bizId, currentItem.message);
-      setTimeout(goNext, 600);
+      if (busy.current) return;
+      busy.current = true;
+      try {
+        if (currentItem.link) {
+          const opened = await openOutreach(currentItem.link, { businessId: bizId, phone: currentItem.prospect.business.phone });
+          if (!opened.ok) { reportBlocked([opened]); return; }
+        }
+        await markSent(bizId, currentItem.message);
+        setTimeout(goNext, 600);
+      } finally { busy.current = false; }
     };
 
     return (
@@ -211,6 +226,7 @@ export default function BulkOutreachModal({ prospects, onClose }: Props) {
             <div className="text-xs text-gray-500 mt-0.5">
               {totalWithPhone} with phone · {sentCount} sent
               {noPhone.length > 0 && ` · ${noPhone.length} skipped (no phone)`}
+              {acquisition.length > 0 && ` · ${acquisition.length} excluded (Industry Acquisition)`}
             </div>
           </div>
           <button onClick={onClose} className="text-gray-600 hover:text-gray-300"><X className="w-5 h-5" /></button>
@@ -276,15 +292,14 @@ export default function BulkOutreachModal({ prospects, onClose }: Props) {
                       {showPreview ? 'Hide' : 'Preview'}
                     </button>
                     {!sent ? (
-                      <a
-                        href={item.link ?? '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => markSent(bizId, item.message)}
+                      <OutreachLink
+                        url={item.link}
+                        target={{ businessId: bizId, phone: item.prospect.business.phone }}
+                        onOpened={() => markSent(bizId, item.message)}
                         className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors"
                       >
                         <MessageCircle className="w-3 h-3" /> Send
-                      </a>
+                      </OutreachLink>
                     ) : (
                       <span className="text-[10px] text-green-400 bg-green-500/10 px-2 py-1 rounded-lg">Sent ✓</span>
                     )}
@@ -304,6 +319,14 @@ export default function BulkOutreachModal({ prospects, onClose }: Props) {
           })}
 
           {/* No-phone list */}
+          {acquisition.length > 0 && (
+            <div className="px-4 py-3 border-t border-white/5" role="note">
+              <p className="text-[11px] text-amber-400 mb-1.5">Excluded: {ACQUISITION_NOTICE}</p>
+              {acquisition.map((p) => (
+                <div key={p.business.id} className="text-[11px] text-gray-600 py-0.5">{p.business.name}</div>
+              ))}
+            </div>
+          )}
           {noPhone.length > 0 && (
             <div className="px-4 py-3 border-t border-white/5">
               <p className="text-[11px] text-gray-700 mb-1.5">Skipped — no phone number:</p>

@@ -1,3 +1,4 @@
+import { notAcquisition } from '@/lib/acquisition/isolation';
 import { prisma } from '@/lib/prisma';
 import { checkAndIncrementAIForUser, checkAndIncrementSearchForUser } from '@/lib/usage';
 import { composeOutreach } from '@/lib/outreach/compose';
@@ -35,6 +36,8 @@ function coldLeadWhere(userId: string) {
     stage: { in: ['found', 'contacted'] as string[] },
     updatedAt: { lt: cutoff },
     reminderDate: null,
+    // Industry Acquisition clinics are never "cold leads" for Rex to draft: they have their own gate.
+    AND: [notAcquisition],
   };
 }
 
@@ -52,6 +55,7 @@ async function staleInterestedProspects(userId: string) {
       stage: { in: ['interested', 'proposal'] },
       reminderDate: null,
       outreachDrafts: { none: { status: 'pending' } },
+      AND: [notAcquisition],
     },
     include: { conversations: { orderBy: { createdAt: 'desc' }, take: 1 } },
     orderBy: { updatedAt: 'asc' },

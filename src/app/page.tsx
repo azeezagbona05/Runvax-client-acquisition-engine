@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Send, X, Search, RefreshCw, LayoutGrid, List, FileSpreadsheet, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Mail, Lock, Download, CheckSquare, Send, X, UserSearch, Search, RefreshCw, LayoutGrid, List, FileSpreadsheet, FileText } from 'lucide-react';
 
 import SearchForm from '@/components/SearchForm';
 import BusinessGrid from '@/components/BusinessGrid';
@@ -16,10 +16,17 @@ import { useProspects } from '@/context/ProspectsContext';
 import { useUpgrade } from '@/context/UpgradeContext';
 import { useSession } from 'next-auth/react';
 import { saveToHistory, getBestTimeStatus } from '@/lib/searchHistory';
+import ResultFilterBar from '@/components/ResultFilterBar';
+import VerifyEmailModal from '@/components/VerifyEmailModal';
+import { detectOpportunities } from '@/lib/opportunity/detect';
+import { DEFAULT_FILTERS, applyFilters, type AiFit, type ResultFilters } from '@/lib/resultFilters';
 import { scoreProspect } from '@/lib/scoring';
 import { useFeature } from '@/context/PlanFeaturesContext';
 import { whatsappLink } from '@/lib/phone';
 import { buildQuickWAMessage } from '@/lib/waMessage';
+import { openOutreachBatch, reportBlocked } from '@/lib/outreachGate';
+import { sendWhatsAppBulk, summarizeBulk } from '@/lib/bulkSend';
+import { BULK_DM_MAX, bulkFindDecisionMakers, pendingForLookup } from '@/lib/bulkDmLookup';
 
 const PER_PAGE = 20;
 
@@ -90,6 +97,7 @@ export default function Home() {
   const [error, setError]             = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<ResultFilters>(DEFAULT_FILTERS);
   const [page, setPage]               = useState(0);
   const [searchMeta, setSearchMeta]   = useState<SearchMeta | null>(null);
   const [lastSearch, setLastSearch]   = useState<{ industry: string; location: string } | null>(null);
@@ -355,7 +363,12 @@ export default function Home() {
     finally { setLoadingMore(false); }
   };
 
+  // Opening a prospect needs a verified email. Searching and browsing the list stay open to everyone.
+  const [verifyPrompt, setVerifyPrompt] = useState<null | 'verify' | 'signup'>(null);
+
   const handleSelect = async (business: Business, action?: 'outreach' | 'proposal' | 'weakness') => {
+    if (!session?.user) { setVerifyPrompt('signup'); return; }
+    if (!(session.user as { emailVerified?: unknown }).emailVerified) { setVerifyPrompt('verify'); return; }
     setSelected(business);
     setInitialDrawerAction(action ?? null);
     setGeneratedPrompt(null);
@@ -415,11 +428,23 @@ export default function Home() {
     [businesses, scoreMap],
   );
 
+  // AI-system fit per business, from the same detector the outreach modal uses.
+  const aiFits = useMemo(() => {
+    const m = new Map<string, AiFit>();
+    for (const b of businesses) {
+      const o = detectOpportunities(b, 'ai_system').all.find((x) => x.type === 'ai_system');
+      if (o) m.set(b.id, { score: o.score, band: o.band });
+    }
+    return m;
+  }, [businesses]);
+
+  const afterFilters = useMemo(() => applyFilters(sorted, filters, aiFits), [sorted, filters, aiFits]);
+
   // Global search — matches name, category, address, phone, or website host.
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return sorted;
-    return sorted.filter((b) => {
+    if (!q) return afterFilters;
+    return afterFilters.filter((b) => {
       let host = '';
       if (b.website) { try { host = new URL(b.website).hostname; } catch { host = b.website; } }
       return (
@@ -430,7 +455,7 @@ export default function Home() {
         host.toLowerCase().includes(q)
       );
     });
-  }, [sorted, searchQuery]);
+  }, [afterFilters, searchQuery]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = useMemo(() => filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE), [filtered, page]);
@@ -503,40 +528,70 @@ export default function Home() {
     if (!targets.length) return;
     setBulkSending(true);
     setBulkProgress({ done: 0, total: targets.length });
-    for (let i = 0; i < targets.length; i++) {
-      const b = targets[i];
-      await fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: b.phone, businessName: b.name }),
-      });
-      setBulkProgress({ done: i + 1, total: targets.length });
-      if (i < targets.length - 1) await new Promise((r) => setTimeout(r, 3000));
+    let result;
+    try {
+      result = await sendWhatsAppBulk(targets.map((b) => ({ name: b.name, phone: b.phone as string })), { onProgress: (done, total) => setBulkProgress({ done, total }) });
+    } finally {
+      setBulkSending(false);
+      setBulkProgress(null);
     }
-    setBulkSending(false);
-    setBulkProgress(null);
-    setSelectMode(false);
-    setSelectedIds(new Set());
+    window.alert(summarizeBulk(targets.length, result));
+    if (result.sent > 0) { setSelectMode(false); setSelectedIds(new Set()); }
+  };
+
+  // Free decision-maker lookup for the checked rows; results land on each card as they arrive.
+  const [dmFinding, setDmFinding] = useState<{ done: number; total: number } | null>(null);
+  const handleBulkFindDM = async () => {
+    if (dmFinding) return;
+    const chosen = filtered.filter((b) => selectedIds.has(b.id));
+    const targets = pendingForLookup(chosen);
+    if (!targets.length) { window.alert('Every selected business has already been checked for a decision-maker.'); return; }
+    setDmFinding({ done: 0, total: targets.length });
+    let result;
+    try {
+      result = await bulkFindDecisionMakers(targets, {
+        onResult: (id, update) => setBusinesses((prev) => prev.map((b) => (b.id === id ? { ...b, ...update } : b))),
+        onProgress: (done, total) => setDmFinding({ done, total }),
+      });
+    } finally {
+      setDmFinding(null);
+    }
+    const skipped = chosen.length - targets.length;
+    const lines = [`Found a named decision-maker for ${result.found} of ${result.checked} businesses checked.`];
+    if (result.stopped === 'auth') lines.push('Sign in to look up decision-makers.');
+    if (result.stopped === 'rate') lines.push('Paused at the per-minute limit. Wait a minute and run it again to continue.');
+    if (skipped > 0 && !result.stopped) lines.push(`${skipped} skipped (already checked, or over the ${BULK_DM_MAX}-per-run limit).`);
+    if (result.found < result.checked) lines.push('No one found usually means the website and public listings don\'t name the owner. You can add a name yourself in the outreach window.');
+    window.alert(lines.join('\n\n'));
   };
 
   // Fallback for accounts without the official WhatsApp Business API connected —
   // opens a wa.me tab per selected business, same pattern as Quick-Fire and the
   // pipeline's bulk outreach modal, and logs each as contacted.
+  const bulkOpenBusy = useRef(false); // ignore repeated clicks while the server check is in flight
   const handleBulkWhatsAppOpen = async () => {
+    if (bulkOpenBusy.current) return;
+    bulkOpenBusy.current = true;
+    try {
     const targets = filtered.filter((b) => selectedIds.has(b.id) && b.phone);
     if (!targets.length) return;
-    for (const b of targets) {
-      const msg = buildQuickWAMessage(b);
-      const link = whatsappLink(b, msg);
-      if (!link) continue;
-      window.open(link, '_blank');
+    const items = targets
+      .map((b) => { const msg = buildQuickWAMessage(b); return { b, msg, link: whatsappLink(b, msg) }; })
+      .filter((i): i is { b: Business; msg: string; link: string } => !!i.link);
+    // One server check for the whole selection: acquisition clinics, suppressed contacts and
+    // stale selections are refused individually, and only the allowed ones are opened and logged.
+    const { opened, blocked } = await openOutreachBatch(items.map((i) => ({ url: i.link, target: { businessId: i.b.id, phone: i.b.phone } })));
+    for (const idx of opened) {
+      const { b, msg } = items[idx];
       if (!isSaved(b.id)) await save(b);
       await markOutreachSent(b.id, msg, 'whatsapp');
       await updateStage(b.id, 'contacted');
       void incrementToday();
     }
+    reportBlocked(blocked);
     setSelectMode(false);
     setSelectedIds(new Set());
+    } finally { bulkOpenBusy.current = false; }
   };
 
   // ── Scroll tracking for collapsible header ──
@@ -569,6 +624,7 @@ export default function Home() {
   };
 
   const handleSearchQueryChange = (q: string) => { setSearchQuery(q); setPage(0); };
+  const handleFiltersChange = (f: ResultFilters) => { setFilters(f); setPage(0); };
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   const goNext = () => {
     if (nextLocked) { triggerUpgrade('feature'); return; }
@@ -705,23 +761,6 @@ export default function Home() {
               {searchMeta.searchesRemaining === 0
                 ? '🔒 No searches left today — upgrade to continue'
                 : `🔍 ${searchMeta.searchesRemaining} of ${searchMeta.searchesLimit} searches left today`}
-            </div>
-          )}
-
-          {/* Cached results banner */}
-          {!guestGate && !loading && cacheInfo && businesses.length > 0 && (
-            <div className="mb-4 flex items-center justify-between gap-3 px-4 py-2.5 bg-indigo-900/20 border border-indigo-500/25 rounded-xl text-xs text-indigo-300">
-              <span>
-                Cached results from{' '}
-                <strong className="text-indigo-200">{Math.round((Date.now() - new Date(cacheInfo.cachedAt).getTime()) / (1000 * 60 * 60 * 24))} days ago</strong>
-                {' '}· your search quota was not used
-              </span>
-              <button
-                onClick={() => lastSearchData && handleSearch(lastSearchData, true)}
-                className="font-bold text-indigo-200 hover:text-white underline underline-offset-2 whitespace-nowrap transition-colors"
-              >
-                Refresh from Google
-              </button>
             </div>
           )}
 
@@ -889,6 +928,11 @@ export default function Home() {
             </>
           )}
 
+          {/* Filters — presets for common targets plus fine control. Works on the results already loaded. */}
+          {!guestGate && !loading && !error && businesses.length > 0 && (
+            <ResultFilterBar filters={filters} onChange={handleFiltersChange} shown={afterFilters.length} total={businesses.length} />
+          )}
+
           {/* Auto-prospect queue banner */}
           {(() => {
             const queued = prospects.filter(
@@ -941,12 +985,19 @@ export default function Home() {
           {/* Bulk action bar — WhatsApp and/or Email for the checked rows */}
           {selectMode && selectedIds.size > 0 && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 border border-white/10 shadow-2xl rounded-2xl px-5 py-3">
-              {bulkSending && bulkProgress ? (
+              {dmFinding ? (
+                <>
+                  <div className="w-32 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${(dmFinding.done / dmFinding.total) * 100}%` }} />
+                  </div>
+                  <span className="text-sm text-purple-300 font-bold">Finding decision-makers {dmFinding.done}/{dmFinding.total}…</span>
+                </>
+              ) : bulkSending && bulkProgress ? (
                 <>
                   <div className="w-32 h-1.5 bg-gray-700 rounded-full overflow-hidden">
                     <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
                   </div>
-                  <span className="text-sm text-green-400 font-bold">{bulkProgress.done}/{bulkProgress.total} sent…</span>
+                  <span className="text-sm text-green-400 font-bold">{bulkProgress.done}/{bulkProgress.total} processed…</span>
                 </>
               ) : (
                 <>
@@ -964,6 +1015,13 @@ export default function Home() {
                     className="flex items-center gap-1.5 text-sm font-bold px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors"
                   >
                     {canEmailBlast ? <Mail className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} Email
+                  </button>
+                  <button
+                    onClick={handleBulkFindDM}
+                    title={`Look up the owner or decision-maker from each business's website and public listings (free, up to ${BULK_DM_MAX} per run)`}
+                    className="flex items-center gap-1.5 text-sm font-bold px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl transition-colors"
+                  >
+                    <UserSearch className="w-3.5 h-3.5" /> Find decision-makers
                   </button>
                   <button onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} className="text-gray-500 hover:text-gray-300 transition-colors">
                     <X className="w-4 h-4" />
@@ -1099,6 +1157,8 @@ export default function Home() {
           generating={generating}
         />
       )}
+      {verifyPrompt && <VerifyEmailModal mode={verifyPrompt} onClose={() => setVerifyPrompt(null)} />}
+
       {showQuickFire && (
         <QuickFireModal businesses={businesses} onClose={() => setShowQuickFire(false)} />
       )}

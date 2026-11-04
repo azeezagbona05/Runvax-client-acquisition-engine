@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUser } from '@/lib/requireUser';
+import { rateLimit } from '@/lib/rateLimiter';
+import { safeFetch, UnsafeUrlError } from '@/lib/safeFetch';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,21 +77,25 @@ function extractMeta(html: string, baseUrl: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const { url } = await req.json() as { url: string };
-  if (!url) return NextResponse.json({ error: 'url required' }, { status: 400 });
+  const user = await requireUser(req);
+  if (!user.ok) return user.response;
+  if (!rateLimit(`scrape-meta:${user.userId}`, { maxRequests: 30, windowMs: 60_000 }).ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+
+  const { url } = await req.json().catch(() => ({})) as { url?: string };
+  if (!url || typeof url !== 'string' || url.length > 2000) return NextResponse.json({ error: 'url required' }, { status: 400 });
 
   const normalised = url.startsWith('http') ? url : `https://${url}`;
 
   try {
-    const res = await fetch(normalised, {
+    const res = await safeFetch(normalised, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Runvax/1.0)' },
       signal: AbortSignal.timeout(8000),
-      redirect: 'follow',
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
+    const html = (await res.text()).slice(0, 500_000);
     return NextResponse.json(extractMeta(html, normalised));
   } catch (err: unknown) {
+    if (err instanceof UnsafeUrlError) return NextResponse.json({ error: 'That URL cannot be fetched' }, { status: 400 });
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to fetch' },
       { status: 500 }

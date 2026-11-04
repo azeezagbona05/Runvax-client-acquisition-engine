@@ -9,6 +9,8 @@ import {
   Search, Columns3, Sun, Moon, Zap, Settings, MailWarning, LayoutDashboard, LogOut, UserCircle,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { PRICING_ENABLED } from '@/lib/promo';
+import StartTrialButton from './StartTrialButton';
 
 export default function Nav() {
   const pathname  = usePathname();
@@ -87,7 +89,8 @@ export default function Nav() {
           <img src="/logo.svg" alt="Runvax" className="w-8 h-8" />
 
           <div className="flex items-center gap-2">
-            {session?.user && userPlan === 'free' && (
+            {!PRICING_ENABLED && <StartTrialButton variant="pill" />}
+            {PRICING_ENABLED && session?.user && userPlan === 'free' && (
               <Link
                 href="/pricing"
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-purple-600/20 text-purple-300 border border-purple-500/30"

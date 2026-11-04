@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
+// Operator diagnostic (no in-app caller): admin only, since it spends search quota and echoes part of the key.
 export async function GET(req: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
   // Allow testing a brand-new key without editing .env: /api/test-cse?key=XXXX
   const overrideKey = req.nextUrl.searchParams.get('key');
   const apiKey = overrideKey || process.env.GOOGLE_CSE_KEY || process.env.GOOGLE_PLACES_API_KEY;

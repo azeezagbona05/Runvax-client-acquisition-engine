@@ -5,6 +5,7 @@ import { X, Zap, MessageCircle, Mail, Check, SkipForward, Loader2, RefreshCw } f
 import { SavedProspect, FollowUpStep } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
 import { whatsappLink } from '@/lib/phone';
+import { ACQUISITION_NOTICE, isAcquisitionManaged, openOutreach, reportBlocked } from '@/lib/outreachGate';
 
 interface Props {
   prospect: SavedProspect;
@@ -57,13 +58,20 @@ export default function FollowUpSequenceModal({ prospect, onClose }: Props) {
     else setExpanded(null);
   };
 
+  // Industry Acquisition clinics are contacted only through the approved pitch: no direct wa.me / mailto: links.
+  const managed = isAcquisitionManaged(prospect);
+
   const handleSend = async (step: FollowUpStep) => {
+    if (managed) { reportBlocked([{ message: ACQUISITION_NOTICE }]); return; }
     setSending(step.id);
+    // The server decides whether this contact may be messaged (stale pages, suppression, acquisition clinics).
+    const businessId = prospect.business.id;
 
     if (step.channel === 'whatsapp') {
       const link = whatsappLink(prospect.business, step.message);
       if (link) {
-        window.open(link, '_blank');
+        const opened = await openOutreach(link, { businessId, phone: prospect.business.phone });
+        if (!opened.ok) { reportBlocked([opened]); setSending(null); return; }
         void incrementToday();
       }
     } else {
@@ -71,7 +79,8 @@ export default function FollowUpSequenceModal({ prospect, onClose }: Props) {
       const subject = encodeURIComponent(`Following up — ${prospect.business.name}`);
       const body = encodeURIComponent(step.message);
       const to = encodeURIComponent(prospect.business.email ?? '');
-      window.open(`mailto:${to}?subject=${subject}&body=${body}`, '_blank');
+      const opened = await openOutreach(`mailto:${to}?subject=${subject}&body=${body}`, { businessId, email: prospect.business.email });
+      if (!opened.ok) { reportBlocked([opened]); setSending(null); return; }
     }
 
     await updateSequenceStep(prospect.business.id, step.id, 'sent');
@@ -115,6 +124,12 @@ export default function FollowUpSequenceModal({ prospect, onClose }: Props) {
             </button>
           </div>
         </div>
+
+        {managed && (
+          <div role="note" className="px-5 py-2.5 text-xs text-amber-300 bg-amber-500/10 border-b border-amber-500/20 flex-shrink-0">
+            {ACQUISITION_NOTICE}
+          </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -227,7 +242,8 @@ export default function FollowUpSequenceModal({ prospect, onClose }: Props) {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleSend(step)}
-                                disabled={sending === step.id}
+                                disabled={sending === step.id || managed}
+                                title={managed ? ACQUISITION_NOTICE : undefined}
                                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
                                   isActionable
                                     ? 'bg-green-600 hover:bg-green-500 text-white'

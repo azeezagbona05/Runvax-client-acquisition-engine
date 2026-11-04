@@ -1,0 +1,50 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`detectOpportunities > is deterministic for a dental clinic that has a website 1`] = `
+{
+  "primary": {
+    "score": 86,
+    "type": "ai_system",
+  },
+  "signals": [
+    "appointment_driven",
+    "enquiry_heavy",
+    "has_website",
+    "high_review_volume",
+    "high_ticket",
+    "multi_service",
+    "strong_rating",
+  ],
+}
+`;
+
+exports[`detectOpportunities > is deterministic for a dental clinic with no website 1`] = `
+{
+  "all": [
+    {
+      "score": 95,
+      "type": "website",
+    },
+    {
+      "score": 85,
+      "type": "ai_system",
+    },
+  ],
+  "primary": {
+    "confidence": "high",
+    "score": 95,
+    "title": "Business Website",
+    "type": "website",
+  },
+  "signals": [
+    "appointment_driven",
+    "enquiry_heavy",
+    "high_review_volume",
+    "high_ticket",
+    "multi_service",
+    "no_website",
+    "phone_only",
+    "strong_rating",
+  ],
+}
+`;

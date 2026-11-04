@@ -5,12 +5,15 @@ import { getPlanConfig } from './plans';
 import { FeatureId, FEATURE_LABELS } from './features';
 import { createTransporter, limitReachedEmailHtml } from './email';
 import { getAppUrl, getAppName } from './url';
+import { PRICING_ENABLED } from './promo';
 
 // Fire-and-forget: email the user the first time they hit a daily limit —
 // guarded by a per-day flag on UsageRecord so retries after the block don't
 // re-send. Mirrors UpgradeModal's copy, which already shows the same message
 // for both the search and AI caps.
 function notifyLimitReachedOnce(userId: string, date: string, kind: 'search' | 'ai'): void {
+  // That email says "upgrade"; with pricing off there is nothing to upgrade to.
+  if (!PRICING_ENABLED) return;
   void (async () => {
     try {
       const field = kind === 'search' ? 'searchLimitEmailSent' : 'aiLimitEmailSent';

@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { getAppUrl } from './url';
+import { PRICING_ENABLED, TRIAL_DAYS } from './promo';
 
 export function createTransporter() {
   if (process.env.RESEND_API_KEY) {
@@ -22,7 +23,7 @@ export function createTransporter() {
 // `preheader` is the hidden snippet Gmail/Outlook/Apple Mail show next to the
 // subject line in the inbox list — without it, clients fall back to showing
 // raw HTML/whitespace from the top of the body, which looks broken.
-function emailShell(appName: string, body: string, preheader = ''): string {
+export function emailShell(appName: string, body: string, preheader = '', footerNote = ''): string {
   const logoUrl = `${getAppUrl()}/icon-192.png`;
   return `<!DOCTYPE html>
 <html lang="en">
@@ -60,7 +61,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;m
       <tr>
         <td style="background:#f8fafc;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 20px 20px;padding:22px 40px;text-align:center;">
           <p style="margin:0 0 4px;color:#94a3b8;font-size:12px;line-height:1.6;">© ${new Date().getFullYear()} ${appName} · The AI-powered client prospecting tool for freelancers</p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">You're receiving this because you have a ${appName} account.</p>
+          <p style="margin:0;color:#94a3b8;font-size:11px;line-height:1.6;">${footerNote || `You're receiving this because you have a ${appName} account.`}</p>
         </td>
       </tr>
 
@@ -73,7 +74,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;m
 
 // Small colored icon badge shown above each email's headline — gives every
 // email type a distinct visual identity at a glance (success vs. warning vs. info).
-function iconBadge(icon: string, colorHex: string): string {
+export function iconBadge(icon: string, colorHex: string): string {
   return `<table cellpadding="0" cellspacing="0" style="margin:0 0 18px;">
     <tr>
       <td style="background:${colorHex}1a;border-radius:12px;width:44px;height:44px;text-align:center;vertical-align:middle;font-size:20px;line-height:44px;">
@@ -83,7 +84,7 @@ function iconBadge(icon: string, colorHex: string): string {
   </table>`;
 }
 
-function ctaButton(label: string, url: string): string {
+export function ctaButton(label: string, url: string): string {
   return `<table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
     <tr>
       <td style="background:linear-gradient(135deg,#7c3aed,#9333ea);border-radius:14px;box-shadow:0 6px 20px rgba(124,58,237,0.35);">
@@ -93,7 +94,7 @@ function ctaButton(label: string, url: string): string {
   </table>`;
 }
 
-function securityNotice(notice: string): string {
+export function securityNotice(notice: string): string {
   return `<table cellpadding="0" cellspacing="0" width="100%" style="margin-top:28px;">
     <tr>
       <td style="background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.18);border-radius:12px;padding:14px 18px;">
@@ -162,9 +163,9 @@ export function limitReachedEmailHtml(name: string, appUrl: string, appName: str
         </td>
       </tr>
     </table>
-    ${ctaButton('Upgrade to Pro — ₦9,999/mo', `${appUrl}/pricing`)}
+    ${ctaButton('Upgrade to Pro — $6/mo', `${appUrl}/pricing`)}
     <p style="margin:-16px 0 0;text-align:center;">
-      <a href="${appUrl}/pricing" style="font-size:13px;color:#ea580c;font-weight:600;text-decoration:none;">Agency plan — ₦24,999/mo (Unlimited everything) &rarr;</a>
+      <a href="${appUrl}/pricing" style="font-size:13px;color:#ea580c;font-weight:600;text-decoration:none;">Agency plan — $15/mo (Unlimited everything) &rarr;</a>
     </p>
     ${securityNotice('⏰ Your free limit resets at midnight — or upgrade now and never wait again.')}
   `;
@@ -263,12 +264,14 @@ export function adminDailyBriefHtml(
 export function paymentConfirmationHtml(
   name: string,
   plan: string,
-  amountKobo: number,
+  amountMinor: number,
   renewalDate: string,
   appUrl: string,
   appName: string,
+  currency = 'USD',
 ): string {
-  const naira = (amountKobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 0 });
+  // Amounts arrive in the currency's smallest unit (cents / kobo).
+  const paid = new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amountMinor / 100);
   const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
   const body = `
     ${iconBadge('✅', '#16a34a')}
@@ -281,7 +284,7 @@ export function paymentConfirmationHtml(
       </tr>
       <tr style="background:#ffffff;">
         <td style="padding:13px 18px;font-size:13px;color:#64748b;font-weight:600;">Amount paid</td>
-        <td style="padding:13px 18px;font-size:14px;color:#16a34a;font-weight:700;">₦${naira}</td>
+        <td style="padding:13px 18px;font-size:14px;color:#16a34a;font-weight:700;">${paid}</td>
       </tr>
       <tr style="background:rgba(124,58,237,0.08);">
         <td style="padding:13px 18px;font-size:13px;color:#64748b;font-weight:600;">Next renewal</td>
@@ -291,7 +294,7 @@ export function paymentConfirmationHtml(
     ${ctaButton('Go to dashboard', appUrl)}
     ${securityNotice('🔒 Keep this email as your payment receipt. To manage your subscription, visit Settings inside ${appName}.')}
   `;
-  return emailShell(appName, body, `Your ${planLabel} plan is active — ₦${naira} received.`);
+  return emailShell(appName, body, `Your ${planLabel} plan is active — ${paid} received.`);
 }
 
 // ─── #2 Payment failed / plan downgraded ────────────────────────────────────
@@ -323,6 +326,18 @@ export function paymentFailedHtml(name: string, plan: string, appUrl: string, ap
 
 export function planExpiredHtml(name: string, plan: string, appUrl: string, appName: string): string {
   const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
+  if (!PRICING_ENABLED) {
+    // Pricing is off: no renew button to send them to. Say what happened and that they keep everything.
+    const trialBody = `
+      ${iconBadge('⏰', '#d97706')}
+      <h1 style="margin:0 0 16px;font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.6px;">Your free ${planLabel} access has ended</h1>
+      <p style="margin:0 0 16px;font-size:16px;color:#475569;line-height:1.7;">Hi <strong style="color:#1e293b;">${name}</strong>,</p>
+      <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.7;">Your free ${planLabel} period is over and your account is back on the free tier. All your saved prospects and settings are safe, and you can keep searching every day.</p>
+      ${ctaButton('Keep prospecting', appUrl)}
+      ${securityNotice('We\'ll let you know when paid plans open. Questions? Just reply to this email.')}
+    `;
+    return emailShell(appName, trialBody, `Your free ${planLabel} access has ended — your account is safe on the free tier.`);
+  }
   const body = `
     ${iconBadge('⏰', '#d97706')}
     <h1 style="margin:0 0 16px;font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.6px;">Your plan has expired</h1>
@@ -348,6 +363,17 @@ export function planExpiredHtml(name: string, plan: string, appUrl: string, appN
 
 export function planExpiringSoonHtml(name: string, plan: string, expiryDateStr: string, appUrl: string, appName: string): string {
   const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
+  if (!PRICING_ENABLED) {
+    const trialBody = `
+      ${iconBadge('⏳', '#7c3aed')}
+      <h1 style="margin:0 0 16px;font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.6px;">Your free ${planLabel} access ends soon</h1>
+      <p style="margin:0 0 16px;font-size:16px;color:#475569;line-height:1.7;">Hi <strong style="color:#1e293b;">${name}</strong>,</p>
+      <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.7;">Your free ${planLabel} access runs until <strong style="color:#1e293b;">${expiryDateStr}</strong>. Use it while you have it: more searches, every AI feature, proposals and email blast.</p>
+      ${ctaButton('Make the most of it', appUrl)}
+      ${securityNotice('After that your account moves to the free tier. Nothing is deleted.')}
+    `;
+    return emailShell(appName, trialBody, `Your free ${planLabel} access ends ${expiryDateStr} — make the most of it.`);
+  }
   const body = `
     ${iconBadge('⏳', '#7c3aed')}
     <h1 style="margin:0 0 16px;font-size:28px;font-weight:800;color:#0f172a;letter-spacing:-0.6px;">Your plan expires soon</h1>
@@ -492,3 +518,176 @@ export function proposalToProspectHtml(
 </body>
 </html>`;
 }
+
+
+// ─── Launch campaign — free Pro trial (marketing; one-off, two emails) ──────
+//
+// Email 1 announces the offer; email 2, sent a couple of days later, is the story-style
+// follow-up with a countdown to launch day. Both are marketing, so both carry an
+// unsubscribe route. `claimBy` is the last day the trial can be started
+// (trialOfferLastDayLabel()); the trial length comes from TRIAL_DAYS, so the copy,
+// the button and the API can never disagree.
+
+export const LAUNCH_EMAIL_1_SUBJECT = `🚀 RUNVAX Launch Offer: Get ${TRIAL_DAYS} Days of Pro Access for Free`;
+export function launchEmail2Subject(daysLeft: number): string {
+  if (daysLeft <= 0) return `🎉 RUNVAX is live: your ${TRIAL_DAYS} free Pro days are waiting`;
+  return `⏳ ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} to launch: your ${TRIAL_DAYS} free Pro days are waiting`;
+}
+
+const MARKETING_NOTE = (appName: string, unsubscribeUrl?: string) =>
+  `You&rsquo;re receiving this email because you have a ${appName} account. If you no longer wish to receive these emails, ${unsubscribeUrl
+    ? `<a href="${unsubscribeUrl}" style="color:#94a3b8;">unsubscribe here</a>`
+    : `reply &ldquo;unsubscribe&rdquo;`} or contact <a href="mailto:info@runvax.com?subject=Unsubscribe" style="color:#94a3b8;">info@runvax.com</a> and we&rsquo;ll stop.`;
+
+const firstNameOf = (name: string) => (name || '').trim().split(/\s+/)[0] || 'there';
+
+function featureRow(icon: string, title: string, text: string): string {
+  return `<tr>
+    <td style="padding:10px 0;vertical-align:top;width:44px;">
+      <div style="background:rgba(124,58,237,0.10);border-radius:10px;width:36px;height:36px;line-height:36px;text-align:center;font-size:18px;">${icon}</div>
+    </td>
+    <td style="padding:10px 0 10px 12px;vertical-align:top;">
+      <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">${title}</p>
+      <p style="margin:2px 0 0;font-size:14px;color:#64748b;line-height:1.55;">${text}</p>
+    </td>
+  </tr>`;
+}
+
+function offerCard(): string {
+  return `<table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 26px;">
+    <tr>
+      <td style="background:linear-gradient(135deg,#5b21b6 0%,#7c3aed 55%,#ea580c 100%);border-radius:16px;padding:26px 24px;text-align:center;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:2px;color:rgba(255,255,255,0.85);">&#127873; YOUR LAUNCH OFFER</p>
+        <p style="margin:0;font-size:34px;font-weight:900;color:#ffffff;letter-spacing:-1px;line-height:1.1;">${TRIAL_DAYS} days of RUNVAX Pro</p>
+        <p style="margin:8px 0 0;font-size:18px;font-weight:700;color:#ffffff;">$0 &middot; No credit card required</p>
+      </td>
+    </tr>
+  </table>`;
+}
+
+function verifyBox(appName: string, heading: string): string {
+  return `<table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 24px;">
+    <tr>
+      <td style="background:rgba(234,88,12,0.07);border:1px solid rgba(234,88,12,0.25);border-radius:12px;padding:16px 18px;">
+        <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#c2410c;">&#9888;&#65039; ${heading}</p>
+        <p style="margin:0 0 8px;font-size:13px;color:#475569;line-height:1.65;">Email verification is required to access ${appName} and claim your free Pro trial.</p>
+        <p style="margin:0 0 8px;font-size:13px;color:#475569;line-height:1.65;">Check your inbox for the verification email, including your spam or junk folder. If you can&rsquo;t find it, log in to your account and use the option to resend the verification email, if available.</p>
+        <p style="margin:0;font-size:13px;color:#475569;line-height:1.65;">Once your email is verified, log in and activate your free access.</p>
+      </td>
+    </tr>
+  </table>`;
+}
+
+function stepsTable(appUrl: string): string {
+  const host = appUrl.replace(/^https?:\/\//, '');
+  const row = (n: number, text: string, shaded: boolean) => `<tr style="background:${shaded ? 'rgba(124,58,237,0.06)' : '#ffffff'};">
+      <td style="padding:13px 18px;font-size:13px;color:#7c3aed;font-weight:700;width:64px;">Step ${n}</td>
+      <td style="padding:13px 18px;font-size:14px;color:#1e293b;line-height:1.5;">${text}</td></tr>`;
+  return `<table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 22px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+    ${row(1, 'Verify your email address.', true)}
+    ${row(2, `Log in to <a href="${appUrl}" style="color:#7c3aed;text-decoration:none;font-weight:600;">${host}</a>.`, false)}
+    ${row(3, `Open your account menu and select <strong>&ldquo;Try Pro free for ${TRIAL_DAYS} days.&rdquo;</strong> Your account should show $0, with no card required.`, true)}
+  </table>`;
+}
+
+const h1 = 'margin:0 0 14px;font-size:30px;font-weight:800;color:#0f172a;letter-spacing:-0.8px;line-height:1.2;';
+const p = 'margin:0 0 18px;font-size:16px;color:#475569;line-height:1.7;';
+
+/** Email 1 — the launch offer. */
+export function launchCampaignEmailHtml(name: string, appUrl: string, appName: string, claimBy: string, unsubscribeUrl?: string): string {
+  const body = `
+    ${iconBadge('🚀', '#7c3aed')}
+    <h1 style="${h1}">Your next client could be one search away.</h1>
+    <p style="${p}">Hi <strong style="color:#1e293b;">${firstNameOf(name)}</strong>,</p>
+    <p style="${p}">On <strong>November 1st</strong>, ${appName} officially launches, and we&rsquo;re celebrating by giving you <strong>${TRIAL_DAYS} days of Pro access, completely free.</strong></p>
+    <p style="${p}">If you&rsquo;re a freelancer, web developer, digital marketer or AI automation agency looking for more clients, this is your chance to try a smarter way to find and approach potential customers.</p>
+
+    ${offerCard()}
+    ${ctaButton(`Claim my ${TRIAL_DAYS} free days`, `${appUrl}/claim-pro`)}
+
+    <p style="margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:1px;color:#7c3aed;">HERE&rsquo;S WHAT YOU CAN DO WITH ${appName.toUpperCase()}</p>
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 26px;">
+      ${featureRow('🌍', 'Find businesses worldwide', 'Discover potential clients by industry and location, wherever your target market is.')}
+      ${featureRow('🎯', 'Discover new opportunities', 'Identify businesses that may need a website or AI automation system, ranked by how well they fit your services.')}
+      ${featureRow('🤖', 'Know who to contact and what to say', 'Research decision-makers and prepare personalised outreach messages to start meaningful conversations.')}
+      ${featureRow('📈', 'Build your client pipeline', 'Save promising prospects and track your outreach from the first message towards conversion.')}
+    </table>
+
+    <p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:1px;color:#7c3aed;">HOW TO ACTIVATE YOUR FREE ACCESS</p>
+    ${stepsTable(appUrl)}
+    ${verifyBox(appName, 'Already registered but haven&rsquo;t verified your email?')}
+
+    <p style="margin:0 0 6px;font-size:18px;font-weight:800;color:#0f172a;">Your next client is waiting to be discovered.</p>
+    <p style="${p}">Don&rsquo;t just search for clients manually. Use AI-powered prospecting to discover businesses, identify opportunities and start conversations with potential customers. Your ${TRIAL_DAYS}-day free access is your chance to see what ${appName} can do for your business.</p>
+    ${ctaButton(`Get started with ${appName}`, `${appUrl}/claim-pro`)}
+
+    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Claim your free ${TRIAL_DAYS} days by ${claimBy}. One free trial per account. Offer subject to eligibility.</p>
+    <p style="margin:0;font-size:15px;color:#334155;line-height:1.6;">See you inside ${appName}!<br><strong>The ${appName} Team</strong><br><span style="color:#94a3b8;font-size:13px;">The AI-powered client prospecting platform for freelancers and agencies.</span></p>
+  `;
+  return emailShell(appName, body, `Official launch on November 1st: get ${TRIAL_DAYS} days of Pro free. $0, no card needed.`, MARKETING_NOTE(appName, unsubscribeUrl));
+}
+
+/** Email 2 — the story-style follow-up, with a live countdown to launch day. */
+export function launchCountdownEmailHtml(name: string, appUrl: string, appName: string, claimBy: string, daysLeft: number, unsubscribeUrl?: string): string {
+  const countdown = daysLeft > 0
+    ? `<p style="margin:0;font-size:46px;font-weight:900;color:#ffffff;letter-spacing:-1.5px;line-height:1;">${daysLeft}</p>
+       <p style="margin:6px 0 0;font-size:16px;font-weight:700;color:#ffffff;">${daysLeft === 1 ? 'day' : 'days'} until ${appName} officially launches</p>
+       <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.8);">November 1st</p>`
+    : `<p style="margin:0;font-size:30px;font-weight:900;color:#ffffff;letter-spacing:-0.8px;">${appName} is live</p>
+       <p style="margin:6px 0 0;font-size:14px;color:rgba(255,255,255,0.85);">Your free Pro days are open to claim.</p>`;
+  const bullet = (icon: string, text: string) => `<tr><td style="padding:6px 0;width:34px;vertical-align:top;font-size:18px;">${icon}</td><td style="padding:6px 0;font-size:15px;color:#334155;line-height:1.6;">${text}</td></tr>`;
+  const body = `
+    <!-- Countdown -->
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 26px;">
+      <tr><td style="background:linear-gradient(135deg,#5b21b6 0%,#7c3aed 55%,#ea580c 100%);border-radius:16px;padding:24px;text-align:center;">${countdown}</td></tr>
+    </table>
+
+    <p style="${p}">Hi <strong style="color:#1e293b;">${firstNameOf(name)}</strong>,</p>
+    <p style="${p}">Imagine this.</p>
+    <p style="${p}">It&rsquo;s Monday morning. You sit down at your laptop, ready to grow your business.</p>
+    <p style="${p}">You know you can build beautiful websites. You know how to run digital marketing campaigns. Maybe you even build AI automation systems that help businesses save time and make more money.</p>
+    <p style="${p}">But there&rsquo;s one problem.</p>
+    <p style="margin:0 0 18px;font-size:20px;font-weight:800;color:#0f172a;">You need more clients.</p>
+    <p style="${p}">So you start searching Google. You scroll through social media. You ask friends for referrals. You spend hours looking for businesses that might need your services.</p>
+    <p style="${p}">Sometimes you find a promising business, but you don&rsquo;t know who to contact. Other times, you find the decision-maker but struggle to figure out what to say.</p>
+    <p style="${p}">And before you know it, another day has passed. You&rsquo;ve done plenty of searching, but you still haven&rsquo;t had enough conversations with potential clients.</p>
+    <p style="margin:0 0 18px;font-size:18px;font-weight:800;color:#0f172a;line-height:1.4;">What if finding your next prospect didn&rsquo;t have to be this difficult?</p>
+    <p style="${p}">That&rsquo;s why we created ${appName}. It helps freelancers, web developers, digital marketers and AI automation agencies discover businesses across the world, identify potential opportunities, research decision-makers and prepare personalised outreach.</p>
+    <p style="${p}">Instead of wondering where your next client will come from, you can start building a pipeline of businesses worth approaching.</p>
+
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 22px;">
+      ${bullet('🌍', 'Search for businesses across different countries.')}
+      ${bullet('🎯', 'Discover companies that may need your services.')}
+      ${bullet('🤖', 'Find the right people to approach and get help starting the conversation.')}
+      ${bullet('📈', 'Organise your prospects and build a repeatable client acquisition process.')}
+    </table>
+
+    <p style="${p}">And now, we want you to experience it for yourself.</p>
+    ${offerCard()}
+    <p style="${p}">To celebrate our official launch on November 1st, we&rsquo;re opening up <strong>${TRIAL_DAYS} days of Pro access at no cost, with no credit card required.</strong></p>
+    <p style="${p}">Not another video telling you how to find clients. Not another course asking you to take notes and hope for results. <strong>An actual platform you can use to discover prospects and start taking action.</strong></p>
+    <p style="${p}">Give it ${TRIAL_DAYS} days. Explore your market. Find businesses worth approaching. Start conversations. See whether it fits the way you grow your business.</p>
+    <p style="${p}">Your next client isn&rsquo;t guaranteed. But you can take a more systematic approach to finding the opportunities that could lead to one.</p>
+
+    <p style="margin:6px 0 14px;font-size:20px;font-weight:800;color:#0f172a;">Ready to give it a try?</p>
+    ${ctaButton(`Claim your ${TRIAL_DAYS} free days`, `${appUrl}/claim-pro`)}
+
+    <p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:1px;color:#7c3aed;">ONE IMPORTANT THING BEFORE YOU START</p>
+    ${verifyBox(appName, 'Already have a ' + appName + ' account? Make sure your email is verified.')}
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 22px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <tr style="background:rgba(124,58,237,0.06);"><td style="padding:13px 18px;font-size:14px;color:#1e293b;line-height:1.55;"><strong style="color:#7c3aed;">1.</strong> Check your inbox for the ${appName} verification email. Check spam or junk too.</td></tr>
+      <tr><td style="padding:13px 18px;font-size:14px;color:#1e293b;line-height:1.55;"><strong style="color:#7c3aed;">2.</strong> Can&rsquo;t find it? Log in and use the option to resend your verification email, if available.</td></tr>
+      <tr style="background:rgba(124,58,237,0.06);"><td style="padding:13px 18px;font-size:14px;color:#1e293b;line-height:1.55;"><strong style="color:#7c3aed;">3.</strong> Once verified, log in and select <strong>&ldquo;Try Pro free for ${TRIAL_DAYS} days&rdquo;</strong> from your account menu.</td></tr>
+    </table>
+
+    <p style="margin:0 0 6px;font-size:16px;color:#334155;">Your free access is waiting for you.</p>
+    <p style="margin:0 0 20px;font-size:17px;font-weight:800;color:#0f172a;line-height:1.5;">Stop spending all your time wondering where to find clients. Start discovering businesses worth approaching.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Offer valid through ${claimBy}. One free trial per account, subject to eligibility.</p>
+    <p style="margin:0;font-size:15px;color:#334155;line-height:1.6;">See you inside,<br><strong>The ${appName} Team</strong><br><span style="color:#94a3b8;font-size:13px;">Find prospects. Start conversations. Grow your business.</span></p>
+  `;
+  const pre = daysLeft > 0
+    ? `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} to launch. Claim your ${TRIAL_DAYS} free days of Pro. $0, no card needed.`
+    : `${appName} is live. Claim your ${TRIAL_DAYS} free days of Pro. $0, no card needed.`;
+  return emailShell(appName, body, pre, MARKETING_NOTE(appName, unsubscribeUrl));
+}
+

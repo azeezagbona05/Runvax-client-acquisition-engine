@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { guardCron } from '@/lib/cron';
 import { enqueueTask, drainTasks } from '@/lib/tasks/queue';
+import { notAcquisition } from '@/lib/acquisition/isolation';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -27,6 +28,8 @@ export async function GET(req: NextRequest) {
       // they've explicitly turned this on in Settings.
       user: { isSuspended: false, plan: { in: ['pro', 'agency'] }, settings: { autoDraftEnabled: true } },
       outreachDrafts: { none: { status: 'pending' } },
+      // Industry Acquisition clinics reach prospects only through their own approval gate.
+      AND: [notAcquisition],
     },
     include: { user: { select: { id: true } } },
     orderBy: { savedAt: 'asc' },

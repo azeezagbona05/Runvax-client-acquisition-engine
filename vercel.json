@@ -5,7 +5,7 @@
       "schedule": "0 2 * * *"
     },
     {
-      "path": "/api/cron/onboarding-emails",
+      "path": "/api/cron/lifecycle-emails",
       "schedule": "0 7 * * *"
     },
     {
@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/admin-daily-brief",
       "schedule": "30 8 * * *"
+    },
+    {
+      "path": "/api/cron/run-outreach-campaigns",
+      "schedule": "0 10 * * *"
     }
   ]
 }

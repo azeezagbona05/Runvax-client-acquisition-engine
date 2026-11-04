@@ -20,6 +20,8 @@ import WeaknessModal from './WeaknessModal';
 import ConversationPanel from './ConversationPanel';
 import AITeamPanel from './AITeamPanel';
 import ReplyPanel from './ReplyPanel';
+import { ACQUISITION_NOTICE, isAcquisitionManaged, openOutreach, reportBlocked } from '@/lib/outreachGate';
+import OutreachLink from '@/components/OutreachLink';
 
 // Demo-site preview is built but hidden for now — flip to true to re-enable.
 // Backend (/api/demo, /demo/[slug], DemoSite model) remains in place.
@@ -245,14 +247,18 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
     setTimeout(() => setDemoCopied(false), 2500);
   };
 
-  const shareDemoWhatsApp = () => {
+  const acquisitionManaged = isAcquisitionManaged(get(business.id));
+  const shareDemoWhatsApp = async () => {
     if (!demoUrl) return;
+    if (acquisitionManaged) { reportBlocked([{ message: ACQUISITION_NOTICE }]); return; }
     const msg = `Hi! I put together a website preview for ${business.name} — take a look: ${demoUrl}`;
     const digits = (business.phoneIntl || business.phone || '').replace(/[^0-9]/g, '');
     const link = digits
       ? `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`
       : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    window.open(link, '_blank');
+    // The server decides whether this contact may be messaged (stale pages, suppression, acquisition clinics).
+    const opened = await openOutreach(link, { businessId: business.id, phone: business.phoneIntl || business.phone });
+    if (!opened.ok) reportBlocked([opened]);
   };
 
   const verifyEmail = async () => {
@@ -420,7 +426,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
                           {demoCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                           {demoCopied ? 'Copied' : 'Copy'}
                         </button>
-                        <button onClick={shareDemoWhatsApp}
+                        <button onClick={shareDemoWhatsApp} disabled={acquisitionManaged} title={acquisitionManaged ? ACQUISITION_NOTICE : undefined}
                           className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-lg bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/20 transition-colors">
                           <MessageCircle className="w-3.5 h-3.5" /> Send
                         </button>
@@ -586,9 +592,15 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
             {business.phone && (
               <div className="flex items-center gap-3">
                 <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                <a href={`tel:${business.phone}`} className="text-gray-300 text-sm hover:text-white transition-colors">
+                <OutreachLink
+                  url={`tel:${business.phone}`}
+                  target={{ businessId: business.id, phone: business.phone }}
+                  managed={acquisitionManaged}
+                  sameTab
+                  className="text-gray-300 text-sm hover:text-white transition-colors"
+                >
                   {business.phone}
-                </a>
+                </OutreachLink>
               </div>
             )}
             {business.email && (

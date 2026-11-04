@@ -8,6 +8,7 @@ import { getEffectiveProfile } from '@/lib/userProfile';
 import { createTransporter, proposalCopyHtml, proposalToProspectHtml } from '@/lib/email';
 import { getAppName } from '@/lib/url';
 import { prisma } from '@/lib/prisma';
+import { checkRecipient } from '@/lib/acquisition/recipientGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -210,6 +211,7 @@ Looking forward to hearing from you! 🙏
 — ${profile.senderName}
 📱 ${profile.whatsapp}`;
 
+    let prospectEmailStatus: { sent: boolean; code?: string; reason?: string } | undefined;
     // Fire-and-forget emails — never block the response
     if (process.env.SMTP_HOST) {
       const appName = getAppName();
@@ -231,22 +233,30 @@ Looking forward to hearing from you! 🙏
           }).catch(() => {});
       }
 
-      // #6 — send to prospect if email provided
+      // #6 — send to prospect if email provided. Same recipient guard as the dedicated send routes:
+      // acquisition clinics and suppressed addresses are never emailed from here.
       if (prospectEmail) {
-        transporter.sendMail({
-          from: agencyName
-            ? `"${agencyName}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`
-            : (process.env.SMTP_FROM ?? process.env.SMTP_USER ?? ''),
-          to: prospectEmail,
-          subject: `Website Proposal for ${business.name} — ${agencyName}`,
-          html: proposalToProspectHtml(proposal, agencyName ?? appName, agencyPhone, profile.replyEmail ?? undefined, agencyWebsite ?? undefined),
-        }).catch(() => {});
+        const verdict = userId ? await checkRecipient(userId, { email: prospectEmail }) : null;
+        if (!verdict) prospectEmailStatus = { sent: false, reason: 'Not signed in, so the proposal was not emailed.' };
+        else if (!verdict.allowed) prospectEmailStatus = { sent: false, code: verdict.code, reason: verdict.message };
+        else {
+          prospectEmailStatus = { sent: true };
+          transporter.sendMail({
+            from: agencyName
+              ? `"${agencyName}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`
+              : (process.env.SMTP_FROM ?? process.env.SMTP_USER ?? ''),
+            to: prospectEmail,
+            subject: `Website Proposal for ${business.name} — ${agencyName}`,
+            html: proposalToProspectHtml(proposal, agencyName ?? appName, agencyPhone, profile.replyEmail ?? undefined, agencyWebsite ?? undefined),
+          }).catch(() => {});
+        }
       }
     }
 
     return NextResponse.json({
       proposal,
       coverMessage,
+      ...(prospectEmailStatus ? { prospectEmail: prospectEmailStatus } : {}),
       // Agent meta for print template
       agentMeta: {
         name: agencyName,

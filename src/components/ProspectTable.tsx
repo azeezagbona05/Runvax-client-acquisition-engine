@@ -7,6 +7,8 @@ import { SavedProspect, ProspectStage } from '@/types';
 import { scoreLabel, formatPrice } from '@/lib/scoring';
 import { whatsappLink } from '@/lib/phone';
 import { useWaPaceTimer } from '@/lib/waRateLimit';
+import OutreachLink from '@/components/OutreachLink';
+import { isAcquisitionManaged } from '@/lib/outreachGate';
 
 type Stage = { id: ProspectStage; icon: string; label: string };
 
@@ -161,15 +163,15 @@ export default function ProspectTable({ prospects, onOpen, onOpenSequence, selec
                 <td className="px-3 py-2.5">
                   {business.phone ? (
                     link ? (
-                      <a
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => { e.stopPropagation(); void incrementToday(); recordSend(); }}
+                      <OutreachLink
+                        url={link}
+                        target={{ businessId: business.id, phone: business.phone }}
+                        managed={isAcquisitionManaged(p)}
+                        onOpened={() => { void incrementToday(); recordSend(); }}
                         className="flex items-center gap-1.5 text-green-400 hover:text-green-300 transition-colors whitespace-nowrap"
                       >
                         <MessageCircle className="w-3.5 h-3.5" /> {business.phone}
-                      </a>
+                      </OutreachLink>
                     ) : <span className="text-gray-500 whitespace-nowrap">{business.phone}</span>
                   ) : <span className="text-gray-700">—</span>}
                 </td>

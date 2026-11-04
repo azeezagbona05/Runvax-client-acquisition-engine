@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Business } from '@/types';
 import { checkAndIncrementAI } from '@/lib/usage';
+import { requireVerifiedUser } from '@/lib/requireUser';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { composeOutreach, type OutreachFramework } from '@/lib/outreach/compose';
@@ -11,6 +12,11 @@ export const dynamic = 'force-dynamic';
 export type { OutreachFramework };
 
 export async function POST(req: NextRequest) {
+  // Writing outreach for a prospect is part of opening it: verified accounts only. Signed-out
+  // visitors still get the 401 that triggers the sign-up preview.
+  const verified = await requireVerifiedUser(req);
+  if (!verified.ok) return verified.response;
+
   const {
     business,
     framework,

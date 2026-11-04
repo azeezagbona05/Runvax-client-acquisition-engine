@@ -1,5 +1,5 @@
 import { getPlanConfig } from './plans';
-import { priceToKobo } from './planDefaults';
+import { priceToCharge, type ChargeCurrency } from './planDefaults';
 
 const BASE = 'https://api.paystack.co';
 
@@ -31,7 +31,8 @@ export interface InitializeResult {
 
 export async function initializeTransaction(params: {
   email: string;
-  amount: number;       // in kobo (₦9,999 = 999900)
+  amount: number;       // smallest unit of `currency` (cents for USD, kobo for NGN)
+  currency?: ChargeCurrency;
   reference: string;
   plan?: string;        // PLN_xxx plan code for subscriptions
   metadata?: Record<string, unknown>;
@@ -46,7 +47,8 @@ export async function initializeTransaction(params: {
 export interface VerifyResult {
   status: string;       // 'success' | 'failed' | 'abandoned'
   reference: string;
-  amount: number;       // in kobo
+  amount: number;       // smallest unit of the transaction currency
+  currency?: string;
   customer: { email: string; customer_code: string };
   subscription?: { subscription_code: string; status: string };
   metadata?: Record<string, unknown>;
@@ -72,20 +74,21 @@ export function planCodeForPlan(plan: 'pro' | 'agency'): string {
 }
 
 /**
- * The amount to charge, in kobo, derived from the same plan price the pricing
+ * The amount and currency to charge (US dollars, in cents), derived from the same plan price the pricing
  * page shows (DB row first, ./planDefaults as fallback) so the two can't drift.
  *
  * Note: this only sets the *first* charge. Every renewal is billed at the amount
  * configured on the Paystack plan (PLN_xxx), so a price change here must be
- * mirrored on the plan in the Paystack dashboard.
+ * mirrored on the plan in the Paystack dashboard. USD charging also needs USD enabled on
+ * the Paystack account and PAYSTACK_*_PLAN_CODE pointing at plans created in USD.
  */
-export async function amountForPlan(plan: 'pro' | 'agency'): Promise<number> {
+export async function amountForPlan(plan: 'pro' | 'agency'): Promise<{ amount: number; currency: ChargeCurrency }> {
   const { price } = await getPlanConfig(plan);
-  const kobo = priceToKobo(price);
-  if (kobo == null) {
+  const charge = priceToCharge(price);
+  if (charge == null) {
     throw new Error(`No valid price configured for "${plan}" (got ${JSON.stringify(price)}) — set it in the admin panel.`);
   }
-  return kobo;
+  return charge;
 }
 
 export function generateReference(userId: string): string {

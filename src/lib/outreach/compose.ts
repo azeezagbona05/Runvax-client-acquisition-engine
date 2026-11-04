@@ -11,6 +11,7 @@ import type { OfferType, Opportunity } from '@/lib/opportunity/types';
 import { prisma } from '@/lib/prisma';
 import { logAgentActivity } from '@/lib/agentActivity';
 import { recall } from '@/lib/prospectMemory';
+import { assessReach } from '@/lib/decisionMaker';
 
 export type OutreachFramework = 'PAS' | 'AIDA' | 'BAB' | 'STORY' | 'SPIN' | '4PS' | 'HSO' | 'FAB';
 
@@ -101,6 +102,17 @@ function businessToContext(
     industryAngle: opportunity?.angle
       ?? (chosenOffer === 'ai_system' ? industryAngleFor(business) : undefined),
     priorContext,
+    recipient: recipientFor(business),
+  };
+}
+
+function recipientFor(business: Business): ProspectContext['recipient'] {
+  const reach = assessReach(business);
+  return {
+    level: reach.level,
+    firstName: reach.person?.firstName,
+    name: reach.person?.name,
+    title: reach.person?.title || undefined,
   };
 }
 

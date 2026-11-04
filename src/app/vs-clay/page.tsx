@@ -64,7 +64,7 @@ const comparisons = [
   {
     feature: 'Pricing',
     clay: 'Free tier is limited; paid plans from ~$167–$185/month, metered in credits',
-    runvax: '₦9,999/month (~$6 USD). Free plan, no card',
+    runvax: '$6/month. Free plan, no card',
   },
 ];
 

@@ -12,6 +12,8 @@ import { SavedProspect, ProspectStage, ReplyType } from '@/types';
 import { scoreLabel, formatPrice } from '@/lib/scoring';
 import { whatsappLink } from '@/lib/phone';
 import { detectOpportunities } from '@/lib/opportunity/detect';
+import OutreachLink from './OutreachLink';
+import { ACQUISITION_NOTICE, isAcquisitionManaged } from '@/lib/outreachGate';
 
 const STAGES: Array<{ id: ProspectStage; icon: string; label: string; color: string }> = [
   { id: 'found',      icon: '🔵', label: 'Found',      color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
@@ -445,17 +447,18 @@ export default function ProspectDetailModal({ prospect, onClose }: Props) {
                   </div>
                 )}
                 {business.phone && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Phone className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
                     <span className="text-sm text-gray-300">{business.phone}</span>
-                    <a
-                      href={whatsappLink(business) ?? '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <OutreachLink
+                      url={whatsappLink(business)}
+                      target={{ businessId: business.id, phone: business.phone }}
+                      managed={isAcquisitionManaged(prospect)}
                       className="text-[11px] font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full hover:bg-green-500/20 transition-colors flex items-center gap-1"
                     >
                       <MessageCircle className="w-3 h-3" /> WhatsApp
-                    </a>
+                    </OutreachLink>
+                    {isAcquisitionManaged(prospect) && <span className="text-[11px] text-amber-400">{ACQUISITION_NOTICE}</span>}
                   </div>
                 )}
                 {business.website ? (

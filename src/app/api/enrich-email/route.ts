@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUser } from '@/lib/requireUser';
+import { rateLimit } from '@/lib/rateLimiter';
+import { safeFetch } from '@/lib/safeFetch';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +48,7 @@ async function fetchText(url: string, ms = 7000): Promise<string> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       signal: ctrl.signal,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -367,6 +370,9 @@ async function tryGoogleCSE(name: string, city: string, phone?: string): Promise
 }
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req);
+  if (!user.ok) return user.response;
+  if (!rateLimit(`enrich-email:${user.userId}`, { maxRequests: 120, windowMs: 60_000 }).ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   const { website, name, location, phone } = await req.json() as {
     website?: string;
     name?: string;

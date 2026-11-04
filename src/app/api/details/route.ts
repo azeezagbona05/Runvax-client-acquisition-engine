@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPlaceDetails, searchPlaces } from '@/lib/google-places';
 import { prisma } from '@/lib/prisma';
+import { requireVerifiedUser } from '@/lib/requireUser';
 
 export const dynamic = 'force-dynamic';
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function GET(req: NextRequest) {
+  // Opening a prospect costs a Google lookup, so it is for verified accounts only.
+  const user = await requireVerifiedUser(req);
+  if (!user.ok) return user.response;
   try {
     const { searchParams } = new URL(req.url);
     const placeId = searchParams.get('id');
 
     if (!placeId) {
       return NextResponse.json({ error: 'Place ID required' }, { status: 400 });
+    }
+    // Google place ids are URL-safe tokens; anything else could alter the upstream request path.
+    if (!/^[A-Za-z0-9_-]{1,300}$/.test(placeId)) {
+      return NextResponse.json({ error: 'Invalid place ID' }, { status: 400 });
     }
 
     const sevenDaysAgo = new Date(Date.now() - CACHE_TTL_MS);

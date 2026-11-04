@@ -1,3 +1,4 @@
+import { PRICING_ENABLED } from './promo';
 import { prisma } from '@/lib/prisma';
 import { getPlanConfig } from '@/lib/plans';
 import { logAgentActivity } from '@/lib/agentActivity';
@@ -62,9 +63,9 @@ export async function buildBillingBrief(userId: string): Promise<BillingBriefDat
     recommendations.push({
       type: 'usage_near_limit',
       label: 'Close to your daily limit',
-      detail: 'Upgrade to keep working without hitting your daily cap.',
+      detail: PRICING_ENABLED ? 'Upgrade to keep working without hitting your daily cap.' : 'Your limit resets overnight.',
       count: 1,
-      href: '/pricing',
+      href: PRICING_ENABLED ? '/pricing' : '/',
     });
   }
 
@@ -76,10 +77,10 @@ export async function buildBillingBrief(userId: string): Promise<BillingBriefDat
       lines.push(`Your plan expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`);
       recommendations.push({
         type: 'plan_expiring_soon',
-        label: `Renew — expires in ${daysLeft}d`,
-        detail: 'Renew now to avoid losing Pro features when your plan lapses.',
+        label: PRICING_ENABLED ? `Renew — expires in ${daysLeft}d` : `Free Pro ends in ${daysLeft}d`,
+        detail: PRICING_ENABLED ? 'Renew now to avoid losing Pro features when your plan lapses.' : 'Make the most of your Pro access while it lasts.',
         count: daysLeft,
-        href: '/pricing',
+        href: PRICING_ENABLED ? '/pricing' : '/',
       });
     }
   }

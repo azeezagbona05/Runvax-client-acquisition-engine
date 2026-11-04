@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { SITE_URL, SITE_NAME } from '@/lib/seo';
+import { PRICING_ENABLED } from '@/lib/promo';
 
 const TITLE = 'Runvax Pricing — Free Lead Gen Tool for Web Designers';
-const DESC = 'Start free — no credit card. Find businesses without a website in any city. Pro from ₦9,999/month (~$6 USD). Agency unlimited. AI cold email included on all plans.';
+const DESC = 'Start free — no credit card. Find businesses without a website in any city. Pro from $6/month. Agency unlimited. AI cold email included on all plans.';
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -23,5 +25,7 @@ export const metadata: Metadata = {
 };
 
 export default function PricingLayout({ children }: { children: React.ReactNode }) {
+  // Pricing is switched off for the launch — see src/lib/promo.ts.
+  if (!PRICING_ENABLED) redirect('/');
   return <>{children}</>;
 }

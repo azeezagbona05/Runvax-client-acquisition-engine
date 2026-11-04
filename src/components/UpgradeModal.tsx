@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Zap, X, Lock, Loader2 } from 'lucide-react';
+import { PRICING_ENABLED, TRIAL_DAYS, trialOfferOpen } from '@/lib/promo';
+import StartTrialButton from './StartTrialButton';
 
 interface Props {
   reason: 'ai_limit' | 'prospect_limit' | 'feature';
@@ -13,21 +15,48 @@ const MESSAGES = {
   ai_limit: {
     title: 'Daily AI limit reached',
     body: "You've used all 15 AI messages on the Free plan today. Upgrade to Pro for 200 messages/day.",
-    cta: 'Upgrade to Pro — ₦9,999/mo',
+    cta: 'Upgrade to Pro — $6/mo',
   },
   prospect_limit: {
     title: 'Prospect limit reached',
     body: 'Free accounts can save up to 30 prospects. Upgrade to Pro for unlimited prospects and all AI features.',
-    cta: 'Upgrade to Pro — ₦9,999/mo',
+    cta: 'Upgrade to Pro — $6/mo',
   },
   feature: {
     title: 'Pro feature',
     body: null,
-    cta: 'Unlock with Pro — ₦9,999/mo',
+    cta: 'Unlock with Pro — $6/mo',
   },
 };
 
+/** Shown instead of the upgrade pitch while pricing is off: no prices, no checkout. */
+function LimitNotice({ featureName, onClose }: { featureName?: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-gray-900 border border-purple-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <div className="flex items-start justify-between mb-4">
+          <div className="w-10 h-10 bg-purple-600/20 rounded-xl flex items-center justify-center">
+            <Lock className="w-5 h-5 text-purple-400" />
+          </div>
+          <button onClick={onClose} aria-label="Close" className="text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <h3 className="text-white font-bold text-lg mb-2">You&apos;ve reached today&apos;s limit</h3>
+        <p className="text-gray-400 text-sm">
+          {featureName ? `${featureName} isn't available on your account right now. ` : ''}
+          Daily limits reset overnight, so you can pick up where you left off tomorrow.
+          {trialOfferOpen() ? ` Or try Pro free for ${TRIAL_DAYS} days — $0, no card — for higher limits and every feature.` : ''}
+        </p>
+        <div className="mt-5 space-y-2">
+          <StartTrialButton />
+          <button onClick={onClose} className="w-full text-center text-gray-500 hover:text-gray-300 text-sm py-2">Got it</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UpgradeModal({ reason, featureName, onClose }: Props) {
+  if (!PRICING_ENABLED) return <LimitNotice featureName={featureName} onClose={onClose} />;
   const msg = MESSAGES[reason];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -108,7 +137,7 @@ export default function UpgradeModal({ reason, featureName, onClose }: Props) {
             disabled={loading}
             className="w-full text-center bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 font-semibold py-2 rounded-xl text-xs transition-colors border border-orange-500/20"
           >
-            Agency plan — ₦24,999/mo (Unlimited everything)
+            Agency plan — $15/mo (Unlimited everything)
           </button>
           <button
             onClick={onClose}

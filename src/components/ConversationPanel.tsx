@@ -10,6 +10,8 @@ import { useProspects } from '@/context/ProspectsContext';
 import { whatsappLink } from '@/lib/phone';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import { detectOpportunities } from '@/lib/opportunity/detect';
+import OutreachLink from './OutreachLink';
+import { isAcquisitionManaged } from '@/lib/outreachGate';
 
 interface Props {
   business: Business;
@@ -368,15 +370,15 @@ export default function ConversationPanel({ business }: Props) {
                   <div className="flex gap-2 flex-wrap">
                     <CopyBtn text={aiResponse} />
                     {whatsappUrl && (
-                      <a
-                        href={whatsappUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={handleMarkSent}
+                      <OutreachLink
+                        url={whatsappUrl}
+                        target={{ businessId: business.id, phone: business.phone }}
+                        managed={isAcquisitionManaged(prospect)}
+                        onOpened={() => handleMarkSent()}
                         className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors"
                       >
                         <MessageCircle className="w-3.5 h-3.5" /> Open in WhatsApp
-                      </a>
+                      </OutreachLink>
                     )}
                     <button onClick={handleMarkSent} className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors">
                       <Send className="w-3.5 h-3.5" /> Mark Sent

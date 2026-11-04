@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dns from 'dns/promises';
 import net from 'net';
+import { requireUser } from '@/lib/requireUser';
+import { rateLimit } from '@/lib/rateLimiter';
+import { isBlockedAddress } from '@/lib/acquisition/web/ssrf';
+
+// Strict on purpose: the address is written into an SMTP command, so no CR/LF, spaces or angle brackets.
+const SAFE_EMAIL = /^[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,}$/;
 
 export const dynamic = 'force-dynamic';
 
@@ -74,10 +80,13 @@ function smtpHandshake(mxHost: string, email: string): Promise<VerifyResult> {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser(req);
+  if (!user.ok) return user.response;
+  if (!rateLimit(`verify-email:${user.userId}`, { maxRequests: 60, windowMs: 60_000 }).ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   try {
     const { email } = await req.json() as { email: string };
 
-    if (!email || !email.includes('@')) {
+    if (!email || typeof email !== 'string' || email.length > 254 || !SAFE_EMAIL.test(email)) {
       return NextResponse.json({ result: 'invalid' as VerifyResult });
     }
 
@@ -93,6 +102,12 @@ export async function POST(req: NextRequest) {
     if (!mxHost) {
       return NextResponse.json({ result: 'invalid' as VerifyResult });
     }
+
+    // Never open a connection to a mail host that resolves to a private or internal address.
+    try {
+      const addrs = net.isIP(mxHost) ? [mxHost] : (await dns.lookup(mxHost, { all: true })).map((a) => a.address);
+      if (addrs.length === 0 || addrs.some(isBlockedAddress)) return NextResponse.json({ result: 'unknown' as VerifyResult });
+    } catch { return NextResponse.json({ result: 'unknown' as VerifyResult }); }
 
     const result = await smtpHandshake(mxHost, email);
     return NextResponse.json({ result });

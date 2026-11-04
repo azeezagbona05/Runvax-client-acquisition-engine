@@ -35,8 +35,8 @@ Restaurants & Eateries, Beauty Salons & Spas, Barbers & Hair Salons, Schools & P
 
 ## Pricing
 - Free plan: 5 searches/day, 20 results/search, 15 AI calls/day — no credit card, free forever
-- Pro plan: 9,999 NGN/month (~$6 USD / 5 GBP) — 20 searches/day, 60 results, 200 AI calls
-- Agency plan: 24,999 NGN/month (~$15 USD / 12 GBP) — unlimited searches, results, and AI calls
+- Pro plan: $6 USD/month (~5 GBP) — 20 searches/day, 60 results, 200 AI calls
+- Agency plan: $15 USD/month (~12 GBP) — unlimited searches, results, and AI calls
 
 ## Why Runvax vs Other Lead Tools
 - Unlike Clay, SyncGTM, Apollo.io, or ZoomInfo: Runvax builds the local-business list and detects the sellable gap (no website, no booking, no after-hours cover) — it does not just enrich a list and an ICP you already have

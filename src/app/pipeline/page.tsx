@@ -16,6 +16,8 @@ import ProspectDetailModal from '@/components/ProspectDetailModal';
 import BulkOutreachModal from '@/components/BulkOutreachModal';
 import FollowUpSequenceModal from '@/components/FollowUpSequenceModal';
 import ProspectTable from '@/components/ProspectTable';
+import OutreachLink from '@/components/OutreachLink';
+import { isAcquisitionManaged } from '@/lib/outreachGate';
 
 type ViewMode = 'board' | 'table';
 
@@ -186,11 +188,11 @@ function PipelineCard({ prospect, onOpen, onDragStart, selectMode, selected, onT
       <div className="text-[11px] text-purple-400 font-medium truncate">{business.category}</div>
 
       {business.phone && (
-        <a href={whatsappLink(business) ?? '#'} target="_blank" rel="noopener noreferrer"
-          onClick={(e) => { e.stopPropagation(); void incrementToday(); recordSend(); }}
+        <OutreachLink url={whatsappLink(business)} target={{ businessId: business.id, phone: business.phone }} managed={isAcquisitionManaged(prospect)}
+          onOpened={() => { void incrementToday(); recordSend(); }}
           className="flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 transition-colors">
           <MessageCircle className="w-3 h-3" /> {business.phone}
-        </a>
+        </OutreachLink>
       )}
 
       {estimatedPrice && (

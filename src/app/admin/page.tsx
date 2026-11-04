@@ -12,6 +12,7 @@ import {
 import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
 import OperationsPanel from './OperationsPanel';
+import EmailCampaignsPanel from './EmailCampaignsPanel';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
 import { AREAS, TIER_CONFIG } from '@/lib/areas';
 import { useTheme } from '@/context/ThemeContext';
@@ -661,7 +662,7 @@ function PlanCard({ row, onSaved, onDeleted }: { row: PlanRow; onSaved: (r: Plan
             value={fields.price}
             onChange={(e) => setF('price')(e.target.value)}
             className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
-            placeholder="₦9,999 or blank"
+            placeholder="$6 or blank"
           />
         </div>
       </div>
@@ -792,7 +793,7 @@ function CreatePlanModal({ onCreated, onClose }: { onCreated: (r: PlanRow) => vo
               <input
                 value={fields.price}
                 onChange={(e) => setF('price')(e.target.value)}
-                placeholder="₦4,999 or blank"
+                placeholder="$6 or blank"
                 className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
               />
             </div>
@@ -873,7 +874,7 @@ export default function AdminPage() {
   const { theme, toggle: toggleTheme } = useTheme();
   const [stats, setStats]       = useState<Stats | null>(null);
   const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<'users' | 'operations' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs'>('users');
+  const [tab, setTab]           = useState<'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs'>('users');
   const [costSince, setCostSince] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Users filter state
@@ -1283,6 +1284,7 @@ export default function AdminPage() {
           {([
             ['users',    `Users (${users.length})`],
             ['operations', 'Operations'],
+            ['campaigns', 'Email campaigns'],
             ['behaviour', 'Behaviour'],
             ['payments', `Payments (${payments.length})`],
             ['revenue',  'Revenue by Month'],
@@ -1304,6 +1306,7 @@ export default function AdminPage() {
         </div>
 
         {tab === 'operations' && <OperationsPanel />}
+        {tab === 'campaigns' && <EmailCampaignsPanel />}
 
         {/* ── BEHAVIOUR TAB ── */}
         {tab === 'behaviour' && <BehaviorPanel />}

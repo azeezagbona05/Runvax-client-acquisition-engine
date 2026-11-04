@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { checkRecipient } from '@/lib/acquisition/recipientGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,10 @@ export async function POST(req: NextRequest) {
   if (!body.to || !body.businessName) {
     return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
   }
+
+  // Industry Acquisition clinics and suppressed recipients are never messaged from here.
+  const verdict = await checkRecipient(session.user.id, { phone: body.to });
+  if (!verdict.allowed) return NextResponse.json({ error: verdict.message, code: verdict.code }, { status: verdict.status });
 
   // Normalise phone: strip everything except digits, ensure no leading +
   const to = body.to.replace(/[^0-9]/g, '');

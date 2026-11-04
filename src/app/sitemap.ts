@@ -14,7 +14,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     // Core pages
     { url: `${SITE_URL}/`,             lastModified: new Date(),              changeFrequency: 'daily',   priority: 1   },
-    { url: `${SITE_URL}/pricing`,      lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${SITE_URL}/faq`,          lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/blog`,         lastModified: new Date(),              changeFrequency: 'weekly',  priority: 0.8 },
 

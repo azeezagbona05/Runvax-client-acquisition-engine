@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import AuthBackground from '@/components/AuthBackground';
+import GoogleButton from '@/components/GoogleButton';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -110,6 +111,8 @@ export default function SignUpPage() {
             {error}
           </div>
         )}
+
+        <GoogleButton callbackUrl="/" dividerLabel="or sign up with email" showTerms />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Honeypot — hidden from real users, only bots fill it */}

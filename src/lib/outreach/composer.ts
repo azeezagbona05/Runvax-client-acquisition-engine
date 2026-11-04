@@ -122,6 +122,36 @@ Avoid the generic opener about not having a website. Find a more specific hook i
   return `COMPETITIVE CONTEXT — ${others} other ${others === 1 ? 'person has' : 'people have'} messaged this business recently. Make sure your opener is specific to their actual data rather than a generic "no website" observation, so it doesn't blend into what they've already received.`;
 }
 
+/**
+ * Who is reading this. The opener pools greet the business by name; when we know the
+ * person, or know we are probably talking to staff, that is the wrong greeting and the
+ * wrong ask. This block overrides the OPENER and CTA pools for the cases it covers.
+ */
+function recipientInstruction(ctx: ProspectContext): string {
+  const r = ctx.recipient;
+  if (!r || (ctx.intent !== 'cold_first_touch' && ctx.intent !== 'audit_outreach')) return '';
+
+  if (r.firstName && (r.level === 'direct' || r.level === 'likely')) {
+    return `RECIPIENT — OVERRIDES the greeting in the OPENER section:
+You are writing to ${r.name}${r.title ? `, ${r.title}` : ''} personally. Greet them by first name ("${r.firstName}") instead of the business name, e.g. "Good morning ${r.firstName}!".
+Write to them as the person who decides: talk about "your" business and what it means for them. Do not recite their title back to them, do not say you found their name online, and do not claim you have met or spoken.
+Use their name once, in the greeting. The rest of the message follows the normal rules.`;
+  }
+
+  if (r.level === 'gatekeeper') {
+    return `RECIPIENT — OVERRIDES the greeting and the CTA pool:
+This address (a shared inbox or main line) is most likely read by staff, not the owner. Write for that reader: keep the greeting to the business name, keep the message short, and name the specific thing you want to discuss in one plain sentence so staff can judge who should see it.
+Replace the CTA with ONE routing question that a staff member can answer or forward, for example: "Who is the best person to speak with about this?" or "Could you pass this to whoever looks after enquiries and bookings?". Do not ask staff for a call or a yes/no on the offer itself.
+Never pretend to know the owner or imply a prior relationship.`;
+  }
+
+  if (r.level === 'unknown') {
+    return `RECIPIENT — adds to the CTA:
+We do not know who will read this. Write it so the owner could act on it directly, and make it easy to forward: end with your normal CTA question, and add one short line that invites the reader to point you to the right person if it is not them. Keep it to a single sentence.`;
+  }
+  return '';
+}
+
 function outputContract(ctx: ProspectContext, valueLine: string): string {
   const shortName = ctx.businessName.includes('(')
     ? ctx.businessName.split('(')[0].trim()
@@ -227,6 +257,9 @@ export function composePrompt(
     pack.opener,
     pack.cta,
 
+    // Who is reading — overrides the greeting/CTA above when we know more
+    recipientInstruction(ctx),
+
     // Hard bans
     HARD_BANS,
     pack.extraBans,
@@ -261,6 +294,8 @@ If any check fails, rewrite first.`,
     rating: ctx.rating ?? null,
     reviewCount: ctx.reviewCount ?? null,
     competitorWithSite: ctx.competitorWithSite ?? null,
+    recipientReach: ctx.recipient?.level ?? null,
+    recipientFirstName: ctx.recipient?.firstName ?? null,
     channel: ctx.channel,
     intent: ctx.intent,
     priceBand,

@@ -11,7 +11,7 @@ export type PlanId = 'free' | 'pro' | 'agency';
 
 export interface PlanDefaults {
   name: string;
-  /** Display price, e.g. '₦9,999'. null = free. Also drives the Paystack charge — see priceToKobo(). */
+  /** Display price, e.g. '$6'. null = free. Prices are shown in US dollars; the Paystack charge is NOT derived from a dollar price — see priceToKobo(). */
   price: string | null;
   priceNote: string;
   aiCallsPerDay: number;
@@ -38,7 +38,7 @@ export const PLAN_DEFAULTS: Record<PlanId, PlanDefaults> = {
   },
   pro: {
     name: 'Pro',
-    price: '₦9,999',
+    price: '$6',
     priceNote: 'per month',
     aiCallsPerDay: 200,
     searchesPerDay: 20,
@@ -50,7 +50,7 @@ export const PLAN_DEFAULTS: Record<PlanId, PlanDefaults> = {
   },
   agency: {
     name: 'Agency',
-    price: '₦24,999',
+    price: '$15',
     priceNote: 'per month',
     aiCallsPerDay: Infinity,
     searchesPerDay: Infinity,
@@ -62,13 +62,35 @@ export const PLAN_DEFAULTS: Record<PlanId, PlanDefaults> = {
   },
 };
 
+export type ChargeCurrency = 'USD' | 'NGN';
+
 /**
- * Parse a display price ('₦9,999') into kobo (999900) for Paystack.
+ * What to charge for a display price, in the currency's smallest unit: '$6' -> 600 US cents,
+ * '₦9,999' -> 999900 kobo. Plans are priced in US dollars; the naira branch only exists so an
+ * old naira price stored in the admin panel still charges correctly instead of being misread.
+ * Returns null for a free/blank/unparseable price so callers refuse to charge rather than guess.
+ */
+export function priceToCharge(price: string | null | undefined): { amount: number; currency: ChargeCurrency } | null {
+  if (!price) return null;
+  const digits = price.replace(/[^0-9.]/g, '');
+  if (!digits) return null;
+  const major = Number(digits);
+  if (!Number.isFinite(major) || major <= 0) return null;
+  const currency: ChargeCurrency = price.trim().startsWith('$') ? 'USD' : 'NGN';
+  return { amount: Math.round(major * 100), currency };
+}
+
+/**
+ * Parse a naira display price ('₦9,999') into kobo (999900). Dollar prices return null here
+ * on purpose: use priceToCharge(), which keeps the currency with the amount.
  * Returns null for a free/blank/unparseable price so callers can refuse to
  * charge rather than guess an amount.
  */
 export function priceToKobo(price: string | null | undefined): number | null {
   if (!price) return null;
+  // Display prices are in dollars. Reading '$6' as ₦6 would charge the wrong amount, so a
+  // dollar price yields no charge until a USD payment path exists.
+  if (price.trim().startsWith('$')) return null;
   const digits = price.replace(/[^0-9.]/g, '');
   if (!digits) return null;
   const naira = Number(digits);

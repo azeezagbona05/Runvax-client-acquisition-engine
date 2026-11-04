@@ -48,7 +48,7 @@ const comparisons = [
   {
     feature: 'Pricing',
     apollo: '~$49–$119/month per user — priced per seat, so it scales with headcount',
-    runvax: '₦9,999/month (~$6 USD). Free plan available.',
+    runvax: '$6/month. Free plan available.',
   },
   {
     feature: 'Pipeline management',
@@ -114,7 +114,7 @@ export default function VsApolloPage() {
                 <li>• Web designers finding local businesses that need a website</li>
                 <li>• Reaching small businesses via cold email or WhatsApp</li>
                 <li>• Real-time search for any city — including cities across Africa</li>
-                <li>• Freelancers and small agencies with ₦9,999/month budget</li>
+                <li>• Freelancers and small agencies with $6/month budget</li>
                 <li>• Finding the businesses that DON&apos;T have a web presence yet</li>
               </ul>
             </div>

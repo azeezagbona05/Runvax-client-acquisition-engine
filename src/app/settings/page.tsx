@@ -446,19 +446,6 @@ export default function SettingsPage() {
     }
   };
 
-  const replayOnboarding = async () => {
-    try {
-      await fetch('/api/user/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ onboardingDone: false }),
-      });
-      localStorage.removeItem('aip_quests_hidden');
-      localStorage.removeItem('aip_quests_done');
-    } catch { /* */ }
-    window.location.assign('/'); // home triggers the onboarding wizard
-  };
-
   const testSmtp = async () => {
     setTesting(true);
     setTestMsg('');
@@ -639,7 +626,10 @@ export default function SettingsPage() {
     { label: 'Security',       tabs: ['security'] as Tab[] },
   ];
 
-  const activeTab = mobileSection ?? tab;
+  const selectTab = (id: Tab) => {
+    setTab(id);
+    try { window.history.replaceState(null, '', `/settings?tab=${id}`); } catch { /* */ }
+  };
 
   // Security tab content
   const securityContent = (
@@ -709,13 +699,6 @@ export default function SettingsPage() {
 
       <div className="pt-2 border-t border-white/8 space-y-2">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Account</p>
-        <button
-          onClick={replayOnboarding}
-          className="w-full flex items-center gap-3 px-4 py-3.5 bg-white/[0.03] border border-white/8 rounded-xl text-sm text-gray-300 hover:bg-white/[0.06] transition-colors"
-        >
-          <RotateCcw className="w-4 h-4 text-gray-500" />
-          Replay setup wizard
-        </button>
         <button
           onClick={() => signOut({ callbackUrl: '/' })}
           className="w-full flex items-center gap-3 px-4 py-3.5 bg-red-500/5 border border-red-500/20 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition-colors"
@@ -799,34 +782,63 @@ export default function SettingsPage() {
 
       {/* ── SHARED CONTENT (mobile detail + always on desktop) ──────────── */}
       <div className={`${mobileSection ? 'block' : 'hidden'} sm:block py-4 sm:py-10 px-4`}>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
 
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl font-black text-white">Settings</h1>
           <p className="text-gray-500 text-sm mt-1">
             Personalize your identity and email settings — used in all outreach, proposals, and emails.
           </p>
         </div>
 
-        {/* Tabs */}
-        <div className="hidden sm:flex gap-1 bg-gray-900 border border-white/10 rounded-xl p-1 mb-6 overflow-x-auto scrollbar-none">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                tab === id
-                  ? 'bg-purple-600 text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span className="whitespace-nowrap">{label}</span>
-            </button>
-          ))}
-        </div>
+        <div className="sm:flex sm:gap-8 sm:items-start">
 
+        {/* ── DESKTOP SIDEBAR PANEL ── */}
+        <aside className="hidden sm:block w-64 lg:w-72 flex-shrink-0 sticky top-20 space-y-5">
+          <div className="bg-gray-900 border border-white/10 rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500 to-purple-800 flex items-center justify-center text-white font-black flex-shrink-0">
+              {(session?.user?.name?.[0] ?? session?.user?.email?.[0] ?? '?').toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white truncate">{session?.user?.name ?? 'Your Account'}</p>
+              <p className="text-[11px] text-gray-500 truncate">{session?.user?.email}</p>
+            </div>
+          </div>
+
+          <nav aria-label="Settings sections" className="bg-gray-900 border border-white/10 rounded-2xl p-2 space-y-4">
+            {MOBILE_GROUPS.map(({ label, tabs: groupTabs }) => (
+              <div key={label}>
+                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-3 pt-2 pb-1.5">{label}</p>
+                <div className="space-y-0.5">
+                  {groupTabs.map((tid) => {
+                    const t = tabs.find((x) => x.id === tid)!;
+                    const active = tab === tid;
+                    return (
+                      <button
+                        key={tid}
+                        onClick={() => selectTab(tid)}
+                        aria-current={active ? 'page' : undefined}
+                        className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                          active ? 'bg-purple-600/15 text-white' : 'text-gray-400 hover:bg-white/[0.04] hover:text-white'
+                        }`}
+                      >
+                        {active && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-purple-500" />}
+                        <t.icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-purple-400' : 'text-gray-500'}`} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold truncate">{t.label}</span>
+                          {t.subtitle && <span className="block text-[11px] text-gray-500 truncate">{t.subtitle}</span>}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        <div className="flex-1 min-w-0">
         <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 sm:p-6 space-y-5">
 
           {/* ── SECURITY TAB ── */}
@@ -883,20 +895,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Replay onboarding */}
-              <div className="border-t border-white/8 pt-4 flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="text-sm font-semibold text-white">Onboarding tour</div>
-                  <div className="text-xs text-gray-500">Restart the &ldquo;Find your first client&rdquo; walkthrough.</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={replayOnboarding}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 rounded-xl text-sm font-bold transition-colors flex-shrink-0"
-                >
-                  <RotateCcw className="w-4 h-4" /> Replay onboarding
-                </button>
-              </div>
             </>
           )}
 
@@ -1513,7 +1511,7 @@ export default function SettingsPage() {
 
           {/* Save button */}
           {tab !== 'security' && (
-          <div className="pt-4 border-t border-white/8 flex items-center gap-3">
+          <div className="pt-4 border-t border-white/8 flex items-center gap-3 sm:sticky sm:bottom-0 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-4 sm:bg-gray-900/95 sm:backdrop-blur sm:rounded-b-2xl">
             <button
               onClick={save}
               disabled={saving}
@@ -1542,6 +1540,8 @@ export default function SettingsPage() {
             Logged in as <span className="text-gray-400">{session.user.email}</span>
           </p>
         )}
+        </div>
+        </div>
       </div>
       </div>
     </div>

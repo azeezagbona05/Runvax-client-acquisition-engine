@@ -183,7 +183,7 @@ export default function LagosPage() {
               ))}
             </div>
             <p className="text-gray-400 text-sm mt-4">
-              One Lagos client paying ₦150,000 covers 15 months of Runvax Pro (₦9,999/month).
+              One Lagos client paying ₦150,000 covers over a year of Runvax Pro ($6/month).
             </p>
           </div>
 

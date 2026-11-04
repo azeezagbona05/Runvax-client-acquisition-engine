@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from 'react';
 import { X, Mail, Send, Loader2, Check, AlertCircle, StopCircle, Search } from 'lucide-react';
 import { Business } from '@/types';
 import { useProspects } from '@/context/ProspectsContext';
+import { recipientEmail } from '@/lib/decisionMaker';
 
 interface Props {
   businesses: Business[];
@@ -11,7 +12,7 @@ interface Props {
 }
 
 type SendStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'skipped';
-type EmailSource = 'manual' | 'facebook' | 'instagram' | 'website' | 'google_search' | 'web_search' | 'directory' | 'nairaland' | 'jiji' | 'vconnect' | 'businesslist' | null;
+type EmailSource = 'manual' | 'decision_maker' | 'facebook' | 'instagram' | 'website' | 'google_search' | 'web_search' | 'directory' | 'nairaland' | 'jiji' | 'vconnect' | 'businesslist' | null;
 
 interface Row {
   business: Business;
@@ -55,6 +56,7 @@ const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const SOURCE_BADGE: Record<NonNullable<EmailSource>, { label: string; color: string }> = {
+  decision_maker: { label: '👤 Decision-maker', color: 'text-green-400' },
   facebook:      { label: '📘 Facebook',      color: 'text-blue-400' },
   instagram:     { label: '📸 Instagram',     color: 'text-pink-400' },
   website:       { label: '🌐 Website',       color: 'text-green-400' },
@@ -76,8 +78,9 @@ export default function BulkEmailModal({ businesses, onClose }: Props) {
   const [rows, setRows] = useState<Row[]>(() =>
     businesses.map((b) => ({
       business: b,
-      email: b.email ?? '',
-      emailSource: b.email ? 'manual' : null,
+      // The decision-maker's own address first, then the business's shared inbox.
+      email: recipientEmail(b),
+      emailSource: b.decisionMaker?.email ? 'decision_maker' : b.email ? 'manual' : null,
       findStatus: 'idle',
       status: 'pending' as SendStatus,
     }))
@@ -347,6 +350,7 @@ export default function BulkEmailModal({ businesses, onClose }: Props) {
                         </span>
                       )}
                     </div>
+                    {r.status === 'failed' && r.error && <p role="alert" className="text-[10px] text-red-400 leading-snug mt-0.5">{r.error}</p>}
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <input

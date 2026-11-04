@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/adminAuth';
 import { composePrompt } from '@/lib/outreach/composer';
 import { selectFrameworks } from '@/lib/outreach/router';
 import { runQualityGate } from '@/lib/outreach/quality-gate';
@@ -19,7 +20,10 @@ const profile: SenderProfile = {
   services: 'Web design', website: 'softline.ng',
 };
 
+// Operator diagnostic (no in-app caller): admin only, since every call spends paid AI credits.
 export async function GET(req: Request) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
   const nonce = new URL(req.url).searchParams.get('n') ?? '';
   const sel = selectFrameworks(ctx);
   const { system, user } = composePrompt(ctx, sel, profile);

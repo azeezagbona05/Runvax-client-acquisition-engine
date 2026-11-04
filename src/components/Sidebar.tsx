@@ -1,15 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { useTheme } from '@/context/ThemeContext';
+import { PRICING_ENABLED } from '@/lib/promo';
+import StartTrialButton from './StartTrialButton';
 import {
   Search, Columns3, Settings, PanelLeftClose, PanelLeftOpen,
-  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, LayoutDashboard,
+  LogOut, LogIn, Zap, Sun, Moon, SlidersHorizontal, UserCircle, LifeBuoy, ChevronRight, LayoutDashboard, Target,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -20,6 +22,19 @@ export default function Sidebar() {
   const { theme, toggle: toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [acquisitionOn, setAcquisitionOn] = useState(false);
+
+  // Admin-only Industry Acquisition link: shown only when the server confirms
+  // the feature flag is on (the status endpoint 404s when it is off).
+  const isAdmin = !!(session?.user as { isAdmin?: boolean } | undefined)?.isAdmin;
+  useEffect(() => {
+    if (!isAdmin) { setAcquisitionOn(false); return; }
+    let cancelled = false;
+    fetch('/api/acquisition/status')
+      .then((r) => { if (!cancelled) setAcquisitionOn(r.ok); })
+      .catch(() => { if (!cancelled) setAcquisitionOn(false); });
+    return () => { cancelled = true; };
+  }, [isAdmin]);
 
   // `collapsed` is the pinned state (set by the toggle). When collapsed, the
   // sidebar still expands on hover (peek) and re-collapses on mouse leave.
@@ -45,6 +60,9 @@ export default function Sidebar() {
     { href: '/command-centre',          icon: LayoutDashboard, label: 'Dashboard',      badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
     { href: '/',                        icon: Search,          label: 'Find Prospects', badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: false },
     { href: '/pipeline',                icon: Columns3,        label: 'Prospect CRM',   badge: savedCount > 0 ? savedCount : undefined, badgeColor: 'bg-purple-600', authOnly: true },
+    ...(acquisitionOn
+      ? [{ href: '/acquisition',        icon: Target,          label: 'Acquisition',    badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true }]
+      : []),
     { href: '/settings',                icon: Settings,        label: 'Settings',       badge: undefined,                              badgeColor: 'bg-purple-600', authOnly: true },
   ].filter((t) => !t.authOnly || session?.user);
 
@@ -199,7 +217,8 @@ export default function Sidebar() {
 
             {/* Primary items */}
             <div className="py-1.5">
-              {userPlan === 'free' && (
+              {!PRICING_ENABLED && <StartTrialButton variant="menu" onDone={closeMenu} />}
+              {PRICING_ENABLED && userPlan === 'free' && (
                 <Link href="/pricing" onClick={closeMenu} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-200 hover:bg-white/5 transition-colors">
                   <Zap className="w-4 h-4 text-purple-400 flex-shrink-0" /> Upgrade plan
                 </Link>

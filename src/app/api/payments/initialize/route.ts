@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { PRICING_ENABLED } from '@/lib/promo';
 import {
   initializeTransaction,
   planCodeForPlan,
@@ -11,6 +12,8 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  // Pricing is switched off for the launch: never start a charge.
+  if (!PRICING_ENABLED) return NextResponse.json({ error: 'Paid plans are not available right now' }, { status: 503 });
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -36,9 +39,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Charge the same price the pricing page advertises, not a hardcoded amount.
-  let amount: number;
+  let charge: Awaited<ReturnType<typeof amountForPlan>>;
   try {
-    amount = await amountForPlan(plan);
+    charge = await amountForPlan(plan);
   } catch (err: unknown) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : `No price configured for "${plan}".` },
@@ -52,7 +55,8 @@ export async function POST(req: NextRequest) {
   try {
     const data = await initializeTransaction({
       email: session.user.email,
-      amount,
+      amount: charge.amount,
+      currency: charge.currency,
       reference,
       plan: planCode,
       callback_url: `${appUrl}/api/payments/verify?reference=${reference}`,

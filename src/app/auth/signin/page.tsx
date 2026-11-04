@@ -8,6 +8,12 @@ import { CheckCircle, MailCheck, Fingerprint, Loader2 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/types';
 import AuthBackground from '@/components/AuthBackground';
+import GoogleButton from '@/components/GoogleButton';
+
+/** Only same-site paths: '/claim-pro' is fine, 'https://evil.com' and '//evil.com' are not. */
+function safeNext(raw: string | null): string {
+  return raw && /^\/[A-Za-z0-9_\-/]*(\?[A-Za-z0-9_\-=&%.]*)?$/.test(raw) && !raw.startsWith('//') ? raw : '/';
+}
 
 function LoginForm() {
   const router = useRouter();
@@ -24,6 +30,8 @@ function LoginForm() {
   const justReset      = params.get('reset') === '1';
   const justVerified   = params.get('verified') === '1';
   const justRegistered = params.get('registered') === '1';
+  const next           = safeNext(params.get('next'));
+  const authError      = params.get('error');
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
@@ -72,7 +80,7 @@ function LoginForm() {
       if (!verifyRes.ok || !verifyJson.ok) throw new Error(verifyJson.error ?? 'Verification failed');
       // Full reload (not router.push) — the session cookie was set via raw fetch,
       // so next-auth/react's SessionProvider cache needs a fresh mount to see it.
-      window.location.href = '/';
+      window.location.href = next;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Biometric login failed';
       if (msg.includes('cancelled') || msg.includes('abort') || msg.toLowerCase().includes('not allowed')) {
@@ -94,7 +102,7 @@ function LoginForm() {
     if (res?.error) {
       setError('Invalid email or password');
     } else {
-      router.push('/');
+      router.push(next);
       router.refresh();
     }
   }
@@ -160,11 +168,13 @@ function LoginForm() {
             <CheckCircle className="w-4 h-4 flex-shrink-0" /> Account created! Log in below to get started.
           </div>
         )}
-        {error && (
+        {(error || authError) && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3 mb-4">
-            {error}
+            {error || 'Google sign-in did not complete. Try again, or log in with your email and password.'}
           </div>
         )}
+
+        <GoogleButton callbackUrl={next} dividerLabel="or use your email" />
 
         {/* Email */}
         <div className="mb-4">

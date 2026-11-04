@@ -7,7 +7,10 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
+    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "test:integration": "vitest run -c vitest.integration.config.mts"
   },
   "prisma": {
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
@@ -28,9 +31,11 @@
     "@types/nodemailer": "^8.0.1",
     "bcryptjs": "^3.0.3",
     "gray-matter": "^4.0.3",
+    "imapflow": "^2.10.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.441.0",
+    "mailparser": "^3.14.1",
     "next": "^14.2.35",
     "next-auth": "^4.24.14",
     "next-mdx-remote": "^6.0.0",
@@ -40,9 +45,15 @@
     "react": "^18",
     "react-dom": "^18",
     "reading-time": "^1.5.0",
-    "xlsx": "^0.18.5"
+    "tldts": "7.4.16",
+    "tldts-core": "7.4.16",
+    "xlsx": "^0.18.5",
+    "zod": "4.1.12"
   },
   "devDependencies": {
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
+    "@types/mailparser": "^3.9.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -50,8 +61,10 @@
     "dotenv": "^17.4.2",
     "eslint": "^8",
     "eslint-config-next": "^14.2.35",
+    "jsdom": "27.4.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "4.1.11"
   }
 }

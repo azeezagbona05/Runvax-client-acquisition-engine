@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, MessageCircle, ChevronRight, Bookmark, MapPin, Star, Copy, Check, Zap } from 'lucide-react';
 import { Business } from '@/types';
 import { scoreLabel } from '@/lib/scoring';
 import { useProspects } from '@/context/ProspectsContext';
 import { whatsappLink } from '@/lib/phone';
 import { buildQuickWAMessage } from '@/lib/waMessage';
+import { ACQUISITION_NOTICE, isAcquisitionManaged, openOutreach, reportBlocked } from '@/lib/outreachGate';
 
 interface Props {
   businesses: Business[];
@@ -35,18 +36,26 @@ export default function QuickFireModal({ businesses, onClose }: Props) {
     setCopied(false);
   }, [index, total]);
 
-  const handleSend = () => {
-    if (!current?.phone) return;
+  const sendBusy = useRef(false); // ignore repeated clicks while the server check is in flight
+  const handleSend = async () => {
+    if (!current?.phone || sendBusy.current) return;
+    // Industry Acquisition clinics are contacted only through the approved pitch.
+    if (isAcquisitionManaged(prospect)) { reportBlocked([{ message: ACQUISITION_NOTICE }]); return; }
     const msg = buildQuickWAMessage(current);
     const link = whatsappLink(current, msg);
     if (!link) return;
-    window.open(link, '_blank');
-    if (!isSaved(current.id)) save(current);
-    markOutreachSent(current.id, msg, 'whatsapp');
-    updateStage(current.id, 'contacted');
-    incrementToday();
-    setSent((prev) => new Set(prev).add(index));
-    setTimeout(goNext, 400);
+    // The server decides whether this contact may be messaged (stale pages, suppression, acquisition clinics).
+    sendBusy.current = true;
+    try {
+      const opened = await openOutreach(link, { businessId: current.id, phone: current.phone });
+      if (!opened.ok) { reportBlocked([opened]); return; }
+      if (!isSaved(current.id)) save(current);
+      markOutreachSent(current.id, msg, 'whatsapp');
+      updateStage(current.id, 'contacted');
+      incrementToday();
+      setSent((prev) => new Set(prev).add(index));
+      setTimeout(goNext, 400);
+    } finally { sendBusy.current = false; }
   };
 
   const handleSkip = () => {
@@ -197,6 +206,10 @@ export default function QuickFireModal({ businesses, onClose }: Props) {
               </div>
             </div>
 
+            {isAcquisitionManaged(prospect) && (
+              <p role="note" className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">{ACQUISITION_NOTICE}</p>
+            )}
+
             {/* Action buttons */}
             <div className="grid grid-cols-3 gap-3">
               <button
@@ -210,6 +223,8 @@ export default function QuickFireModal({ businesses, onClose }: Props) {
 
               <button
                 onClick={handleSend}
+                disabled={isAcquisitionManaged(prospect)}
+                title={isAcquisitionManaged(prospect) ? ACQUISITION_NOTICE : undefined}
                 className="flex flex-col items-center gap-1.5 py-4 rounded-2xl bg-green-600 hover:bg-green-500 text-white font-bold transition-all shadow-lg shadow-green-900/40 hover:scale-[1.02]"
               >
                 <MessageCircle className="w-6 h-6" />

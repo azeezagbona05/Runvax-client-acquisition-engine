@@ -3,7 +3,8 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getAppUrl, getAppName } from '@/lib/url';
-import { createTransporter, verificationEmailHtml, welcomeEmailHtml, newUserRegisteredEmailHtml } from '@/lib/email';
+import { createTransporter, verificationEmailHtml, newUserRegisteredEmailHtml } from '@/lib/email';
+import { welcomeEmail } from '@/lib/lifecycleEmails';
 import { rateLimit, getIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
@@ -82,16 +83,18 @@ export async function POST(req: NextRequest) {
     // Verification email failed — user can resend later. Don't break signup.
   }
 
-  // Send welcome email right away too — don't gate it behind email verification,
-  // since that's exactly when interest (and drop-off risk) is highest.
+  // Welcome email right away: start of the new-user workflow (src/lib/lifecycle.ts). It carries
+  // the verification link too. Recording it lets the workflow count it as sent.
   try {
+    const welcome = welcomeEmail({ name, appUrl, appName: senderName, verifyUrl });
     const transporter = createTransporter();
     await transporter.sendMail({
       from: `"${senderName}" <${process.env.SMTP_FROM}>`,
       to: email,
-      subject: `Welcome to ${senderName} — let's find your first client 🚀`,
-      html: welcomeEmailHtml(name, appUrl, senderName),
+      subject: welcome.subject,
+      html: welcome.html,
     });
+    await prisma.lifecycleEmail.create({ data: { userId: user.id, key: 'welcome' } }).catch(() => {});
   } catch {
     // Welcome email is non-critical — never block signup on it.
   }

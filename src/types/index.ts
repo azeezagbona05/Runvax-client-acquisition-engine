@@ -88,8 +88,16 @@ export interface Business {
     time: string;
   }>;
   source?: 'google' | 'osm';
-  /** Named buyer found via an optional lookup (Apollo). Never a verified fact. */
-  decisionMaker?: { name: string; title: string; linkedin?: string; source: 'apollo' };
+  /** Named buyer from the business's website, an optional Apollo lookup, or the sender. Never a verified fact. */
+  decisionMaker?: {
+    name: string; title: string; linkedin?: string; source: 'apollo' | 'website' | 'manual' | 'search' | 'hunter' | 'apify';
+    /** Their own work email / phone, when a people lookup returned one. Preferred over the business's shared inbox. */
+    email?: string; emailStatus?: string; phone?: string;
+  };
+  /** Other people the lookup surfaced, best first, so the sender can pick a different one. */
+  dmCandidates?: Array<{ name: string; title: string; linkedin?: string; source: string; confidence: 'low' | 'medium' | 'high'; email?: string; phone?: string }>;
+  /** The free decision-maker lookup has run for this result (whether or not it found anyone). */
+  dmSearched?: boolean;
 }
 
 export interface SearchFormData {
@@ -157,7 +165,7 @@ export interface SavedProspect {
   outreachSentAt?: string;
   followUpSequence?: FollowUpStep[];
   conversations: ConversationEntry[];
-  source?: 'manual' | 'auto-prospect';
+  source?: 'manual' | 'auto-prospect' | 'industry-acquisition';
 }
 
 export interface DailyLog {

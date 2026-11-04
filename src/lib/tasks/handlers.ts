@@ -4,6 +4,7 @@ import { composeOutreach } from '@/lib/outreach/compose';
 import { checkAndIncrementAIForUser } from '@/lib/usage';
 import { remember } from '@/lib/prospectMemory';
 import { logAgentActivity } from '@/lib/agentActivity';
+import { isAcquisitionProspect } from '@/lib/acquisition/isolation';
 import type { Business } from '@/types';
 import type { TaskHandler, TaskType } from './types';
 
@@ -18,6 +19,8 @@ async function loadProspect(userId: string, prospectId: string | null) {
 const detectOpportunity: TaskHandler = async ({ userId, prospectId }) => {
   const prospect = await loadProspect(userId, prospectId);
   if (!prospect) return { status: 'skipped', output: { reason: 'prospect_missing' } };
+  // Backstop for any path that hands this task an Industry Acquisition clinic.
+  if (isAcquisitionProspect(prospect)) return { status: 'skipped', output: { reason: 'acquisition_prospect' } };
 
   const { primary, all, signals } = detectOpportunities(prospect.businessData as unknown as Business);
   if (!primary) return { status: 'skipped', output: { reason: 'no_opportunity' } };
@@ -53,6 +56,7 @@ const detectOpportunity: TaskHandler = async ({ userId, prospectId }) => {
 const draftOutreach: TaskHandler = async ({ userId, prospectId }) => {
   const prospect = await loadProspect(userId, prospectId);
   if (!prospect) return { status: 'skipped', output: { reason: 'prospect_missing' } };
+  if (isAcquisitionProspect(prospect)) return { status: 'skipped', output: { reason: 'acquisition_prospect' } };
   if (prospect.outreachSentAt) return { status: 'skipped', output: { reason: 'already_contacted' } };
 
   const pending = await prisma.outreachDraft.count({ where: { prospectId: prospect.id, status: 'pending' } });

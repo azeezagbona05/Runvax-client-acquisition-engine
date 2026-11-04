@@ -7,6 +7,7 @@ import { useHandleAIResponse } from '@/context/UpgradeContext';
 import ProposalEnhanceBar from './ProposalEnhanceBar';
 import EditablePitch from './EditablePitch';
 import { useProspects } from '@/context/ProspectsContext';
+import { isAcquisitionManaged } from '@/lib/outreachGate';
 import { estimatePrice, } from '@/lib/scoring';
 import { formatPrice } from '@/lib/rateCard';
 import type { WebsitePackage } from '@/lib/rateCard';
@@ -40,7 +41,9 @@ export default function ProposalModal({ business, onClose }: Props) {
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const handleAIResponse = useHandleAIResponse();
-  const { addConversationEntry } = useProspects();
+  const { addConversationEntry, get } = useProspects();
+  // The share sheet hands the proposal to any app, with no recipient the server could check, so it is not offered for acquisition clinics.
+  const acquisitionManaged = isAcquisitionManaged(get(business.id));
 
   // Pre-fill from saved profile settings + load rate card packages
   useEffect(() => {
@@ -488,7 +491,7 @@ export default function ProposalModal({ business, onClose }: Props) {
               >
                 <Printer className="w-4 h-4" /> Print / PDF
               </button>
-              {typeof navigator !== 'undefined' && 'share' in navigator && (
+              {!acquisitionManaged && typeof navigator !== 'undefined' && 'share' in navigator && (
                 <button
                   onClick={() => navigator.share({ title: `Proposal — ${business.name}`, text: proposal }).catch(() => {})}
                   className="flex items-center gap-2 px-4 py-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-xl text-sm font-bold transition-colors"

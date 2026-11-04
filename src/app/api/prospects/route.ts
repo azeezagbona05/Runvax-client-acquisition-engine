@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
 import { getPlanConfig } from '@/lib/plans';
+import { requireVerifiedUser } from '@/lib/requireUser';
 import type { Business, ConversationEntry, FollowUpStep, ProspectStage, SavedProspect } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -60,6 +61,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // Saving a prospect to the pipeline needs a verified email, like opening one.
+  const verified = await requireVerifiedUser(req);
+  if (!verified.ok) return verified.response;
+
   const token = await getToken({ req });
   const userId = (token?.id ?? token?.sub) as string | undefined;
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

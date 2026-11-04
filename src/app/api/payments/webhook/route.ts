@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       reference?: string;
       status?: string;
       amount?: number;
+      currency?: string;
       customer?: { customer_code?: string; email?: string };
       subscription_code?: string;
       metadata?: Record<string, unknown>;
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
             from: `"${appName}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
             to: user.email,
             subject: `Payment confirmed — you're on ${plan.charAt(0).toUpperCase() + plan.slice(1)} 🎉`,
-            html: paymentConfirmationHtml(user.name ?? 'there', plan, event.data.amount ?? 0, renewalStr, getAppUrl(), appName),
+            html: paymentConfirmationHtml(user.name ?? 'there', plan, event.data.amount ?? 0, renewalStr, getAppUrl(), appName, event.data.currency ?? 'USD'),
           }).catch(() => {});
         }
         break;

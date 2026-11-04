@@ -8,6 +8,7 @@ import { Bell, Target, TrendingUp, Trophy, Flame, Users, MessageCircle, Zap, Bar
 import Link from 'next/link';
 import { getTopIndustries } from '@/lib/searchHistory';
 import { whatsappLink } from '@/lib/phone';
+import { ACQUISITION_NOTICE, isAcquisitionManaged, openOutreach, reportBlocked } from '@/lib/outreachGate';
 
 const STAGES: Array<{ id: ProspectStage; label: string; icon: string; color: string; bar: string }> = [
   { id: 'found',      label: 'Found',      icon: '🔵', color: 'text-blue-400',   bar: 'bg-blue-500' },
@@ -79,11 +80,15 @@ export default function DashboardPage() {
     if (result === 'granted') checkReminders();
   };
 
-  const quickWhatsApp = (business: Business) => {
+  const quickWhatsApp = async (business: Business, managed = false) => {
+    // Industry Acquisition clinics are contacted only through the approved pitch.
+    if (managed) { reportBlocked([{ message: ACQUISITION_NOTICE }]); return; }
     const msg = `Hi! 👋 Following up on my earlier message about building a digital front door for ${business.name}.\n\nAre you still interested in growing your online presence? 🌐`;
     const link = whatsappLink(business, msg);
     if (!link) return;
-    window.open(link, '_blank');
+    // The server decides whether this contact may be messaged (stale pages, suppression, acquisition clinics).
+    const opened = await openOutreach(link, { businessId: business.id, phone: business.phone });
+    if (!opened.ok) { reportBlocked([opened]); return; }
     markOutreachSent(business.id, msg, 'whatsapp');
     updateStage(business.id, 'contacted');
     incrementToday();
@@ -433,11 +438,14 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-white text-sm truncate">{p.business.name}</div>
                       <div className="text-xs text-gray-500 truncate">{p.business.category}</div>
+                      {isAcquisitionManaged(p) && <div role="note" className="text-[10px] text-amber-400 leading-snug">{ACQUISITION_NOTICE}</div>}
                     </div>
                     <span className="text-[10px] font-bold text-orange-400 flex-shrink-0">{p.score}/10</span>
                     {p.business.phone && (
                       <button
-                        onClick={() => quickWhatsApp(p.business)}
+                        onClick={() => quickWhatsApp(p.business, isAcquisitionManaged(p))}
+                        disabled={isAcquisitionManaged(p)}
+                        title={isAcquisitionManaged(p) ? ACQUISITION_NOTICE : undefined}
                         className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors flex-shrink-0"
                       >
                         <MessageCircle className="w-3.5 h-3.5" /> Send
