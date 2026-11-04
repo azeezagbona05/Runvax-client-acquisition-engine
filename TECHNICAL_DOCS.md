@@ -3,7 +3,7 @@
 > Last updated: 2026-06-30  
 > Stack: Next.js 14 App Router · TypeScript · Prisma ORM · MySQL · NextAuth.js v4 · Tailwind CSS
 
----
+--- 
 
 ## Table of Contents
 
