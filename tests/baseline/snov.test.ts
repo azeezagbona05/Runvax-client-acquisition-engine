@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { domainContacts, findEmail, findEmails, resetSnovToken, setSnovGap, snovEnabled, splitName, verifyEmail, verifyEmails } from '@/lib/snov';
+import { SnovFilterError, dbFilters, readReveal, revealEmail, revealPath, searchProspects, snovBalance, domainContacts, findEmail, findEmails, resetSnovToken, setSnovGap, snovEnabled, splitName, verifyEmail, verifyEmails } from '@/lib/snov';
 
 type Reply = { ok?: boolean; status?: number; body: unknown };
 const json = (r: Reply) => ({ ok: r.ok ?? true, status: r.status ?? 200, json: async () => r.body }) as unknown as Response;
@@ -209,5 +209,74 @@ describe('domainContacts (website only)', () => {
     expect(out).toHaveLength(1);
     expect(out[0].email).toBeUndefined();
     expect(calls.some((c) => c.url.includes('evil.test'))).toBe(false);
+  });
+});
+
+describe('Database Search', () => {
+  const HASH = 'a1b2c3';
+  const url = `https://api.snov.io/v2/database-search/prospects/search-emails/start/${HASH}`;
+
+  it('builds Snov\'s filter body from ours', () => {
+    expect(dbFilters({ industry: 'Medical Practice', location: { locality: 'Lagos, Nigeria', type: 'state' }, levels: ['c_level'], jobTitles: ['owner'], size: '11-50', specialties: ['dental'] })).toEqual({
+      prospect: { management_levels: { include: ['c_level'] }, job_titles: { include: ['owner'] } },
+      company: { industries: { include: ['Medical Practice'] }, locations: { include: [{ locality: 'Lagos, Nigeria', location_type: 'state' }] }, size: ['11-50'], specialities: ['dental'] },
+    });
+    expect(dbFilters({})).toEqual({});
+  });
+
+  it('searches, polls, and maps people with their company and reveal link', async () => {
+    const calls = fakeSnov({
+      '/v1/oauth/access_token': [TOKEN],
+      '/database-search/prospects/start': [{ body: { meta: { task_hash: 'T1', page: 1 } } }],
+      '/database-search/prospects/result/T1': [{ body: { status: 'completed', data: { total: 226, page: 1, total_pages: 12, prospects: [
+        { first_name: 'Ada', last_name: 'Ok***', job_title: 'ceo', location: 'Lagos', industry: 'Medical Practice', email_and_hidden_info_reveal: url, company: { name: 'Heala', domain: 'heala.ng', size: '11-50', industry: 'Medical Practice', location: 'Lagos' } },
+        { first_name: 'No', last_name: 'Link***', job_title: 'x', company: { name: 'Z' } },
+      ] } } }],
+    });
+    const r = await searchProspects({ industry: 'Medical Practice' }, 2, FAST);
+    expect(r).toMatchObject({ total: 226, totalPages: 12 });
+    expect(r.prospects).toHaveLength(1);
+    expect(r.prospects[0]).toMatchObject({ firstName: 'Ada', lastName: 'Ok***', jobTitle: 'ceo', revealUrl: url, company: { name: 'Heala', domain: 'heala.ng' } });
+    expect(JSON.parse(calls.find((c) => c.url.endsWith('/prospects/start'))!.body!)).toMatchObject({ page: 2, filters: { company: { industries: { include: ['Medical Practice'] } } } });
+  });
+
+  it('turns Snov\'s 422 into a filter error with its suggestions', async () => {
+    fakeSnov({
+      '/v1/oauth/access_token': [TOKEN],
+      '/database-search/prospects/start': [{ ok: false, status: 422, body: [{ errors: { message: "Undefined filter value for 'location': 'Lagos'", suggestion: [{ locality: 'Lagos, Nigeria', location_type: 'state' }] } }] }],
+    });
+    const err = await searchProspects({ location: { locality: 'Lagos', type: 'state' } }, 1, FAST).catch((e) => e);
+    expect(err).toBeInstanceOf(SnovFilterError);
+    expect(err).toMatchObject({ field: 'location', suggestions: [{ locality: 'Lagos, Nigeria', location_type: 'state' }] });
+    await expect(searchProspects({}, 1, FAST)).rejects.toBeInstanceOf(SnovFilterError);
+  });
+
+  it('only follows reveal links on Snov\'s own host and path', () => {
+    expect(revealPath(url)).toBe(`/v2/database-search/prospects/search-emails/start/${HASH}`);
+    for (const bad of ['https://evil.test/v2/database-search/prospects/search-emails/start/abc', 'https://api.snov.io/v1/get-balance', 'not a url', 'https://api.snov.io/v2/database-search/prospects/search-emails/start/a/b']) expect(revealPath(bad)).toBeNull();
+  });
+
+  it('reads the name and email out of a reveal, however it is nested', () => {
+    expect(readReveal({ data: { full_name: 'Ada Okafor', linkedin_url: 'https://linkedin.com/in/ada', emails: [{ email: 'Ada@Heala.ng', smtp_status: 'valid' }] } })).toEqual({ name: 'Ada Okafor', linkedin: 'https://linkedin.com/in/ada', email: 'ada@heala.ng', smtpStatus: 'valid' });
+    expect(readReveal({ data: [{ first_name: 'Bo', last_name: 'Lee', emails: [{ email: 'bo@x.com', smtp_status: 'unknown' }] }] })).toMatchObject({ name: 'Bo Lee', smtpStatus: 'unknown' });
+    expect(readReveal({ data: { emails: [] } })).toEqual({});
+  });
+
+  it('reveals one person: start, poll, parse; and ignores a link that is not Snov\'s', async () => {
+    const calls = fakeSnov({
+      '/v1/oauth/access_token': [TOKEN],
+      [`/search-emails/start/${HASH}`]: [{ body: { meta: { task_hash: 'E1' } } }],
+      '/search-emails/result/E1': [{ body: { status: 'in_progress' } }, { body: { status: 'completed', data: { full_name: 'Ada Okafor', emails: [{ email: 'ada@heala.ng', smtp_status: 'valid' }] } } }],
+    });
+    expect(await revealEmail(url, FAST)).toMatchObject({ name: 'Ada Okafor', email: 'ada@heala.ng', smtpStatus: 'valid' });
+    expect(await revealEmail('https://evil.test/x', FAST)).toBeNull();
+    expect(calls.some((c) => c.url.includes('evil.test'))).toBe(false);
+  });
+
+  it('reads the credit balance, or null when it cannot', async () => {
+    fakeSnov({ '/v1/oauth/access_token': [TOKEN], '/v1/get-balance': [{ body: { success: true, data: { balance: '454.00' } } }] });
+    expect(await snovBalance()).toBe(454);
+    fakeSnov({ '/v1/oauth/access_token': [TOKEN], '/v1/get-balance': [{ ok: false, status: 500, body: {} }] });
+    expect(await snovBalance()).toBeNull();
   });
 });

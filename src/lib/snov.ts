@@ -83,7 +83,7 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown, ret
 
 /** A Snov.io HTTP error, keeping the status and body so callers can show Snov's own suggestions. */
 export class SnovHttpError extends Error {
-  constructor(public status: number, public body: unknown) { super(`Snov.io ${status}`); }
+  constructor(public status: number, public body: unknown) { super(`Snov.io ${status}`); Object.setPrototypeOf(this, new.target.prototype); }
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -280,7 +280,7 @@ export interface DbSearchResult { total: number; page: number; totalPages: numbe
 
 /** Snov rejected a filter value; `suggestions` are the values it would accept. */
 export class SnovFilterError extends Error {
-  constructor(message: string, public field: 'location' | 'industries' | 'other', public suggestions: unknown[]) { super(message); }
+  constructor(message: string, public field: 'location' | 'industries' | 'other', public suggestions: unknown[]) { super(message); Object.setPrototypeOf(this, new.target.prototype); }
 }
 
 /** The request body Snov expects, from our friendlier filter object. */
