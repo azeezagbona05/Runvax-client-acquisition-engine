@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_FILTERS, FINDER_INDUSTRIES, filterResults, filtersActive, finderError, finderQuery, type FinderBusiness } from '@/lib/acqFinder';
+import { ACTION_LABEL, CONTACT_ACTION, contactState, isVerifiedStatus, DEFAULT_FILTERS, FINDER_INDUSTRIES, filterResults, filtersActive, finderError, finderQuery, type FinderBusiness } from '@/lib/acqFinder';
 
 describe('prospect finder form', () => {
   it('builds the same query sentence V1 sends', () => {
@@ -118,5 +118,35 @@ describe('filterResults', () => {
   });
   it('can limit to businesses whose email was found', () => {
     expect(ids(filterResults(all, f({ emailOnly: true }), (x) => x.id === 'c' || x.id === 'd'))).toBe('cd');
+  });
+});
+
+
+describe('contact discovery state', () => {
+  const ada = { name: 'Ada Obi', title: 'Owner' };
+  it('reads whether a finder note already confirms the address', () => {
+    expect(isVerifiedStatus('Snov.io: valid')).toBe(true);
+    expect(isVerifiedStatus('Checked with Snov.io: address exists (pattern guess)')).toBe(true);
+    expect(isVerifiedStatus('verified')).toBe(true);
+    for (const no of ['Snov.io: unknown (catchall)', 'not_valid', 'invalid', undefined, '']) expect(isVerifiedStatus(no)).toBe(false);
+  });
+  it('walks the five states', () => {
+    expect(contactState({ people: null })).toBe('untouched');
+    expect(contactState({ people: [] })).toBe('none');
+    expect(contactState({ people: [], businessEmail: 'info@x.com' })).toBe('business_only');
+    expect(contactState({ people: null, businessEmail: 'info@x.com' })).toBe('business_only');
+    expect(contactState({ people: [ada] })).toBe('person_no_email');
+    expect(contactState({ people: [{ ...ada, email: 'ada@x.com' }] })).toBe('unverified');
+    expect(contactState({ people: [{ ...ada, email: 'ada@x.com', emailStatus: 'Snov.io: valid' }] })).toBe('verified');
+  });
+  it('lets a verify run overrule the finder note, and drops an invalid address back to "email missing"', () => {
+    const p = [{ ...ada, email: 'ada@x.com', emailStatus: 'Snov.io: valid' }];
+    expect(contactState({ people: p, verdicts: { 'ada@x.com': 'invalid' } })).toBe('person_no_email');
+    expect(contactState({ people: [{ ...ada, email: 'Ada@x.com' }], verdicts: { 'ada@x.com': 'valid' } })).toBe('verified');
+    expect(contactState({ people: [{ ...ada, email: 'ada@x.com' }], verdicts: { 'ada@x.com': 'unknown' } })).toBe('unverified');
+  });
+  it('offers the next step for each state', () => {
+    expect(CONTACT_ACTION).toEqual({ untouched: 'find_dm', business_only: 'find_dm', person_no_email: 'find_email', unverified: 'verify', none: 'retry', verified: null });
+    expect(ACTION_LABEL.retry).toBe('Retry discovery');
   });
 });

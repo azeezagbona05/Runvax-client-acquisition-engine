@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Search, Square, Star, Zap } from 'lucide-react';
 import { AREAS, STATES } from '@/lib/areas';
-import { DEFAULT_FILTERS, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_RUN_SEARCHES, advanceFinder, filterResults, filtersActive, finderError, finderQuery, planStep, startFinder, stepsLeft, stopReason, type FinderBusiness, type FinderCtx, type RatingFilter, type ResultFilters, type SortKey, type WebsiteFilter } from '@/lib/acqFinder';
+import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, DEFAULT_FILTERS, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_RUN_SEARCHES, advanceFinder, filterResults, filtersActive, finderError, finderQuery, planStep, startFinder, stepsLeft, stopReason, type FinderBusiness, type FinderCtx, type ContactAction, type ContactState, type RatingFilter, type ResultFilters, type Verdict, type SortKey, type WebsiteFilter } from '@/lib/acqFinder';
 import { BizLogo, Card, EmptyState } from './ui';
 import { useAcq } from './AcqProvider';
 
@@ -36,6 +36,11 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [progress, setProgress] = useState('');
   const [people, setPeople] = useState<Record<string, People>>({});
   const [findingDm, setFindingDm] = useState(false);
+  const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
+  const [verifying, setVerifying] = useState<Set<string>>(new Set());
+  const [verifyingAll, setVerifyingAll] = useState(false);
+  const [includeUnverified, setIncludeUnverified] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<ContactState | 'any'>('any');
   const [filters, setFilters] = useState<ResultFilters>(DEFAULT_FILTERS);
   const seen = useRef(new Set<string>());
   const stop = useRef(false);
@@ -53,7 +58,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     const bad = finderError(industry, location);
     if (bad) { setError(bad); return; }
     stop.current = true; setRunning(false); setProgress('');
-    setBusy(true); setError(''); setResults(null); setFilters(DEFAULT_FILTERS); setPicked(new Set()); setEmails({}); setPeople({}); setCtx(null); seen.current = new Set();
+    setBusy(true); setError(''); setResults(null); setFilters(DEFAULT_FILTERS); setPicked(new Set()); setEmails({}); setPeople({}); setVerdicts({}); setStatusFilter('any'); setCtx(null); seen.current = new Set();
     try {
       const res = await fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry, location, country, radius: 5, query: finderQuery(industry, location) }) });
       const j = await res.json().catch(() => ({})) as { businesses?: FinderBusiness[]; error?: string; cached?: boolean };
@@ -127,7 +132,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   };
 
   /** Decision-makers and their emails for one business: the free sources first, then the paid ones (Snov.io, Hunter…) when allowed. */
-  const findPeople = async (b: FinderBusiness) => {
+  const findPeople = async (b: FinderBusiness, opts: { deep?: boolean } = {}) => {
     setPeople((m) => ({ ...m, [b.id]: { state: 'loading' } }));
     const ask = async (deep: boolean) => {
       const res = await fetch('/api/decision-maker/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, deep }) });
@@ -135,11 +140,13 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
       return { ok: res.ok, status: res.status, people: j.candidates ?? [], error: j.error };
     };
     try {
-      let r = await ask(false);
+      // "Find email" and "Retry discovery" go straight to the deeper (paid) search; a first search starts with the free sources.
+      let r = opts.deep ? { ok: true, status: 200, people: [] as Person[], error: undefined as string | undefined } : await ask(false);
       let note: string | undefined;
       if (r.ok && !r.people.some((p) => p.email)) {
         const deep = await ask(true);
         if (deep.ok) r = deep;
+        else if (opts.deep) r = deep;
         else if (deep.status === 403) note = 'A deeper email search needs a paid plan.';
         else if (deep.status === 429) note = deep.error;
       }
@@ -150,20 +157,59 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     setFindingDm(true);
     const todo = (results ?? []).filter((b) => picked.has(b.id) && !people[b.id]);
     // Two at a time: each can chain several provider calls.
-    for (let i = 0; i < todo.length; i += 2) await Promise.all(todo.slice(i, i + 2).map(findPeople));
+    for (let i = 0; i < todo.length; i += 2) await Promise.all(todo.slice(i, i + 2).map((b) => findPeople(b)));
     setFindingDm(false);
   };
-  const peopleWithEmail = (b: FinderBusiness): Person[] => { const p = people[b.id]; return p?.state === 'done' ? p.people.filter((x) => x.email) : []; };
-
+  const peopleOf = (b: FinderBusiness): Person[] | null => { const p = people[b.id]; return p?.state === 'done' ? p.people : null; };
   const emailOf = (b: FinderBusiness) => { const e = emails[b.id]; return e?.state === 'done' ? e.email : null; };
-  // A business is ready when we have a decision-maker's email or, failing that, its general email.
-  const ready = (results ?? []).filter((b) => picked.has(b.id) && (peopleWithEmail(b).length > 0 || emailOf(b)));
-  const leadsFor = (b: FinderBusiness): Array<{ email: string | null | undefined; name?: string; business: string; website?: string }> => {
-    const dms = peopleWithEmail(b).slice(0, 3);
-    return dms.length ? dms.map((p) => ({ email: p.email, name: p.name, business: b.name, website: b.website ?? undefined })) : [{ email: emailOf(b), business: b.name, website: b.website ?? undefined }];
+  const stateOf = (b: FinderBusiness): ContactState => contactState({ people: peopleOf(b), businessEmail: emails[b.id]?.state === 'done' ? emailOf(b) : undefined, verdicts });
+  const personOk = (p: Person) => { const v = p.email ? verdicts[p.email.toLowerCase()] : undefined; return v ? v === 'valid' : isVerifiedStatus(p.emailStatus); };
+  const usablePeople = (b: FinderBusiness) => (peopleOf(b) ?? []).filter((p) => p.email && verdicts[p.email.toLowerCase()] !== 'invalid');
+
+  /** Check the addresses of one business's people with Snov.io and remember each answer. */
+  const verifyEmailsOf = async (emailsToCheck: string[]): Promise<boolean> => {
+    for (let i = 0; i < emailsToCheck.length; i += 10) {
+      const res = await fetch('/api/decision-maker/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: emailsToCheck.slice(i, i + 10) }) });
+      const j = await res.json().catch(() => ({})) as { results?: Record<string, Verdict>; error?: string };
+      if (!res.ok) { setError(j.error ?? 'Could not verify the emails.'); return false; }
+      setVerdicts((v) => ({ ...v, ...(j.results ?? {}) }));
+    }
+    return true;
   };
+  const verifyOne = async (b: FinderBusiness) => {
+    setVerifying((s) => new Set(s).add(b.id));
+    try { await verifyEmailsOf(usablePeople(b).filter((p) => !personOk(p)).map((p) => p.email!)); }
+    finally { setVerifying((s) => { const n = new Set(s); n.delete(b.id); return n; }); }
+  };
+  const verifySelected = async () => {
+    setVerifyingAll(true); setError('');
+    try { await verifyEmailsOf(Array.from(new Set((results ?? []).filter((b) => picked.has(b.id)).flatMap((b) => usablePeople(b).filter((p) => !personOk(p)).map((p) => p.email!.toLowerCase()))))); }
+    finally { setVerifyingAll(false); }
+  };
+  const act = (b: FinderBusiness, action: ContactAction) => {
+    if (action === 'verify') return void verifyOne(b);
+    if (action === 'find_dm') return void findPeople(b);
+    return void findPeople(b, { deep: true }); // find_email, retry
+  };
+
+  // Ready for a campaign: only contacts whose address is verified, unless the sender chooses to include the rest.
+  type Lead = { email: string; name?: string; business: string; website?: string };
+  const leadsFor = (b: FinderBusiness): Lead[] => {
+    const base = { business: b.name, website: b.website ?? undefined };
+    const verified = usablePeople(b).filter(personOk).slice(0, 3);
+    if (verified.length) return verified.map((p) => ({ email: p.email!, name: p.name, ...base }));
+    if (!includeUnverified) return [];
+    const loose = usablePeople(b).slice(0, 3);
+    if (loose.length) return loose.map((p) => ({ email: p.email!, name: p.name, ...base }));
+    const biz = emailOf(b);
+    return biz ? [{ email: biz, ...base }] : [];
+  };
+  const ready = (results ?? []).filter((b) => picked.has(b.id) && leadsFor(b).length > 0);
+  const notReady = (results ?? []).filter((b) => picked.has(b.id) && leadsFor(b).length === 0).length;
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const shown = useMemo(() => filterResults(results ?? [], filters, (b) => { const e = emails[b.id]; return e?.state === 'done' && !!e.email; }), [results, filters, emails]);
+  const shown = useMemo(() => filterResults(results ?? [], filters, (b) => { const e = emails[b.id]; return e?.state === 'done' && !!e.email; }).filter((b) => statusFilter === 'any' || stateOf(b) === statusFilter),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [results, filters, emails, people, verdicts, statusFilter]);
   const setF = <K extends keyof ResultFilters>(k: K, v: ResultFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
   const allOn = !!shown.length && shown.every((b) => picked.has(b.id));
 
@@ -219,14 +265,15 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
           {results.length === 0 ? <EmptyState title="No businesses found" body="Try a nearby area or a different category." /> : (
             <>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
-                <b style={{ fontSize: 14 }}>{filtersActive(filters) ? `${shown.length} of ${results.length}` : results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
+                <b style={{ fontSize: 14 }}>{filtersActive(filters) || statusFilter !== 'any' ? `${shown.length} of ${results.length}` : results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(shown.map((b) => b.id)))} style={{ accentColor: '#9333ea' }} /> Select all</label>
                 <button className="acq-btn acq-btn-sm" disabled={!picked.size || finding} onClick={() => void findForSelected()}>{finding ? <Loader2 size={14} className="animate-spin" /> : null} Find business emails for {picked.size || 'selected'}</button>
                 <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!picked.size || findingDm} onClick={() => void findPeopleForSelected()}>{findingDm ? <Loader2 size={14} className="animate-spin" /> : null} Find decision-makers for {picked.size || 'selected'}</button>
+                <button className="acq-btn acq-btn-sm" disabled={!picked.size || verifyingAll} onClick={() => void verifySelected()}>{verifyingAll ? <Loader2 size={14} className="animate-spin" /> : null} Verify emails for {picked.size || 'selected'}</button>
                 <select className="acq-select" aria-label="Add to campaign" style={{ width: 'auto', minWidth: 200, height: 36, marginLeft: 'auto' }} value={target} onChange={(e) => setTarget(e.target.value)}>
                   <option value="">Choose a campaign…</option>{campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!target || !ready.length || adding} onClick={() => void add()}>{adding ? <Loader2 size={14} className="animate-spin" /> : null} Add {ready.length} to campaign</button>
+                <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!target || !ready.length || adding} onClick={() => void add()}>{adding ? <Loader2 size={14} className="animate-spin" /> : null} Add {ready.length} ready to campaign</button>
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', margin: '4px 0 10px', padding: 10, border: '1px solid #e2e8f0', borderRadius: 12 }} role="group" aria-label="Filter and sort the prospects">
                 <div><label style={label} htmlFor="pf-f-web">Website</label>
@@ -247,9 +294,13 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                     <option value="found">Order found</option><option value="no-website-first">No website first</option><option value="website-first">Has a website first</option>
                     <option value="rating-high">Highest rated</option><option value="rating-low">Lowest rated</option><option value="reviews-high">Most reviews</option>
                   </select></div>
+                <div><label style={label} htmlFor="pf-f-status">Contact status</label>
+                  <select id="pf-f-status" className="acq-select" style={{ height: 34, width: 'auto' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as ContactState | 'any')}>
+                    <option value="any">Any</option>{(Object.keys(CONTACT_LABEL) as ContactState[]).map((k) => <option key={k} value={k}>{CONTACT_LABEL[k]}</option>)}
+                  </select></div>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, height: 34 }}><input type="checkbox" checked={filters.phoneOnly} onChange={(e) => setF('phoneOnly', e.target.checked)} style={{ accentColor: '#9333ea' }} /> Has a phone</label>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, height: 34 }}><input type="checkbox" checked={filters.emailOnly} onChange={(e) => setF('emailOnly', e.target.checked)} style={{ accentColor: '#9333ea' }} /> Email found</label>
-                {filtersActive(filters) || filters.sort !== 'found' ? <button type="button" className="acq-btn acq-btn-sm" onClick={() => setFilters(DEFAULT_FILTERS)}>Clear</button> : null}
+                {filtersActive(filters) || filters.sort !== 'found' || statusFilter !== 'any' ? <button type="button" className="acq-btn acq-btn-sm" onClick={() => { setFilters(DEFAULT_FILTERS); setStatusFilter('any'); }}>Clear</button> : null}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 10px', padding: 10, background: '#faf5ff', border: '1px solid #f3e8ff', borderRadius: 12 }}>
                 {running
@@ -261,12 +312,15 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                 {!running && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12.5 }}>Up to <input type="number" min={1} max={MAX_RUN_SEARCHES} className="acq-input" aria-label="Searches per run" style={{ width: 72, height: 30 }} value={maxRun} onChange={(e) => setMaxRun(Math.max(1, Math.min(MAX_RUN_SEARCHES, Number(e.target.value) || 1)))} /> searches</label>}
                 <span className="acq-sub" style={{ fontSize: 12.5 }} role="status">{running && <Loader2 size={13} className="animate-spin" style={{ display: 'inline', marginRight: 6 }} />}{progress || (ctx && planStep(ctx) ? `Tries the same location first, then nearby areas, then a wider area. Up to ${stepsLeft(ctx)} searches left; each counts toward your daily searches.` : 'Everything nearby has been tried.')}</span>
               </div>
-              <p className="acq-faint" style={{ fontSize: 12, marginBottom: 6 }}>Campaigns send email, so only prospects with an email can be added. Maps gives phone and website; use Find email to look the address up.{campaigns.length === 0 ? ' Create a campaign first to add prospects to it.' : ''}</p>
+              <p className="acq-faint" style={{ fontSize: 12, marginBottom: 6, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span>Only <b>verified</b> contacts are added to a campaign, so nothing bounces.{picked.size > 0 && notReady > 0 ? ` ${notReady} of your ${picked.size} selected ${notReady === 1 ? 'is' : 'are'} not ready yet.` : ''}{campaigns.length === 0 ? ' Create a campaign first to add prospects to it.' : ''}</span>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={includeUnverified} onChange={(e) => setIncludeUnverified(e.target.checked)} style={{ accentColor: '#9333ea' }} /> Also add unverified and business-only emails</label>
+              </p>
               <div style={{ overflowX: 'auto' }}>
                 <table className="acq-table" style={{ minWidth: 980 }}>
                   <thead><tr><th style={{ width: 32 }}><span className="sr-only">Select</span></th><th>Business</th><th>Address</th><th>Phone</th><th>Website</th><th>Rating</th><th>Email</th></tr></thead>
                   <tbody>
-                    {shown.length === 0 && <tr><td colSpan={7} className="acq-sub" style={{ textAlign: 'center', padding: 20 }}>No prospects match these filters. <button type="button" className="acq-btn acq-btn-sm" onClick={() => setFilters(DEFAULT_FILTERS)}>Clear filters</button></td></tr>}
+                    {shown.length === 0 && <tr><td colSpan={7} className="acq-sub" style={{ textAlign: 'center', padding: 20 }}>No prospects match these filters. <button type="button" className="acq-btn acq-btn-sm" onClick={() => { setFilters(DEFAULT_FILTERS); setStatusFilter('any'); }}>Clear filters</button></td></tr>}
                     {shown.map((b) => {
                       const e = emails[b.id];
                       const host = b.website ? b.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '') : '';
@@ -287,24 +341,40 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                           <td style={{ whiteSpace: 'nowrap' }}>{b.phone || <span className="acq-faint">No phone</span>}</td>
                           <td style={{ maxWidth: 200 }}>{href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline', overflowWrap: 'anywhere' }}>{host}</a> : <span className="acq-faint">No website</span>}</td>
                           <td style={{ whiteSpace: 'nowrap' }}>{typeof b.rating === 'number' ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Star size={12} />{b.rating}{b.reviewCount ? ` (${b.reviewCount})` : ''}</span> : <span className="acq-faint">—</span>}</td>
-                          <td style={{ minWidth: 180 }}>
-                            {e?.state === 'loading' ? <Loader2 size={15} className="animate-spin" />
-                              : e?.state === 'done' ? (e.email ? <b>{e.email}</b> : <span className="acq-sub">No email found</span>)
-                              : <button className="acq-btn acq-btn-sm" onClick={() => void findEmail(b)}>Find email</button>}
+                          <td style={{ minWidth: 220 }}>
                             {(() => {
+                              const st = stateOf(b);
+                              const action = CONTACT_ACTION[st];
                               const pp = people[b.id];
-                              if (!pp) return null;
-                              if (pp.state === 'loading') return <span className="acq-sub" style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, fontSize: 12 }}><Loader2 size={13} className="animate-spin" /> Finding decision-makers…</span>;
+                              const busyRow = pp?.state === 'loading' || e?.state === 'loading' || verifying.has(b.id);
+                              const tone: Record<ContactState, string> = { verified: 'acq-pill-green', unverified: 'acq-pill-amber', person_no_email: 'acq-pill-blue', business_only: 'acq-pill-gray', none: 'acq-pill-gray', untouched: 'acq-pill-gray' };
+                              const list = pp?.state === 'done' ? pp.people : [];
+                              const biz = emailOf(b);
                               return (
-                                <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
-                                  {pp.people.length === 0 && <span className="acq-sub" style={{ fontSize: 12 }}>No decision-maker found.</span>}
-                                  {pp.people.map((p) => (
-                                    <span key={`${p.name}-${p.title}`} style={{ fontSize: 12 }}>
-                                      <b>{p.name}</b>{p.title ? <span className="acq-sub"> · {p.title}</span> : null}
-                                      <br />{p.email ? <span style={{ color: '#15803d' }}>{p.email}</span> : <span className="acq-faint">no email yet</span>}
-                                    </span>
-                                  ))}
-                                  {pp.note && <span className="acq-faint" style={{ fontSize: 11.5 }}>{pp.note}</span>}
+                                <div style={{ display: 'grid', gap: 6, justifyItems: 'start' }}>
+                                  {st !== 'untouched' && <span className={`acq-pill ${tone[st]}`}>{CONTACT_LABEL[st]}</span>}
+                                  {list.map((p) => {
+                                    const v = p.email ? verdicts[p.email.toLowerCase()] : undefined;
+                                    return (
+                                      <span key={`${p.name}-${p.title}`} style={{ fontSize: 12 }}>
+                                        <b>{p.name}</b>{p.title ? <span className="acq-sub"> · {p.title}</span> : null}
+                                        <br />
+                                        {p.email
+                                          ? v === 'invalid' ? <span className="acq-faint" style={{ textDecoration: 'line-through' }} title="Snov.io says this address does not exist">{p.email}</span>
+                                            : <span style={{ color: personOk(p) ? '#15803d' : '#b45309' }} title={personOk(p) ? 'Verified' : 'Not verified yet'}>{personOk(p) ? '✓ ' : ''}{p.email}</span>
+                                          : <span className="acq-faint">no email yet</span>}
+                                      </span>
+                                    );
+                                  })}
+                                  {biz && <span style={{ fontSize: 12 }}><span className="acq-sub">Business: </span><b>{biz}</b></span>}
+                                  {e?.state === 'done' && !biz && st !== 'verified' && <span className="acq-faint" style={{ fontSize: 11.5 }}>No business email found</span>}
+                                  {pp?.state === 'done' && pp.note && <span className="acq-faint" style={{ fontSize: 11.5 }}>{pp.note}</span>}
+                                  {busyRow
+                                    ? <span className="acq-sub" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}><Loader2 size={13} className="animate-spin" /> {verifying.has(b.id) ? 'Verifying…' : pp?.state === 'loading' ? 'Searching…' : 'Looking…'}</span>
+                                    : action && <button className={`acq-btn acq-btn-sm ${action === 'retry' ? '' : 'acq-btn-primary'}`} onClick={() => act(b, action)}>{ACTION_LABEL[action]}</button>}
+                                  {!busyRow && (st === 'untouched' || st === 'none') && e?.state !== 'done' && (
+                                    <button type="button" className="acq-btn acq-btn-sm" style={{ border: 0, background: 'transparent', color: '#64748b', padding: 0, height: 'auto' }} onClick={() => void findEmail(b)}>Business email only</button>
+                                  )}
                                 </div>
                               );
                             })()}

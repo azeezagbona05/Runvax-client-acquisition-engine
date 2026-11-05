@@ -92,6 +92,55 @@ export function filtersActive(f: ResultFilters): boolean {
   return f.website !== 'any' || f.rating !== 'any' || f.minReviews > 0 || f.phoneOnly || f.emailOnly;
 }
 
+// ── Contact discovery: where each business is in the workflow ───────────────
+//   business → decision-maker → email → verified → ready for a campaign
+
+export type ContactState = 'untouched' | 'verified' | 'unverified' | 'person_no_email' | 'business_only' | 'none';
+export type Verdict = 'valid' | 'invalid' | 'unknown';
+export type ContactAction = 'find_dm' | 'find_email' | 'verify' | 'retry';
+
+export interface ContactPerson { name: string; title: string; email?: string; emailStatus?: string }
+
+export const CONTACT_LABEL: Record<ContactState, string> = {
+  untouched: 'Not searched yet',
+  verified: 'Verified contact',
+  unverified: 'Email found, not verified',
+  person_no_email: 'Person found, email missing',
+  business_only: 'Business contact only',
+  none: 'No decision-maker found',
+};
+
+export const CONTACT_ACTION: Record<ContactState, ContactAction | null> = {
+  untouched: 'find_dm', business_only: 'find_dm', person_no_email: 'find_email', unverified: 'verify', none: 'retry', verified: null,
+};
+
+export const ACTION_LABEL: Record<ContactAction, string> = {
+  find_dm: 'Find decision-maker', find_email: 'Find email', verify: 'Verify email', retry: 'Retry discovery',
+};
+
+/** Did the source that found this address already confirm it exists? ("Snov.io: valid", "verified", "deliverable"; never "not_valid"/"invalid"). */
+export function isVerifiedStatus(status?: string): boolean {
+  if (!status) return false;
+  if (/not[\s_-]?valid|invalid|undeliverable|unknown|catch/i.test(status)) return false;
+  return /\b(valid|verified|deliverable|exists)\b/i.test(status);
+}
+
+/**
+ * The state of one business.
+ * `people` is null until the decision-maker search has run; `businessEmail` is undefined until the
+ * business-email search has run. `verdicts` holds results of a verify run, keyed by lowercase email, and beats the finder's own note.
+ */
+export function contactState(input: { people: ContactPerson[] | null; businessEmail?: string | null; verdicts?: Record<string, Verdict> }): ContactState {
+  const verdicts = input.verdicts ?? {};
+  const usable = (input.people ?? []).filter((p) => p.email && verdicts[p.email.toLowerCase()] !== 'invalid');
+  const isOk = (p: ContactPerson) => { const v = verdicts[p.email!.toLowerCase()]; return v ? v === 'valid' : isVerifiedStatus(p.emailStatus); };
+  if (usable.some(isOk)) return 'verified';
+  if (usable.length) return 'unverified';
+  if ((input.people ?? []).length) return 'person_no_email';
+  if (input.businessEmail) return 'business_only';
+  return input.people === null ? 'untouched' : 'none';
+}
+
 /** Validates the form like V1 does: a category from the list and a location. Returns the error, or null. */
 export function finderError(industry: string, location: string): string | null {
   if (!industry.trim()) return 'Choose a business category.';
