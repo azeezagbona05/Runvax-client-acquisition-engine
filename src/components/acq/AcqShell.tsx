@@ -5,26 +5,40 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
-  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, Database, FileText, Home, Lock, Mail, Menu, MessageCircle,
-  Search, Send, Settings, Sparkles, Users, Wand2, Zap,
+  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Columns3, Crown, FileText, Home, LayoutDashboard, Lock, Mail, Menu, MessageCircle,
+  Search, Send, Settings, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
+import { DEFAULT_HOME } from '@/lib/home';
 import { useUpgrade } from '@/context/UpgradeContext';
 import { PRICING_ENABLED } from '@/lib/promo';
 import Logo from './Logo';
 import { useAcq } from './AcqProvider';
 
-const NAV = [
-  { href: '/client-acquisition', label: 'Overview', icon: Home, exact: true },
-  { href: '/client-acquisition/leads', label: 'Lead Lists', icon: Users },
-  { href: '/client-acquisition/campaigns', label: 'Campaigns', icon: Send },
-  { href: '/client-acquisition/automation', label: 'Automation Builder', icon: Wand2 },
-  { href: '/client-acquisition/activity', label: 'Email Activity', icon: Mail },
-  { href: '/client-acquisition/inbox', label: 'Inbox & Opportunities', icon: MessageCircle, badge: true },
-  { href: '/client-acquisition/agents', label: 'AI Agents', icon: Bot },
-  { href: '/client-acquisition/templates', label: 'Templates', icon: FileText },
-  { href: '/client-acquisition/integrations', label: 'Integrations', icon: Zap },
-  { href: '/settings', label: 'Settings', icon: Settings },
-] as const;
+/** One menu for the whole product: Find Prospects first (it is the default page), then the Client Acquisition tools, then the classic prospecting pages. */
+const NAV_GROUPS: Array<{ heading?: string; items: ReadonlyArray<{ href: string; label: string; icon: typeof Home; exact?: boolean; badge?: boolean }> }> = [
+  { items: [
+    { href: DEFAULT_HOME, label: 'Find Prospects', icon: MapPin },
+  ] },
+  { heading: 'Client Acquisition', items: [
+    { href: '/client-acquisition', label: 'Overview', icon: Home, exact: true },
+    { href: '/client-acquisition/leads', label: 'Lead Lists', icon: Users },
+    { href: '/client-acquisition/campaigns', label: 'Campaigns', icon: Send },
+    { href: '/client-acquisition/automation', label: 'Automation Builder', icon: Wand2 },
+    { href: '/client-acquisition/activity', label: 'Email Activity', icon: Mail },
+    { href: '/client-acquisition/inbox', label: 'Inbox & Opportunities', icon: MessageCircle, badge: true },
+    { href: '/client-acquisition/agents', label: 'AI Agents', icon: Bot },
+    { href: '/client-acquisition/templates', label: 'Templates', icon: FileText },
+    { href: '/client-acquisition/integrations', label: 'Integrations', icon: Zap },
+  ] },
+  { heading: 'Prospecting', items: [
+    { href: '/pipeline', label: 'Prospect CRM', icon: Columns3 },
+    { href: '/command-centre', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/', label: 'Classic Find Prospects', icon: Search, exact: true },
+  ] },
+  { items: [
+    { href: '/settings', label: 'Settings', icon: Settings },
+  ] },
+];
 
 interface SearchResults {
   campaigns: Array<{ id: string; name: string; status: string }>;
@@ -133,9 +147,9 @@ function UserMenu() {
       </button>
       {open && (
         <div className="acq-dropdown" role="menu" style={{ top: 50, right: 0, width: 220, padding: 6 }}>
-          <Link href="/command-centre" className="acq-nav-item" style={{ height: 38 }}>Back to Dashboard</Link>
-          <Link href="/" className="acq-nav-item" style={{ height: 38 }}>Find Prospects</Link>
+          <Link href={DEFAULT_HOME} className="acq-nav-item" style={{ height: 38 }}>Find Prospects</Link>
           <Link href="/pipeline" className="acq-nav-item" style={{ height: 38 }}>Prospect CRM</Link>
+          <Link href="/command-centre" className="acq-nav-item" style={{ height: 38 }}>Dashboard</Link>
           <Link href="/settings" className="acq-nav-item" style={{ height: 38 }}>Settings</Link>
           <button onClick={() => void signOut({ callbackUrl: '/' })} className="acq-nav-item" style={{ height: 38, width: '100%', border: 0, background: 'transparent', color: '#b91c1c', textAlign: 'left' }}>Sign out</button>
         </div>
@@ -176,7 +190,6 @@ export default function AcqShell({ children }: { children: ReactNode }) {
   const running = (data?.runningCampaigns ?? 0) > 0;
   const sending = data?.sending ?? { today: 0, limit: 200 };
   const pctUsed = sending.limit ? Math.min(100, Math.round((sending.today / sending.limit) * 100)) : 0;
-  const nav = useMemo(() => NAV, []);
 
   return (
     <div className="acq-root">
@@ -184,7 +197,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
 
       <aside className={`acq-sidebar${rail ? ' rail' : ''}${mobileOpen ? ' open' : ''}`} aria-label="Client Acquisition navigation">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: rail ? 'center' : 'space-between', height: 64, padding: rail ? 0 : '0 16px 0 20px' }}>
-          <Link href="/client-acquisition" aria-label="RUNVAX Client Acquisition"><Logo compact={rail} /></Link>
+          <Link href={DEFAULT_HOME} aria-label="RUNVAX Find Prospects"><Logo compact={rail} /></Link>
           {!rail && (
             <button className="acq-icon-btn acq-only-desktop" onClick={toggleRail} aria-label="Collapse sidebar"><ChevronsLeft size={18} /></button>
           )}
@@ -192,21 +205,27 @@ export default function AcqShell({ children }: { children: ReactNode }) {
         {rail && <button className="acq-icon-btn acq-only-desktop" onClick={toggleRail} aria-label="Expand sidebar" style={{ alignSelf: 'center', marginBottom: 6 }}><ChevronsRight size={18} /></button>}
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: rail ? '8px 10px' : '8px 12px', flex: 1, overflowY: 'auto' }}>
-          {nav.map((item) => {
-            const Icon = item.icon;
-            const on = active(item.href, 'exact' in item ? item.exact : false);
-            return (
-              <Link key={item.href} href={item.href} className={`acq-nav-item${on ? ' active' : ''}`} title={rail ? item.label : undefined} style={rail ? { justifyContent: 'center', padding: 0, position: 'relative' } : undefined} aria-current={on ? 'page' : undefined}>
-                <Icon size={19} />
-                {!rail && <span>{item.label}</span>}
-                {'badge' in item && item.badge && inbox > 0 && (
-                  rail
-                    ? <span style={{ position: 'absolute', top: 6, right: 8, width: 9, height: 9, borderRadius: 999, background: '#ef4444' }} />
-                    : <span className="acq-badge">{inbox > 99 ? '99+' : inbox}</span>
-                )}
-              </Link>
-            );
-          })}
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: gi === 0 ? 0 : 10 }}>
+              {group.heading && !rail && <p className="acq-faint" style={{ padding: '4px 14px 2px', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>{group.heading}</p>}
+              {group.heading && rail && <span style={{ height: 1, background: 'var(--line)', margin: '2px 8px' }} />}
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const on = active(item.href, item.exact);
+                return (
+                  <Link key={item.href} href={item.href} className={`acq-nav-item${on ? ' active' : ''}`} title={rail ? item.label : undefined} style={rail ? { justifyContent: 'center', padding: 0, position: 'relative' } : undefined} aria-current={on ? 'page' : undefined}>
+                    <Icon size={19} />
+                    {!rail && <span>{item.label}</span>}
+                    {item.badge && inbox > 0 && (
+                      rail
+                        ? <span style={{ position: 'absolute', top: 6, right: 8, width: 9, height: 9, borderRadius: 999, background: '#ef4444' }} />
+                        : <span className="acq-badge">{inbox > 99 ? '99+' : inbox}</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {!rail && (
@@ -238,7 +257,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="acq-content">
-          {gate ? <GateCard gate={gate} /> : children}
+          {gate && !(gate !== 'signin' && pathname === DEFAULT_HOME) ? <GateCard gate={gate} /> : children}
         </main>
       </div>
     </div>
