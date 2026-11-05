@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, Bell, Check, Clock, Flag, Loader2, Mail, MapPin, MessageSquare, Package, Plus, Rocket, Send, ShieldCheck, Sparkles, Target, Trash2, Wand2, Zap,
+  AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, Bell, Check, Clock, Flag, ListChecks, Loader2, Mail, MapPin, Megaphone, MessageSquare, Package, Plus, Rocket, Send, ShieldCheck, Sparkles, Target, Trash2, User, Wand2, Zap,
 } from 'lucide-react';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import {
@@ -240,20 +240,27 @@ export default function AutomationBuilder() {
               {tpl && tpl.source === 'official'
                 ? <GuidedSetup tpl={tpl} brief={brief} setBrief={setBrief} featuresText={featuresText} setFeaturesText={setFeaturesText} busy={busy} built={!!auto} contactsCount={contacts.length} onGenerate={() => void ask(input, true)} />
                 : (
-      <section className="acq-card" aria-label="Campaign setup">
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-          <div><h2 className="acq-title" style={{ fontSize: 16.5, fontWeight: 800 }}>Campaign setup</h2><p className="acq-sub" style={{ fontSize: 12.5 }}>Fill in what you can, or just type your goal in the agent box. The agent builds the whole five-email sequence from this.</p></div>
+      <section className="acq-card acq-setup" aria-label="Campaign setup">
+        <div className="acq-setup-head">
+          <span className="acq-setup-icon" aria-hidden><Target size={22} /></span>
+          <div><h2 className="acq-title" style={{ fontSize: 18, fontWeight: 800 }}>Campaign Setup</h2><p className="acq-sub" style={{ fontSize: 13 }}>Define your campaign goal, offer, and target for the AI agent.</p></div>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div><label style={label} htmlFor="cs-name">Campaign name</label><input id="cs-name" className="acq-input" maxLength={120} value={brief.name} onChange={(e) => setBrief({ ...brief, name: e.target.value })} placeholder="e.g. Dental AI Hub – Clinic Outreach" /></div>
-          <div><label style={label} htmlFor="cs-obj">Campaign objective</label><select id="cs-obj" className="acq-select" value={brief.objective} onChange={(e) => setBrief({ ...brief, objective: e.target.value as Objective })}>{OBJECTIVES.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></div>
-          <div><label style={label} htmlFor="cs-offer">Product or service</label><input id="cs-offer" className="acq-input" maxLength={200} value={brief.offer} onChange={(e) => setBrief({ ...brief, offer: e.target.value })} placeholder="e.g. Dental AI Hub – AI enquiry and appointment assistant" /></div>
-          <div><label style={label} htmlFor="cs-aud">Target market</label><input id="cs-aud" className="acq-input" maxLength={200} value={brief.audience} onChange={(e) => setBrief({ ...brief, audience: e.target.value })} placeholder="e.g. Dental clinics in the UK" /></div>
-          <div className="md:col-span-2"><label style={label} htmlFor="cs-sum">What it does</label><textarea id="cs-sum" className="acq-textarea" rows={2} maxLength={500} value={brief.offerSummary} onChange={(e) => setBrief({ ...brief, offerSummary: e.target.value })} placeholder="One or two sentences on what it does for the customer." /><span className="acq-faint" style={{ display: 'block', textAlign: 'right', fontSize: 11.5, marginTop: 4 }}>{brief.offerSummary.length} / 500</span></div>
-          <div><label style={label} htmlFor="cs-feat">What it includes (one per line)</label><textarea id="cs-feat" className="acq-textarea" rows={4} value={featuresText} onChange={(e) => { setFeaturesText(e.target.value); setBrief({ ...brief, features: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 8) }); }} placeholder={'Instant replies to patient enquiries\nAutomated follow-ups\nAppointment booking'} /></div>
-          <div style={{ display: 'grid', gap: 12, alignContent: 'start' }}>
-            <div><label style={label} htmlFor="cs-goal">Campaign goal</label><input id="cs-goal" className="acq-input" maxLength={200} value={brief.goal} onChange={(e) => setBrief({ ...brief, goal: e.target.value })} placeholder="e.g. Book 20 demos" /></div>
-            <div><label style={label} htmlFor="cs-sign">Sign-off</label><input id="cs-sign" className="acq-input" maxLength={200} value={brief.signOff} onChange={(e) => setBrief({ ...brief, signOff: e.target.value })} placeholder="e.g. Azeez, Harzotech Innovative Solutions" /></div>
+        <div className="acq-setup-grid">
+          <div><label className="acq-flabel" htmlFor="cs-name">Campaign name<i>*</i></label><div className="acq-ifield"><Megaphone size={16} /><input id="cs-name" className="acq-input" maxLength={120} value={brief.name} onChange={(e) => setBrief({ ...brief, name: e.target.value })} placeholder="e.g. Dental AI Hub – Clinic Outreach" /></div></div>
+          <div><label className="acq-flabel" htmlFor="cs-obj">Campaign objective<i>*</i></label><div className="acq-ifield"><Target size={16} /><select id="cs-obj" className="acq-select" value={brief.objective} onChange={(e) => setBrief({ ...brief, objective: e.target.value as Objective })}>{OBJECTIVES.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></div></div>
+          <div><label className="acq-flabel" htmlFor="cs-offer">Product or service<i>*</i></label><div className="acq-ifield"><Package size={16} /><input id="cs-offer" className="acq-input" maxLength={200} value={brief.offer} onChange={(e) => setBrief({ ...brief, offer: e.target.value })} placeholder="e.g. Dental AI Hub – AI enquiry and appointment assistant" /></div></div>
+          <div><label className="acq-flabel" htmlFor="cs-aud">Target market<i>*</i></label><div className="acq-ifield"><MapPin size={16} /><input id="cs-aud" className="acq-input" maxLength={200} value={brief.audience} onChange={(e) => setBrief({ ...brief, audience: e.target.value })} placeholder="e.g. Dental clinics in Nigeria" /></div></div>
+          <div className="acq-span-2">
+            <label className="acq-flabel" htmlFor="cs-sum">What it does<i>*</i></label>
+            <div className="acq-ifield acq-ifield-area"><Sparkles size={16} /><textarea id="cs-sum" className="acq-textarea" rows={3} maxLength={500} value={brief.offerSummary} onChange={(e) => setBrief({ ...brief, offerSummary: e.target.value })} placeholder="One or two sentences on what it does for the customer." /><span className="acq-counter">{brief.offerSummary.length} / 500</span></div>
+          </div>
+          <div>
+            <label className="acq-flabel" htmlFor="cs-feat">What it includes <span>(one per line)</span></label>
+            <div className="acq-ifield acq-ifield-area"><ListChecks size={16} /><textarea id="cs-feat" className="acq-textarea" rows={5} value={featuresText} onChange={(e) => { setFeaturesText(e.target.value); setBrief({ ...brief, features: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 8) }); }} placeholder={'Instant replies to patient enquiries\nAutomated follow-ups\nAppointment booking'} /></div>
+          </div>
+          <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
+            <div><label className="acq-flabel" htmlFor="cs-goal">Campaign goal<i>*</i></label><div className="acq-ifield"><Flag size={16} /><input id="cs-goal" className="acq-input" maxLength={200} value={brief.goal} onChange={(e) => setBrief({ ...brief, goal: e.target.value })} placeholder="e.g. Book 20 demos" /></div></div>
+            <div><label className="acq-flabel" htmlFor="cs-sign">Sign-off</label><div className="acq-ifield"><User size={16} /><input id="cs-sign" className="acq-input" maxLength={200} value={brief.signOff} onChange={(e) => setBrief({ ...brief, signOff: e.target.value })} placeholder="e.g. Azeez, Harzotech Innovative Solutions" /></div></div>
           </div>
         </div>
       </section>
