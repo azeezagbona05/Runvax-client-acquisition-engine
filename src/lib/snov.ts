@@ -77,8 +77,13 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown, ret
   });
   // An expired token is the one error worth a single retry.
   if (res.status === 401 && !retried) { cached = null; return call<T>(method, path, body, true); }
-  if (!res.ok) throw new Error(`Snov.io ${res.status}`);
+  if (!res.ok) throw new SnovHttpError(res.status, await res.json().catch(() => null));
   return res.json() as Promise<T>;
+}
+
+/** A Snov.io HTTP error, keeping the status and body so callers can show Snov's own suggestions. */
+export class SnovHttpError extends Error {
+  constructor(public status: number, public body: unknown) { super(`Snov.io ${status}`); }
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -241,4 +246,132 @@ export async function domainContacts(domain: string, opts: SnovOpts & { position
     out.push(c);
   }
   return out;
+}
+
+
+// ── Database Search: find people at companies by industry, place and seniority ──
+// Starting a search and reading prospects is free. Revealing a person's email costs 1 credit if one is found.
+
+export type ManagementLevel = 'c_level' | 'vp_level' | 'director_level' | 'manager_level' | 'staff';
+
+export interface DbSearchFilters {
+  industry?: string;
+  specialties?: string[];
+  /** Snov's own wording, e.g. { locality: 'Lagos, Nigeria', type: 'state' }. */
+  location?: { locality: string; type: 'city' | 'state' | 'country' | 'region' | 'subregion' };
+  levels?: ManagementLevel[];
+  jobTitles?: string[];
+  size?: string;
+}
+
+export interface DbProspect {
+  firstName: string;
+  /** Partly hidden ("Or***") until the email is revealed. */
+  lastName: string;
+  jobTitle: string;
+  location: string;
+  industry: string;
+  company: { name: string; domain: string; location: string; industry: string; size: string };
+  /** POST here (through revealEmail) to get the email. */
+  revealUrl: string;
+}
+
+export interface DbSearchResult { total: number; page: number; totalPages: number; prospects: DbProspect[] }
+
+/** Snov rejected a filter value; `suggestions` are the values it would accept. */
+export class SnovFilterError extends Error {
+  constructor(message: string, public field: 'location' | 'industries' | 'other', public suggestions: unknown[]) { super(message); }
+}
+
+/** The request body Snov expects, from our friendlier filter object. */
+export function dbFilters(f: DbSearchFilters): Record<string, unknown> {
+  const company: Record<string, unknown> = {};
+  if (f.industry) company.industries = { include: [f.industry] };
+  if (f.location) company.locations = { include: [{ locality: f.location.locality, location_type: f.location.type }] };
+  if (f.size) company.size = [f.size];
+  if (f.specialties?.length) company.specialities = f.specialties;
+  const prospect: Record<string, unknown> = {};
+  if (f.levels?.length) prospect.management_levels = { include: f.levels };
+  if (f.jobTitles?.length) prospect.job_titles = { include: f.jobTitles };
+  return { ...(Object.keys(prospect).length ? { prospect } : {}), ...(Object.keys(company).length ? { company } : {}) };
+}
+
+interface RawProspect {
+  first_name?: string; last_name?: string; job_title?: string; location?: string; industry?: string; email_and_hidden_info_reveal?: string;
+  company?: { name?: string; domain?: string; location?: string; industry?: string; size?: string };
+}
+
+export async function searchProspects(f: DbSearchFilters, page = 1, opts: SnovOpts = {}): Promise<DbSearchResult> {
+  const filters = dbFilters(f);
+  if (!Object.keys(filters).length) throw new SnovFilterError('Choose at least one filter.', 'other', []);
+  let hash: string | undefined;
+  try {
+    const start = await call<{ meta?: { task_hash?: string } }>('POST', '/v2/database-search/prospects/start', { page, filters });
+    hash = start.meta?.task_hash;
+  } catch (e) {
+    if (e instanceof SnovHttpError && e.status === 422) {
+      const err = (Array.isArray(e.body) ? e.body[0] : e.body) as { errors?: { message?: string; suggestion?: unknown[] } } | null;
+      const msg = err?.errors?.message ?? 'Snov.io did not accept that filter.';
+      throw new SnovFilterError(msg, /'location'/.test(msg) ? 'location' : /'industries'/.test(msg) ? 'industries' : 'other', err?.errors?.suggestion ?? []);
+    }
+    throw e;
+  }
+  if (!hash) throw new Error('Snov.io did not start the search.');
+  const done = await poll<{ status?: string; data?: { total?: number; page?: number; total_pages?: number; prospects?: RawProspect[] } }>(`/v2/database-search/prospects/result/${encodeURIComponent(hash)}`, { tries: 12, ...opts });
+  const d = done?.data;
+  return {
+    total: d?.total ?? 0, page: d?.page ?? page, totalPages: d?.total_pages ?? 0,
+    prospects: (d?.prospects ?? []).filter((p) => p.email_and_hidden_info_reveal).map((p) => ({
+      firstName: p.first_name ?? '', lastName: p.last_name ?? '', jobTitle: p.job_title ?? '', location: p.location ?? '', industry: p.industry ?? '',
+      company: { name: p.company?.name ?? '', domain: p.company?.domain ?? '', location: p.company?.location ?? '', industry: p.company?.industry ?? '', size: p.company?.size ?? '' },
+      revealUrl: p.email_and_hidden_info_reveal as string,
+    })),
+  };
+}
+
+/** Our own reveal links only: Snov's host and its prospect email-search path. */
+export function revealPath(url: string): string | null {
+  try {
+    const u = new URL(url, BASE);
+    return u.origin === BASE && /^\/v2\/database-search\/prospects\/search-emails\/start\/[A-Za-z0-9]+$/.test(u.pathname) ? u.pathname : null;
+  } catch { return null; }
+}
+
+export interface RevealedPerson { name?: string; linkedin?: string; email?: string; smtpStatus?: SmtpStatus }
+
+/** Pulls the person's name, LinkedIn and first email out of Snov's result, whatever nesting it uses. */
+export function readReveal(data: unknown): RevealedPerson {
+  const out: RevealedPerson = {};
+  const walk = (n: unknown, depth = 0) => {
+    if (!n || typeof n !== 'object' || depth > 5) return;
+    if (Array.isArray(n)) { n.forEach((x) => walk(x, depth + 1)); return; }
+    const o = n as Record<string, unknown>;
+    if (!out.email && typeof o.email === 'string' && o.email.includes('@')) { out.email = o.email.toLowerCase(); out.smtpStatus = o.smtp_status === 'valid' || o.smtp_status === 'not_valid' ? o.smtp_status : 'unknown'; }
+    if (!out.name && typeof o.full_name === 'string') out.name = o.full_name;
+    if (!out.name && typeof o.first_name === 'string' && typeof o.last_name === 'string' && !o.last_name.includes('*')) out.name = `${o.first_name} ${o.last_name}`;
+    if (!out.linkedin && typeof o.linkedin_url === 'string') out.linkedin = o.linkedin_url;
+    Object.values(o).forEach((x) => walk(x, depth + 1));
+  };
+  walk(data);
+  return out;
+}
+
+/** Reveal one person (1 credit if an email is found). Returns null when the link is not ours or nothing came back. */
+export async function revealEmail(url: string, opts: SnovOpts = {}): Promise<RevealedPerson | null> {
+  const path = revealPath(url);
+  if (!path) return null;
+  const start = await call<{ meta?: { task_hash?: string } }>('POST', path);
+  const hash = start.meta?.task_hash;
+  if (!hash) return null;
+  const done = await poll<{ status?: string; data?: unknown }>(`/v2/database-search/prospects/search-emails/result/${encodeURIComponent(hash)}`, opts);
+  return done ? readReveal(done.data) : null;
+}
+
+/** Credits left on the Snov.io account (free call). null if it could not be read. */
+export async function snovBalance(): Promise<number | null> {
+  try {
+    const r = await call<{ data?: { balance?: string | number } }>('GET', '/v1/get-balance');
+    const n = Number(r.data?.balance);
+    return Number.isFinite(n) ? n : null;
+  } catch { return null; }
 }

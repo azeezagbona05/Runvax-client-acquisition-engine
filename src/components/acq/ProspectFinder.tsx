@@ -18,6 +18,10 @@ const label = { fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6
 export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => void }) {
   const { data } = useAcq();
   const [country, setCountry] = useState('NG');
+  const [allCountries, setAllCountries] = useState<Array<{ code: string; name: string }> | null>(null);
+  const [regions, setRegions] = useState<Array<{ code: string; name: string }>>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [state, setState] = useState('');
   const [location, setLocation] = useState('');
   const [industry, setIndustry] = useState('');
@@ -34,6 +38,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [running, setRunning] = useState(false);
   const [maxRun, setMaxRun] = useState(MAX_RUN_SEARCHES);
   const [want, setWant] = useState(100);
+  const [wantText, setWantText] = useState('100');
   const [progress, setProgress] = useState('');
   const [people, setPeople] = useState<Record<string, People>>({});
   const [findingDm, setFindingDm] = useState(false);
@@ -47,11 +52,28 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const stop = useRef(false);
   useEffect(() => () => { stop.current = true; }, []);
 
-  const states = STATES.filter((s) => s.country === country);
+  // Every country comes from the server once; a country's regions load when it is chosen.
+  useEffect(() => {
+    let live = true;
+    fetch('/api/finder/geo').then((r) => r.json()).then((j: { countries?: Array<{ code: string; name: string }> }) => { if (live && j.countries) setAllCountries(j.countries); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  useEffect(() => {
+    // Nigeria keeps its own state list, which also knows each state's neighbourhoods.
+    if (country === 'NG' || country === 'OTHER') { setRegions([]); return; }
+    let live = true;
+    setRegions([]);
+    fetch(`/api/finder/geo?country=${encodeURIComponent(country)}`).then((r) => r.json()).then((j: { regions?: Array<{ code: string; name: string }> }) => { if (live) setRegions(j.regions ?? []); }).catch(() => {});
+    return () => { live = false; };
+  }, [country]);
+
+  const countryName = (allCountries ?? FINDER_COUNTRIES).find((c) => c.code === country)?.name ?? country;
+  const states = country === 'NG' || country === 'OTHER' ? STATES.filter((s) => s.country === country) : regions;
   const places = useMemo(() => {
+    if (country !== 'NG') { const r = regions.find((x) => x.code === state); return r ? [r.name] : []; }
     const cities = state ? STATES.find((s) => s.code === state)?.cities ?? [] : null;
     return AREAS.filter((a) => a.country === country && (!cities || cities.includes(a.city))).map((a) => a.name).slice(0, 400);
-  }, [country, state]);
+  }, [country, state, regions]);
   const campaigns = (data?.campaigns ?? []).filter((c) => c.status !== 'completed' || true);
 
   const search = async (e: React.FormEvent) => {
@@ -218,6 +240,33 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     [results, filters, emails, people, verdicts, statusFilter]);
   const setF = <K extends keyof ResultFilters>(k: K, v: ResultFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
   const allOn = !!shown.length && shown.every((b) => picked.has(b.id));
+  // Pagination: the table shows one page of the filtered rows at a time.
+  const pageCount = Math.max(1, Math.ceil(shown.length / pageSize));
+  const curPage = Math.min(page, pageCount);
+  const pageRows = useMemo(() => shown.slice((curPage - 1) * pageSize, curPage * pageSize), [shown, curPage, pageSize]);
+  const from = shown.length ? (curPage - 1) * pageSize + 1 : 0;
+  const to = Math.min(shown.length, curPage * pageSize);
+  // A new filter, sort or page size starts again from page 1.
+  useEffect(() => { setPage(1); }, [filters, statusFilter, pageSize]);
+  const pageAllOn = pageRows.length > 0 && pageRows.every((b) => picked.has(b.id));
+  const togglePage = () => setPicked((s) => { const n = new Set(s); if (pageAllOn) pageRows.forEach((b) => n.delete(b.id)); else pageRows.forEach((b) => n.add(b.id)); return n; });
+  const pager = (
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', margin: '8px 0' }} role="navigation" aria-label="Pages of prospects">
+      <span className="acq-sub" style={{ fontSize: 13 }}>Showing {from.toLocaleString('en-US')}–{to.toLocaleString('en-US')} of {shown.length.toLocaleString('en-US')}</span>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12.5 }}>Rows
+          <select className="acq-select" aria-label="Rows per page" style={{ height: 32, width: 'auto' }} value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+            {[25, 50, 100, 250, 500].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <button type="button" className="acq-btn acq-btn-sm" disabled={curPage <= 1} onClick={() => setPage(1)} aria-label="First page">«</button>
+        <button type="button" className="acq-btn acq-btn-sm" disabled={curPage <= 1} onClick={() => setPage(curPage - 1)}>Previous</button>
+        <span style={{ fontSize: 13, minWidth: 90, textAlign: 'center' }}>Page <input type="number" min={1} max={pageCount} className="acq-input" aria-label="Page number" style={{ width: 62, height: 30, padding: '0 6px', textAlign: 'center' }} value={curPage} onChange={(e) => { const n = Math.floor(Number(e.target.value)); if (n >= 1) setPage(Math.min(n, pageCount)); }} /> of {pageCount.toLocaleString('en-US')}</span>
+        <button type="button" className="acq-btn acq-btn-sm" disabled={curPage >= pageCount} onClick={() => setPage(curPage + 1)}>Next</button>
+        <button type="button" className="acq-btn acq-btn-sm" disabled={curPage >= pageCount} onClick={() => setPage(pageCount)} aria-label="Last page">»</button>
+      </div>
+    </div>
+  );
 
   /** Downloads the rows on screen (with what was found so far) as a CSV: for a manual quality review, or as input for scripts/contact-intel-experiment.ts. */
   const exportCsv = () => {
@@ -248,13 +297,21 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     <Card title="Find prospects on Google Maps">
       <form onSubmit={search} style={{ display: 'grid', gap: 12 }}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <div><label style={label} htmlFor="pf-country">1 · Country</label><select id="pf-country" className="acq-select" value={country} onChange={(e) => { setCountry(e.target.value); setState(''); setLocation(''); }}>{FINDER_COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></div>
-          <div><label style={label} htmlFor="pf-state">2 · State or region</label><select id="pf-state" className="acq-select" value={state} onChange={(e) => { setState(e.target.value); setLocation(''); }} disabled={!states.length}><option value="">{states.length ? 'Any' : 'Not needed'}</option>{states.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}</select></div>
-          <div><label style={label} htmlFor="pf-loc">3 · Location</label><input id="pf-loc" className="acq-input" list="pf-places" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Lekki, Lagos" maxLength={120} /><datalist id="pf-places">{places.map((p) => <option key={p} value={p} />)}</datalist></div>
+          <div><label style={label} htmlFor="pf-country">1 · Country</label>
+            <select id="pf-country" className="acq-select" value={country} onChange={(e) => { setCountry(e.target.value); setState(''); setLocation(''); }}>
+              <optgroup label="Popular">{FINDER_COUNTRIES.filter((c) => c.code !== 'OTHER').map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</optgroup>
+              <optgroup label={allCountries ? 'All countries' : 'Loading all countries…'}>{(allCountries ?? []).filter((c) => !FINDER_COUNTRIES.some((f) => f.code === c.code)).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</optgroup>
+            </select></div>
+          <div><label style={label} htmlFor="pf-state">2 · State or region</label>
+            <select id="pf-state" className="acq-select" value={state} onChange={(e) => { const v = e.target.value; setState(v); const r = regions.find((x) => x.code === v); setLocation(country === 'NG' ? '' : r ? r.name : ''); }} disabled={!states.length}>
+              <option value="">{states.length ? 'Any' : country === 'NG' || regions.length ? 'Not needed' : 'Loading…'}</option>
+              {states.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
+            </select></div>
+          <div><label style={label} htmlFor="pf-loc">3 · Location</label><input id="pf-loc" className="acq-input" list="pf-places" value={location} onChange={(e) => setLocation(e.target.value)} placeholder={country === 'NG' ? 'e.g. Lekki, Lagos' : `e.g. a city in ${countryName}`} maxLength={120} /><datalist id="pf-places">{places.map((p) => <option key={p} value={p} />)}</datalist></div>
           <div><label style={label} htmlFor="pf-ind">4 · Business category</label><input id="pf-ind" className="acq-input" list="pf-inds" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Dental Clinics" maxLength={80} /><datalist id="pf-inds">{FINDER_INDUSTRIES.map((i) => <option key={i} value={i} />)}</datalist></div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>5 · How many businesses <input type="number" min={1} max={100} className="acq-input" aria-label="How many businesses" style={{ width: 80, height: 36 }} value={want} onChange={(e) => setWant(Math.max(1, Math.min(100, Number(e.target.value) || 1)))} /></label>
+          <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>5 · How many businesses <input type="number" min={1} inputMode="numeric" className="acq-input" aria-label="How many businesses" style={{ width: 110, height: 36 }} value={wantText} onChange={(e) => { setWantText(e.target.value); const n = Math.floor(Number(e.target.value)); if (n >= 1) setWant(n); }} onBlur={() => setWantText(String(want))} /></label>
           <button className="acq-btn acq-btn-primary" type="submit" disabled={busy || running}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Find prospects</button>
           <span className="acq-faint" style={{ fontSize: 12 }}>One search returns up to about 20 to 60 businesses, so RUNVAX keeps searching the same location, then nearby areas, until it reaches your number. Each search counts toward your plan&apos;s daily searches.</span>
         </div>
@@ -285,7 +342,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
             <>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
                 <b style={{ fontSize: 14 }}>{filtersActive(filters) || statusFilter !== 'any' ? `${shown.length} of ${results.length}` : results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(shown.map((b) => b.id)))} style={{ accentColor: '#9333ea' }} /> Select all</label>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(shown.map((b) => b.id)))} style={{ accentColor: '#9333ea' }} /> Select all {shown.length.toLocaleString('en-US')}</label>
                 <button className="acq-btn acq-btn-sm" disabled={!picked.size || finding} onClick={() => void findForSelected()}>{finding ? <Loader2 size={14} className="animate-spin" /> : null} Find business emails for {picked.size || 'selected'}</button>
                 <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!picked.size || findingDm} onClick={() => void findPeopleForSelected()}>{findingDm ? <Loader2 size={14} className="animate-spin" /> : null} Find decision-makers for {picked.size || 'selected'}</button>
                 <button className="acq-btn acq-btn-sm" disabled={!picked.size || verifyingAll} onClick={() => void verifySelected()}>{verifyingAll ? <Loader2 size={14} className="animate-spin" /> : null} Verify emails for {picked.size || 'selected'}</button>
@@ -329,19 +386,20 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                       <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!ctx || !planStep(ctx) || busy} onClick={() => void keepFinding()}><Zap size={14} /> Keep finding until there is no more</button>
                       <button className="acq-btn acq-btn-sm" disabled={!ctx || !planStep(ctx) || busy} onClick={() => void loadMore()}>{busy && ctx ? <Loader2 size={14} className="animate-spin" /> : null} Load more: {ctx && planStep(ctx) ? planStep(ctx)!.label : 'nothing left'}</button>
                     </>}
-                {!running && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12.5 }}>Up to <input type="number" min={1} max={MAX_RUN_SEARCHES} className="acq-input" aria-label="Searches per run" style={{ width: 72, height: 30 }} value={maxRun} onChange={(e) => setMaxRun(Math.max(1, Math.min(MAX_RUN_SEARCHES, Number(e.target.value) || 1)))} /> searches</label>}
+                {!running && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12.5 }}>Up to <input type="number" min={1} inputMode="numeric" className="acq-input" aria-label="Searches per run" style={{ width: 90, height: 30 }} value={maxRun} onChange={(e) => setMaxRun(Math.max(1, Math.floor(Number(e.target.value)) || 1))} /> searches</label>}
                 <span className="acq-sub" style={{ fontSize: 12.5 }} role="status">{running && <Loader2 size={13} className="animate-spin" style={{ display: 'inline', marginRight: 6 }} />}{progress || (ctx && planStep(ctx) ? `Tries the same location first, then nearby areas, then a wider area. Up to ${stepsLeft(ctx)} searches left; each counts toward your daily searches.` : 'Everything nearby has been tried.')}</span>
               </div>
               <p className="acq-faint" style={{ fontSize: 12, marginBottom: 6, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span>Only <b>verified</b> contacts are added to a campaign, so nothing bounces.{picked.size > 0 && notReady > 0 ? ` ${notReady} of your ${picked.size} selected ${notReady === 1 ? 'is' : 'are'} not ready yet.` : ''}{campaigns.length === 0 ? ' Create a campaign first to add prospects to it.' : ''}</span>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={includeUnverified} onChange={(e) => setIncludeUnverified(e.target.checked)} style={{ accentColor: '#9333ea' }} /> Also add unverified and business-only emails</label>
               </p>
+              {pager}
               <div style={{ overflowX: 'auto' }}>
                 <table className="acq-table" style={{ minWidth: 980 }}>
-                  <thead><tr><th style={{ width: 32 }}><span className="sr-only">Select</span></th><th>Business</th><th>Address</th><th>Phone</th><th>Website</th><th>Rating</th><th>Email</th></tr></thead>
+                  <thead><tr><th style={{ width: 32 }}><input type="checkbox" aria-label="Select this page" title="Select this page" checked={pageAllOn} onChange={togglePage} style={{ accentColor: '#9333ea' }} /></th><th>Business</th><th>Address</th><th>Phone</th><th>Website</th><th>Rating</th><th>Email</th></tr></thead>
                   <tbody>
                     {shown.length === 0 && <tr><td colSpan={7} className="acq-sub" style={{ textAlign: 'center', padding: 20 }}>No prospects match these filters. <button type="button" className="acq-btn acq-btn-sm" onClick={() => { setFilters(DEFAULT_FILTERS); setStatusFilter('any'); }}>Clear filters</button></td></tr>}
-                    {shown.map((b) => {
+                    {pageRows.map((b) => {
                       const e = emails[b.id];
                       const host = b.website ? b.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '') : '';
                       const href = b.website ? (/^https?:\/\//i.test(b.website) ? b.website : `https://${b.website}`) : '';
@@ -417,6 +475,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                   </tbody>
                 </table>
               </div>
+              {shown.length > 10 && pager}
             </>
           )}
         </div>

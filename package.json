@@ -30,6 +30,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/nodemailer": "^8.0.1",
     "bcryptjs": "^3.0.3",
+    "country-region-data": "^4.1.0",
     "gray-matter": "^4.0.3",
     "imapflow": "^2.10.0",
     "jspdf": "^4.2.1",
