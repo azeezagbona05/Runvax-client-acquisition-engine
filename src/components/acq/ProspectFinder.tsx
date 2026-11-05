@@ -8,6 +8,8 @@ import { BizLogo, Card, EmptyState } from './ui';
 import { useAcq } from './AcqProvider';
 
 type Email = { state: 'loading' } | { state: 'done'; email: string | null };
+type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string };
+type People = { state: 'loading' } | { state: 'done'; people: Person[]; note?: string };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const label = { fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6, display: 'block' } as const;
 
@@ -32,6 +34,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [maxRun, setMaxRun] = useState(MAX_RUN_SEARCHES);
   const [want, setWant] = useState(100);
   const [progress, setProgress] = useState('');
+  const [people, setPeople] = useState<Record<string, People>>({});
+  const [findingDm, setFindingDm] = useState(false);
   const [filters, setFilters] = useState<ResultFilters>(DEFAULT_FILTERS);
   const seen = useRef(new Set<string>());
   const stop = useRef(false);
@@ -49,7 +53,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     const bad = finderError(industry, location);
     if (bad) { setError(bad); return; }
     stop.current = true; setRunning(false); setProgress('');
-    setBusy(true); setError(''); setResults(null); setFilters(DEFAULT_FILTERS); setPicked(new Set()); setEmails({}); setCtx(null); seen.current = new Set();
+    setBusy(true); setError(''); setResults(null); setFilters(DEFAULT_FILTERS); setPicked(new Set()); setEmails({}); setPeople({}); setCtx(null); seen.current = new Set();
     try {
       const res = await fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry, location, country, radius: 5, query: finderQuery(industry, location) }) });
       const j = await res.json().catch(() => ({})) as { businesses?: FinderBusiness[]; error?: string; cached?: boolean };
@@ -122,8 +126,42 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     setFinding(false);
   };
 
+  /** Decision-makers and their emails for one business: the free sources first, then the paid ones (Snov.io, Hunter…) when allowed. */
+  const findPeople = async (b: FinderBusiness) => {
+    setPeople((m) => ({ ...m, [b.id]: { state: 'loading' } }));
+    const ask = async (deep: boolean) => {
+      const res = await fetch('/api/decision-maker/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, deep }) });
+      const j = await res.json().catch(() => ({})) as { candidates?: Person[]; error?: string };
+      return { ok: res.ok, status: res.status, people: j.candidates ?? [], error: j.error };
+    };
+    try {
+      let r = await ask(false);
+      let note: string | undefined;
+      if (r.ok && !r.people.some((p) => p.email)) {
+        const deep = await ask(true);
+        if (deep.ok) r = deep;
+        else if (deep.status === 403) note = 'A deeper email search needs a paid plan.';
+        else if (deep.status === 429) note = deep.error;
+      }
+      setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: r.people, note: r.ok ? note : (r.error ?? 'Lookup failed.') } }));
+    } catch { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], note: 'Lookup failed.' } })); }
+  };
+  const findPeopleForSelected = async () => {
+    setFindingDm(true);
+    const todo = (results ?? []).filter((b) => picked.has(b.id) && !people[b.id]);
+    // Two at a time: each can chain several provider calls.
+    for (let i = 0; i < todo.length; i += 2) await Promise.all(todo.slice(i, i + 2).map(findPeople));
+    setFindingDm(false);
+  };
+  const peopleWithEmail = (b: FinderBusiness): Person[] => { const p = people[b.id]; return p?.state === 'done' ? p.people.filter((x) => x.email) : []; };
+
   const emailOf = (b: FinderBusiness) => { const e = emails[b.id]; return e?.state === 'done' ? e.email : null; };
-  const ready = (results ?? []).filter((b) => picked.has(b.id) && emailOf(b));
+  // A business is ready when we have a decision-maker's email or, failing that, its general email.
+  const ready = (results ?? []).filter((b) => picked.has(b.id) && (peopleWithEmail(b).length > 0 || emailOf(b)));
+  const leadsFor = (b: FinderBusiness): Array<{ email: string | null | undefined; name?: string; business: string; website?: string }> => {
+    const dms = peopleWithEmail(b).slice(0, 3);
+    return dms.length ? dms.map((p) => ({ email: p.email, name: p.name, business: b.name, website: b.website ?? undefined })) : [{ email: emailOf(b), business: b.name, website: b.website ?? undefined }];
+  };
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const shown = useMemo(() => filterResults(results ?? [], filters, (b) => { const e = emails[b.id]; return e?.state === 'done' && !!e.email; }), [results, filters, emails]);
   const setF = <K extends keyof ResultFilters>(k: K, v: ResultFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
@@ -133,7 +171,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     if (!target || !ready.length) return;
     setAdding(true);
     try {
-      const res = await fetch(`/api/outreach-campaigns/${target}/leads`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leads: ready.map((b) => ({ email: emailOf(b), business: b.name, website: b.website ?? undefined })) }) });
+      const res = await fetch(`/api/outreach-campaigns/${target}/leads`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leads: ready.flatMap(leadsFor) }) });
       const j = await res.json().catch(() => ({})) as { added?: number; duplicates?: number; error?: string };
       if (!res.ok) { setError(j.error ?? 'Could not add them.'); return; }
       onAdded(`Added ${j.added ?? 0} prospect${j.added === 1 ? '' : 's'} to the campaign${j.duplicates ? `; ${j.duplicates} were already there` : ''}.`);
@@ -183,7 +221,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
                 <b style={{ fontSize: 14 }}>{filtersActive(filters) ? `${shown.length} of ${results.length}` : results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(shown.map((b) => b.id)))} style={{ accentColor: '#9333ea' }} /> Select all</label>
-                <button className="acq-btn acq-btn-sm" disabled={!picked.size || finding} onClick={() => void findForSelected()}>{finding ? <Loader2 size={14} className="animate-spin" /> : null} Find emails for {picked.size || 'selected'}</button>
+                <button className="acq-btn acq-btn-sm" disabled={!picked.size || finding} onClick={() => void findForSelected()}>{finding ? <Loader2 size={14} className="animate-spin" /> : null} Find business emails for {picked.size || 'selected'}</button>
+                <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!picked.size || findingDm} onClick={() => void findPeopleForSelected()}>{findingDm ? <Loader2 size={14} className="animate-spin" /> : null} Find decision-makers for {picked.size || 'selected'}</button>
                 <select className="acq-select" aria-label="Add to campaign" style={{ width: 'auto', minWidth: 200, height: 36, marginLeft: 'auto' }} value={target} onChange={(e) => setTarget(e.target.value)}>
                   <option value="">Choose a campaign…</option>{campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -252,6 +291,23 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                             {e?.state === 'loading' ? <Loader2 size={15} className="animate-spin" />
                               : e?.state === 'done' ? (e.email ? <b>{e.email}</b> : <span className="acq-sub">No email found</span>)
                               : <button className="acq-btn acq-btn-sm" onClick={() => void findEmail(b)}>Find email</button>}
+                            {(() => {
+                              const pp = people[b.id];
+                              if (!pp) return null;
+                              if (pp.state === 'loading') return <span className="acq-sub" style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, fontSize: 12 }}><Loader2 size={13} className="animate-spin" /> Finding decision-makers…</span>;
+                              return (
+                                <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
+                                  {pp.people.length === 0 && <span className="acq-sub" style={{ fontSize: 12 }}>No decision-maker found.</span>}
+                                  {pp.people.map((p) => (
+                                    <span key={`${p.name}-${p.title}`} style={{ fontSize: 12 }}>
+                                      <b>{p.name}</b>{p.title ? <span className="acq-sub"> · {p.title}</span> : null}
+                                      <br />{p.email ? <span style={{ color: '#15803d' }}>{p.email}</span> : <span className="acq-faint">no email yet</span>}
+                                    </span>
+                                  ))}
+                                  {pp.note && <span className="acq-faint" style={{ fontSize: 11.5 }}>{pp.note}</span>}
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       );
