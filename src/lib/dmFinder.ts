@@ -13,7 +13,8 @@
 
 import { safeFetch } from '@/lib/safeFetch';
 import { apolloEnabled, domainFromUrl, findDecisionMaker } from '@/lib/apollo';
-import { domainContacts, findEmail as snovFindEmail, snovEnabled } from '@/lib/snov';
+import { domainContacts, findEmail as snovFindEmail, snovEnabled, verifyEmails } from '@/lib/snov';
+import { emailPatterns } from '@/lib/emailPatterns';
 import {
   cleanPhone, extractDecisionMaker, industryTitles, titleQuery, mapApifyItem, mergeCandidates, isStrong, parseLinkedInResult, parseSnippetResult, titleRank,
   type DmCandidate, type DmSource,
@@ -290,6 +291,25 @@ export function paidProvidersConfigured(): boolean {
   return PAID.some((p) => p.enabled());
 }
 
+/**
+ * People we have a name for but no email: try the usual address patterns on the business's domain and keep the
+ * first one Snov.io's verifier says is valid (never "unknown", which includes catch-all domains). One bulk check
+ * covers everyone. Limited to the top few people, since every pattern costs a verification credit.
+ */
+export async function fillByPattern(candidates: DmCandidate[], domain: string | null, maxPeople = 3): Promise<DmCandidate[]> {
+  if (!domain || !snovEnabled()) return candidates;
+  const need = candidates.filter((c) => !c.email && titleRank(c.title) >= 0).slice(0, maxPeople);
+  const guesses = new Map(need.map((c) => [c, emailPatterns(c.name, domain)] as const));
+  const all = Array.from(guesses.values()).flat();
+  if (!all.length) return candidates;
+  let checked: Awaited<ReturnType<typeof verifyEmails>>;
+  try { checked = await verifyEmails(all); } catch { return candidates; }
+  return candidates.map((c) => {
+    const hit = guesses.get(c)?.map((e) => checked.get(e)).find((r) => r?.smtpStatus === 'valid' && !r.disposable);
+    return hit ? { ...c, email: hit.email, emailStatus: 'Checked with Snov.io: address exists (pattern guess)', confidence: c.confidence === 'low' ? 'medium' : c.confidence } : c;
+  });
+}
+
 export async function findDecisionMakers(ctx: FindContext, opts: { deep?: boolean } = {}): Promise<FindResult> {
   const full: FindContext & { domain: string | null } = { ...ctx, domain: domainFromUrl(ctx.website) };
   const ran: DmSource[] = [];
@@ -313,6 +333,8 @@ export async function findDecisionMakers(ctx: FindContext, opts: { deep?: boolea
       candidates = mergeCandidates(found);
     }
   }
+
+  if (opts.deep) candidates = mergeCandidates(await fillByPattern(candidates, full.domain));
 
   return {
     candidates,

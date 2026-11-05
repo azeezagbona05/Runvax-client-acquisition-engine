@@ -165,6 +165,8 @@
 .acq-chip { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: 13px; font-weight: 600; color: var(--sub); }
 .acq-chip.on { background: var(--blue-soft); border-color: var(--blue-line); color: var(--blue); }
 .acq-select-wrap { position: relative; }
+/* A select given a fixed height (36px filters, etc.) has too little room left after the 9px padding, which clipped the tails of g, y and p. */
+.acq-select[style*="height"] { padding-top: 0; padding-bottom: 0; line-height: 1.3; }
 .acq-select-wrap > svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #475569; pointer-events: none; }
 .acq-select-wrap .acq-select { padding-left: 44px; height: 46px; }
 .acq-footer-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
