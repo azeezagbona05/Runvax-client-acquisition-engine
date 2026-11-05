@@ -2,47 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/requireUser';
 import { rateLimit } from '@/lib/rateLimiter';
 import { safeFetch } from '@/lib/safeFetch';
+import { pickEmail, pickSiteEmail } from '@/lib/siteEmail';
 
 export const dynamic = 'force-dynamic';
-
-const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-
-// Domains that are never real business emails — platform noise
-const SITE_NOISE = [
-  'example.com', 'sentry.io', 'wixpress.com', 'godaddy.com', 'yourdomain',
-  'noreply', 'no-reply', 'donotreply', 'mailer', 'bounce',
-  'schema.org', 'w3.org', 'openid', 'cloudflare', 'wordpress.com',
-  'nairaland.com', 'jiji.ng', 'jiji.com', 'vconnect.com', 'businesslist.com.ng', 'businesslist.com',
-  'facebook.com', 'fb.com', 'meta.com', 'instagram.com', 'twitter.com',
-  'google.com', 'googleapis.com', 'bing.com', 'microsoft.com', 'yahoo.com/help',
-  'duckduckgo.com', 'duck.com', 'ddg.gg',
-  'yellowpages.com', 'yellowpages.com.ng',
-  '.png', '.jpg', '.gif', '.webp', '.svg', '.css', '.js',
-];
-
-const PREFERRED = /^(info|contact|hello|admin|sales|enquir|hi|support|mail|office|business|shop|store|clinic|hotel|salon|school|church|law|realtor|property|cater|event|manager|ceo|director|booking)/;
-
-function pickEmail(text: string, extraExclude: string[] = []): string | null {
-  const raw = text.match(EMAIL_RE);
-  if (!raw) return null;
-  const exclude = [...SITE_NOISE, ...extraExclude];
-  const filtered = raw
-    .map((m) => m.toLowerCase().replace(/[.,;:'"<>\s]+$/, '').replace(/^[.,;:'"<>\s]+/, ''))
-    .filter((m) => {
-      if (!m.includes('@') || !m.includes('.')) return false;
-      if (m.length < 6 || m.length > 80) return false;
-      if (exclude.some((j) => m.includes(j))) return false;
-      const parts = m.split('@');
-      const local = parts[0];
-      const domain = parts[1];
-      if (!local || !domain || !domain.includes('.')) return false;
-      if (local.length < 2 || domain.length < 4) return false;
-      return true;
-    });
-  const clean = Array.from(new Set(filtered));
-  if (!clean.length) return null;
-  return clean.find((m) => PREFERRED.test(m.split('@')[0])) ?? clean[0];
-}
 
 async function fetchText(url: string, ms = 7000): Promise<string> {
   const ctrl = new AbortController();
@@ -263,9 +225,9 @@ async function tryWebsite(url: string): Promise<{ email: string; source: string 
   if (!/^https?:\/\//.test(base)) base = 'https://' + base;
   let origin = base;
   try { origin = new URL(base).origin; } catch { return null; }
-  const hostDomain = new URL(origin).hostname.replace('www.', '');
-  for (const u of [base, `${origin}/contact`, `${origin}/contact-us`, `${origin}/about`]) {
-    const email = pickEmail(await fetchText(u), [hostDomain]);
+  // The business's own domain is what we are looking for, so it is NOT excluded here.
+  for (const u of [base, `${origin}/contact`, `${origin}/contact-us`, `${origin}/contact.html`, `${origin}/about`, `${origin}/about-us`]) {
+    const email = pickSiteEmail(await fetchText(u));
     if (email) return { email, source: 'website' };
   }
   return null;
