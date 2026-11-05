@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
-  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Columns3, Crown, FileText, Home, LayoutDashboard, Lock, Mail, Menu, MessageCircle,
+  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, Lock, Mail, Menu, MessageCircle,
   Search, Send, Settings, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME } from '@/lib/home';
@@ -31,8 +31,6 @@ const NAV_GROUPS: Array<{ heading?: string; items: ReadonlyArray<{ href: string;
     { href: '/client-acquisition/integrations', label: 'Integrations', icon: Zap },
   ] },
   { heading: 'Prospecting', items: [
-    { href: '/pipeline', label: 'Prospect CRM', icon: Columns3 },
-    { href: '/command-centre', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/', label: 'Classic Find Prospects', icon: Search, exact: true },
   ] },
   { items: [
