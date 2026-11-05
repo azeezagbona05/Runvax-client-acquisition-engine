@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { FINDER_INDUSTRIES, finderError, finderQuery } from '@/lib/acqFinder';
+import { DEFAULT_FILTERS, FINDER_INDUSTRIES, filterResults, filtersActive, finderError, finderQuery, type FinderBusiness } from '@/lib/acqFinder';
 
 describe('prospect finder form', () => {
   it('builds the same query sentence V1 sends', () => {
@@ -75,5 +75,48 @@ describe('load more: same location, then landmarks, then the wider grid', () => 
     c = advanceFinder(c, 0);
     for (let i = 0; i < GRID_STEPS; i++) c = advanceFinder(c, 1);
     expect(stopReason(c, 0)).toMatch(/nothing more/);
+  });
+});
+
+
+describe('filterResults', () => {
+  const b = (id: string, over: Partial<FinderBusiness> = {}): FinderBusiness => ({ id, name: id, address: '', ...over });
+  const all = [
+    b('a', { website: 'a.com', rating: 4.8, reviewCount: 120, phone: '1' }),
+    b('b', { rating: 3.2, reviewCount: 8 }),
+    b('c', { website: 'c.com', rating: 4.1, reviewCount: 30 }),
+    b('d', {}),
+    b('e', { rating: 2.5, reviewCount: 60, phone: '2' }),
+  ];
+  const ids = (xs: FinderBusiness[]) => xs.map((x) => x.id).join('');
+  const f = (over: Partial<typeof DEFAULT_FILTERS>) => ({ ...DEFAULT_FILTERS, ...over });
+
+  it('keeps everything in the order found by default', () => {
+    expect(ids(filterResults(all, DEFAULT_FILTERS))).toBe('abcde');
+    expect(filtersActive(DEFAULT_FILTERS)).toBe(false);
+  });
+  it('filters by website', () => {
+    expect(ids(filterResults(all, f({ website: 'with' })))).toBe('ac');
+    expect(ids(filterResults(all, f({ website: 'without' })))).toBe('bde');
+  });
+  it('puts no-website businesses first without dropping the others, keeping the original order within each group', () => {
+    expect(ids(filterResults(all, f({ sort: 'no-website-first' })))).toBe('bdeac');
+    expect(ids(filterResults(all, f({ sort: 'website-first' })))).toBe('acbde');
+  });
+  it('filters by rating, with unrated ones only matching "No rating yet"', () => {
+    expect(ids(filterResults(all, f({ rating: '4+' })))).toBe('ac');
+    expect(ids(filterResults(all, f({ rating: 'under3.5' })))).toBe('be');
+    expect(ids(filterResults(all, f({ rating: 'unrated' })))).toBe('d');
+  });
+  it('sorts by rating with unrated last either way, and by reviews', () => {
+    expect(ids(filterResults(all, f({ sort: 'rating-high' })))).toBe('acbed');
+    expect(ids(filterResults(all, f({ sort: 'rating-low' })))).toBe('ebcad');
+    expect(ids(filterResults(all, f({ sort: 'reviews-high' })))).toBe('aecbd');
+  });
+  it('combines filters: no website, rated under 4, at least 20 reviews, with a phone', () => {
+    expect(ids(filterResults(all, f({ website: 'without', rating: 'under4', minReviews: 20, phoneOnly: true })))).toBe('e');
+  });
+  it('can limit to businesses whose email was found', () => {
+    expect(ids(filterResults(all, f({ emailOnly: true }), (x) => x.id === 'c' || x.id === 'd'))).toBe('cd');
   });
 });

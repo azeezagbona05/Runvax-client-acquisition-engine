@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { findEmail, resetSnovToken, snovEnabled, splitName, verifyEmail } from '@/lib/snov';
+import { domainContacts, findEmail, findEmails, resetSnovToken, setSnovGap, snovEnabled, splitName, verifyEmail, verifyEmails } from '@/lib/snov';
 
 type Reply = { ok?: boolean; status?: number; body: unknown };
 const json = (r: Reply) => ({ ok: r.ok ?? true, status: r.status ?? 200, json: async () => r.body }) as unknown as Response;
@@ -21,7 +21,7 @@ function fakeSnov(routes: Record<string, Reply[]>) {
 const TOKEN: Reply = { body: { access_token: 'tok', expires_in: 3600 } };
 const FAST = { pollMs: 0 };
 
-beforeEach(() => { resetSnovToken(); process.env.SNOV_CLIENT_ID = 'id'; process.env.SNOV_CLIENT_SECRET = 'secret'; });
+beforeEach(() => { setSnovGap(0); resetSnovToken(); process.env.SNOV_CLIENT_ID = 'id'; process.env.SNOV_CLIENT_SECRET = 'secret'; });
 afterEach(() => { vi.unstubAllGlobals(); delete process.env.SNOV_CLIENT_ID; delete process.env.SNOV_CLIENT_SECRET; });
 
 describe('snovEnabled', () => {
@@ -117,5 +117,97 @@ describe('verifyEmail', () => {
       '/email-verification/result': [{ body: { status: 'completed', data: [{ email: 'a@x.com', result: { smtp_status: 'not_valid', is_disposable: true } }] } }],
     });
     expect(await verifyEmail('a@x.com', FAST)).toMatchObject({ email: 'a@x.com', smtpStatus: 'not_valid', disposable: true });
+  });
+});
+
+describe('verifyEmails (bulk)', () => {
+  it('sends 10 per request, de-duplicates, and maps every answer', async () => {
+    const emails = Array.from({ length: 12 }, (_, i) => `p${i}@clinic.com`);
+    const calls = fakeSnov({
+      '/v1/oauth/access_token': [TOKEN],
+      '/email-verification/start': [{ body: { data: { task_hash: 'a' } } }, { body: { data: { task_hash: 'b' } } }],
+      '/email-verification/result?task_hash=a': [{ body: { status: 'completed', data: emails.slice(0, 10).map((email) => ({ email, result: { smtp_status: email === 'p3@clinic.com' ? 'not_valid' : 'valid' } })) } }],
+      '/email-verification/result?task_hash=b': [{ body: { status: 'completed', data: emails.slice(10).map((email) => ({ email, result: { smtp_status: 'unknown', unknown_status_reason: 'catchall' } })) } }],
+    });
+    const seen: number[] = [];
+    const out = await verifyEmails([...emails, 'P0@clinic.com'], { ...FAST, onProgress: (d) => seen.push(d) });
+    const starts = calls.filter((c) => c.url.endsWith('/email-verification/start'));
+    expect(starts).toHaveLength(2);
+    expect(JSON.parse(starts[0].body!).emails).toHaveLength(10);
+    expect(JSON.parse(starts[1].body!).emails).toHaveLength(2);
+    expect(out.size).toBe(12);
+    expect(out.get('p3@clinic.com')?.smtpStatus).toBe('not_valid');
+    expect(out.get('p11@clinic.com')).toMatchObject({ smtpStatus: 'unknown', reason: 'catchall' });
+    expect(seen).toEqual([10, 12]);
+  });
+
+  it('keeps what it has and stops when credits run out', async () => {
+    fakeSnov({
+      '/v1/oauth/access_token': [TOKEN],
+      '/email-verification/start': [{ body: { data: { task_hash: 'a' } } }, { body: { data: { task_hash: 'b' } } }],
+      '/email-verification/result?task_hash=a': [{ body: { status: 'completed', data: [{ email: 'a@x.com', result: { smtp_status: 'valid' } }] } }],
+      '/email-verification/result?task_hash=b': [{ body: { status: 'not_enough_credits' } }],
+    });
+    const emails = Array.from({ length: 11 }, (_, i) => `u${i}@x.com`);
+    emails[0] = 'a@x.com';
+    const out = await verifyEmails(emails, FAST);
+    expect(out.get('a@x.com')?.smtpStatus).toBe('valid');
+    expect(out.size).toBe(1);
+  });
+});
+
+describe('findEmails (bulk)', () => {
+  it('looks up several people in one request and keys results by domain and name', async () => {
+    const calls = fakeSnov({
+      '/v1/oauth/access_token': [TOKEN],
+      '/emails-by-domain-by-name/start': [{ body: { data: { task_hash: 'h' } } }],
+      '/emails-by-domain-by-name/result': [{ body: { status: 'completed', data: [
+        { result: [{ email: 'ada@a.com', smtp_status: 'valid' }] }, { result: [] }, { result: [{ email: 'bo@c.com', smtp_status: 'unknown' }] },
+      ] } }],
+    });
+    const out = await findEmails([
+      { domain: 'a.com', fullName: 'Ada Okafor' }, { domain: 'b.com', fullName: 'Bo Lee' }, { domain: 'c.com', fullName: 'Bo Chen' }, { domain: 'd.com', fullName: 'Madonna' },
+    ], FAST);
+    expect(JSON.parse(calls.find((c) => c.url.endsWith('/start'))!.body!).rows).toHaveLength(3);
+    expect(out.get('a.com|ada okafor')?.email).toBe('ada@a.com');
+    expect(out.has('b.com|bo lee')).toBe(false);
+    expect(out.get('c.com|bo chen')?.smtpStatus).toBe('unknown');
+  });
+});
+
+describe('domainContacts (website only)', () => {
+  it('lists people at the domain, then looks up each one email, up to the cap', async () => {
+    const calls = fakeSnov({
+      '/v1/oauth/access_token': [TOKEN],
+      '/domain-search/prospects/start': [{ body: { meta: { task_hash: 'p1' } } }],
+      '/domain-search/prospects/result/p1': [{ body: { status: 'completed', data: [
+        { first_name: 'Ada', last_name: 'Okafor', position: 'Owner', source_page: 'https://x.com/team', search_emails_start: 'https://api.snov.io/v2/domain-search/prospects/search-emails/start/H1' },
+        { first_name: 'Bo', last_name: 'Lee', position: 'Practice Manager', search_emails_start: 'https://api.snov.io/v2/domain-search/prospects/search-emails/start/H2' },
+        { first_name: 'Cy', last_name: 'Ng', position: 'Dentist', search_emails_start: 'https://api.snov.io/v2/domain-search/prospects/search-emails/start/H3' },
+      ] } }],
+      '/search-emails/start/H1': [{ body: { meta: { task_hash: 'e1' } } }],
+      '/search-emails/start/H2': [{ body: { meta: { task_hash: 'e2' } } }],
+      '/search-emails/result/e1': [{ body: { status: 'completed', data: { emails: [{ email: 'ada@x.com', smtp_status: 'valid' }] } } }],
+      '/search-emails/result/e2': [{ body: { status: 'completed', data: { emails: [] } } }],
+    });
+    const out = await domainContacts('x.com', { ...FAST, positions: ['Owner', 'Manager'], max: 2 });
+    expect(out).toEqual([
+      { name: 'Ada Okafor', position: 'Owner', sourcePage: 'https://x.com/team', email: 'ada@x.com', smtpStatus: 'valid' },
+      { name: 'Bo Lee', position: 'Practice Manager', sourcePage: undefined },
+    ]);
+    expect(calls.some((c) => c.url.includes('/H3'))).toBe(false);
+    expect(JSON.parse(calls.find((c) => c.url.endsWith('/prospects/start'))!.body!)).toMatchObject({ domain: 'x.com', positions: ['Owner', 'Manager'] });
+  });
+
+  it('never follows a lookup link that points off Snov', async () => {
+    const calls = fakeSnov({
+      '/v1/oauth/access_token': [TOKEN],
+      '/domain-search/prospects/start': [{ body: { meta: { task_hash: 'p1' } } }],
+      '/domain-search/prospects/result/p1': [{ body: { status: 'completed', data: [{ first_name: 'Ada', last_name: 'Okafor', position: 'Owner', search_emails_start: 'https://evil.test/steal' }] } }],
+    });
+    const out = await domainContacts('x.com', FAST);
+    expect(out).toHaveLength(1);
+    expect(out[0].email).toBeUndefined();
+    expect(calls.some((c) => c.url.includes('evil.test'))).toBe(false);
   });
 });

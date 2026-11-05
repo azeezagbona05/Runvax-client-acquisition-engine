@@ -5,13 +5,15 @@
  *   npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/snov-trial.ts --check
  *   ... scripts/snov-trial.ts --find "Ada Okafor" --domain example-clinic.com     # Email Finder: 1 credit if an address is found
  *   ... scripts/snov-trial.ts --verify someone@example.com                         # Email Verifier
+ *   ... scripts/snov-trial.ts --verify-many a@x.com,b@y.com,c@z.com                # bulk verifier, 10 per request
+ *   ... scripts/snov-trial.ts --contacts --domain example-clinic.com               # people + emails from a website's domain (1 credit + 1 per email found)
  *
  * --check only signs in and costs no credits. --find and --verify spend credits on your
  * Snov.io plan, so they only run when you pass them. Keys are read from .env.local / .env
  * or the shell; a value already in the shell wins.
  */
 import { config } from 'dotenv';
-import { findEmail, snovEnabled, verifyEmail } from '../src/lib/snov';
+import { domainContacts, findEmail, snovEnabled, verifyEmail, verifyEmails } from '../src/lib/snov';
 
 config({ path: '.env.local' });
 config();
@@ -27,6 +29,14 @@ async function main() {
     if (!domain) { console.error('--find needs --domain.'); process.exit(1); }
     console.log(`Looking for ${name} at ${domain} …`);
     console.log(await findEmail(domain, name) ?? 'No address found (nothing charged).');
+  } else if (flag('--verify-many')) {
+    const list = (flag('--verify-many') ?? '').split(',').map((e) => e.trim()).filter(Boolean);
+    console.log(`Verifying ${list.length} addresses in bulk …`);
+    console.log(Array.from((await verifyEmails(list, { onProgress: (d, t) => console.log(`  ${d}/${t}`) })).values()));
+  } else if (args.includes('--contacts')) {
+    if (!domain) { console.error('--contacts needs --domain.'); process.exit(1); }
+    console.log(`Looking up people at ${domain} …`);
+    console.log(await domainContacts(domain, { max: 3 }));
   } else if (email) {
     console.log(`Verifying ${email} …`);
     console.log(await verifyEmail(email) ?? 'No answer from Snov.io in time.');

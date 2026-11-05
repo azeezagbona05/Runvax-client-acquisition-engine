@@ -13,7 +13,7 @@
 
 import { safeFetch } from '@/lib/safeFetch';
 import { apolloEnabled, domainFromUrl, findDecisionMaker } from '@/lib/apollo';
-import { findEmail as snovFindEmail, snovEnabled } from '@/lib/snov';
+import { domainContacts, findEmail as snovFindEmail, snovEnabled } from '@/lib/snov';
 import {
   cleanPhone, extractDecisionMaker, industryTitles, titleQuery, mapApifyItem, mergeCandidates, isStrong, parseLinkedInResult, parseSnippetResult, titleRank,
   type DmCandidate, type DmSource,
@@ -195,21 +195,39 @@ const hunter: Provider = {
 
 // ── Paid: Snov.io ────────────────────────────────────────────────────────────
 
-/** Email Finder only: it needs a person's name (from the website, search, or the sender), then returns their address. */
+/**
+ * With a person already named, Email Finder returns that person's address. Either way, Domain Search
+ * then lists other people Snov knows at the business's domain (filtered to this industry's
+ * decision-maker titles) and looks up each one's email, so one business can yield several contacts.
+ * Only runs on a deeper search, which is capped per user per day.
+ */
 const snov: Provider = {
   id: 'snov', paid: true, enabled: snovEnabled,
-  async run({ domain, knownPerson }) {
-    if (!domain || !knownPerson?.name) return [];
+  async run({ domain, knownPerson, category, categoryTypes }) {
+    if (!domain) return [];
+    const out: DmCandidate[] = [];
+    const label = (st?: string, reason?: string) => (st === 'valid' ? 'Snov.io: valid' : `Snov.io: ${st ?? 'unknown'}${reason ? ` (${reason})` : ''}`);
     try {
-      const found = await snovFindEmail(domain, knownPerson.name);
-      if (!found) return [];
-      return [{
-        name: knownPerson.name, title: knownPerson.title ?? '', source: 'snov',
-        confidence: found.smtpStatus === 'valid' ? 'high' : 'medium',
-        email: found.email,
-        emailStatus: found.smtpStatus === 'valid' ? 'Snov.io: valid' : `Snov.io: ${found.smtpStatus}${found.reason ? ` (${found.reason})` : ''}`,
-      }];
-    } catch { return []; }
+      if (knownPerson?.name) {
+        const found = await snovFindEmail(domain, knownPerson.name);
+        if (found) {
+          out.push({
+            name: knownPerson.name, title: knownPerson.title ?? '', source: 'snov',
+            confidence: found.smtpStatus === 'valid' ? 'high' : 'medium', email: found.email, emailStatus: label(found.smtpStatus, found.reason),
+          });
+        }
+      }
+    } catch { /* fall through to the domain list */ }
+    try {
+      const people = await domainContacts(domain, { positions: industryTitles(category, categoryTypes), max: 3 });
+      for (const p of people) {
+        out.push({
+          name: p.name, title: p.position, source: 'snov', confidence: p.smtpStatus === 'valid' ? 'high' : 'medium',
+          ...(p.email ? { email: p.email, emailStatus: label(p.smtpStatus) } : {}),
+        });
+      }
+    } catch { /* a failing lookup contributes nothing */ }
+    return out;
   },
 };
 

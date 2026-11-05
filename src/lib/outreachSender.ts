@@ -16,6 +16,7 @@ import type { Transporter } from 'nodemailer';
 import { prisma } from '@/lib/prisma';
 import { checkRecipient } from '@/lib/acquisition/recipientGuard';
 import { getAppUrl } from '@/lib/url';
+import { snovEnabled, verifyEmail, type SnovEmail } from '@/lib/snov';
 import { trackedLink } from '@/lib/trackedLink';
 import { conditionMet, followUpWaits, sanitizeAutomation } from '@/lib/automation';
 import { STOPS_FOLLOW_UPS } from '@/lib/replyIntel';
@@ -104,6 +105,30 @@ interface Deps {
   sleep?: (ms: number) => Promise<void>;
   pauseMs?: number;
   appUrl?: string;
+  /** Address check run before a first email. Defaults to Snov.io when SNOV_VERIFY_BEFORE_SEND is on. Tests inject one. */
+  verify?: ((email: string) => Promise<SnovEmail | null>) | null;
+}
+
+/**
+ * Snov.io address check before a FIRST email (follow-ups go to addresses that already accepted a message).
+ * Off unless SNOV_VERIFY_BEFORE_SEND=true and the Snov keys are set, because every check costs a credit.
+ * It fails open: if Snov is down, slow or out of credits, the email is sent as before.
+ */
+function defaultVerifier(): ((email: string) => Promise<SnovEmail | null>) | null {
+  const on = /^(1|true|yes)$/i.test(process.env.SNOV_VERIFY_BEFORE_SEND?.trim() ?? '');
+  return on && snovEnabled() ? (email) => verifyEmail(email) : null;
+}
+
+/** A reason to skip this address, or null to send. */
+async function addressProblem(verify: Deps['verify'], email: string): Promise<string | null> {
+  if (!verify) return null;
+  try {
+    const r = await verify(email);
+    if (!r) return null;
+    if (r.smtpStatus === 'not_valid') return 'Snov.io: this address does not exist, so it was not emailed.';
+    if (r.disposable) return 'Snov.io: this is a disposable address, so it was not emailed.';
+  } catch { /* fail open */ }
+  return null;
 }
 
 // Errors that mean "the mailbox or network is broken", not "this recipient is bad".
@@ -188,6 +213,7 @@ export async function sendBatch(
 
   const out = empty({});
   const isFollowUp = args.kind === 'followup';
+  const verify = isFollowUp ? null : deps.verify === undefined ? defaultVerifier() : deps.verify;
 
   for (const lead of leads) {
     // 1. Claim it. If another request got there first, move on.
@@ -222,6 +248,14 @@ export async function sendBatch(
         break;
       }
       await prisma.outreachLead.update({ where: { id: lead.id }, data: { status: 'skipped', error: verdict.message.slice(0, 500) } });
+      out.skipped++;
+      continue;
+    }
+
+    // 2b. Does the address exist? (Snov.io, when switched on.)
+    const problem = await addressProblem(verify, lead.email);
+    if (problem) {
+      await prisma.outreachLead.update({ where: { id: lead.id }, data: { status: 'skipped', error: problem } });
       out.skipped++;
       continue;
     }

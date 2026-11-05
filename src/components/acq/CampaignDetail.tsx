@@ -5,7 +5,7 @@ import { sanitizeAutomation } from '@/lib/automation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertTriangle, ArrowLeft, Check, Eye, FileText, Link2, Loader2, Mail, MessageCircle, Pause, Pencil, Play, Plus, Send, Sparkles, Trash2, Undo2, Wand2, X,
+  AlertTriangle, ArrowLeft, Check, Eye, FileText, Link2, Loader2, Mail, MessageCircle, Pause, Pencil, Play, Plus, Send, ShieldCheck, Sparkles, Trash2, Undo2, Wand2, X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
@@ -180,6 +180,35 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
   const pause = async () => { stop.current = true; await patch({ action: 'pause' }); setNotice('Paused. Nothing more will be sent until you press Resume.'); };
 
   /** Writes each waiting lead's first email with the RUNVAX pitch engine, a few at a time, until none are left. */
+  const [checkAvailable, setCheckAvailable] = useState(false);
+  const [checking, setChecking] = useState('');
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/outreach-campaigns/${id}/verify`).then((r) => (r.ok ? r.json() : null)).then((j: { available?: boolean } | null) => { if (live) setCheckAvailable(!!j?.available); }).catch(() => {});
+    return () => { live = false; };
+  }, [id]);
+
+  /** Checks every waiting address with Snov.io, 50 at a time, and removes the ones that do not exist. */
+  const checkEmails = async () => {
+    if (!window.confirm('Check every waiting email address with Snov.io? Addresses that do not exist are skipped so they never bounce. This uses one Snov.io credit per address.')) return;
+    setChecking('Starting…'); setNotice('');
+    let checked = 0, bad = 0, unsure = 0, unanswered = 0, stoppedMsg = '';
+    try {
+      let after: string | undefined;
+      for (let i = 0; i < 100; i++) {
+        const res = await fetch(`/api/outreach-campaigns/${id}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ after }) });
+        const json = await res.json() as { checked?: number; invalid?: number; disposable?: number; unsure?: number; unanswered?: number; next?: string | null; error?: string };
+        if (!res.ok) { stoppedMsg = json.error ?? 'Could not check the emails.'; break; }
+        checked += json.checked ?? 0; bad += (json.invalid ?? 0) + (json.disposable ?? 0); unsure += json.unsure ?? 0; unanswered += json.unanswered ?? 0;
+        setChecking(`${checked} checked…`);
+        await load();
+        if (!json.next) break;
+        after = json.next;
+      }
+      setNotice(`${checked} address${checked === 1 ? '' : 'es'} checked: ${bad} bad removed${unsure ? `, ${unsure} could not be confirmed (still queued)` : ''}${unanswered ? `, ${unanswered} not answered` : ''}.${stoppedMsg ? ` ${stoppedMsg}` : ''}`);
+    } finally { setChecking(''); await refresh(); }
+  };
+
   const personalise = async () => {
     setWriting('Starting…'); setNotice('');
     let done = 0, failed = 0, stoppedMsg = '';
@@ -296,6 +325,21 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
       </div>
 
       <CampaignPipeline leads={data.leads} brief={briefOf(campaign)} onChanged={refresh} />
+
+      {stats.queued > 0 && checkAvailable && (
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <span style={{ width: 42, height: 42, borderRadius: 12, background: '#dcfce7', color: '#16a34a', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><ShieldCheck size={20} /></span>
+            <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+              <p style={{ fontWeight: 700, fontSize: 14.5 }}>Check the waiting email addresses</p>
+              <p className="acq-sub" style={{ fontSize: 13 }}>Finds addresses that do not exist before you send, so they never bounce and hurt your sender reputation. Checks {stats.queued} in bulk with Snov.io, one credit each.</p>
+            </div>
+            <button className="acq-btn acq-btn-primary" onClick={() => void checkEmails()} disabled={!!checking || !!writing || !!busy}>
+              {checking ? <><Loader2 size={15} className="animate-spin" /> {checking}</> : <><ShieldCheck size={15} /> Check emails</>}
+            </button>
+          </div>
+        </Card>
+      )}
 
       {stats.queued > 0 && (
         <Card>

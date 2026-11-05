@@ -30,6 +30,68 @@ export interface FinderBusiness {
   foundBy?: string;
 }
 
+// ── Filtering and sorting the results table ─────────────────────────────────
+
+export type WebsiteFilter = 'any' | 'with' | 'without';
+export type RatingFilter = 'any' | '4.5+' | '4+' | '3.5+' | '3+' | 'under4' | 'under3.5' | 'unrated';
+export type SortKey = 'found' | 'no-website-first' | 'website-first' | 'rating-high' | 'rating-low' | 'reviews-high';
+
+export interface ResultFilters {
+  website: WebsiteFilter;
+  rating: RatingFilter;
+  /** Fewest reviews to keep (0 = no minimum). */
+  minReviews: number;
+  phoneOnly: boolean;
+  /** Only businesses whose email has been found (the caller supplies who). */
+  emailOnly: boolean;
+  sort: SortKey;
+}
+
+export const DEFAULT_FILTERS: ResultFilters = { website: 'any', rating: 'any', minReviews: 0, phoneOnly: false, emailOnly: false, sort: 'found' };
+
+const hasSite = (b: FinderBusiness) => !!b.website?.trim();
+
+function ratingOk(b: FinderBusiness, f: RatingFilter): boolean {
+  const r = b.rating;
+  if (f === 'any') return true;
+  if (f === 'unrated') return typeof r !== 'number';
+  if (typeof r !== 'number') return false;
+  switch (f) {
+    case '4.5+': return r >= 4.5;
+    case '4+': return r >= 4;
+    case '3.5+': return r >= 3.5;
+    case '3+': return r >= 3;
+    case 'under4': return r < 4;
+    case 'under3.5': return r < 3.5;
+  }
+}
+
+/** The results that pass the filters, in the chosen order. Sorting is stable, so the original order breaks ties. */
+export function filterResults(all: FinderBusiness[], f: ResultFilters, hasEmail: (b: FinderBusiness) => boolean = () => false): FinderBusiness[] {
+  const kept = all.filter((b) =>
+    (f.website === 'any' || (f.website === 'with') === hasSite(b))
+    && ratingOk(b, f.rating)
+    && (f.minReviews <= 0 || (b.reviewCount ?? 0) >= f.minReviews)
+    && (!f.phoneOnly || !!b.phone?.trim())
+    && (!f.emailOnly || hasEmail(b)));
+  const idx = new Map(all.map((b, i) => [b.id, i]));
+  const num = (v: number | undefined, missing: number) => (typeof v === 'number' ? v : missing);
+  const cmp: Record<SortKey, (a: FinderBusiness, b: FinderBusiness) => number> = {
+    found: () => 0,
+    'no-website-first': (a, b) => Number(hasSite(a)) - Number(hasSite(b)),
+    'website-first': (a, b) => Number(hasSite(b)) - Number(hasSite(a)),
+    // Unrated businesses go last whichever way the rating is sorted.
+    'rating-high': (a, b) => num(b.rating, -1) - num(a.rating, -1),
+    'rating-low': (a, b) => num(a.rating, 99) - num(b.rating, 99),
+    'reviews-high': (a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0),
+  };
+  return kept.sort((a, b) => cmp[f.sort](a, b) || (idx.get(a.id) ?? 0) - (idx.get(b.id) ?? 0));
+}
+
+export function filtersActive(f: ResultFilters): boolean {
+  return f.website !== 'any' || f.rating !== 'any' || f.minReviews > 0 || f.phoneOnly || f.emailOnly;
+}
+
 /** Validates the form like V1 does: a category from the list and a location. Returns the error, or null. */
 export function finderError(industry: string, location: string): string | null {
   if (!industry.trim()) return 'Choose a business category.';

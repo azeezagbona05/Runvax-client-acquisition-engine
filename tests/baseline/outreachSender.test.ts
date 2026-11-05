@@ -200,6 +200,54 @@ describe('sendBatch: first emails', () => {
   });
 });
 
+describe('sendBatch: address check (Snov.io)', () => {
+  const snov = (smtpStatus: 'valid' | 'not_valid' | 'unknown', disposable = false) => ({ email: 'x@y.com', smtpStatus, disposable, webmail: false });
+
+  it('skips an address Snov says does not exist, and sends the rest', async () => {
+    db.leads = [lead(1), lead(2)];
+    const verify = vi.fn(async (e: string) => (e === 'p1@clinic.com' ? snov('not_valid') : snov('valid')));
+    const r = await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial' }, { ...deps, verify });
+    expect(r).toMatchObject({ sent: 1, skipped: 1 });
+    expect(byId('l1')).toMatchObject({ status: 'skipped' });
+    expect(String(byId('l1').error)).toContain('does not exist');
+    expect(sendMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips disposable addresses', async () => {
+    db.leads = [lead(1)];
+    const r = await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial' }, { ...deps, verify: async () => snov('valid', true) });
+    expect(r).toMatchObject({ sent: 0, skipped: 1 });
+  });
+
+  it('sends when Snov cannot decide (unknown) or does not answer', async () => {
+    db.leads = [lead(1), lead(2)];
+    const verify = vi.fn(async (e: string) => (e === 'p1@clinic.com' ? snov('unknown') : null));
+    const r = await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial' }, { ...deps, verify });
+    expect(r).toMatchObject({ sent: 2, skipped: 0 });
+  });
+
+  it('fails open when the check throws (outage, out of credits)', async () => {
+    db.leads = [lead(1)];
+    const r = await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial' }, { ...deps, verify: async () => { throw new Error('Snov.io: not enough credits.'); } });
+    expect(r).toMatchObject({ sent: 1, skipped: 0 });
+  });
+
+  it('never checks follow-ups', async () => {
+    db.leads = [lead(1, { status: 'sent', lastSentAt: new Date(NOW - 5 * DAY), sentAt: new Date(NOW - 5 * DAY), messageId: '<a@b>' })];
+    const verify = vi.fn(async () => snov('not_valid'));
+    const r = await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'followup' }, { ...deps, verify });
+    expect(verify).not.toHaveBeenCalled();
+    expect(r.sent).toBe(1);
+  });
+
+  it('does nothing unless switched on', async () => {
+    delete process.env.SNOV_VERIFY_BEFORE_SEND;
+    db.leads = [lead(1)];
+    const r = await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial' }, deps);
+    expect(r.sent).toBe(1);
+  });
+});
+
 describe('sendBatch: personalised first emails', () => {
   it("uses the lead's own written email instead of the template, but keeps the unsubscribe link", async () => {
     db.leads = [lead(1, { customSubject: 'About Clinic 1 specifically', customBody: 'Hello Dr Obi, I noticed your clinic.' }), lead(2)];

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Search, Square, Star, Zap } from 'lucide-react';
 import { AREAS, STATES } from '@/lib/areas';
-import { FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_RUN_SEARCHES, advanceFinder, finderError, finderQuery, planStep, startFinder, stepsLeft, stopReason, type FinderBusiness, type FinderCtx } from '@/lib/acqFinder';
+import { DEFAULT_FILTERS, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_RUN_SEARCHES, advanceFinder, filterResults, filtersActive, finderError, finderQuery, planStep, startFinder, stepsLeft, stopReason, type FinderBusiness, type FinderCtx, type RatingFilter, type ResultFilters, type SortKey, type WebsiteFilter } from '@/lib/acqFinder';
 import { BizLogo, Card, EmptyState } from './ui';
 import { useAcq } from './AcqProvider';
 
@@ -32,6 +32,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [maxRun, setMaxRun] = useState(MAX_RUN_SEARCHES);
   const [want, setWant] = useState(100);
   const [progress, setProgress] = useState('');
+  const [filters, setFilters] = useState<ResultFilters>(DEFAULT_FILTERS);
   const seen = useRef(new Set<string>());
   const stop = useRef(false);
   useEffect(() => () => { stop.current = true; }, []);
@@ -48,7 +49,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     const bad = finderError(industry, location);
     if (bad) { setError(bad); return; }
     stop.current = true; setRunning(false); setProgress('');
-    setBusy(true); setError(''); setResults(null); setPicked(new Set()); setEmails({}); setCtx(null); seen.current = new Set();
+    setBusy(true); setError(''); setResults(null); setFilters(DEFAULT_FILTERS); setPicked(new Set()); setEmails({}); setCtx(null); seen.current = new Set();
     try {
       const res = await fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry, location, country, radius: 5, query: finderQuery(industry, location) }) });
       const j = await res.json().catch(() => ({})) as { businesses?: FinderBusiness[]; error?: string; cached?: boolean };
@@ -124,7 +125,9 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const emailOf = (b: FinderBusiness) => { const e = emails[b.id]; return e?.state === 'done' ? e.email : null; };
   const ready = (results ?? []).filter((b) => picked.has(b.id) && emailOf(b));
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const allOn = !!results?.length && results.every((b) => picked.has(b.id));
+  const shown = useMemo(() => filterResults(results ?? [], filters, (b) => { const e = emails[b.id]; return e?.state === 'done' && !!e.email; }), [results, filters, emails]);
+  const setF = <K extends keyof ResultFilters>(k: K, v: ResultFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
+  const allOn = !!shown.length && shown.every((b) => picked.has(b.id));
 
   const add = async () => {
     if (!target || !ready.length) return;
@@ -178,13 +181,36 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
           {results.length === 0 ? <EmptyState title="No businesses found" body="Try a nearby area or a different category." /> : (
             <>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
-                <b style={{ fontSize: 14 }}>{results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(results.map((b) => b.id)))} style={{ accentColor: '#9333ea' }} /> Select all</label>
+                <b style={{ fontSize: 14 }}>{filtersActive(filters) ? `${shown.length} of ${results.length}` : results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(shown.map((b) => b.id)))} style={{ accentColor: '#9333ea' }} /> Select all</label>
                 <button className="acq-btn acq-btn-sm" disabled={!picked.size || finding} onClick={() => void findForSelected()}>{finding ? <Loader2 size={14} className="animate-spin" /> : null} Find emails for {picked.size || 'selected'}</button>
                 <select className="acq-select" aria-label="Add to campaign" style={{ width: 'auto', minWidth: 200, height: 36, marginLeft: 'auto' }} value={target} onChange={(e) => setTarget(e.target.value)}>
                   <option value="">Choose a campaign…</option>{campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!target || !ready.length || adding} onClick={() => void add()}>{adding ? <Loader2 size={14} className="animate-spin" /> : null} Add {ready.length} to campaign</button>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', margin: '4px 0 10px', padding: 10, border: '1px solid #e2e8f0', borderRadius: 12 }} role="group" aria-label="Filter and sort the prospects">
+                <div><label style={label} htmlFor="pf-f-web">Website</label>
+                  <select id="pf-f-web" className="acq-select" style={{ height: 34, width: 'auto' }} value={filters.website} onChange={(e) => setF('website', e.target.value as WebsiteFilter)}>
+                    <option value="any">Any</option><option value="without">No website</option><option value="with">Has a website</option>
+                  </select></div>
+                <div><label style={label} htmlFor="pf-f-rate">Rating</label>
+                  <select id="pf-f-rate" className="acq-select" style={{ height: 34, width: 'auto' }} value={filters.rating} onChange={(e) => setF('rating', e.target.value as RatingFilter)}>
+                    <option value="any">Any</option><option value="4.5+">4.5 and up</option><option value="4+">4.0 and up</option><option value="3.5+">3.5 and up</option><option value="3+">3.0 and up</option>
+                    <option value="under4">Under 4.0</option><option value="under3.5">Under 3.5</option><option value="unrated">No rating yet</option>
+                  </select></div>
+                <div><label style={label} htmlFor="pf-f-rev">Reviews</label>
+                  <select id="pf-f-rev" className="acq-select" style={{ height: 34, width: 'auto' }} value={filters.minReviews} onChange={(e) => setF('minReviews', Number(e.target.value))}>
+                    <option value={0}>Any</option><option value={5}>5 or more</option><option value={20}>20 or more</option><option value={50}>50 or more</option><option value={100}>100 or more</option>
+                  </select></div>
+                <div><label style={label} htmlFor="pf-f-sort">Show first</label>
+                  <select id="pf-f-sort" className="acq-select" style={{ height: 34, width: 'auto' }} value={filters.sort} onChange={(e) => setF('sort', e.target.value as SortKey)}>
+                    <option value="found">Order found</option><option value="no-website-first">No website first</option><option value="website-first">Has a website first</option>
+                    <option value="rating-high">Highest rated</option><option value="rating-low">Lowest rated</option><option value="reviews-high">Most reviews</option>
+                  </select></div>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, height: 34 }}><input type="checkbox" checked={filters.phoneOnly} onChange={(e) => setF('phoneOnly', e.target.checked)} style={{ accentColor: '#9333ea' }} /> Has a phone</label>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, height: 34 }}><input type="checkbox" checked={filters.emailOnly} onChange={(e) => setF('emailOnly', e.target.checked)} style={{ accentColor: '#9333ea' }} /> Email found</label>
+                {filtersActive(filters) || filters.sort !== 'found' ? <button type="button" className="acq-btn acq-btn-sm" onClick={() => setFilters(DEFAULT_FILTERS)}>Clear</button> : null}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 10px', padding: 10, background: '#faf5ff', border: '1px solid #f3e8ff', borderRadius: 12 }}>
                 {running
@@ -201,7 +227,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                 <table className="acq-table" style={{ minWidth: 980 }}>
                   <thead><tr><th style={{ width: 32 }}><span className="sr-only">Select</span></th><th>Business</th><th>Address</th><th>Phone</th><th>Website</th><th>Rating</th><th>Email</th></tr></thead>
                   <tbody>
-                    {results.map((b) => {
+                    {shown.length === 0 && <tr><td colSpan={7} className="acq-sub" style={{ textAlign: 'center', padding: 20 }}>No prospects match these filters. <button type="button" className="acq-btn acq-btn-sm" onClick={() => setFilters(DEFAULT_FILTERS)}>Clear filters</button></td></tr>}
+                    {shown.map((b) => {
                       const e = emails[b.id];
                       const host = b.website ? b.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '') : '';
                       const href = b.website ? (/^https?:\/\//i.test(b.website) ? b.website : `https://${b.website}`) : '';
