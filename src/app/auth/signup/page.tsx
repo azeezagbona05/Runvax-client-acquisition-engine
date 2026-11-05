@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
-import AuthBackground from '@/components/AuthBackground';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import GoogleButton from '@/components/GoogleButton';
+import AuthShell, { Notice, authInput, authLabel, authPrimary } from '@/components/auth/AuthShell';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -18,12 +18,7 @@ export default function SignUpPage() {
   const [company, setCompany] = useState(''); // honeypot — real users never fill this
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 60);
-    return () => clearTimeout(t);
-  }, []);
+  const [showPw, setShowPw] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -66,155 +61,66 @@ export default function SignUpPage() {
   }
 
   return (
-    <div
-      className="min-h-dvh bg-gray-950 flex flex-col sm:items-center sm:justify-center relative overflow-hidden"
-      style={{
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}
+    <AuthShell
+      title="Create your free account"
+      subtitle="Find your next customers in minutes. No card needed."
+      footer={<>Already have an account? <Link href="/auth/signin" className="font-semibold text-purple-700 hover:text-purple-800 hover:underline">Log in</Link></>}
     >
-      <AuthBackground />
+      {error && <Notice tone="error">{error}</Notice>}
 
-      {/* ── Logo / branding section ── */}
-      <div className="flex-1 sm:flex-none flex flex-col items-center justify-center px-6 pt-8 pb-4 sm:pb-8 relative z-10">
-        <div className={`transition-opacity duration-100 ${mounted ? 'animate-logo-pop' : 'opacity-0'}`}>
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-600 to-orange-500 flex items-center justify-center shadow-2xl shadow-purple-900/50 mb-6">
-            <img src="/logo.svg" alt="Runvax" className="w-12 h-12" />
+      <GoogleButton callbackUrl="/" dividerLabel="or sign up with email" showTerms />
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Honeypot — hidden from real users, only bots fill it */}
+        <input
+          type="text"
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          className="absolute -left-[9999px] h-px w-px opacity-0"
+          aria-hidden="true"
+        />
+
+        <div>
+          <label htmlFor="signup-name" className={authLabel}>Full name</label>
+          <input id="signup-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" className={authInput} placeholder="Your full name" />
+        </div>
+
+        <div>
+          <label htmlFor="signup-email" className={authLabel}>Work email</label>
+          <input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" className={authInput} placeholder="you@company.com" />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="signup-password" className={authLabel}>Password</label>
+            <div className="relative">
+              <input id="signup-password" type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" className={`${authInput} pr-11`} placeholder="8+ characters" />
+              <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide passwords' : 'Show passwords'} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 hover:text-slate-600">
+                {showPw ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label htmlFor="signup-confirm" className={authLabel}>Confirm password</label>
+            <input id="signup-confirm" type={showPw ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} autoComplete="new-password" className={authInput} placeholder="Repeat password" />
           </div>
         </div>
 
-        <h1
-          className={`text-3xl font-black text-white text-center leading-tight mb-2 ${mounted ? 'animate-fade-up' : 'opacity-0'}`}
-          style={{ animationDelay: '150ms' }}
-        >
-          Runvax
-        </h1>
-        <p
-          className={`text-gray-400 text-sm text-center ${mounted ? 'animate-fade-up' : 'opacity-0'}`}
-          style={{ animationDelay: '220ms' }}
-        >
-          Find your next paying client in seconds
-        </p>
-      </div>
+        <label className="flex cursor-pointer items-start gap-2.5">
+          <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-slate-300 accent-purple-600" />
+          <span className="text-[13px] leading-relaxed text-slate-600">
+            I agree to the{' '}
+            <Link href="/terms" target="_blank" className="font-medium text-purple-700 hover:underline">Terms of Service</Link>{' '}and{' '}
+            <Link href="/privacy" target="_blank" className="font-medium text-purple-700 hover:underline">Privacy Policy</Link>
+          </span>
+        </label>
 
-      {/* ── Signup card — bottom sheet on mobile, centred card on desktop ── */}
-      <div
-        className={`relative z-10 w-full sm:max-w-sm sm:mx-auto bg-gray-900/95 backdrop-blur-xl border-t border-white/10 sm:border sm:rounded-2xl rounded-t-3xl px-6 pt-6 pb-2 ${mounted ? 'animate-slide-in-up' : 'opacity-0'}`}
-        style={{ animationDelay: '300ms' }}
-      >
-        <div className="sm:hidden w-10 h-1 bg-white/15 rounded-full mx-auto mb-6" />
-
-        <h2 className="text-xl font-black text-white mb-5">Create your free account</h2>
-
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3 mb-4">
-            {error}
-          </div>
-        )}
-
-        <GoogleButton callbackUrl="/" dividerLabel="or sign up with email" showTerms />
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Honeypot — hidden from real users, only bots fill it */}
-          <input
-            type="text"
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-            tabIndex={-1}
-            autoComplete="off"
-            className="absolute -left-[9999px] w-px h-px opacity-0"
-            aria-hidden="true"
-          />
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Full name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              autoComplete="name"
-              className="w-full bg-gray-800/80 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60 focus:bg-gray-800 text-[16px]"
-              placeholder="John Doe"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Email address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="w-full bg-gray-800/80 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60 focus:bg-gray-800 text-[16px]"
-              placeholder="you@example.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              autoComplete="new-password"
-              className="w-full bg-gray-800/80 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60 focus:bg-gray-800 text-[16px]"
-              placeholder="Min. 8 characters"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Confirm password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-              autoComplete="new-password"
-              className="w-full bg-gray-800/80 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60 focus:bg-gray-800 text-[16px]"
-              placeholder="Re-enter your password"
-            />
-          </div>
-
-          <label className="flex items-start gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={acceptedTerms}
-              onChange={(e) => setAcceptedTerms(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-purple-600 flex-shrink-0"
-            />
-            <span className="text-xs text-gray-400 leading-relaxed">
-              I agree to the{' '}
-              <Link href="/terms" target="_blank" className="text-purple-400 hover:underline">Terms of Service</Link>{' '}
-              and{' '}
-              <Link href="/privacy" target="_blank" className="text-purple-400 hover:underline">Privacy Policy</Link>
-            </span>
-          </label>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-500 hover:to-orange-400 active:from-purple-700 active:to-orange-600 disabled:opacity-50 text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-purple-900/30 text-base"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" /> Creating account…
-              </span>
-            ) : 'Create free account'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-500 mt-5 mb-2">
-          Already have an account?{' '}
-          <Link href="/auth/signin" className="text-purple-400 font-bold hover:text-purple-300">Sign in</Link>
-        </p>
-
-        <div style={{ height: 'max(1rem, env(safe-area-inset-bottom))' }} />
-      </div>
-    </div>
+        <button type="submit" disabled={loading} className={authPrimary}>
+          {loading ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-5 w-5 animate-spin" /> Creating account…</span> : 'Create free account'}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

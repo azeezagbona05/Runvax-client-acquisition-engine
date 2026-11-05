@@ -4,11 +4,11 @@ import { Suspense, useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle, MailCheck, Fingerprint, Loader2 } from 'lucide-react';
+import { CheckCircle, MailCheck, Fingerprint, Loader2, Eye, EyeOff } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/types';
-import AuthBackground from '@/components/AuthBackground';
 import GoogleButton from '@/components/GoogleButton';
+import AuthShell, { Notice, authInput, authLabel, authPrimary, authSecondary } from '@/components/auth/AuthShell';
 
 /** Only same-site paths: '/claim-pro' is fine, 'https://evil.com' and '//evil.com' are not. */
 function safeNext(raw: string | null): string {
@@ -25,18 +25,13 @@ function LoginForm() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [checkingBiometric, setCheckingBiometric] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   const justReset      = params.get('reset') === '1';
   const justVerified   = params.get('verified') === '1';
   const justRegistered = params.get('registered') === '1';
   const next           = safeNext(params.get('next'));
   const authError      = params.get('error');
-
-  useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 60);
-    return () => clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.PublicKeyCredential) {
@@ -108,165 +103,80 @@ function LoginForm() {
   }
 
   return (
-    <div
-      className="min-h-dvh bg-gray-950 flex flex-col sm:items-center sm:justify-center relative overflow-hidden"
-      style={{
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}
+    <AuthShell
+      title="Welcome back"
+      subtitle="Log in to your Runvax account."
+      footer={<>No account? <Link href="/auth/signup" className="font-semibold text-purple-700 hover:text-purple-800 hover:underline">Create one free</Link></>}
     >
-      <AuthBackground />
+      {justVerified && <Notice tone="success"><MailCheck className="mt-0.5 h-4 w-4 flex-shrink-0" /> Email verified! You can now log in.</Notice>}
+      {justReset && <Notice tone="success"><CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0" /> Password reset. Log in with your new password.</Notice>}
+      {justRegistered && <Notice tone="success"><CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0" /> Account created! Log in below to get started.</Notice>}
+      {(error || authError) && (
+        <Notice tone="error">{error || 'Google sign-in did not complete. Try again, or log in with your email and password.'}</Notice>
+      )}
 
-      {/* ── Logo / branding section ── */}
-      <div className="flex-1 sm:flex-none flex flex-col items-center justify-center px-6 pt-8 pb-4 sm:pb-8 relative z-10">
-        {/* Logo — spring pop animation */}
-        <div
-          className={`transition-opacity duration-100 ${mounted ? 'animate-logo-pop' : 'opacity-0'}`}
-        >
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-600 to-orange-500 flex items-center justify-center shadow-2xl shadow-purple-900/50 mb-6">
-            <img src="/logo.svg" alt="Runvax" className="w-12 h-12" />
-          </div>
-        </div>
+      <GoogleButton callbackUrl={next} dividerLabel="or continue with email" />
 
-        <h1
-          className={`text-3xl font-black text-white text-center leading-tight mb-2 ${mounted ? 'animate-fade-up' : 'opacity-0'}`}
-          style={{ animationDelay: '150ms' }}
-        >
-          Runvax
-        </h1>
-        <p
-          className={`text-gray-400 text-sm text-center ${mounted ? 'animate-fade-up' : 'opacity-0'}`}
-          style={{ animationDelay: '220ms' }}
-        >
-          Find your next paying client in seconds
-        </p>
-      </div>
-
-      {/* ── Login card — bottom sheet on mobile, centred card on desktop ── */}
-      <div
-        className={`relative z-10 w-full sm:max-w-sm sm:mx-auto bg-gray-900/95 backdrop-blur-xl border-t border-white/10 sm:border sm:rounded-2xl rounded-t-3xl px-6 pt-6 pb-2 ${mounted ? 'animate-slide-in-up' : 'opacity-0'}`}
-        style={{ animationDelay: '300ms' }}
-      >
-        {/* Drag pill — mobile only */}
-        <div className="sm:hidden w-10 h-1 bg-white/15 rounded-full mx-auto mb-6" />
-
-        <h2 className="text-xl font-black text-white mb-5">Login</h2>
-
-        {/* Alert banners */}
-        {justVerified && (
-          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/25 text-green-400 text-sm rounded-xl px-4 py-3 mb-4">
-            <MailCheck className="w-4 h-4 flex-shrink-0" /> Email verified! You can now log in.
-          </div>
-        )}
-        {justReset && (
-          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/25 text-green-400 text-sm rounded-xl px-4 py-3 mb-4">
-            <CheckCircle className="w-4 h-4 flex-shrink-0" /> Password reset. Login with your new password.
-          </div>
-        )}
-        {justRegistered && (
-          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/25 text-green-400 text-sm rounded-xl px-4 py-3 mb-4">
-            <CheckCircle className="w-4 h-4 flex-shrink-0" /> Account created! Log in below to get started.
-          </div>
-        )}
-        {(error || authError) && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3 mb-4">
-            {error || 'Google sign-in did not complete. Try again, or log in with your email and password.'}
-          </div>
-        )}
-
-        <GoogleButton callbackUrl={next} dividerLabel="or use your email" />
-
-        {/* Email */}
-        <div className="mb-4">
-          <label className="block text-sm font-semibold text-gray-300 mb-2">Email address</label>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="signin-email" className={authLabel}>Email address</label>
           <input
+            id="signin-email"
             type="email"
             value={email}
             onChange={(e) => { setEmail(e.target.value); setBiometricAvailable(false); }}
             onBlur={(e) => checkBiometric(e.target.value)}
             required
             autoComplete="email"
-            className="w-full bg-gray-800/80 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60 focus:bg-gray-800 text-[16px]"
-            placeholder="you@example.com"
+            className={authInput}
+            placeholder="you@company.com"
           />
         </div>
 
-        {/* Biometric login */}
-        {biometricAvailable && (
-          <button
-            type="button"
-            onClick={handleBiometricLogin}
-            disabled={biometricLoading}
-            className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 active:from-purple-700 active:to-purple-800 text-white font-bold text-sm transition-all disabled:opacity-60 shadow-xl shadow-purple-900/40 mb-4"
-          >
-            {biometricLoading
-              ? <><Loader2 className="w-5 h-5 animate-spin" /> Authenticating…</>
-              : <><Fingerprint className="w-5 h-5" /> Login with Face ID / Touch ID</>
-            }
-          </button>
-        )}
-
-        {checkingBiometric && (
-          <div className="flex items-center justify-center gap-2 text-xs text-gray-600 mb-3">
-            <Loader2 className="w-3 h-3 animate-spin" /> Checking biometric…
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="signin-password" className="block text-[13px] font-semibold text-slate-700">Password</label>
+            <Link href="/auth/forgot-password" className="text-[13px] font-medium text-purple-700 hover:text-purple-800 hover:underline">Forgot password?</Link>
           </div>
-        )}
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 h-px bg-white/8" />
-          <span className="text-xs text-gray-600 font-medium">
-            {biometricAvailable ? 'or login with password' : 'login with password'}
-          </span>
-          <div className="flex-1 h-px bg-white/8" />
-        </div>
-
-        {/* Password form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-semibold text-gray-300">Password</label>
-              <Link href="/auth/forgot-password" className="text-xs text-purple-400 hover:underline">Forgot password?</Link>
-            </div>
+          <div className="relative">
             <input
-              type="password"
+              id="signin-password"
+              type={showPw ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full bg-gray-800/80 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60 focus:bg-gray-800 text-[16px]"
-              placeholder="••••••••"
+              className={`${authInput} pr-11`}
+              placeholder="Your password"
             />
+            <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 hover:text-slate-600">
+              {showPw ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+            </button>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-600 to-orange-500 hover:from-purple-500 hover:to-orange-400 active:from-purple-700 active:to-orange-600 disabled:opacity-50 text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-purple-900/30 text-base"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" /> Logging in…
-              </span>
-            ) : 'Login'}
+        <button type="submit" disabled={loading} className={authPrimary}>
+          {loading ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-5 w-5 animate-spin" /> Logging in…</span> : 'Log in'}
+        </button>
+
+        {biometricAvailable && (
+          <button type="button" onClick={handleBiometricLogin} disabled={biometricLoading} className={`${authSecondary} flex items-center justify-center gap-2.5`}>
+            {biometricLoading
+              ? <><Loader2 className="h-5 w-5 animate-spin" /> Authenticating…</>
+              : <><Fingerprint className="h-5 w-5" /> Log in with Face ID / Touch ID</>}
           </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-500 mt-5 mb-2">
-          No account?{' '}
-          <Link href="/auth/signup" className="text-purple-400 font-bold hover:text-purple-300">Create one free</Link>
-        </p>
-
-        {/* Bottom safe area spacer */}
-        <div style={{ height: 'max(1rem, env(safe-area-inset-bottom))' }} />
-      </div>
-    </div>
+        )}
+        {checkingBiometric && (
+          <div className="flex items-center justify-center gap-2 text-xs text-slate-400"><Loader2 className="h-3 w-3 animate-spin" /> Checking biometric…</div>
+        )}
+      </form>
+    </AuthShell>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-gray-950" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-slate-50" />}>
       <LoginForm />
     </Suspense>
   );

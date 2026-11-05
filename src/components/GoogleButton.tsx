@@ -22,7 +22,7 @@ export default function GoogleButton({ callbackUrl, dividerLabel, showTerms }: {
         type="button"
         disabled={busy}
         onClick={() => { setBusy(true); void signIn('google', { callbackUrl }); }}
-        className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 font-bold text-sm transition-all disabled:opacity-60"
+        className="w-full h-11 flex items-center justify-center gap-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 font-semibold text-[14px] transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-4 focus-visible:ring-purple-100"
       >
         {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : (
           <svg className="w-5 h-5" viewBox="0 0 48 48" aria-hidden="true">
@@ -35,16 +35,16 @@ export default function GoogleButton({ callbackUrl, dividerLabel, showTerms }: {
         Continue with Google
       </button>
       {showTerms && (
-        <p className="text-[11px] text-gray-500 text-center mt-2.5 leading-relaxed">
+        <p className="text-[12px] text-slate-500 text-center mt-2.5 leading-relaxed">
           By continuing with Google you agree to the{' '}
-          <Link href="/terms" target="_blank" className="text-purple-400 hover:underline">Terms</Link> and{' '}
-          <Link href="/privacy" target="_blank" className="text-purple-400 hover:underline">Privacy Policy</Link>.
+          <Link href="/terms" target="_blank" className="text-purple-700 font-medium hover:underline">Terms</Link> and{' '}
+          <Link href="/privacy" target="_blank" className="text-purple-700 font-medium hover:underline">Privacy Policy</Link>.
         </p>
       )}
-      <div className="flex items-center gap-3 my-4">
-        <div className="flex-1 h-px bg-white/8" />
-        <span className="text-xs text-gray-600 font-medium">{dividerLabel}</span>
-        <div className="flex-1 h-px bg-white/8" />
+      <div className="flex items-center gap-3 my-5">
+        <div className="flex-1 h-px bg-slate-200" />
+        <span className="text-[12px] text-slate-400 font-medium">{dividerLabel}</span>
+        <div className="flex-1 h-px bg-slate-200" />
       </div>
     </>
   );
