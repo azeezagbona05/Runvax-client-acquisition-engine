@@ -106,6 +106,7 @@ const SOURCE_LABEL: Record<string, string> = {
   search: 'a public web search',
   apollo: 'Apollo',
   hunter: 'Hunter',
+  snov: 'Snov.io',
   apify: 'Apify',
 };
 
@@ -329,7 +330,7 @@ export function titleQuery(titles: string[]): string {
 
 // ── Multi-source candidates ───────────────────────────────────────────────────
 
-export type DmSource = 'website' | 'search' | 'apollo' | 'hunter' | 'apify';
+export type DmSource = 'website' | 'search' | 'apollo' | 'hunter' | 'snov' | 'apify';
 export type DmConfidence = 'low' | 'medium' | 'high';
 
 export interface DmCandidate {

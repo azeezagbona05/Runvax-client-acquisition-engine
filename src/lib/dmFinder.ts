@@ -3,7 +3,7 @@
  *
  * Free sources run first and in parallel: the business's own website, and public web
  * search (which surfaces LinkedIn profile pages without us ever fetching linkedin.com).
- * Paid sources — Hunter, Apollo, an Apify actor — run only when the caller asks for a
+ * Paid sources — Hunter, Snov.io, Apollo, an Apify actor — run only when the caller asks for a
  * deeper search, one at a time, and stop as soon as a strong answer appears so credits
  * are not spent confirming what we already know.
  *
@@ -13,6 +13,7 @@
 
 import { safeFetch } from '@/lib/safeFetch';
 import { apolloEnabled, domainFromUrl, findDecisionMaker } from '@/lib/apollo';
+import { findEmail as snovFindEmail, snovEnabled } from '@/lib/snov';
 import {
   cleanPhone, extractDecisionMaker, industryTitles, titleQuery, mapApifyItem, mergeCandidates, isStrong, parseLinkedInResult, parseSnippetResult, titleRank,
   type DmCandidate, type DmSource,
@@ -192,6 +193,26 @@ const hunter: Provider = {
   },
 };
 
+// ── Paid: Snov.io ────────────────────────────────────────────────────────────
+
+/** Email Finder only: it needs a person's name (from the website, search, or the sender), then returns their address. */
+const snov: Provider = {
+  id: 'snov', paid: true, enabled: snovEnabled,
+  async run({ domain, knownPerson }) {
+    if (!domain || !knownPerson?.name) return [];
+    try {
+      const found = await snovFindEmail(domain, knownPerson.name);
+      if (!found) return [];
+      return [{
+        name: knownPerson.name, title: knownPerson.title ?? '', source: 'snov',
+        confidence: found.smtpStatus === 'valid' ? 'high' : 'medium',
+        email: found.email,
+        emailStatus: found.smtpStatus === 'valid' ? 'Snov.io: valid' : `Snov.io: ${found.smtpStatus}${found.reason ? ` (${found.reason})` : ''}`,
+      }];
+    } catch { return []; }
+  },
+};
+
 // ── Paid: Apollo ─────────────────────────────────────────────────────────────
 
 const apollo: Provider = {
@@ -245,7 +266,7 @@ const apify: Provider = {
 
 const FREE: Provider[] = [website, search];
 // Cheapest first, so a strong early hit saves the dearer calls.
-const PAID: Provider[] = [hunter, apollo, apify];
+const PAID: Provider[] = [hunter, snov, apollo, apify];
 
 export function paidProvidersConfigured(): boolean {
   return PAID.some((p) => p.enabled());
