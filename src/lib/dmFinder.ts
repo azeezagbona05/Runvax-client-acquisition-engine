@@ -15,6 +15,7 @@ import { safeFetch } from '@/lib/safeFetch';
 import { apolloEnabled, domainFromUrl, findDecisionMaker } from '@/lib/apollo';
 import { domainContacts, findEmail as snovFindEmail, snovEnabled, verifyEmails } from '@/lib/snov';
 import { emailPatterns } from '@/lib/emailPatterns';
+import { channelsOf, crawlSite, rankedPeople, type ContactChannel, type SiteIntel } from '@/lib/siteIntel';
 import {
   cleanPhone, extractDecisionMaker, industryTitles, titleQuery, mapApifyItem, mergeCandidates, isStrong, parseLinkedInResult, parseSnippetResult, titleRank,
   type DmCandidate, type DmSource,
@@ -35,7 +36,7 @@ interface Provider {
   id: DmSource;
   paid: boolean;
   enabled: () => boolean;
-  run: (ctx: FindContext & { domain: string | null }) => Promise<DmCandidate[]>;
+  run: (ctx: FindContext & { domain: string | null; /** Filled in by the website provider for the caller. */ intel?: SiteIntel | null }) => Promise<DmCandidate[]>;
 }
 
 export interface FindResult {
@@ -45,6 +46,10 @@ export interface FindResult {
   ran: DmSource[];
   /** A deeper (paid) search is configured and has not been run. */
   paidAvailable: boolean;
+  /** Every contact route the website gave us, by kind (decision-maker email, general email, form, phone). */
+  channels: ContactChannel[];
+  /** Pages the crawler read, for the record. */
+  pagesRead: string[];
 }
 
 const SEARCH_TIMEOUT = 8000;
@@ -65,16 +70,16 @@ const PAGES = ['', '/about', '/about-us', '/team', '/our-team', '/contact'];
 
 const website: Provider = {
   id: 'website', paid: false, enabled: () => true,
-  async run({ website: site }) {
-    if (!site) return [];
-    let origin: string;
-    try { origin = new URL(/^https?:\/\//.test(site) ? site : `https://${site}`).origin; } catch { return []; }
-    for (const path of PAGES) {
-      const html = await getText(origin + path, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RunvaxBot/1.0)', Accept: 'text/html,*/*;q=0.8' } });
-      const found = extractDecisionMaker(html);
-      if (found) return [{ name: found.name, title: found.title, source: 'website', confidence: 'medium' }];
-    }
-    return [];
+  async run(ctx) {
+    if (!ctx.website) return [];
+    const intel = await crawlSite(ctx.website, (url) => getText(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RunvaxBot/1.0)', Accept: 'text/html,*/*;q=0.8' } }));
+    ctx.intel = intel;
+    if (!intel) return [];
+    return rankedPeople(intel).slice(0, 5).map((p): DmCandidate => ({
+      name: p.name, title: p.title, source: 'website', confidence: 'medium', sourcePage: p.sourcePage,
+      ...(p.linkedin ? { linkedin: p.linkedin } : {}),
+      ...(p.email ? { email: p.email, emailStatus: 'Published on their website' } : {}),
+    }));
   },
 };
 
@@ -310,12 +315,12 @@ export async function fillByPattern(candidates: DmCandidate[], domain: string | 
   });
 }
 
-export async function findDecisionMakers(ctx: FindContext, opts: { deep?: boolean } = {}): Promise<FindResult> {
-  const full: FindContext & { domain: string | null } = { ...ctx, domain: domainFromUrl(ctx.website) };
+export async function findDecisionMakers(ctx: FindContext, opts: { deep?: boolean; /** Read the business's website only, without the public-search step. */ skipSearch?: boolean } = {}): Promise<FindResult> {
+  const full: FindContext & { domain: string | null; intel?: SiteIntel | null } = { ...ctx, domain: domainFromUrl(ctx.website) };
   const ran: DmSource[] = [];
   const found: DmCandidate[] = [];
 
-  const free = FREE.filter((p) => p.enabled());
+  const free = FREE.filter((p) => p.enabled() && !(opts.skipSearch && p.id === 'search'));
   const results = await Promise.allSettled(free.map((p) => p.run(full)));
   results.forEach((r, i) => { ran.push(free[i].id); if (r.status === 'fulfilled') found.push(...r.value); });
 
@@ -341,5 +346,14 @@ export async function findDecisionMakers(ctx: FindContext, opts: { deep?: boolea
     best: candidates[0] ?? null,
     ran,
     paidAvailable: !opts.deep && paidProvidersConfigured(),
+    // Contact routes seen on the site, plus any person's email a later (paid) source found.
+    channels: (() => {
+      const base = channelsOf(full.intel ?? null).filter((c) => c.type !== 'none');
+      const have = new Set(base.map((c) => c.value));
+      const extra: ContactChannel[] = candidates.filter((c) => c.email && !have.has(c.email)).map((c) => ({ type: 'decision_maker_email', value: c.email, person: c.name }));
+      const all = [...extra, ...base].sort((a, b) => Number(b.type === 'decision_maker_email') - Number(a.type === 'decision_maker_email'));
+      return all.length ? all : [{ type: 'none' }];
+    })(),
+    pagesRead: full.intel?.pages ?? [],
   };
 }

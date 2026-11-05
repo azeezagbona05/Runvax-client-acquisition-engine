@@ -19,9 +19,10 @@ const SITE_NOISE = [
 
 const PREFERRED = /^(info|contact|hello|admin|sales|enquir|hi|support|mail|office|business|shop|store|clinic|hotel|salon|school|church|law|realtor|property|cater|event|manager|ceo|director|booking)/;
 
-export function pickEmail(text: string, extraExclude: string[] = []): string | null {
+/** Every plausible address in the text, lowercased and de-duplicated, in the order found. */
+export function listEmails(text: string, extraExclude: string[] = []): string[] {
   const raw = text.match(EMAIL_RE);
-  if (!raw) return null;
+  if (!raw) return [];
   const exclude = [...SITE_NOISE, ...extraExclude];
   const filtered = raw
     .map((m) => m.toLowerCase().replace(/[.,;:'"<>\s]+$/, '').replace(/^[.,;:'"<>\s]+/, ''))
@@ -36,11 +37,14 @@ export function pickEmail(text: string, extraExclude: string[] = []): string | n
       if (local.length < 2 || domain.length < 4) return false;
       return true;
     });
-  const clean = Array.from(new Set(filtered));
+  return Array.from(new Set(filtered));
+}
+
+export function pickEmail(text: string, extraExclude: string[] = []): string | null {
+  const clean = listEmails(text, extraExclude);
   if (!clean.length) return null;
   return clean.find((m) => PREFERRED.test(m.split('@')[0])) ?? clean[0];
 }
-
 
 /** Cloudflare hides addresses as data-cfemail="hex": the first byte is a key XORed over the rest. */
 function decodeCf(hex: string): string {

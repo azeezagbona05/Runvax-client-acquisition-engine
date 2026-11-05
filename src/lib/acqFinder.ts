@@ -130,15 +130,35 @@ export function isVerifiedStatus(status?: string): boolean {
  * `people` is null until the decision-maker search has run; `businessEmail` is undefined until the
  * business-email search has run. `verdicts` holds results of a verify run, keyed by lowercase email, and beats the finder's own note.
  */
-export function contactState(input: { people: ContactPerson[] | null; businessEmail?: string | null; verdicts?: Record<string, Verdict> }): ContactState {
+export function contactState(input: { people: ContactPerson[] | null; businessEmail?: string | null; /** A general inbox, contact form or phone seen on their website. */ businessChannel?: boolean; verdicts?: Record<string, Verdict> }): ContactState {
   const verdicts = input.verdicts ?? {};
   const usable = (input.people ?? []).filter((p) => p.email && verdicts[p.email.toLowerCase()] !== 'invalid');
   const isOk = (p: ContactPerson) => { const v = verdicts[p.email!.toLowerCase()]; return v ? v === 'valid' : isVerifiedStatus(p.emailStatus); };
   if (usable.some(isOk)) return 'verified';
   if (usable.length) return 'unverified';
   if ((input.people ?? []).length) return 'person_no_email';
-  if (input.businessEmail) return 'business_only';
+  if (input.businessEmail || input.businessChannel) return 'business_only';
   return input.people === null ? 'untouched' : 'none';
+}
+
+// ── CSV ──────────────────────────────────────────────────────────────────────
+
+const csvCell = (v: unknown) => { const t = v === null || v === undefined ? '' : String(v); return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+export const toCsv = (rows: unknown[][]): string => rows.map((r) => r.map(csvCell).join(',')).join('\r\n');
+
+/** Reads a CSV (quotes, commas and newlines inside quotes) into rows of cells. */
+export function parseCsv(text: string): string[][] {
+  const rows: string[][] = []; let row: string[] = []; let cell = ''; let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); cell = ''; if (row.some((x) => x !== '')) rows.push(row); row = []; }
+    else cell += c;
+  }
+  row.push(cell); if (row.some((x) => x !== '')) rows.push(row);
+  return rows;
 }
 
 /** Validates the form like V1 does: a category from the list and a location. Returns the error, or null. */

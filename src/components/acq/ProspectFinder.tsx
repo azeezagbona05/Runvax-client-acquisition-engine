@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Search, Square, Star, Zap } from 'lucide-react';
 import { AREAS, STATES } from '@/lib/areas';
-import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, DEFAULT_FILTERS, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_RUN_SEARCHES, advanceFinder, filterResults, filtersActive, finderError, finderQuery, planStep, startFinder, stepsLeft, stopReason, type FinderBusiness, type FinderCtx, type ContactAction, type ContactState, type RatingFilter, type ResultFilters, type Verdict, type SortKey, type WebsiteFilter } from '@/lib/acqFinder';
+import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, DEFAULT_FILTERS, toCsv, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_RUN_SEARCHES, advanceFinder, filterResults, filtersActive, finderError, finderQuery, planStep, startFinder, stepsLeft, stopReason, type FinderBusiness, type FinderCtx, type ContactAction, type ContactState, type RatingFilter, type ResultFilters, type Verdict, type SortKey, type WebsiteFilter } from '@/lib/acqFinder';
 import { BizLogo, Card, EmptyState } from './ui';
 import { useAcq } from './AcqProvider';
 
 type Email = { state: 'loading' } | { state: 'done'; email: string | null };
-type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string };
-type People = { state: 'loading' } | { state: 'done'; people: Person[]; note?: string };
+type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string; sourcePage?: string; linkedin?: string };
+type Channel = { type: 'decision_maker_email' | 'general_email' | 'contact_form' | 'business_phone' | 'none'; value?: string; person?: string; sourcePage?: string };
+type People = { state: 'loading' } | { state: 'done'; people: Person[]; channels: Channel[]; note?: string };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const label = { fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6, display: 'block' } as const;
 
@@ -136,12 +137,12 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     setPeople((m) => ({ ...m, [b.id]: { state: 'loading' } }));
     const ask = async (deep: boolean) => {
       const res = await fetch('/api/decision-maker/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, deep }) });
-      const j = await res.json().catch(() => ({})) as { candidates?: Person[]; error?: string };
-      return { ok: res.ok, status: res.status, people: j.candidates ?? [], error: j.error };
+      const j = await res.json().catch(() => ({})) as { candidates?: Person[]; channels?: Channel[]; error?: string };
+      return { ok: res.ok, status: res.status, people: j.candidates ?? [], channels: j.channels ?? [], error: j.error };
     };
     try {
       // "Find email" and "Retry discovery" go straight to the deeper (paid) search; a first search starts with the free sources.
-      let r = opts.deep ? { ok: true, status: 200, people: [] as Person[], error: undefined as string | undefined } : await ask(false);
+      let r = opts.deep ? { ok: true, status: 200, people: [] as Person[], channels: [] as Channel[], error: undefined as string | undefined } : await ask(false);
       let note: string | undefined;
       if (r.ok && !r.people.some((p) => p.email)) {
         const deep = await ask(true);
@@ -150,8 +151,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
         else if (deep.status === 403) note = 'A deeper email search needs a paid plan.';
         else if (deep.status === 429) note = deep.error;
       }
-      setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: r.people, note: r.ok ? note : (r.error ?? 'Lookup failed.') } }));
-    } catch { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], note: 'Lookup failed.' } })); }
+      setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: r.people, channels: r.channels, note: r.ok ? note : (r.error ?? 'Lookup failed.') } }));
+    } catch { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: 'Lookup failed.' } })); }
   };
   const findPeopleForSelected = async () => {
     setFindingDm(true);
@@ -162,7 +163,12 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   };
   const peopleOf = (b: FinderBusiness): Person[] | null => { const p = people[b.id]; return p?.state === 'done' ? p.people : null; };
   const emailOf = (b: FinderBusiness) => { const e = emails[b.id]; return e?.state === 'done' ? e.email : null; };
-  const stateOf = (b: FinderBusiness): ContactState => contactState({ people: peopleOf(b), businessEmail: emails[b.id]?.state === 'done' ? emailOf(b) : undefined, verdicts });
+  const channelsOf = (b: FinderBusiness): Channel[] => { const p = people[b.id]; return p?.state === 'done' ? p.channels : []; };
+  const generalEmailOf = (b: FinderBusiness) => emailOf(b) ?? channelsOf(b).find((c) => c.type === 'general_email')?.value ?? null;
+  const stateOf = (b: FinderBusiness): ContactState => contactState({
+    people: peopleOf(b), businessEmail: emails[b.id]?.state === 'done' ? emailOf(b) : undefined,
+    businessChannel: channelsOf(b).some((c) => c.type === 'general_email' || c.type === 'contact_form'), verdicts,
+  });
   const personOk = (p: Person) => { const v = p.email ? verdicts[p.email.toLowerCase()] : undefined; return v ? v === 'valid' : isVerifiedStatus(p.emailStatus); };
   const usablePeople = (b: FinderBusiness) => (peopleOf(b) ?? []).filter((p) => p.email && verdicts[p.email.toLowerCase()] !== 'invalid');
 
@@ -201,7 +207,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     if (!includeUnverified) return [];
     const loose = usablePeople(b).slice(0, 3);
     if (loose.length) return loose.map((p) => ({ email: p.email!, name: p.name, ...base }));
-    const biz = emailOf(b);
+    const biz = generalEmailOf(b);
     return biz ? [{ email: biz, ...base }] : [];
   };
   const ready = (results ?? []).filter((b) => picked.has(b.id) && leadsFor(b).length > 0);
@@ -212,6 +218,19 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     [results, filters, emails, people, verdicts, statusFilter]);
   const setF = <K extends keyof ResultFilters>(k: K, v: ResultFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
   const allOn = !!shown.length && shown.every((b) => picked.has(b.id));
+
+  /** Downloads the rows on screen (with what was found so far) as a CSV: for a manual quality review, or as input for scripts/contact-intel-experiment.ts. */
+  const exportCsv = () => {
+    const rows: unknown[][] = [['name', 'website', 'address', 'phone', 'category', 'rating', 'reviews', 'contact_status', 'people', 'general_email', 'contact_form']];
+    for (const b of shown) {
+      const ch = channelsOf(b);
+      rows.push([b.name, b.website ?? '', b.address, b.phone ?? '', b.category ?? '', b.rating ?? '', b.reviewCount ?? '', CONTACT_LABEL[stateOf(b)],
+        (peopleOf(b) ?? []).map((p) => `${p.name} (${p.title})${p.email ? ` <${p.email}>` : ''}`).join(' | '), generalEmailOf(b) ?? '', ch.find((c) => c.type === 'contact_form')?.value ?? '']);
+    }
+    const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = `prospects-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const add = async () => {
     if (!target || !ready.length) return;
@@ -270,6 +289,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                 <button className="acq-btn acq-btn-sm" disabled={!picked.size || finding} onClick={() => void findForSelected()}>{finding ? <Loader2 size={14} className="animate-spin" /> : null} Find business emails for {picked.size || 'selected'}</button>
                 <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!picked.size || findingDm} onClick={() => void findPeopleForSelected()}>{findingDm ? <Loader2 size={14} className="animate-spin" /> : null} Find decision-makers for {picked.size || 'selected'}</button>
                 <button className="acq-btn acq-btn-sm" disabled={!picked.size || verifyingAll} onClick={() => void verifySelected()}>{verifyingAll ? <Loader2 size={14} className="animate-spin" /> : null} Verify emails for {picked.size || 'selected'}</button>
+                <button className="acq-btn acq-btn-sm" onClick={exportCsv} title="Download the rows on screen as a CSV">Export CSV</button>
                 <select className="acq-select" aria-label="Add to campaign" style={{ width: 'auto', minWidth: 200, height: 36, marginLeft: 'auto' }} value={target} onChange={(e) => setTarget(e.target.value)}>
                   <option value="">Choose a campaign…</option>{campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -358,6 +378,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                     return (
                                       <span key={`${p.name}-${p.title}`} style={{ fontSize: 12 }}>
                                         <b>{p.name}</b>{p.title ? <span className="acq-sub"> · {p.title}</span> : null}
+                                        {p.sourcePage ? <a href={p.sourcePage} target="_blank" rel="noopener noreferrer" className="acq-faint" style={{ marginLeft: 6, textDecoration: 'underline' }} title="The page where we found this person">source</a> : null}
+                                        {p.linkedin ? <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="acq-faint" style={{ marginLeft: 6, textDecoration: 'underline' }}>LinkedIn</a> : null}
                                         <br />
                                         {p.email
                                           ? v === 'invalid' ? <span className="acq-faint" style={{ textDecoration: 'line-through' }} title="Snov.io says this address does not exist">{p.email}</span>
@@ -366,8 +388,18 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                       </span>
                                     );
                                   })}
-                                  {biz && <span style={{ fontSize: 12 }}><span className="acq-sub">Business: </span><b>{biz}</b></span>}
-                                  {e?.state === 'done' && !biz && st !== 'verified' && <span className="acq-faint" style={{ fontSize: 11.5 }}>No business email found</span>}
+                                  {(() => {
+                                    const ch = channelsOf(b);
+                                    const general = biz ?? ch.find((c) => c.type === 'general_email')?.value;
+                                    const form = ch.find((c) => c.type === 'contact_form');
+                                    return (
+                                      <>
+                                        {general && <span style={{ fontSize: 12 }}><span className="acq-sub">General business email: </span><b>{general}</b></span>}
+                                        {form?.value && <span style={{ fontSize: 12 }}><span className="acq-sub">Contact form: </span><a href={form.value} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline' }}>open</a></span>}
+                                      </>
+                                    );
+                                  })()}
+                                  {pp?.state === 'done' && st === 'none' && <span className="acq-faint" style={{ fontSize: 11.5 }}>No usable public contact found</span>}
                                   {pp?.state === 'done' && pp.note && <span className="acq-faint" style={{ fontSize: 11.5 }}>{pp.note}</span>}
                                   {busyRow
                                     ? <span className="acq-sub" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}><Loader2 size={13} className="animate-spin" /> {verifying.has(b.id) ? 'Verifying…' : pp?.state === 'loading' ? 'Searching…' : 'Looking…'}</span>

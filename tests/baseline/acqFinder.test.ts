@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ACTION_LABEL, CONTACT_ACTION, contactState, isVerifiedStatus, DEFAULT_FILTERS, FINDER_INDUSTRIES, filterResults, filtersActive, finderError, finderQuery, type FinderBusiness } from '@/lib/acqFinder';
+import { parseCsv, toCsv, ACTION_LABEL, CONTACT_ACTION, contactState, isVerifiedStatus, DEFAULT_FILTERS, FINDER_INDUSTRIES, filterResults, filtersActive, finderError, finderQuery, type FinderBusiness } from '@/lib/acqFinder';
 
 describe('prospect finder form', () => {
   it('builds the same query sentence V1 sends', () => {
@@ -148,5 +148,13 @@ describe('contact discovery state', () => {
   it('offers the next step for each state', () => {
     expect(CONTACT_ACTION).toEqual({ untouched: 'find_dm', business_only: 'find_dm', person_no_email: 'find_email', unverified: 'verify', none: 'retry', verified: null });
     expect(ACTION_LABEL.retry).toBe('Retry discovery');
+  });
+});
+
+
+describe('csv', () => {
+  it('round-trips commas, quotes and line breaks', () => {
+    const rows = [['name', 'note'], ['Smile, Inc', 'says "hi"'], ['A', 'two\nlines']];
+    expect(parseCsv(toCsv(rows))).toEqual(rows);
   });
 });

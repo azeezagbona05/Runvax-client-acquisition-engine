@@ -234,7 +234,7 @@ function fromJsonLd(html: string): ExtractedPerson[] {
   return out;
 }
 
-const TITLE_WORDS = '(?:owner|co-?owner|proprietor|founder|co-?founder|managing director|managing partner|ceo|chief executive(?: officer)?|chief executive|principal(?: [a-z]+)?|lead [a-z]+|medical director|executive director|general manager|director|partner|president|md|manager)';
+const TITLE_WORDS = '(?:owner|co-?owner|proprietor|founder|co-?founder|managing director|managing partner|ceo|chief executive(?: officer)?|chief executive|principal(?: [a-z]+)?|lead [a-z]+|medical director|clinical director|executive director|general manager|(?:practice|operations|branch|business|clinic|hotel|store|restaurant|office) manager|director|partner|president|md|manager)';
 
 function fromText(html: string): ExtractedPerson[] {
   const text = html
@@ -277,13 +277,19 @@ function fromText(html: string): ExtractedPerson[] {
   return out;
 }
 
+/** Every decision-maker named on one page of HTML (strongest title first, one entry per person). */
+export function extractPeople(html: string): ExtractedPerson[] {
+  if (!html) return [];
+  const seen = new Set<string>();
+  return [...fromJsonLd(html), ...fromText(html)]
+    .filter((c) => titleRank(c.title) >= 0)
+    .sort((a, b) => titleRank(a.title) - titleRank(b.title))
+    .filter((c) => { const k = c.name.toLowerCase().replace(/^(dr|mr|mrs|ms|miss|engr|eng|barr|prof|chief|pastor)\.?\s+/, ''); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
 /** Best decision-maker named on one page of HTML, or null. Strongest title wins. */
 export function extractDecisionMaker(html: string): ExtractedPerson | null {
-  if (!html) return null;
-  const candidates = [...fromJsonLd(html), ...fromText(html)]
-    .filter((c) => titleRank(c.title) >= 0)
-    .sort((a, b) => titleRank(a.title) - titleRank(b.title));
-  return candidates[0] ?? null;
+  return extractPeople(html)[0] ?? null;
 }
 
 // ── Titles by industry ────────────────────────────────────────────────────────
@@ -344,6 +350,8 @@ export interface DmCandidate {
   confidence: DmConfidence;
   /** Every source that independently named this person. */
   sources?: DmSource[];
+  /** The page where this person was found, when we know it. */
+  sourcePage?: string;
 }
 
 const COMPANY_NOISE = /\b(ltd|limited|llc|inc|plc|co|company|the|and|of|nigeria|ng|group|services|solutions)\b/g;

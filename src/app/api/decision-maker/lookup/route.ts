@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     candidates: result.candidates.slice(0, 5).map((c) => ({
       name: c.name, title: c.title, source: c.source, confidence: c.confidence,
-      ...(c.email ? { email: c.email, emailStatus: c.emailStatus } : {}), ...(c.phone ? { phone: c.phone } : {}), ...(c.linkedin ? { linkedin: c.linkedin } : {}),
+      ...(c.email ? { email: c.email, emailStatus: c.emailStatus } : {}), ...(c.phone ? { phone: c.phone } : {}), ...(c.linkedin ? { linkedin: c.linkedin } : {}), ...(c.sourcePage ? { sourcePage: c.sourcePage } : {}),
     })),
-    ran: result.ran, paidAvailable: result.paidAvailable,
+    ran: result.ran, paidAvailable: result.paidAvailable, channels: result.channels,
   });
 }
