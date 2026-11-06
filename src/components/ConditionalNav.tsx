@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Nav from './Nav';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
@@ -15,17 +16,20 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
   const pathname = usePathname();
   const isAuth = pathname.startsWith('/auth');
+  // Signed-out visitors get no sidebar (nothing to navigate yet); it appears once they sign in.
+  const { status } = useSession();
+  const showSidebar = !isAuth && status !== 'unauthenticated';
 
   return (
     <>
       {/* Sidebar — desktop only (rendered inside provider so it can read collapsed state) */}
-      {!isAuth && <Sidebar />}
+      {showSidebar && <Sidebar />}
 
       {/* Main content — shifts right on desktop to clear the sidebar */}
       <div
         className={[
           !isAuth ? 'app-content' : '',
-          !isAuth ? (collapsed ? 'lg:pl-16' : 'lg:pl-60') : '',
+          showSidebar ? (collapsed ? 'lg:pl-16' : 'lg:pl-60') : '',
           'transition-[padding-left] duration-300 ease-in-out',
         ].join(' ')}
       >
