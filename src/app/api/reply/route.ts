@@ -96,7 +96,7 @@ const REPLY_CONTEXTS: Record<ReplyType, string> = {
 
   objection_who_are_you: `They're asking "Who are you?", "How did you get my number?", "Who gave you my number?" — they're surprised by cold contact. Stay calm, warm, professional. Strategy:
 - Don't be defensive — be completely transparent and friendly
-- Explain briefly how you found them (e.g. Google Maps, business listing, directory)
+- Explain briefly how you found them (e.g. a public business listing or directory)
 - Pivot quickly to value: you weren't randomly calling — you specifically found THEIR business
 - Compliment something genuine about their business to show you did your research
 - Defuse with humour if appropriate — "I know it's a bit unexpected! I'll be brief..."

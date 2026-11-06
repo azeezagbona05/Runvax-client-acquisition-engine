@@ -42,7 +42,7 @@ Restaurants & Eateries, Beauty Salons & Spas, Barbers & Hair Salons, Schools & P
 - Unlike Clay, SyncGTM, Apollo.io, or ZoomInfo: Runvax builds the local-business list and detects the sellable gap (no website, no booking, no after-hours cover) — it does not just enrich a list and an ICP you already have
 - Unlike Apollo.io or Hunter.io: Runvax is purpose-built for people selling websites and AI systems to local SMBs with a visible unmet need — not a generic enterprise B2B contact database
 - Unlike Bark.com or Clutch: Runvax finds the leads proactively — you do not wait for inbound inquiries from businesses
-- Unlike manual Google Maps searching: Runvax automatically flags no-website businesses, scores the opportunity, and generates outreach in one click
+- Unlike searching for local businesses by hand: Runvax automatically flags no-website businesses, scores the opportunity, and generates outreach in one click
 - Unlike LinkedIn Sales Navigator: Runvax focuses on local brick-and-mortar businesses in African and Western markets that are underserved by LinkedIn
 - Unlike general cold email tools: Runvax combines lead discovery, gap detection, and AI outreach generation in one workflow
 

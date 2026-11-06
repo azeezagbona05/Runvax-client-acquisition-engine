@@ -19,7 +19,7 @@ PRODUCT: Runvax (prospecttool.com)
 TAGLINE: The AI client-acquisition engine built for African web professionals
 
 WHAT IT DOES — COMPLETE FEATURE LIST:
-1. Business Discovery: Searches Google Maps/Places API to find local businesses without websites, with slow websites, or with poor online presence — filtered by industry, city, rating, phone availability
+1. Business Discovery: Searches local business listings to find local businesses without websites, with slow websites, or with poor online presence — filtered by industry, city, rating, phone availability
 2. Lead Scoring: Automatically scores each business 0–10 based on no-website status, review count, rating, category, and location — "Hot leads" (8–10) are pinned at the top
 3. Website Speed Analysis (PSI): Runs Google PageSpeed Insights on any business website — scores Performance, Accessibility, Best Practices, SEO on both mobile and desktop (0–100)
 4. Website Weakness Report: AI-generated analysis of exactly why a business's website is losing customers — references actual PSI scores, identifies specific failures, quantifies revenue impact
@@ -29,7 +29,7 @@ WHAT IT DOES — COMPLETE FEATURE LIST:
 8. Conversation Logger: Tracks every message sent to every prospect — WhatsApp, email, calls — with timestamps and outcomes
 9. Reply Intelligence: Paste any prospect reply (WhatsApp/email) → AI classifies intent (interested, price check, ghosting, won, not interested) → suggests correct pipeline stage → generates follow-up message
 10. AI Team Panel: 5 specialized AI agents per prospect — Researcher (business intel), Strategist (sales approach), Marketer (value props), Copywriter (outreach messages), Builder (website brief)
-11. Auto Prospecting Agent: Runs automated Google Places searches based on user preferences — queues results for human review before any action is taken
+11. Auto Prospecting Agent: Runs automated local business searches based on user preferences — queues results for human review before any action is taken
 12. Bulk WhatsApp Outreach: Send WhatsApp Business API messages to dozens of prospects in one click — uses approved templates, tracks delivery
 13. Email Blast: Send bulk personalized cold emails via SMTP — per-prospect personalization, subject line optimization
 14. Market Intelligence Brief: Daily AI-generated brief on what businesses in the user's target market are doing online — trending categories, hot areas, competitor moves

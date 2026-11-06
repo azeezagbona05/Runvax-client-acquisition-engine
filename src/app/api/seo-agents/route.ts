@@ -13,7 +13,7 @@ const PRODUCT = {
   url: 'https://prospecttool.com',
   targetAudience: 'Nigerian web designers, freelancers, agencies, digital marketers looking for clients',
   primaryMarket: 'Nigeria (Lagos, Abuja, Port Harcourt, Ibadan)',
-  uniqueValue: 'Combines Google Places search with AI outreach, PageSpeed analysis, website weakness reports, and WhatsApp Business API sending — all in one tool built for the African market',
+  uniqueValue: 'Combines local business search with AI outreach, PageSpeed analysis, website weakness reports, and WhatsApp Business API sending — all in one tool built for the African market',
   competitors: 'Manual Google search, LinkedIn outreach, cold calling directories, Hunter.io, Apollo.io (all foreign tools not built for Africa)',
   pricing: 'SaaS — monthly subscription, freemium model',
   problem: 'Nigerian freelancers and web agencies spend hours manually searching for clients on Google, WhatsApp groups, and Fiverr. Most lose to platform saturation and race-to-the-bottom pricing. ProspecTool automates the prospecting and outreach so they can compete without Fiverr.',

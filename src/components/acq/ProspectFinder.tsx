@@ -17,7 +17,7 @@ type People = { state: 'loading' } | { state: 'done'; people: Person[]; channels
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const label = { fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6, display: 'block' } as const;
 
-/** Finds businesses on Google Maps with the same search RUNVAX 1.0 uses, lists them, finds their emails and adds them to a campaign. */
+/** Finds businesses with the same search RUNVAX 1.0 uses, lists them, finds their emails and adds them to a campaign. */
 export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => void }) {
   const { data, guest } = useAcq();
   const [prompt, setPrompt] = useState('');
@@ -334,7 +334,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   };
 
   return (
-    <Card title="Find prospects on Google Maps">
+    <Card title="Find prospects">
       <form onSubmit={search} style={{ display: 'grid', gap: 12 }}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <div><label style={label} htmlFor="pf-country">1 · Country</label>
@@ -381,7 +381,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
             <div style={{ height: 8, background: '#ede9fe', borderRadius: 999, overflow: 'hidden' }} role="progressbar" aria-valuenow={n} aria-valuemin={0} aria-valuemax={want} aria-label="Prospects found">
               <div style={{ width: `${pct}%`, height: '100%', background: '#9333ea', transition: 'width .4s ease' }} />
             </div>
-            <p className="acq-sub" style={{ fontSize: 12.5 }}>{running ? (progress || 'Starting…') : 'Searching Google Maps…'}</p>
+            <p className="acq-sub" style={{ fontSize: 12.5 }}>{running ? (progress || 'Starting…') : 'Searching for businesses…'}</p>
           </div>
         );
       })()}

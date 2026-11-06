@@ -13,7 +13,7 @@ export const ACQ_TEMPLATES: AcqTemplate[] = [
   {
     id: 'website-pitch',
     name: 'Website for a business without one',
-    description: 'For local businesses that are only on Google Maps or social media.',
+    description: 'For local businesses with little more than a basic online listing or a social media page.',
     subject: 'A website for {{business}}',
     body: `Hi {{name}},
 

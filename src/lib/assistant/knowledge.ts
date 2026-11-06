@@ -113,7 +113,7 @@ The single highest-value setup step is the profile. The AI writes in your name, 
 
 What happens when you search:
 1. Runvax checks a 7-day cache — repeating a recent search returns instantly and does not hit the paid API.
-2. Otherwise it queries Google Places and returns businesses up to your plan's per-search cap.
+2. Otherwise it searches public business listings and returns businesses up to your plan's per-search cap.
 3. Each business gets a lead score from 0–100.
 4. Results are sorted highest-opportunity first.
 
@@ -132,7 +132,7 @@ Supported countries: Nigeria, Ghana, Kenya, South Africa, Uganda, Tanzania, Rwan
     href: '/',
     body: `Work through these in order:
 
-1. **Check the spelling of the city** and use a well-known name. Very small towns often have thin Google Places coverage — search the nearest larger city instead.
+1. **Check the spelling of the city** and use a well-known name. Very small towns often have thin listing coverage — search the nearest larger city instead.
 2. **Widen the radius.** The 5 km default is tight outside dense city centres; try 15–25 km.
 3. **Broaden the industry term.** "restaurant" returns far more than "continental fine dining restaurant". Search the broad term, then filter.
 4. **Check your daily search quota.** Once the cap is hit, searches are refused with an upgrade prompt until midnight UTC.
@@ -150,7 +150,7 @@ If results come back but they all have websites, that is normal for wealthy comm
 
 Reading a prospect card:
 - **Lead score badge** — priority, highest first
-- **Business name / category** — straight from Google Places
+- **Business name / category** — straight from public business listings
 - **Rating & reviews** — Google stars and review count
 - **Website indicator** — green: has a website. Red: none. Orange: social media only
 - **Phone number** — present means you can reach them on WhatsApp
@@ -565,9 +565,9 @@ Once installed it opens full-screen from your home icon with the same account an
       'delete account', 'delete my data', 'export data', 'my data',
     ],
     href: '/privacy',
-    body: `Business data comes from Google Places — the same public business listings that appear in Google Maps: name, category, address, phone, rating, review count and website field. Runvax does not scrape private data and does not sell contact lists.
+    body: `Business data comes from public business listings: name, category, address, phone, rating, review count and website field. Runvax does not scrape private data and does not sell contact lists.
 
-Because listings are maintained by the businesses themselves, some are out of date. A business flagged "no website" may have built one and never updated its Google listing, and phone numbers change. Always check the Business Drawer before pitching, and treat a wrong detail as a listing problem rather than a Runvax error.
+Because listings are maintained by the businesses themselves, some are out of date. A business flagged "no website" may have built one and never updated its listing, and phone numbers change. Always check the Business Drawer before pitching, and treat a wrong detail as a listing problem rather than a Runvax error. Full details of the data we use and our providers are in the Privacy Policy.
 
 Search results are cached for seven days to keep repeat searches instant and free.
 

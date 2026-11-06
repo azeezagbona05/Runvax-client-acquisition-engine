@@ -56,13 +56,13 @@ function IntegrationCard({ def, status, reload }: { def: IntegrationDef; status?
       {connected && status?.lastSyncAt && <p className="acq-sub" style={{ fontSize: 11.5, marginTop: 4 }}>Last synced {new Date(status.lastSyncAt).toLocaleString()}</p>}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-        {(!connected || errored) && (def.settingsHref
+        {(!connected || errored) && (def.settingsHref && !def.fields
           ? <Link href={def.settingsHref} className="acq-btn acq-btn-sm acq-btn-primary">Connect</Link>
           : <button className="acq-btn acq-btn-sm acq-btn-primary" onClick={connect} disabled={!!busy}>{busy === 'connect' && <Loader2 size={13} className="animate-spin" />}{errored ? 'Reconnect' : 'Connect'}</button>)}
         {(connected || errored) && <button className="acq-btn acq-btn-sm" onClick={() => call('test')} disabled={!!busy}>{busy === 'test' && <Loader2 size={13} className="animate-spin" />}Test connection</button>}
         {connected && def.actions?.map((a) => <button key={a.action} className="acq-btn acq-btn-sm" onClick={() => call(a.action)} disabled={!!busy}>{busy === a.action && <Loader2 size={13} className="animate-spin" />}{a.label}</button>)}
         {connected && def.settingsHref && <Link href={def.settingsHref} className="acq-btn acq-btn-sm">Manage</Link>}
-        {connected && !def.settingsHref && (def.fields || def.oauth) && <button className="acq-btn acq-btn-sm" onClick={() => { if (window.confirm(`Disconnect ${def.name}?`)) call('disconnect'); }} disabled={!!busy}>Disconnect</button>}
+        {connected && (def.fields || def.oauth) && <button className="acq-btn acq-btn-sm" onClick={() => { if (window.confirm(`Disconnect ${def.name}?`)) call('disconnect'); }} disabled={!!busy}>Disconnect</button>}
       </div>
 
       {open && def.fields && (

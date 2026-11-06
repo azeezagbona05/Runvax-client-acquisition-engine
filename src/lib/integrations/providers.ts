@@ -37,14 +37,13 @@ export async function allStatuses(userId: string): Promise<IntegrationStatus[]> 
     ? { id: 'smtp', state: 'connected', summary: `${s!.smtpUser} via ${s!.smtpHost}` }
     : { id: 'smtp', state: 'not_connected', summary: mailbox ? 'Using your Gmail connection' : 'Not connected yet' });
 
-  const row = (p: Provider, summaryOf: (meta: Record<string, unknown>) => string, platform?: boolean): IntegrationStatus => {
+  const row = (p: Provider, summaryOf: (meta: Record<string, unknown>) => string): IntegrationStatus => {
     const r = by.get(p);
     if (r) return { id: p as IntegrationId, state: r.status === 'connected' ? 'connected' : 'error', summary: r.status === 'connected' ? summaryOf((r.meta ?? {}) as Record<string, unknown>) : 'Needs attention', detail: r.status === 'error' ? r.statusDetail ?? undefined : undefined, lastCheckedAt: r.lastCheckedAt?.toISOString() ?? null, lastSyncAt: r.lastSyncAt?.toISOString() ?? null, extra: p === 'webhooks' ? { url: (r.meta as Record<string, unknown> | null)?.url } : undefined };
-    if (platform) return { id: p as IntegrationId, state: 'connected', summary: 'Provided by RUNVAX' };
     return { id: p as IntegrationId, state: 'not_connected', summary: 'Not connected yet' };
   };
-  out.push(row('apollo', () => 'Your Apollo key is in use', !!process.env.APOLLO_API_KEY));
-  out.push(row('snov', () => 'Your Snov.io account is in use', !!process.env.SNOV_CLIENT_ID && !!process.env.SNOV_CLIENT_SECRET));
+  out.push(row('apollo', () => 'Your Apollo key is in use'));
+  out.push(row('snov', () => 'Your Snov.io account is in use'));
   out.push(row('gcal', (m) => `Calendar of ${m.email ?? 'your Google account'}`));
   out.push(row('airtable', (m) => `Syncing to ${m.table ?? 'your table'}`));
   out.push(row('webhooks', (m) => `Posting to ${hostOf(String(m.url ?? ''))}`));
@@ -54,6 +53,20 @@ export async function allStatuses(userId: string): Promise<IntegrationStatus[]> 
 const hostOf = (u: string) => { try { return new URL(u).host; } catch { return 'your endpoint'; } };
 
 // ───────────────────────── WhatsApp ─────────────────────────
+
+export async function connectWhatsApp(userId: string, f: { phoneNumberId?: string; accessToken?: string; wabaId?: string }): Promise<Result> {
+  const id = (f.phoneNumberId ?? '').trim(), token = (f.accessToken ?? '').trim(), wabaId = (f.wabaId ?? '').trim();
+  if (!id || !token) return fail('Enter the phone number ID and the access token.');
+  if (!/^\d{6,}$/.test(id)) return fail('The phone number ID is digits only (not the phone number itself).');
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${id}?fields=display_phone_number,verified_name,quality_rating`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
+    const d = await res.json() as { display_phone_number?: string; verified_name?: string; error?: { message?: string } };
+    if (!res.ok || d.error) return fail(d.error?.message ?? 'Meta rejected that phone number ID or token.');
+    const data = { waPhoneNumberId: id, waAccessToken: token, waDisplayPhone: d.display_phone_number ?? null, wabaId: wabaId || null };
+    await prisma.userSettings.upsert({ where: { userId }, create: { userId, ...data }, update: data });
+    return { ok: true, message: `Connected ${d.verified_name ?? 'your number'} (${d.display_phone_number ?? id}).` };
+  } catch (e) { return fail(errText(e, 'Could not reach Meta.')); }
+}
 
 export async function testWhatsApp(userId: string): Promise<Result> {
   const s = await prisma.userSettings.findUnique({ where: { userId }, select: { waPhoneNumberId: true, waAccessToken: true } });
@@ -327,6 +340,8 @@ export async function runAction(userId: string, id: IntegrationId, action: strin
   const touch = async (p: Provider, r: Result) => { await markStatus(userId, p, r.ok ? 'connected' : 'error', r.ok ? null : r.message); return r; };
   switch (`${id}:${action}`) {
     case 'wa:test': return testWhatsApp(userId);
+    case 'wa:connect': return connectWhatsApp(userId, { phoneNumberId: str('phoneNumberId'), accessToken: str('accessToken'), wabaId: str('wabaId') });
+    case 'wa:disconnect': await prisma.userSettings.updateMany({ where: { userId }, data: { waPhoneNumberId: null, waAccessToken: null, waDisplayPhone: null, wabaId: null, waTemplateName: null, waTemplateStatus: null } }); return { ok: true, message: 'WhatsApp disconnected.' };
     case 'gmail:connect': return connectMailbox(userId, 'gmail', { email: str('email'), password: str('password') });
     case 'smtp:connect': return connectMailbox(userId, 'smtp', { email: str('email'), password: str('password'), host: str('host'), port: Number(body.port) });
     case 'gmail:test': case 'smtp:test': return testMailbox(userId);
@@ -335,7 +350,7 @@ export async function runAction(userId: string, id: IntegrationId, action: strin
       const key = (str('apiKey') ?? '').trim(); if (!key) return fail('Paste your Apollo API key.');
       const r = await checkApollo(key); if (r.ok) await saveConnection(userId, 'apollo', { apiKey: key }); return r;
     }
-    case 'apollo:test': { const c = await getConnection(userId, 'apollo'); if (!c) return process.env.APOLLO_API_KEY ? checkApollo(process.env.APOLLO_API_KEY) : fail('Apollo is not connected.'); return touch('apollo', await checkApollo(c.secrets.apiKey)); }
+    case 'apollo:test': { const c = await getConnection(userId, 'apollo'); if (!c) return fail('Apollo is not connected.'); return touch('apollo', await checkApollo(c.secrets.apiKey)); }
     case 'snov:connect': {
       const cid = (str('clientId') ?? '').trim(), cs = (str('clientSecret') ?? '').trim(); if (!cid || !cs) return fail('Enter both the Snov.io API User ID and API Secret.');
       const r = await checkSnov(cid, cs); if (r.ok) await saveConnection(userId, 'snov', { clientId: cid, clientSecret: cs }); return r;

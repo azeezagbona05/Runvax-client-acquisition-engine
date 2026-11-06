@@ -150,7 +150,7 @@ have someone answering enquiries. Strategy:
 
   objection_who_are_you: `They are asking who you are or how you got their number.
 Strategy:
-- Be completely transparent and unbothered. You found them on Google Maps or a
+- Be completely transparent and unbothered. You found them in a public
   business listing while looking at businesses in their area
 - No defensiveness, no over-explaining
 - Pivot in one sentence back to the specific reason you messaged THEM

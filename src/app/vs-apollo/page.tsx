@@ -163,7 +163,7 @@ export default function VsApolloPage() {
             </p>
             <p className="text-gray-300 mb-4">
               But in Lagos, Accra, Nairobi, or Kampala, most small and medium businesses are not on
-              LinkedIn. They are registered on Google Maps. That is where Runvax searches.
+              LinkedIn. They are listed in local business directories. That is where Runvax searches.
             </p>
             <p className="text-gray-300">
               Runvax gives you real-time access to every restaurant, salon, clinic, law firm, and

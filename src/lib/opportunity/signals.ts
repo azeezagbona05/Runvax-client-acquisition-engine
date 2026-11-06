@@ -190,7 +190,7 @@ export function extractSignals(business: Business): Signal[] {
   const isSocial = /facebook\.com|instagram\.com|linktr\.ee|wa\.me/i.test(site);
 
   if (!business.hasWebsite) {
-    push('no_website', 'No website found on their Google listing', true);
+    push('no_website', 'No website found on their public business listing', true);
     if (isSocial) push('social_only', 'Only a social media page is linked, not a website', true);
   } else {
     const domain = site.replace(/^https?:\/\//, '').split('/')[0];

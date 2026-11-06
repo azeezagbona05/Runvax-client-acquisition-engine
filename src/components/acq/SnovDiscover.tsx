@@ -168,12 +168,11 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
               </div>
               <label className="acq-faint" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginBottom: 8 }}><input type="checkbox" checked={includeUnconfirmed} onChange={(e) => setIncludeUnconfirmed(e.target.checked)} style={{ accentColor: '#9333ea' }} /> Also add emails Snov.io could not confirm (default: only confirmed ones, so nothing bounces)</label>
               <div style={{ overflowX: 'auto' }}>
-                <table className="acq-table" style={{ minWidth: 820 }}>
-                  <thead><tr><th style={{ width: 32 }}><span className="sr-only">Select</span></th><th>Person</th><th>Job title</th><th>Location</th><th>Email</th></tr></thead>
+                <table className="acq-table banded" style={{ minWidth: 1020, tableLayout: 'fixed' }}>
+                  <colgroup><col style={{ width: 46 }} /><col style={{ width: '17%' }} /><col style={{ width: '20%' }} /><col style={{ width: '23%' }} /><col style={{ width: '17%' }} /><col style={{ width: '23%' }} /></colgroup>
+                  <thead><tr><th><span className="sr-only">Select</span></th><th>Person</th><th>Job title</th><th>Company</th><th>Location</th><th>Email</th></tr></thead>
                   <tbody>
-                    {groups.map((g) => (
-                      <GroupRows key={g.key} g={g} picked={picked} toggle={toggle} revealed={revealed} />
-                    ))}
+                    {groups.map((g) => <GroupRows key={g.key} g={g} picked={picked} toggle={toggle} revealed={revealed} />)}
                   </tbody>
                 </table>
               </div>
@@ -190,27 +189,33 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
   );
 }
 
+const clip = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
+
 function GroupRows({ g, picked, toggle, revealed }: { g: ReturnType<typeof groupByCompany>[number]; picked: Set<string>; toggle: (url: string) => void; revealed: Record<string, Revealed> }) {
   const site = g.company.domain ? `https://${g.company.domain}` : '';
+  const detail = [g.company.size && `${g.company.size} people`, g.company.industry].filter(Boolean).join(' · ');
   return (
     <>
-      <tr style={{ background: '#faf5ff' }}>
-        <td />
-        <td colSpan={4} style={{ padding: '8px 12px' }}>
-          <b>{g.company.name || g.company.domain}</b>
-          {site && <> · <a href={site} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline' }}>{g.company.domain}</a></>}
-          <span className="acq-sub" style={{ fontSize: 12 }}> · {[g.company.size && `${g.company.size} people`, g.company.industry, g.company.location].filter(Boolean).join(' · ')}</span>
-        </td>
-      </tr>
-      {g.people.map((p) => {
+      {g.people.map((p, i) => {
         const r = revealed[p.revealUrl];
+        const first = i === 0;
         return (
-          <tr key={p.revealUrl}>
+          <tr key={p.revealUrl} style={first ? { borderTop: '2px solid #ede9fe' } : undefined}>
             <td><input type="checkbox" aria-label={`Select ${maskedName(p)}`} checked={picked.has(p.revealUrl)} onChange={() => toggle(p.revealUrl)} style={{ accentColor: '#9333ea' }} /></td>
-            <td style={{ fontWeight: 600 }}>{r?.name ?? maskedName(p)}</td>
-            <td className="acq-muted">{p.jobTitle || '—'}</td>
-            <td className="acq-muted">{p.location || '—'}</td>
-            <td>{r?.email ? <span style={{ color: r.smtpStatus === 'valid' ? '#15803d' : '#b45309' }} title={r.smtpStatus === 'valid' ? 'Confirmed to exist' : 'Snov.io could not confirm this address'}>{r.smtpStatus === 'valid' ? '✓ ' : ''}{r.email}</span> : <span className="acq-faint">Not revealed</span>}</td>
+            <td style={{ fontWeight: 600, ...clip }} title={r?.name ?? maskedName(p)}>{r?.name ?? maskedName(p)}</td>
+            <td className="acq-muted" style={clip} title={p.jobTitle}>{p.jobTitle || '—'}</td>
+            <td style={clip}>
+              {first ? (
+                <>
+                  <b style={{ display: 'block', color: '#0f172a', ...clip }} title={g.company.name || g.company.domain}>{g.company.name || g.company.domain}</b>
+                  <span className="acq-sub" style={{ fontSize: 12, display: 'block', ...clip }}>
+                    {site && <a href={site} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline' }}>{g.company.domain}</a>}{site && detail ? ' · ' : ''}{detail}
+                  </span>
+                </>
+              ) : <span className="acq-faint" style={{ fontSize: 12 }} aria-label={`Same company: ${g.company.name || g.company.domain}`}>↳ same company</span>}
+            </td>
+            <td className="acq-muted" style={clip} title={p.location}>{p.location || '—'}</td>
+            <td style={clip}>{r?.email ? <span style={{ color: r.smtpStatus === 'valid' ? '#15803d' : '#b45309' }} title={r.smtpStatus === 'valid' ? 'Confirmed to exist' : 'Snov.io could not confirm this address'}>{r.smtpStatus === 'valid' ? '✓ ' : ''}{r.email}</span> : <span className="acq-faint">Not revealed</span>}</td>
           </tr>
         );
       })}

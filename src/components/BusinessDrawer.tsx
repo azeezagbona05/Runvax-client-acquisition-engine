@@ -651,7 +651,7 @@ export default function BusinessDrawer({ business, onClose, onGenerate, generati
           </div>
 
           <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors">
-            <ExternalLink className="w-3.5 h-3.5" /> View on Google Maps
+            <ExternalLink className="w-3.5 h-3.5" /> View on map
           </a>
 
           {/* Email Discovery — hidden until crawler is reliable */}

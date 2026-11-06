@@ -166,7 +166,7 @@ export default function VsClayPage() {
                 <li>&bull; AI agent and automation builders who need businesses to sell to</li>
                 <li>&bull; Anyone whose bottleneck is <em>finding</em> prospects, not enriching them</li>
                 <li>&bull; Solo operators and small agencies on a small budget</li>
-                <li>&bull; Local markets where buyers are on Google Maps, not LinkedIn</li>
+                <li>&bull; Local markets where buyers are listed in local business directories, not on LinkedIn</li>
               </ul>
             </div>
           </div>
@@ -211,7 +211,7 @@ export default function VsClayPage() {
             <p className="text-gray-300 mb-4">
               But if you are a freelancer or a small agency selling to restaurants, clinics,
               law firms, and salons in your city, you do not have a list. Those businesses are
-              not in B2B databases and most are not on LinkedIn. They are on Google Maps, with
+              not in B2B databases and most are not on LinkedIn. They are listed locally, with
               a phone number, a rating, and — often — no website.
             </p>
             <p className="text-gray-300">
