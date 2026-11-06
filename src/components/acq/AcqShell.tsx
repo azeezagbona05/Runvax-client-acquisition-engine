@@ -8,7 +8,7 @@ import {
   Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, Lock, Mail, Menu, MessageCircle,
   Search, Send, Settings, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
-import { DEFAULT_HOME } from '@/lib/home';
+import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
 import { useUpgrade } from '@/context/UpgradeContext';
 import { PRICING_ENABLED } from '@/lib/promo';
 import Logo from './Logo';
@@ -34,7 +34,7 @@ const NAV_GROUPS: Array<{ heading?: string; items: ReadonlyArray<{ href: string;
     { href: '/', label: 'Classic Find Prospects', icon: Search, exact: true },
   ] },
   { items: [
-    { href: '/settings', label: 'Settings', icon: Settings },
+    { href: SETTINGS_HOME, label: 'Settings', icon: Settings },
   ] },
 ];
 
@@ -148,7 +148,7 @@ function UserMenu() {
           <Link href={DEFAULT_HOME} className="acq-nav-item" style={{ height: 38 }}>Find Prospects</Link>
           <Link href="/pipeline" className="acq-nav-item" style={{ height: 38 }}>Prospect CRM</Link>
           <Link href="/command-centre" className="acq-nav-item" style={{ height: 38 }}>Dashboard</Link>
-          <Link href="/settings" className="acq-nav-item" style={{ height: 38 }}>Settings</Link>
+          <Link href={SETTINGS_HOME} className="acq-nav-item" style={{ height: 38 }}>Settings</Link>
           <button onClick={() => void signOut({ callbackUrl: '/' })} className="acq-nav-item" style={{ height: 38, width: '100%', border: 0, background: 'transparent', color: '#b91c1c', textAlign: 'left' }}>Sign out</button>
         </div>
       )}
@@ -234,7 +234,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
             {PRICING_ENABLED ? (
               <Link href="/pricing" className="acq-btn" style={{ width: '100%', marginTop: 14, background: '#f3e8ff', borderColor: '#f3e8ff', color: '#9333ea' }}><Crown size={16} /> Upgrade Plan</Link>
             ) : (
-              <Link href="/settings" className="acq-btn" style={{ width: '100%', marginTop: 14, background: '#f3e8ff', borderColor: '#f3e8ff', color: '#9333ea' }}><Settings size={16} /> Email settings</Link>
+              <Link href={`${SETTINGS_HOME}?tab=email`} className="acq-btn" style={{ width: '100%', marginTop: 14, background: '#f3e8ff', borderColor: '#f3e8ff', color: '#9333ea' }}><Settings size={16} /> Email settings</Link>
             )}
           </div>
         )}
@@ -255,7 +255,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="acq-content">
-          {gate && !(gate !== 'signin' && pathname === DEFAULT_HOME) ? <GateCard gate={gate} /> : children}
+          {gate && !(gate !== 'signin' && (pathname === DEFAULT_HOME || pathname === SETTINGS_HOME)) ? <GateCard gate={gate} /> : children}
         </main>
       </div>
     </div>

@@ -296,7 +296,7 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
       {!mailboxReady && (
         <div className="acq-warn" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <AlertTriangle size={17} style={{ marginTop: 2, flex: 'none' }} />
-          <span>Campaigns send from <b>your own mailbox</b>, so replies come to you. <Link href="/settings" style={{ textDecoration: 'underline', fontWeight: 600 }}>Connect your email in Settings</Link> to run this one. (Gmail needs an app password.)</span>
+          <span>Campaigns send from <b>your own mailbox</b>, so replies come to you. <Link href="/client-acquisition/settings?tab=email" style={{ textDecoration: 'underline', fontWeight: 600 }}>Connect your email in Settings</Link> to run this one. (Gmail needs an app password.)</span>
         </div>
       )}
       {notice && <div className="acq-notice" role="status" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>{notice}</span><button className="acq-link" style={{ color: '#64748b' }} onClick={() => setNotice('')}>Dismiss</button></div>}

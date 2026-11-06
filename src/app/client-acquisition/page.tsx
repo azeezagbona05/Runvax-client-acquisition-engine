@@ -42,7 +42,7 @@ export default function ClientAcquisitionOverview() {
       {data && !data.mailboxReady && (
         <div className="acq-warn" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <AlertTriangle size={17} style={{ marginTop: 2, flex: 'none' }} />
-          <span>Connect your own email before you run a campaign. It sends from your mailbox so replies come to you. <Link href="/settings" style={{ textDecoration: 'underline', fontWeight: 600 }}>Open Settings</Link></span>
+          <span>Connect your own email before you run a campaign. It sends from your mailbox so replies come to you. <Link href="/client-acquisition/settings?tab=email" style={{ textDecoration: 'underline', fontWeight: 600 }}>Open Settings</Link></span>
         </div>
       )}
 

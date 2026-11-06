@@ -34,7 +34,7 @@ export default function IntegrationsPage() {
                     : <span className="acq-pill acq-pill-gray" style={{ gap: 6 }}><Clock size={12} />Planned</span>}
                 </div>
                 <p style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.5, marginTop: 10 }}>{i.note}</p>
-                {(i.id === 'smtp' || i.id === 'gmail') && <Link href="/settings" className="acq-btn acq-btn-sm" style={{ marginTop: 12 }}>Open Email settings</Link>}
+                {(i.id === 'smtp' || i.id === 'gmail') && <Link href="/client-acquisition/settings?tab=email" className="acq-btn acq-btn-sm" style={{ marginTop: 12 }}>Open Email settings</Link>}
               </Card>
             ))}
           </div>
