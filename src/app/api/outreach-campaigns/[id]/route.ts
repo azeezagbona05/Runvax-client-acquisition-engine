@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireCampaignUser } from '@/lib/campaignAuth';
+import { requireCampaignUser, requireCampaignSender } from '@/lib/campaignAuth';
 import { loadMailbox } from '@/lib/outreachSender';
 import { followRule } from '@/lib/automation';
 import { cleanEmail, needsFollowUp, stageOf, statsOf, validateCampaignFields } from '@/lib/outreachCampaign';
@@ -81,6 +81,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const data: Record<string, unknown> = { ...v.data };
   if (automation) data.automation = automation as unknown as object;
   if (body.action === 'run') {
+    const sender = await requireCampaignSender(req);
+    if (!sender.ok) return sender.response;
     if (!(await loadMailbox(user.userId))) {
       return NextResponse.json({ error: 'Connect your own email in Settings → Email first. Campaigns send from your mailbox so replies reach you.', code: 'NO_MAILBOX' }, { status: 400 });
     }

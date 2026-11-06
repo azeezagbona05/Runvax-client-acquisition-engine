@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { guardInstalled } from '@/lib/v2Setup';
-import { requireCampaignUser } from '@/lib/campaignAuth';
+import { requireCampaignSender } from '@/lib/campaignAuth';
 import { rateLimit } from '@/lib/rateLimiter';
 import { loadMailbox } from '@/lib/outreachSender';
 import { logAgent } from '@/lib/acqReplies';
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 /** POST { body } — sends the answer the user approved (edited or not) from their own mailbox, in the same thread. One click, one email. */
 async function handlePost(req: NextRequest, id: string) {
-  const user = await requireCampaignUser(req);
+  const user = await requireCampaignSender(req);
   if (!user.ok) return user.response;
   if (!rateLimit(`acq-respond:${user.userId}`, { maxRequests: 30, windowMs: 60_000 }).ok) return NextResponse.json({ error: 'Slow down: try again in a minute.' }, { status: 429 });
   const b = await req.json().catch(() => null) as { body?: unknown } | null;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireCampaignUser } from '@/lib/campaignAuth';
+import { requireCampaignSender } from '@/lib/campaignAuth';
 import { rateLimit } from '@/lib/rateLimiter';
 import { sendBatch } from '@/lib/outreachSender';
 
@@ -12,7 +12,7 @@ export const maxDuration = 60;
  * Follow-ups are only ever sent when the user asks for them here.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const user = await requireCampaignUser(req);
+  const user = await requireCampaignSender(req);
   if (!user.ok) return user.response;
   if (!rateLimit(`oc-send:${user.userId}`, { maxRequests: 30, windowMs: 60_000 }).ok) {
     return NextResponse.json({ error: 'Slow down: too many send requests. Try again in a minute.' }, { status: 429 });

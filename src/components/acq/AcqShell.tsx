@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
-  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, Lock, LogOut, Mail, Menu, MessageCircle,
+  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, LogOut, Mail, Menu, MessageCircle,
   Search, Send, Settings, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
-import { useUpgrade } from '@/context/UpgradeContext';
-import { PRICING_ENABLED } from '@/lib/promo';
+import { PRICING_ENABLED, trialOfferOpen } from '@/lib/promo';
+import StartTrialButton from '@/components/StartTrialButton';
 import Logo from './Logo';
 import { useAcq } from './AcqProvider';
 
@@ -152,10 +152,9 @@ function UserMenu() {
 }
 
 function GateCard({ gate }: { gate: 'signin' | 'locked' | 'unverified' | 'setup' }) {
-  const { triggerUpgrade } = useUpgrade();
   const copy = {
     signin: { title: 'Sign in to start winning clients', body: 'Client Acquisition is where your campaigns, leads and replies live.', action: <Link href="/auth/signin" className="acq-btn acq-btn-primary">Sign in</Link> },
-    locked: { title: 'Client Acquisition is part of Email Blast', body: 'Available on Pro and Agency plans.', action: <button className="acq-btn acq-btn-primary" onClick={() => triggerUpgrade('feature', 'Email Blast')}><Lock size={15} /> See plans</button> },
+    locked: { title: 'Sending campaigns is part of Pro', body: 'You can build campaigns and import leads now. Sending needs a Pro plan.', action: trialOfferOpen() ? <StartTrialButton /> : <a href="mailto:info@runvax.com?subject=Unlock%20sending" className="acq-btn acq-btn-primary">Contact us to unlock sending</a> },
     setup: { title: 'Client Acquisition needs one database update', body: 'The tables for campaigns and contacts have not been created yet. An administrator needs to apply migration 5_outreach_campaigns once. Nothing else is affected.', action: null },
     unverified: { title: 'Verify your email first', body: 'We sent you a verification link. Campaigns are only for verified accounts, so your emails reach inboxes and not spam folders.', action: null },
   }[gate];
