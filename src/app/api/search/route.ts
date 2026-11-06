@@ -4,6 +4,7 @@ import { getToken } from 'next-auth/jwt';
 import { searchPlaces } from '@/lib/google-places';
 import { checkAndIncrementSearch, checkLocationRestriction, logGooglePlacesReqs } from '@/lib/usage';
 import { prisma } from '@/lib/prisma';
+import { checkGuestSearch, setGuestCookie, GUEST_PREVIEW_RESULTS } from '@/lib/guestLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,7 @@ function buildCacheKey(query: string, country: string, radius: number, lat?: num
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { query, lat, lng, radius = 5, location, country, forceRefresh } = body;
+    const { query, lat, lng, radius = 5, location, country, forceRefresh, guestPreview } = body;
 
     if (!query?.trim()) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
@@ -86,7 +87,16 @@ export async function POST(req: NextRequest) {
       plan?: string;
     } = {};
 
+    let guestCount = 0;
     if (isGuest) {
+      const g = checkGuestSearch(req);
+      if (!g.ok) {
+        return NextResponse.json(
+          { code: 'GUEST_LIMIT', error: 'You have used your free searches for today. Create a free account to keep going.' },
+          { status: 402 },
+        );
+      }
+      guestCount = g.next;
       resultsLimit = 20;
     } else {
       const usage = await checkAndIncrementSearch(req);
@@ -232,15 +242,21 @@ export async function POST(req: NextRequest) {
       return { ...b, psiScore: p?.psiScore ?? undefined, psiDesktopScore: p?.psiDesktopScore ?? undefined };
     });
 
-    return NextResponse.json({
-      businesses: businessesWithPsi,
-      total: businessesWithPsi.length,
+    // The new signed-out experience asks for a preview: a few real results, the rest withheld until sign-up.
+    const preview = isGuest && guestPreview === true;
+    const out = preview ? businessesWithPsi.slice(0, GUEST_PREVIEW_RESULTS) : businessesWithPsi;
+    const res = NextResponse.json({
+      businesses: out,
+      total: out.length,
+      ...(preview ? { guestFound: businessesWithPsi.length, guestHidden: businessesWithPsi.length - out.length } : {}),
       isGuest,
       cached: false,
       unlimitedResults: resultsLimit === Infinity,
       resultsLimit: resultsLimit === Infinity ? null : resultsLimit,
       ...searchMeta,
     });
+    if (isGuest) setGuestCookie(res, guestCount);
+    return res;
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('[/api/search]', msg);

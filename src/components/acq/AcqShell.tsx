@@ -175,7 +175,7 @@ function GateCard({ gate }: { gate: 'signin' | 'locked' | 'unverified' | 'setup'
 
 export default function AcqShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { data, gate } = useAcq();
+  const { data, gate, guest } = useAcq();
   const [rail, setRail] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -188,6 +188,24 @@ export default function AcqShell({ children }: { children: ReactNode }) {
   const running = (data?.runningCampaigns ?? 0) > 0;
   const sending = data?.sending ?? { today: 0, limit: 200 };
   const pctUsed = sending.limit ? Math.min(100, Math.round((sending.today / sending.limit) * 100)) : 0;
+
+  // Signed-out visitors: no sidebar, no account menu. A plain top bar and the Find Prospects preview.
+  if (guest) {
+    return (
+      <div className="acq-root">
+        <header className="acq-topbar" style={{ justifyContent: 'space-between' }}>
+          <Link href={DEFAULT_HOME} aria-label="RUNVAX Find Prospects"><Logo /></Link>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Link href="/auth/signin" className="acq-btn">Sign in</Link>
+            <Link href="/auth/signup" className="acq-btn acq-btn-primary">Sign up free</Link>
+          </div>
+        </header>
+        <main className="acq-content" style={{ maxWidth: 1200, margin: '0 auto' }}>
+          {pathname === DEFAULT_HOME ? children : <GateCard gate="signin" />}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="acq-root">

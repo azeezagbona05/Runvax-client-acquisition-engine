@@ -6,6 +6,9 @@ import { AREAS, STATES } from '@/lib/areas';
 import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, DEFAULT_FILTERS, toCsv, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_RUN_SEARCHES, advanceFinder, filterResults, filtersActive, finderError, finderQuery, planStep, startFinder, stepsLeft, stopReason, type FinderBusiness, type FinderCtx, type ContactAction, type ContactState, type RatingFilter, type ResultFilters, type Verdict, type SortKey, type WebsiteFilter } from '@/lib/acqFinder';
 import { BizLogo, Card, EmptyState } from './ui';
 import { useAcq } from './AcqProvider';
+import SignupPrompt from './SignupPrompt';
+
+const PENDING_KEY = 'rv_pending_find';
 
 type Email = { state: 'loading' } | { state: 'done'; email: string | null };
 type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string; sourcePage?: string; linkedin?: string };
@@ -16,7 +19,9 @@ const label = { fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6
 
 /** Finds businesses on Google Maps with the same search RUNVAX 1.0 uses, lists them, finds their emails and adds them to a campaign. */
 export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => void }) {
-  const { data } = useAcq();
+  const { data, guest } = useAcq();
+  const [prompt, setPrompt] = useState('');
+  const [guestHidden, setGuestHidden] = useState(0);
   const [country, setCountry] = useState('NG');
   const [allCountries, setAllCountries] = useState<Array<{ code: string; name: string }> | null>(null);
   const [regions, setRegions] = useState<Array<{ code: string; name: string }>>([]);
@@ -76,6 +81,29 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   }, [country, state, regions]);
   const campaigns = (data?.campaigns ?? []).filter((c) => c.status !== 'completed' || true);
 
+  /** Signed-out visitors can look, but anything that does work for them needs an account. Remembers the search so it is still here after sign-up. */
+  const needAccount = (why: string): boolean => {
+    if (!guest) return false;
+    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify({ country, state, location, industry })); } catch { /* not saved */ }
+    setPrompt(why);
+    return true;
+  };
+
+  // Coming back from sign-up: put the search form back the way they left it.
+  useEffect(() => {
+    if (guest) return;
+    try {
+      const raw = sessionStorage.getItem(PENDING_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(PENDING_KEY);
+      const p = JSON.parse(raw) as { country?: string; state?: string; location?: string; industry?: string };
+      if (p.country) setCountry(p.country);
+      if (p.state) setState(p.state);
+      if (p.location) setLocation(p.location);
+      if (p.industry) setIndustry(p.industry);
+    } catch { /* ignore */ }
+  }, [guest]);
+
   const search = async (e: React.FormEvent) => {
     e.preventDefault();
     const bad = finderError(industry, location);
@@ -83,9 +111,11 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     stop.current = true; setRunning(false); setProgress('');
     setBusy(true); setError(''); setResults(null); setFilters(DEFAULT_FILTERS); setPicked(new Set()); setEmails({}); setPeople({}); setVerdicts({}); setStatusFilter('any'); setCtx(null); seen.current = new Set();
     try {
-      const res = await fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry, location, country, radius: 5, query: finderQuery(industry, location) }) });
-      const j = await res.json().catch(() => ({})) as { businesses?: FinderBusiness[]; error?: string; cached?: boolean };
+      const res = await fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry, location, country, radius: 5, query: finderQuery(industry, location), ...(guest ? { guestPreview: true } : {}) }) });
+      const j = await res.json().catch(() => ({})) as { businesses?: FinderBusiness[]; error?: string; cached?: boolean; code?: string; guestHidden?: number };
+      if (res.status === 402 && j.code === 'GUEST_LIMIT') { needAccount('You have used your free searches for today.'); setError(j.error ?? ''); return; }
       if (!res.ok) { setError(j.error ?? 'The search failed. Try again in a moment.'); return; }
+      setGuestHidden(guest ? j.guestHidden ?? 0 : 0);
       const found = (j.businesses ?? []).slice(0, want).map((b) => ({ ...b, foundBy: 'First search' }));
       setResults(found); setCached(!!j.cached);
       found.forEach((b) => seen.current.add(b.id));
@@ -93,7 +123,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
       const centre = withLoc.length ? { lat: withLoc.reduce((a, b) => a + b.location!.latitude, 0) / withLoc.length, lng: withLoc.reduce((a, b) => a + b.location!.longitude, 0) / withLoc.length } : undefined;
       const c0 = startFinder(industry.trim(), location.trim(), country, state, centre);
       setCtx(c0);
-      if (found.length < want) { setBusy(false); void keepFinding(c0); }
+      if (found.length < want && !guest) { setBusy(false); void keepFinding(c0); }
     } catch { setError('Could not reach the search. Check your connection.'); } finally { setBusy(false); }
   };
 
@@ -114,6 +144,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   };
 
   const loadMore = async () => {
+    if (needAccount('Loading more results needs an account.')) return;
     if (!ctx || running) return;
     setBusy(true); setError('');
     const r = await runStep(ctx);
@@ -124,6 +155,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
 
   /** Keeps running steps until Google has nothing more, the plan's searches run out, or the user stops it. */
   const keepFinding = async (from: FinderCtx | null = ctx) => {
+    if (needAccount('Searching until there is no more needs an account.')) return;
     if (!from || running) return;
     stop.current = false; setRunning(true); setError('');
     let c = from; let dry = 0; let total = 0; let n = 0;
@@ -140,6 +172,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   };
 
   const findEmail = async (b: FinderBusiness) => {
+    if (needAccount('Finding business emails needs an account.')) return;
     setEmails((m) => ({ ...m, [b.id]: { state: 'loading' } }));
     try {
       const res = await fetch('/api/enrich-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website: b.website, name: b.name, location: b.address, phone: b.phone }) });
@@ -148,6 +181,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     } catch { setEmails((m) => ({ ...m, [b.id]: { state: 'done', email: null } })); }
   };
   const findForSelected = async () => {
+    if (needAccount('Finding business emails needs an account.')) return;
     setFinding(true);
     const todo = (results ?? []).filter((b) => picked.has(b.id) && !emails[b.id]);
     for (let i = 0; i < todo.length; i += 3) await Promise.all(todo.slice(i, i + 3).map(findEmail));
@@ -156,6 +190,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
 
   /** Decision-makers and their emails for one business: the free sources first, then the paid ones (Snov.io, Hunter…) when allowed. */
   const findPeople = async (b: FinderBusiness, opts: { deep?: boolean } = {}) => {
+    if (needAccount('Finding decision-makers needs an account.')) return;
     setPeople((m) => ({ ...m, [b.id]: { state: 'loading' } }));
     const ask = async (deep: boolean) => {
       const res = await fetch('/api/decision-maker/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, deep }) });
@@ -177,6 +212,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     } catch { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: 'Lookup failed.' } })); }
   };
   const findPeopleForSelected = async () => {
+    if (needAccount('Finding decision-makers needs an account.')) return;
     setFindingDm(true);
     const todo = (results ?? []).filter((b) => picked.has(b.id) && !people[b.id]);
     // Two at a time: each can chain several provider calls.
@@ -205,11 +241,13 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     return true;
   };
   const verifyOne = async (b: FinderBusiness) => {
+    if (needAccount('Verifying emails needs an account.')) return;
     setVerifying((s) => new Set(s).add(b.id));
     try { await verifyEmailsOf(usablePeople(b).filter((p) => !personOk(p)).map((p) => p.email!)); }
     finally { setVerifying((s) => { const n = new Set(s); n.delete(b.id); return n; }); }
   };
   const verifySelected = async () => {
+    if (needAccount('Verifying emails needs an account.')) return;
     setVerifyingAll(true); setError('');
     try { await verifyEmailsOf(Array.from(new Set((results ?? []).filter((b) => picked.has(b.id)).flatMap((b) => usablePeople(b).filter((p) => !personOk(p)).map((p) => p.email!.toLowerCase()))))); }
     finally { setVerifyingAll(false); }
@@ -270,6 +308,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
 
   /** Downloads the rows on screen (with what was found so far) as a CSV: for a manual quality review, or as input for scripts/contact-intel-experiment.ts. */
   const exportCsv = () => {
+    if (needAccount('Exporting needs an account.')) return;
     const rows: unknown[][] = [['name', 'website', 'address', 'phone', 'category', 'rating', 'reviews', 'contact_status', 'people', 'general_email', 'contact_form']];
     for (const b of shown) {
       const ch = channelsOf(b);
@@ -282,6 +321,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   };
 
   const add = async () => {
+    if (needAccount('Adding prospects to a campaign needs an account.')) return;
     if (!target || !ready.length) return;
     setAdding(true);
     try {
@@ -317,6 +357,16 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
         </div>
       </form>
       {error && <p role="alert" className="acq-warn" style={{ marginTop: 12 }}>{error}</p>}
+      {prompt && <SignupPrompt reason={prompt} onClose={() => setPrompt('')} />}
+      {guest && results && results.length > 0 && (
+        <div role="status" className="acq-notice" style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ flex: 1, minWidth: 220 }}>
+            {guestHidden > 0 ? <>Showing <b>{results.length}</b> of <b>{results.length + guestHidden}</b> businesses found. </> : null}
+            Create a free account to see all of them, find owner emails, verify them and start a campaign.
+          </span>
+          <button className="acq-btn acq-btn-primary acq-btn-sm" onClick={() => needAccount('See every result and find the people who run these businesses.')}>Create free account</button>
+        </div>
+      )}
 
       {(busy || running) && (() => {
         const n = results?.length ?? 0;

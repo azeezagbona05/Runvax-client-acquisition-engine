@@ -17,6 +17,8 @@ interface Ctx {
   /** Re-fetch the numbers (after sending, importing, marking a reply…). */
   reload: () => Promise<void>;
   loading: boolean;
+  /** True for a signed-out visitor: they get a limited preview of Find Prospects instead of the app. */
+  guest: boolean;
 }
 
 const AcqContext = createContext<Ctx | null>(null);
@@ -62,6 +64,7 @@ export default function AcqProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(t);
   }, [reload]);
 
-  const value = useMemo<Ctx>(() => ({ data, gate, error, days, setDays, reload, loading }), [data, gate, error, days, reload, loading]);
+  const guest = status === 'unauthenticated';
+  const value = useMemo<Ctx>(() => ({ data, gate, error, days, setDays, reload, loading, guest }), [data, gate, error, days, reload, loading, guest]);
   return <AcqContext.Provider value={value}>{children}</AcqContext.Provider>;
 }
