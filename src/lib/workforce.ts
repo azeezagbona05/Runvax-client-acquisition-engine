@@ -7,7 +7,7 @@ export const WORKFORCE: Array<{ id: AgentId; name: string; role: string; does: s
   { id: 'content', name: 'Campaign Content Agent', role: 'Writes the messages', does: 'Writes each email in your voice and personalises the first one for each business with the RUNVAX pitch engine.', idle: 'Waiting for emails to write' },
   { id: 'outreach', name: 'Outreach Agent', role: 'Sends the first message', does: 'Sends the introduction from your own mailbox within your daily limit, with an unsubscribe link in every email.', idle: 'Waiting for a campaign to run' },
   { id: 'followup', name: 'Follow-up Agent', role: 'Keeps the conversation going', does: 'Sends the Day 3, 6, 9 and 14 follow-ups to people who have not replied, and stops the moment they reply, opt out or book a meeting.', idle: 'Waiting for follow-ups to come due' },
-  { id: 'reply', name: 'Reply Intelligence Agent', role: 'Reads and answers replies', does: 'Reads each reply, works out what the person wants, alerts you, suggests an answer and tracks them to a customer.', idle: 'Waiting for replies' },
+  { id: 'reply', name: 'Reply Intelligence Agent', role: 'Reads and answers replies', does: 'Reads each reply, works out what the person wants, alerts you, suggests an answer, offers your free Google Calendar times, books the meeting in one click and tracks them to a customer.', idle: 'Waiting for replies' },
 ];
 
 export const AGENT_IDS: AgentId[] = WORKFORCE.map((w) => w.id);

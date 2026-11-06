@@ -51,6 +51,25 @@ function Detail({ r, onChanged }: { r: Reply; onChanged: () => Promise<void> }) 
   const saveDemo = () => call('demo', `/api/client-acquisition/pipeline/${r.leadId}`, { method: 'PATCH', body: JSON.stringify({ stage: 'demo_booked', demoAt: new Date(demo).toISOString() }) }, 'Demo recorded. Follow-ups to this contact have stopped.');
   const closed = r.stage === 'customer';
 
+  // Meeting Booking: free times from the user's Google Calendar, and one-click booking.
+  const [slots, setSlots] = useState<string[] | null>(null);
+  const [slotMsg, setSlotMsg] = useState('');
+  const fmt = (iso: string) => new Date(iso).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const findTimes = async () => {
+    setBusy('slots'); setSlotMsg('');
+    try {
+      const res = await fetch('/api/client-acquisition/integrations/gcal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'slots' }) });
+      const j = await res.json() as { ok: boolean; message: string; data?: { slots?: string[] } };
+      if (!j.ok) { setSlots(null); setSlotMsg(j.message); return; }
+      setSlots(j.data?.slots ?? []); if (!j.data?.slots?.length) setSlotMsg(j.message);
+    } catch { setSlotMsg('Could not reach the server.'); } finally { setBusy(''); }
+  };
+  const addTimesToAnswer = () => { if (slots?.length) setDraft((d) => `${d.trimEnd()}\n\nI am free at these times (${Intl.DateTimeFormat().resolvedOptions().timeZone}):\n${slots.map((t) => `- ${fmt(t)}`).join('\n')}\nTell me which suits you.`); };
+  const book = (iso: string) => {
+    if (!window.confirm(`Book ${fmt(iso)} and send ${r.name || r.email} a Google Calendar invite?`)) return Promise.resolve();
+    return call('book', `/api/client-acquisition/replies/${r.id}/book`, { method: 'POST', body: JSON.stringify({ start: iso }) }, 'Meeting booked. The invite was sent and follow-ups have stopped.');
+  };
+
   return (
     <div style={{ padding: '4px 0 14px 46px', display: 'grid', gap: 14 }}>
       <div style={{ background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 12, padding: '10px 14px', fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{r.text.slice(0, 1500)}</div>
@@ -67,6 +86,20 @@ function Detail({ r, onChanged }: { r: Reply; onChanged: () => Promise<void> }) 
             </button>
             {r.respondedAt && <span className="acq-sub" style={{ fontSize: 12.5 }}>You answered {timeAgo(r.respondedAt)}.</span>}
           </div>
+        </div>
+      )}
+      {!NO_ANSWER.includes(r.replyClass) && r.replyClass !== 'not_interested' && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="acq-btn acq-btn-sm" disabled={!!busy} onClick={() => void findTimes()}>{busy === 'slots' ? <Loader2 size={14} className="animate-spin" /> : <CalendarCheck size={14} />} Find my free times</button>
+            {slots && slots.length > 0 && <button className="acq-btn acq-btn-sm" disabled={!!r.respondedAt} onClick={addTimesToAnswer}>Add these times to my answer</button>}
+            {slotMsg && <span className="acq-sub" style={{ fontSize: 12.5 }}>{slotMsg} {/connect/i.test(slotMsg) && <Link href="/client-acquisition/integrations" style={{ color: '#7e22ce', fontWeight: 600 }}>Open Integrations</Link>}</span>}
+          </div>
+          {slots && slots.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {slots.map((t) => <button key={t} className="acq-btn acq-btn-sm" disabled={!!busy} onClick={() => void book(t)} title="Book this time and send an invite">{busy === 'book' ? <Loader2 size={14} className="animate-spin" /> : null}Book {fmt(t)}</button>)}
+            </div>
+          )}
         </div>
       )}
       {!NO_ANSWER.includes(r.replyClass) && (
