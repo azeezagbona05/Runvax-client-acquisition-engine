@@ -94,9 +94,14 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === 'google' && user) {
         // Adapter users lack our extra fields. Google verified the address, so mark it verified
         // (this also covers a password account that was just linked) and read plan from the DB.
+        // Pre-hijack guard: if this password account was never verified, whoever set that password
+        // may not own the address (they could have registered with someone else's email). Google has
+        // now proven ownership, so drop the unproven password; the owner can set one via reset.
+        const before = await prisma.user.findUnique({ where: { id: user.id }, select: { emailVerified: true, password: true } });
+        const dropUnverifiedPassword = !!before?.password && !before.emailVerified;
         const row = await prisma.user.update({
           where: { id: user.id },
-          data: { lastActiveAt: new Date(), emailVerified: new Date() },
+          data: { lastActiveAt: new Date(), emailVerified: new Date(), ...(dropUnverifiedPassword ? { password: null } : {}) },
           select: { plan: true, emailVerified: true, email: true },
         });
         (user as { plan?: string }).plan = row.plan;
@@ -141,9 +146,10 @@ export const authOptions: NextAuthOptions = {
             const row = await prisma.user.update({
               where: { id: token.id as string },
               data: { lastActiveAt: new Date(now) },
-              select: { plan: true },
+              select: { plan: true, isSuspended: true },
             });
             token.plan = row.plan;
+            token.suspended = row.isSuspended;
           } catch { /* a failed refresh keeps the plan we already have */ }
         }
       }
@@ -151,6 +157,8 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      // A suspended user's existing JWT must stop working: drop the user so every session check fails.
+      if (token.suspended) return { expires: session.expires } as typeof session;
       if (session.user) {
         session.user.id = (token.id ?? token.sub) as string;
         session.user.plan = token.plan as string;
