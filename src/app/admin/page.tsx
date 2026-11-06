@@ -8,6 +8,7 @@ import {
   LogOut, RefreshCw, Search, ChevronDown, SlidersHorizontal, Check,
   Infinity as InfinityIcon, Plus, Trash2, X, AlertTriangle,
   MapPin, Activity, Ban, Save, ShieldOff, Sun, Moon, Mail, Loader2, ShieldAlert,
+  Menu, LayoutDashboard, Wallet, BarChart3, Megaphone, Cpu, Receipt, CalendarDays, SlidersVertical, ExternalLink,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
@@ -868,13 +869,51 @@ function botScore(u: AdminUser): number {
   return score;
 }
 
+type AdminTab = 'overview' | 'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs';
+
+/** Sidebar structure: every section of the admin panel sits under one category. */
+const ADMIN_NAV: Array<{ heading: string; items: Array<{ id: AdminTab; label: string; desc: string; icon: typeof Users }> }> = [
+  { heading: 'Dashboard', items: [
+    { id: 'overview', label: 'Overview', desc: 'Key numbers and alerts at a glance', icon: LayoutDashboard },
+  ] },
+  { heading: 'Users', items: [
+    { id: 'users', label: 'All users', desc: 'Accounts, plans, suspensions and limits', icon: Users },
+    { id: 'plans', label: 'Plan limits', desc: 'What each plan includes', icon: SlidersVertical },
+  ] },
+  { heading: 'Finance', items: [
+    { id: 'payments', label: 'Payments', desc: 'Every payment received', icon: Receipt },
+    { id: 'revenue', label: 'Revenue by month', desc: 'Monthly revenue summary', icon: CalendarDays },
+    { id: 'costs', label: 'API costs', desc: 'What users cost us in API usage', icon: Wallet },
+  ] },
+  { heading: 'Analytics', items: [
+    { id: 'behaviour', label: 'Behaviour', desc: 'How users use the product', icon: BarChart3 },
+  ] },
+  { heading: 'Growth', items: [
+    { id: 'campaigns', label: 'Email campaigns', desc: 'Outbound campaigns to our own audience', icon: Megaphone },
+  ] },
+  { heading: 'System', items: [
+    { id: 'operations', label: 'Operations', desc: 'Agents, queues and platform health', icon: Cpu },
+  ] },
+];
+const ADMIN_TABS: AdminTab[] = ADMIN_NAV.flatMap((g) => g.items.map((i) => i.id));
+
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { theme, toggle: toggleTheme } = useTheme();
   const [stats, setStats]       = useState<Stats | null>(null);
   const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs'>('users');
+  const [tab, setTabState] = useState<AdminTab>('overview');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const setTab = useCallback((t: AdminTab) => {
+    setTabState(t);
+    setMenuOpen(false);
+    try { window.history.replaceState(null, '', `#${t}`); } catch { /* hash is only a convenience */ }
+  }, []);
+  useEffect(() => {
+    const h = window.location.hash.replace('#', '') as AdminTab;
+    if (ADMIN_TABS.includes(h)) setTabState(h);
+  }, []);
   const [costSince, setCostSince] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Users filter state
@@ -1184,35 +1223,95 @@ export default function AdminPage() {
 
   const { users, payments, totalRevenue, byPlan } = stats;
 
+  const current = ADMIN_NAV.flatMap((g) => g.items).find((i) => i.id === tab)!;
+  const currentGroup = ADMIN_NAV.find((g) => g.items.some((i) => i.id === tab))!;
+
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Admin header */}
-      <header className="sticky top-0 z-40 bg-gray-900/90 backdrop-blur border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+    <div className="min-h-screen bg-gray-950 lg:pl-64">
+      {menuOpen && <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setMenuOpen(false)} />}
+
+      {/* Sidebar */}
+      <aside
+        aria-label="Admin navigation"
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 border-r border-white/[0.06] flex flex-col transition-transform duration-200 ${menuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+      >
+        <div className="h-16 px-5 flex items-center gap-3 border-b border-white/[0.06] flex-shrink-0">
           <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
             <ShieldCheck className="w-4 h-4 text-white" />
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="font-black text-white text-sm leading-none">Admin Panel</div>
-            <div className="text-[11px] text-gray-500 mt-0.5 hidden sm:block">{session?.user?.email}</div>
+            <div className="text-[11px] text-gray-500 mt-1 truncate">{session?.user?.email}</div>
           </div>
-          <a href="/" className="text-xs text-gray-500 hover:text-gray-300 transition-colors hidden sm:block">
-            ← Back to app
+          <button onClick={() => setMenuOpen(false)} className="lg:hidden text-gray-500 hover:text-white" aria-label="Close menu"><X className="w-5 h-5" /></button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+          {ADMIN_NAV.map((group) => (
+            <div key={group.heading}>
+              <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-600">{group.heading}</p>
+              <div className="space-y-0.5">
+                {group.items.map(({ id, label, icon: Icon }) => {
+                  const on = tab === id;
+                  const count = id === 'users' ? users.length : id === 'payments' ? payments.length : null;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setTab(id)}
+                      aria-current={on ? 'page' : undefined}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-colors text-left ${
+                        on ? 'bg-purple-500/15 text-purple-300' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${on ? 'text-purple-400' : ''}`} />
+                      <span className="flex-1 truncate">{label}</span>
+                      {count !== null && <span className={`text-[11px] font-bold ${on ? 'text-purple-300' : 'text-gray-600'}`}>{count}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="p-3 border-t border-white/[0.06] space-y-0.5 flex-shrink-0">
+          <a href="/" className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+            <ExternalLink className="w-[18px] h-[18px]" /> Back to app
           </a>
+          <button
+            onClick={() => signOut({ callbackUrl: '/admin/login' })}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors text-left"
+          >
+            <LogOut className="w-[18px] h-[18px]" /> Sign out
+          </button>
+        </div>
+      </aside>
+
+      {/* Top bar */}
+      <header className="sticky top-0 z-30 bg-gray-900/90 backdrop-blur border-b border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-3">
+          <button onClick={() => setMenuOpen(true)} className="lg:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-gray-300" aria-label="Open menu">
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex-1 min-w-0 text-sm">
+            <span className="text-gray-500 hidden sm:inline">{currentGroup.heading} <span className="mx-1 text-gray-700">/</span></span>
+            <span className="font-bold text-white">{current.label}</span>
+          </div>
+          <button
+            onClick={() => loadStats()}
+            disabled={loading}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> <span className="hidden sm:inline">Refresh</span>
+          </button>
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-colors flex-shrink-0"
+            className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-colors flex-shrink-0"
           >
             {theme === 'dark'
               ? <Sun className="w-4 h-4 text-yellow-400" />
               : <Moon className="w-4 h-4 text-purple-400" />}
-          </button>
-          <button
-            onClick={() => signOut({ callbackUrl: '/admin/login' })}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 bg-white/5 hover:bg-red-500/10 border border-white/10 px-3 py-2 rounded-xl transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" /> Sign out
           </button>
         </div>
       </header>
@@ -1220,20 +1319,12 @@ export default function AdminPage() {
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
 
         {/* Page title */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black text-white mb-1">Overview</h1>
-            <p className="text-gray-500 text-sm">All users, plans, and revenue</p>
-          </div>
-          <button
-            onClick={() => loadStats()}
-            disabled={loading}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
+        <div>
+          <h1 className="text-2xl font-black text-white mb-1">{current.label}</h1>
+          <p className="text-gray-500 text-sm">{current.desc}</p>
         </div>
 
+        {tab === 'overview' && (<>
         {/* Argus — admin ops banner */}
         <AdminOpsPanel onReviewFlagged={(ids) => {
           setTab('users');
@@ -1278,32 +1369,7 @@ export default function AdminPage() {
             <div className="text-3xl font-black text-gray-400">{byPlan.free ?? 0}</div>
           </div>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-white/8 overflow-x-auto">
-          {([
-            ['users',    `Users (${users.length})`],
-            ['operations', 'Operations'],
-            ['campaigns', 'Email campaigns'],
-            ['behaviour', 'Behaviour'],
-            ['payments', `Payments (${payments.length})`],
-            ['revenue',  'Revenue by Month'],
-            ['plans',    'Plan Limits'],
-            ['costs',    'API Costs'],
-          ] as const).map(([t, label]) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors -mb-px whitespace-nowrap ${
-                tab === t
-                  ? 'border-purple-500 text-purple-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        </>)}
 
         {tab === 'operations' && <OperationsPanel />}
         {tab === 'campaigns' && <EmailCampaignsPanel />}
