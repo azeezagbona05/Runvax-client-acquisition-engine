@@ -52,7 +52,7 @@ function LeadsInner() {
         </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="acq-btn" style={{ height: 44, padding: '0 20px' }} aria-expanded={finder} onClick={() => setFinder((v) => !v)}><MapPin size={17} /> Find prospects</button>
-          <AcqActions onNotice={(m) => { setNotice(m); void load(); }} />
+          <AcqActions hideNew onNotice={(m) => { setNotice(m); void load(); }} />
         </div>
       </div>
       {finder && <ProspectFinder onAdded={(m) => { setNotice(m); void load(); }} />}

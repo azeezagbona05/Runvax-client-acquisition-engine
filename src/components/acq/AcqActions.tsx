@@ -10,7 +10,7 @@ import CampaignFormModal, { describeAdded, type AddedSummary, type CampaignPrese
 import ImportLeadsModal from './ImportLeadsModal';
 
 /** "New Campaign" (with its menu) and "Import Leads", plus the dialogs they open. */
-export default function AcqActions({ onNotice, preset, openNew }: { onNotice?: (msg: string) => void; preset?: CampaignPreset | null; openNew?: boolean }) {
+export default function AcqActions({ onNotice, preset, openNew, hideNew }: { onNotice?: (msg: string) => void; preset?: CampaignPreset | null; openNew?: boolean; hideNew?: boolean }) {
   const router = useRouter();
   const handleGate = useHandleAIResponse();
   const { data, reload } = useAcq();
@@ -31,7 +31,7 @@ export default function AcqActions({ onNotice, preset, openNew }: { onNotice?: (
   return (
     <>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <div ref={ref} style={{ position: 'relative' }}>
+        {!hideNew && <div ref={ref} style={{ position: 'relative' }}>
           <div className="acq-btn acq-btn-primary acq-btn-split" style={{ padding: 0, height: 44 }}>
             <button onClick={() => router.push('/client-acquisition/templates')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: '100%', padding: '0 6px 0 18px', background: 'transparent', border: 0, color: '#fff', font: 'inherit', fontWeight: 600 }}><Plus size={18} /> New Campaign</button>
             <button className="acq-split-chev" onClick={() => setMenu((v) => !v)} aria-label="More ways to start a campaign" aria-haspopup="menu" aria-expanded={menu} style={{ background: 'transparent', color: '#fff', border: 0, borderLeft: '1px solid rgba(255,255,255,.28)' }}><ChevronDown size={16} /></button>
@@ -42,7 +42,7 @@ export default function AcqActions({ onNotice, preset, openNew }: { onNotice?: (
               <button role="menuitem" className="acq-nav-item" style={{ height: 38, width: '100%', border: 0, background: 'transparent', textAlign: 'left' }} onClick={() => { setMenu(false); router.push('/client-acquisition/templates'); }}><FileText size={16} /> From a template</button>
             </div>
           )}
-        </div>
+        </div>}
         <button className="acq-btn" style={{ height: 44, padding: '0 20px' }} onClick={() => (campaigns.length ? setImporting(true) : setForm({}))}><Upload size={17} /> Import Leads</button>
       </div>
 
