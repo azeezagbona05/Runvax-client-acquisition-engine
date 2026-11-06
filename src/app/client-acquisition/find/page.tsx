@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useAcq } from '@/components/acq/AcqProvider';
 import ProspectFinder from '@/components/acq/ProspectFinder';
-import SnovDiscover from '@/components/acq/SnovDiscover';
+import IndustryDiscover from '@/components/acq/SnovDiscover';
 import SignupPrompt from '@/components/acq/SignupPrompt';
 
 /** The default page: find businesses, find their decision-makers, and add the verified ones to a campaign. */
@@ -12,7 +12,7 @@ export default function FindProspectsPage() {
   const { gate, guest } = useAcq();
   const [prompt, setPrompt] = useState(false);
   const [notice, setNotice] = useState('');
-  const [mode, setMode] = useState<'maps' | 'snov'>('maps');
+  const [mode, setMode] = useState<'maps' | 'people'>('maps');
 
   const gateNote = gate === 'locked'
     ? 'Searching is available on your plan. Adding prospects to a campaign is part of Email Blast (Pro and Agency).'
@@ -33,9 +33,9 @@ export default function FindProspectsPage() {
       {notice && <div className="acq-notice" role="status">{notice}</div>}
       <div role="tablist" aria-label="How to find prospects" style={{ display: 'flex', gap: 8 }}>
         <button role="tab" aria-selected={mode === 'maps'} className={`acq-btn${mode === 'maps' ? ' acq-btn-primary' : ''}`} onClick={() => setMode('maps')}>Search by location</button>
-        <button role="tab" aria-selected={mode === 'snov'} className={`acq-btn${mode === 'snov' ? ' acq-btn-primary' : ''}`} onClick={() => { if (guest) { setPrompt(true); return; } setMode('snov'); }}>Discover with Snov</button>
+        <button role="tab" aria-selected={mode === 'people'} className={`acq-btn${mode === 'people' ? ' acq-btn-primary' : ''}`} onClick={() => { if (guest) { setPrompt(true); return; } setMode('people'); }}>Discover by industry</button>
       </div>
-      {mode === 'maps' ? <ProspectFinder onAdded={(m) => setNotice(m)} /> : <SnovDiscover onAdded={(m) => setNotice(m)} />}
+      {mode === 'maps' ? <ProspectFinder onAdded={(m) => setNotice(m)} /> : <IndustryDiscover onAdded={(m) => setNotice(m)} />}
     </div>
   );
 }

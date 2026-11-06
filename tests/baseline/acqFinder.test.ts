@@ -125,10 +125,10 @@ describe('filterResults', () => {
 describe('contact discovery state', () => {
   const ada = { name: 'Ada Obi', title: 'Owner' };
   it('reads whether a finder note already confirms the address', () => {
-    expect(isVerifiedStatus('Snov.io: valid')).toBe(true);
-    expect(isVerifiedStatus('Checked with Snov.io: address exists (pattern guess)')).toBe(true);
+    expect(isVerifiedStatus('Email check: valid')).toBe(true);
+    expect(isVerifiedStatus('Checked: address exists (pattern guess)')).toBe(true);
     expect(isVerifiedStatus('verified')).toBe(true);
-    for (const no of ['Snov.io: unknown (catchall)', 'not_valid', 'invalid', undefined, '']) expect(isVerifiedStatus(no)).toBe(false);
+    for (const no of ['Email check: unknown (catchall)', 'not_valid', 'invalid', undefined, '']) expect(isVerifiedStatus(no)).toBe(false);
   });
   it('walks the five states', () => {
     expect(contactState({ people: null })).toBe('untouched');
@@ -137,10 +137,10 @@ describe('contact discovery state', () => {
     expect(contactState({ people: null, businessEmail: 'info@x.com' })).toBe('business_only');
     expect(contactState({ people: [ada] })).toBe('person_no_email');
     expect(contactState({ people: [{ ...ada, email: 'ada@x.com' }] })).toBe('unverified');
-    expect(contactState({ people: [{ ...ada, email: 'ada@x.com', emailStatus: 'Snov.io: valid' }] })).toBe('verified');
+    expect(contactState({ people: [{ ...ada, email: 'ada@x.com', emailStatus: 'Email check: valid' }] })).toBe('verified');
   });
   it('lets a verify run overrule the finder note, and drops an invalid address back to "email missing"', () => {
-    const p = [{ ...ada, email: 'ada@x.com', emailStatus: 'Snov.io: valid' }];
+    const p = [{ ...ada, email: 'ada@x.com', emailStatus: 'Email check: valid' }];
     expect(contactState({ people: p, verdicts: { 'ada@x.com': 'invalid' } })).toBe('person_no_email');
     expect(contactState({ people: [{ ...ada, email: 'Ada@x.com' }], verdicts: { 'ada@x.com': 'valid' } })).toBe('verified');
     expect(contactState({ people: [{ ...ada, email: 'ada@x.com' }], verdicts: { 'ada@x.com': 'unknown' } })).toBe('unverified');

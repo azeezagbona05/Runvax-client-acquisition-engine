@@ -106,7 +106,7 @@ const SOURCE_LABEL: Record<string, string> = {
   search: 'a public web search',
   apollo: 'Apollo',
   hunter: 'Hunter',
-  snov: 'Snov.io',
+  snov: 'an email finder',
   apify: 'Apify',
 };
 

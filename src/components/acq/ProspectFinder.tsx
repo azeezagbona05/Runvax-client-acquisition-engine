@@ -544,7 +544,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                         {p.linkedin ? <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="acq-faint" style={{ marginLeft: 6, textDecoration: 'underline' }}>LinkedIn</a> : null}
                                         <br />
                                         {p.email
-                                          ? v === 'invalid' ? <span className="acq-faint" style={{ textDecoration: 'line-through' }} title="Snov.io says this address does not exist">{p.email}</span>
+                                          ? v === 'invalid' ? <span className="acq-faint" style={{ textDecoration: 'line-through' }} title="The email check says this address does not exist">{p.email}</span>
                                             : <span style={{ color: personOk(p) ? '#15803d' : '#b45309' }} title={personOk(p) ? 'Verified' : 'Not verified yet'}>{personOk(p) ? '✓ ' : ''}{p.email}</span>
                                           : <span className="acq-faint">no email yet</span>}
                                       </span>

@@ -44,7 +44,7 @@ test.describe('Find Prospects (signed in)', () => {
   });
 
   test('the Snov tab opens', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Discover with Snov' }).click();
-    await expect(page.getByRole('heading', { name: 'Discover with Snov' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Discover by industry' }).click();
+    await expect(page.getByRole('heading', { name: 'Discover by industry' })).toBeVisible();
   });
 });

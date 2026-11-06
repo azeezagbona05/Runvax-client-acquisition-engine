@@ -58,7 +58,7 @@ async function accessToken(): Promise<string> {
   });
   if (!res.ok) throw new Error(`Snov.io sign-in failed (${res.status}). Check SNOV_CLIENT_ID and SNOV_CLIENT_SECRET.`);
   const json = await res.json() as { access_token?: string; expires_in?: number };
-  if (!json.access_token) throw new Error('Snov.io sign-in returned no token.');
+  if (!json.access_token) throw new Error('The email service sign-in returned no token.');
   cached = { token: json.access_token, expires: Date.now() + (json.expires_in ?? 3600) * 1000, id: creds.id };
   return cached.token;
 }
@@ -89,7 +89,7 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown, ret
 
 /** A Snov.io HTTP error, keeping the status and body so callers can show Snov's own suggestions. */
 export class SnovHttpError extends Error {
-  constructor(public status: number, public body: unknown) { super(`Snov.io ${status}`); Object.setPrototypeOf(this, new.target.prototype); }
+  constructor(public status: number, public body: unknown) { super(`Email service ${status}`); Object.setPrototypeOf(this, new.target.prototype); }
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -100,7 +100,7 @@ async function poll<T extends Polled>(path: string, { tries = 8, pollMs = 1200 }
   for (let i = 0; i < tries; i++) {
     const r = await call<T>('GET', path);
     if (r.status === 'completed') return r;
-    if (r.status === 'not_enough_credits') throw new Error('Snov.io: not enough credits.');
+    if (r.status === 'not_enough_credits') throw new Error('Not enough credits.');
     if (pollMs > 0) await sleep(pollMs);
   }
   return null;
@@ -317,12 +317,12 @@ export async function searchProspects(f: DbSearchFilters, page = 1, opts: SnovOp
   } catch (e) {
     if (e instanceof SnovHttpError && e.status === 422) {
       const err = (Array.isArray(e.body) ? e.body[0] : e.body) as { errors?: { message?: string; suggestion?: unknown[] } } | null;
-      const msg = err?.errors?.message ?? 'Snov.io did not accept that filter.';
+      const msg = err?.errors?.message ?? 'That filter was not accepted.';
       throw new SnovFilterError(msg, /'location'/.test(msg) ? 'location' : /'industries'/.test(msg) ? 'industries' : 'other', err?.errors?.suggestion ?? []);
     }
     throw e;
   }
-  if (!hash) throw new Error('Snov.io did not start the search.');
+  if (!hash) throw new Error('The search did not start.');
   const done = await poll<{ status?: string; data?: { total?: number; page?: number; total_pages?: number; prospects?: RawProspect[] } }>(`/v2/database-search/prospects/result/${encodeURIComponent(hash)}`, { tries: 12, ...opts });
   const d = done?.data;
   return {

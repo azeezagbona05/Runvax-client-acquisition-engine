@@ -5,7 +5,7 @@ import { seal, open } from '@/lib/integrations/crypto';
 describe('integrations', () => {
   it('lists the eight integrations in the owner priority order', () => {
     expect(INTEGRATIONS.map((i) => [i.name, i.priority])).toEqual([
-      ['WhatsApp Business', 'Critical'], ['Gmail / Google Workspace', 'Critical'], ['Apollo', 'High'], ['Snov.io', 'High'], ['SMTP', 'High'], ['Google Calendar', 'High'], ['Airtable', 'Medium'], ['CRM Webhooks / API', 'Medium'],
+      ['WhatsApp Business', 'Critical'], ['Gmail / Google Workspace', 'Critical'], ['Apollo', 'High'], ['Email finder & verifier', 'High'], ['SMTP', 'High'], ['Google Calendar', 'High'], ['Airtable', 'Medium'], ['CRM Webhooks / API', 'Medium'],
     ]);
     expect(PRIORITY_ORDER).toEqual(['Critical', 'High', 'Medium']);
   });

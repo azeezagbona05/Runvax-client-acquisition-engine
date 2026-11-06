@@ -212,7 +212,7 @@ const snov: Provider = {
   async run({ domain, knownPerson, category, categoryTypes }) {
     if (!domain) return [];
     const out: DmCandidate[] = [];
-    const label = (st?: string, reason?: string) => (st === 'valid' ? 'Snov.io: valid' : `Snov.io: ${st ?? 'unknown'}${reason ? ` (${reason})` : ''}`);
+    const label = (st?: string, reason?: string) => (st === 'valid' ? 'Email check: valid' : `Email check: ${st ?? 'unknown'}${reason ? ` (${reason})` : ''}`);
     try {
       if (knownPerson?.name) {
         const found = await snovFindEmail(domain, knownPerson.name);
@@ -311,7 +311,7 @@ export async function fillByPattern(candidates: DmCandidate[], domain: string | 
   try { checked = await verifyEmails(all); } catch { return candidates; }
   return candidates.map((c) => {
     const hit = guesses.get(c)?.map((e) => checked.get(e)).find((r) => r?.smtpStatus === 'valid' && !r.disposable);
-    return hit ? { ...c, email: hit.email, emailStatus: 'Checked with Snov.io: address exists (pattern guess)', confidence: c.confidence === 'low' ? 'medium' : c.confidence } : c;
+    return hit ? { ...c, email: hit.email, emailStatus: 'Checked: address exists (pattern guess)', confidence: c.confidence === 'low' ? 'medium' : c.confidence } : c;
   });
 }
 

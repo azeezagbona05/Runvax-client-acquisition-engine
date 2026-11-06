@@ -49,7 +49,7 @@ export async function allStatuses(userId: string): Promise<IntegrationStatus[]> 
     return { id: p as IntegrationId, state: 'not_connected', summary: 'Not connected yet' };
   };
   out.push(row('apollo', () => 'Your Apollo key is in use'));
-  out.push(row('snov', () => 'Your Snov.io account is in use'));
+  out.push(row('snov', () => 'Your email finder account is in use'));
   out.push(row('gcal', (m) => `Calendar of ${m.email ?? 'your Google account'}`));
   out.push(row('airtable', (m) => `Syncing to ${m.table ?? 'your table'}`));
   out.push(row('webhooks', (m) => `Posting to ${hostOf(String(m.url ?? ''))}`));
@@ -151,12 +151,12 @@ export async function checkSnov(id: string, secret: string): Promise<Result> {
   try {
     const res = await fetch('https://api.snov.io/v1/oauth/access_token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grant_type: 'client_credentials', client_id: id, client_secret: secret }), signal: AbortSignal.timeout(10_000) });
     const t = await res.json().catch(() => ({})) as { access_token?: string };
-    if (!res.ok || !t.access_token) return fail('Snov.io did not accept that API User ID and Secret.');
+    if (!res.ok || !t.access_token) return fail('That API User ID and Secret were not accepted.');
     const b = await fetch('https://api.snov.io/v1/get-balance', { headers: { Authorization: `Bearer ${t.access_token}` }, signal: AbortSignal.timeout(10_000) });
     const d = await b.json().catch(() => ({})) as { data?: { balance?: string | number } };
     const bal = Number(d.data?.balance);
-    return { ok: true, message: Number.isFinite(bal) ? `Snov.io accepted the keys. ${bal} credits left.` : 'Snov.io accepted the keys.' };
-  } catch (e) { return fail(errText(e, 'Could not reach Snov.io.')); }
+    return { ok: true, message: Number.isFinite(bal) ? `Keys accepted. ${bal} credits left.` : 'Keys accepted.' };
+  } catch (e) { return fail(errText(e, 'Could not reach the email finder.')); }
 }
 
 // ───────────────────────── Airtable ─────────────────────────
@@ -414,10 +414,10 @@ export async function runAction(userId: string, id: IntegrationId, action: strin
     }
     case 'apollo:test': { const c = await getConnection(userId, 'apollo'); if (!c) return fail('Apollo is not connected.'); return touch('apollo', await checkApollo(c.secrets.apiKey)); }
     case 'snov:connect': {
-      const cid = (str('clientId') ?? '').trim(), cs = (str('clientSecret') ?? '').trim(); if (!cid || !cs) return fail('Enter both the Snov.io API User ID and API Secret.');
+      const cid = (str('clientId') ?? '').trim(), cs = (str('clientSecret') ?? '').trim(); if (!cid || !cs) return fail('Enter both the API User ID and API Secret.');
       const r = await checkSnov(cid, cs); if (r.ok) await saveConnection(userId, 'snov', { clientId: cid, clientSecret: cs }); return r;
     }
-    case 'snov:test': { const c = await getConnection(userId, 'snov'); if (!c) return fail('Snov.io is not connected.'); return touch('snov', await checkSnov(c.secrets.clientId, c.secrets.clientSecret)); }
+    case 'snov:test': { const c = await getConnection(userId, 'snov'); if (!c) return fail('The email finder is not connected.'); return touch('snov', await checkSnov(c.secrets.clientId, c.secrets.clientSecret)); }
     case 'airtable:connect': return connectAirtable(userId, { token: str('token'), baseId: str('baseId'), table: str('table') });
     case 'airtable:test': { const c = await getConnection(userId, 'airtable'); if (!c) return fail('Airtable is not connected.'); const res = await airtableCall(c.secrets, c.metaObj, {}, '?maxRecords=1').catch(() => null); const r = res?.ok ? { ok: true, message: 'Airtable is reachable and the table can be read.' } : fail('Airtable rejected the saved token or table. Reconnect it.'); return touch('airtable', r); }
     case 'airtable:sync': return syncAirtable(userId);

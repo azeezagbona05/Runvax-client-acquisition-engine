@@ -140,8 +140,8 @@ async function addressProblem(verify: Deps['verify'], email: string): Promise<st
   try {
     const r = await verify(email);
     if (!r) return null;
-    if (r.smtpStatus === 'not_valid') return 'Snov.io: this address does not exist, so it was not emailed.';
-    if (r.disposable) return 'Snov.io: this is a disposable address, so it was not emailed.';
+    if (r.smtpStatus === 'not_valid') return 'Email check: this address does not exist, so it was not emailed.';
+    if (r.disposable) return 'Email check: this is a disposable address, so it was not emailed.';
   } catch { /* fail open */ }
   return null;
 }

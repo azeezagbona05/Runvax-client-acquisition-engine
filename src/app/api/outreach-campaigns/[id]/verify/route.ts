@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       if (!r) continue;               // not answered (for example out of credits): left as it was
       checked++;
       if (r.smtpStatus === 'not_valid' || r.disposable) {
-        const why = r.smtpStatus === 'not_valid' ? 'Snov.io: this address does not exist, so it was not emailed.' : 'Snov.io: this is a disposable address, so it was not emailed.';
+        const why = r.smtpStatus === 'not_valid' ? 'Email check: this address does not exist, so it was not emailed.' : 'Email check: this is a disposable address, so it was not emailed.';
         // Only a lead that is still waiting: never touch one that was sent or claimed in the meantime.
         const hit = await prisma.outreachLead.updateMany({ where: { id: lead.id, status: 'queued' }, data: { status: 'skipped', error: why } });
         if (hit.count) { if (r.smtpStatus === 'not_valid') invalid++; else disposable++; }

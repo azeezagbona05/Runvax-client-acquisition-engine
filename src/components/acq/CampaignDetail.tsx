@@ -191,7 +191,7 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
 
   /** Checks every waiting address with Snov.io, 50 at a time, and removes the ones that do not exist. */
   const checkEmails = async () => {
-    if (!window.confirm('Check every waiting email address with Snov.io? Addresses that do not exist are skipped so they never bounce. This uses one Snov.io credit per address.')) return;
+    if (!window.confirm('Check every waiting email address? Addresses that do not exist are skipped so they never bounce. This uses one credit per address.')) return;
     setChecking('Starting…'); setNotice('');
     let checked = 0, bad = 0, unsure = 0, unanswered = 0, stoppedMsg = '';
     try {
@@ -335,7 +335,7 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
             <span style={{ width: 42, height: 42, borderRadius: 12, background: '#dcfce7', color: '#16a34a', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><ShieldCheck size={20} /></span>
             <div style={{ flex: '1 1 260px', minWidth: 0 }}>
               <p style={{ fontWeight: 700, fontSize: 14.5 }}>Check the waiting email addresses</p>
-              <p className="acq-sub" style={{ fontSize: 13 }}>Finds addresses that do not exist before you send, so they never bounce and hurt your sender reputation. Checks {stats.queued} in bulk with Snov.io, one credit each.</p>
+              <p className="acq-sub" style={{ fontSize: 13 }}>Finds addresses that do not exist before you send, so they never bounce and hurt your sender reputation. Checks {stats.queued} in bulk, one credit each.</p>
             </div>
             <button className="acq-btn acq-btn-primary" onClick={() => void checkEmails()} disabled={!!checking || !!writing || !!busy}>
               {checking ? <><Loader2 size={15} className="animate-spin" /> {checking}</> : <><ShieldCheck size={15} /> Check emails</>}

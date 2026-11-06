@@ -34,7 +34,7 @@ describe('fillByPattern', () => {
     ]));
     const out = await fillByPattern([person('Ada Okafor'), person('Bo Lee', 'Manager')], 'clinic.ng');
     expect(out[0].email).toBe('ada@clinic.ng');
-    expect(out[0].emailStatus).toMatch(/Snov\.io/);
+    expect(out[0].emailStatus).toMatch(/Checked: address exists/);
     expect(out[1].email).toBeUndefined();
     expect(m.verify).toHaveBeenCalledTimes(1);
   });

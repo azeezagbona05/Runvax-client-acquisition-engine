@@ -17,7 +17,7 @@ async function paidUser(req: NextRequest) {
   const user = await requireUser(req);
   if (!user.ok) return { error: user.response };
   const u = await prisma.user.findUnique({ where: { id: user.userId }, select: { plan: true } });
-  if (!u || u.plan === 'free') return { error: NextResponse.json({ error: 'Discover with Snov is available on paid plans.' }, { status: 403 }) };
+  if (!u || u.plan === 'free') return { error: NextResponse.json({ error: 'Discover by industry is available on paid plans.' }, { status: 403 }) };
   await useUserKeys(user.userId);
   return { userId: user.userId };
 }
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const who = await paidUser(req);
   if ('error' in who) return who.error;
-  if (!snovEnabled()) return NextResponse.json({ error: 'Snov.io is not switched on.' }, { status: 501 });
+  if (!snovEnabled()) return NextResponse.json({ error: 'This feature is not switched on.' }, { status: 501 });
   if (!rateLimit(`snov-discover:${who.userId}`, { maxRequests: 20, windowMs: 60_000 }).ok) return NextResponse.json({ error: 'Slow down: try again in a minute.' }, { status: 429 });
 
   const b = await req.json().catch(() => ({})) as Record<string, unknown>;
@@ -59,6 +59,6 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     if (e instanceof SnovFilterError) return NextResponse.json({ error: e.message, field: e.field, suggestions: e.suggestions }, { status: 422 });
     console.error('[snov-discover]', e instanceof Error ? e.message : e);
-    return NextResponse.json({ error: 'Snov.io did not answer. Try again in a moment.' }, { status: 502 });
+    return NextResponse.json({ error: 'The discovery service did not answer. Try again in a moment.' }, { status: 502 });
   }
 }

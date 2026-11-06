@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const user = await requireUser(req);
   if (!user.ok) return user.response;
   await useUserKeys(user.userId);
-  if (!snovEnabled()) return NextResponse.json({ error: 'Snov.io is not switched on.' }, { status: 501 });
+  if (!snovEnabled()) return NextResponse.json({ error: 'This feature is not switched on.' }, { status: 501 });
   const u = await prisma.user.findUnique({ where: { id: user.userId }, select: { plan: true } });
   if (!u || u.plan === 'free') return NextResponse.json({ error: 'Revealing emails is available on paid plans.' }, { status: 403 });
 

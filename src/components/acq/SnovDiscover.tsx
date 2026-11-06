@@ -44,7 +44,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
       if (!r.ok) { setProblem(j.error ?? 'Not available.'); setInfo({ available: false }); return; }
       setInfo({ available: !!j.available, balance: j.balance, industries: j.industries });
       setBalance(j.balance ?? null);
-    }).catch(() => { if (live) setProblem('Could not reach Snov.io.'); });
+    }).catch(() => { if (live) setProblem('Could not reach the discovery service.'); });
     return () => { live = false; };
   }, []);
 
@@ -109,14 +109,14 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
     } catch { setError('Could not add them.'); } finally { setAdding(false); }
   };
 
-  if (!info) return <Card title="Discover with Snov"><p className="acq-sub">{problem || 'Loading…'}</p></Card>;
-  if (!info.available) return <Card title="Discover with Snov"><EmptyState title="Not available yet" body={problem || 'Discover with Snov needs a paid plan and Snov.io switched on for this account.'} /></Card>;
+  if (!info) return <Card title="Discover by industry"><p className="acq-sub">{problem || 'Loading…'}</p></Card>;
+  if (!info.available) return <Card title="Discover by industry"><EmptyState title="Not available yet" body={problem || 'Discover by industry needs a paid plan and discovery switched on for this account.'} /></Card>;
 
   const locSuggestions = suggest.filter((s): s is { locality: string; location_type: string } => typeof s === 'object');
   const textSuggestions = suggest.filter((s): s is string => typeof s === 'string');
 
   return (
-    <Card title="Discover with Snov" right={<span className="acq-sub" style={{ fontSize: 12.5 }}>{balance !== null ? `${balance.toLocaleString('en-US')} email reveals left` : ''}</span>}>
+    <Card title="Discover by industry" right={<span className="acq-sub" style={{ fontSize: 12.5 }}>{balance !== null ? `${balance.toLocaleString('en-US')} email reveals left` : ''}</span>}>
       <p className="acq-sub" style={{ fontSize: 13, marginBottom: 12 }}>Find the managers and owners of businesses by industry and place. Searching is free. Revealing an email uses one of your email reveals, and only when one is found.</p>
       <form onSubmit={(e) => { e.preventDefault(); void search(1); }} style={{ display: 'grid', gap: 12 }}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -139,8 +139,8 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
           ))}
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div><label style={label} htmlFor="sd-titles">Job titles (optional, comma separated)</label><input id="sd-titles" className="acq-input" value={titles} onChange={(e) => setTitles(e.target.value)} placeholder="e.g. dentist, owner, medical director" /><span className="acq-faint" style={{ fontSize: 11.5 }}>Best for narrow niches: Snov has no &ldquo;dental&rdquo; industry, but &ldquo;dentist&rdquo; as a title finds them.</span></div>
-          <div><label style={label} htmlFor="sd-spec">Company specialties (optional)</label><input id="sd-spec" className="acq-input" value={specialties} onChange={(e) => setSpecialties(e.target.value)} placeholder="exact Snov wording" /><span className="acq-faint" style={{ fontSize: 11.5 }}>Matches only Snov&apos;s exact wording, so it often finds nothing. Try job titles first.</span></div>
+          <div><label style={label} htmlFor="sd-titles">Job titles (optional, comma separated)</label><input id="sd-titles" className="acq-input" value={titles} onChange={(e) => setTitles(e.target.value)} placeholder="e.g. dentist, owner, medical director" /><span className="acq-faint" style={{ fontSize: 11.5 }}>Best for narrow niches: there may be no &ldquo;dental&rdquo; industry, but &ldquo;dentist&rdquo; as a title finds them.</span></div>
+          <div><label style={label} htmlFor="sd-spec">Company specialties (optional)</label><input id="sd-spec" className="acq-input" value={specialties} onChange={(e) => setSpecialties(e.target.value)} placeholder="exact wording" /><span className="acq-faint" style={{ fontSize: 11.5 }}>Matches exact wording only, so it often finds nothing. Try job titles first.</span></div>
         </div>
         <div><button className="acq-btn acq-btn-primary" type="submit" disabled={busy}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Find people</button></div>
       </form>
@@ -167,7 +167,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
                 <select className="acq-select" aria-label="Add to campaign" style={{ width: 'auto', minWidth: 190, height: 36, marginLeft: 'auto' }} value={target} onChange={(e) => setTarget(e.target.value)}><option value="">Choose a campaign…</option>{campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                 <button type="button" className="acq-btn acq-btn-primary acq-btn-sm" disabled={!target || !readyLeads.length || adding} onClick={() => void add()}>{adding ? <Loader2 size={14} className="animate-spin" /> : null} Add {readyLeads.length} to campaign</button>
               </div>
-              <label className="acq-faint" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginBottom: 8 }}><input type="checkbox" checked={includeUnconfirmed} onChange={(e) => setIncludeUnconfirmed(e.target.checked)} style={{ accentColor: '#9333ea' }} /> Also add emails Snov.io could not confirm (default: only confirmed ones, so nothing bounces)</label>
+              <label className="acq-faint" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginBottom: 8 }}><input type="checkbox" checked={includeUnconfirmed} onChange={(e) => setIncludeUnconfirmed(e.target.checked)} style={{ accentColor: '#9333ea' }} /> Also add emails that could not be confirmed (default: only confirmed ones, so nothing bounces)</label>
               <div style={{ overflowX: 'auto' }}>
                 <table className="acq-table banded" style={{ minWidth: 1020, tableLayout: 'fixed' }}>
                   <colgroup><col style={{ width: 46 }} /><col style={{ width: '17%' }} /><col style={{ width: '20%' }} /><col style={{ width: '23%' }} /><col style={{ width: '17%' }} /><col style={{ width: '23%' }} /></colgroup>
