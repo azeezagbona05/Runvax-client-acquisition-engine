@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { checkRecipient } from '@/lib/acquisition/recipientGuard';
-import { dailyCapFor } from '@/lib/waRateLimit';
+import { dailyCapFor } from '@/lib/waWarmup';
 import { logAgent } from '@/lib/acqReplies';
 import { HARD_DAILY_MAX, startOfToday } from '@/lib/outreachCampaign';
 
