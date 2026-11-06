@@ -1,8 +1,9 @@
 /**
  * Launch offer + pricing switch. Pure (no server imports) so client components can use it.
  *
- * The offer: any verified free account can start an 11-day Pro trial for $0, no card. It is a
- * real plan change (plan = Pro, planExpiresAt = +7 days); the existing expire-plans cron puts
+ * The offer: every new verified account gets TRIAL_DAYS days of Pro (Professional) for $0, no card, started automatically; existing free
+ * accounts can activate it from a banner. It is a
+ * real plan change (plan = Pro, planExpiresAt = +TRIAL_DAYS days); the existing expire-plans cron puts
  * the account back on Free when the week is up. One trial per account.
  *
  * PRICING_ENABLED hides every price, the pricing page and checkout until new prices are set.
@@ -12,12 +13,12 @@
 export const PRICING_ENABLED = false;
 
 export const TRIAL_PLAN = 'pro' as const;
-export const TRIAL_DAYS = 11;
+export const TRIAL_DAYS = 10;
 
 // Last moment a trial can be started (exclusive): the end of 1 November, launch day. Each trial then runs TRIAL_DAYS from the day
 // it is started. One constant drives the app, the API and the launch email. Override per
 // environment with NEXT_PUBLIC_TRIAL_OFFER_UNTIL (ISO 8601 with offset).
-const DEFAULT_OFFER_ENDS_AT = '2026-11-02T00:00:00+01:00';
+const DEFAULT_OFFER_ENDS_AT = '2099-01-01T00:00:00+01:00'; // the offer is ongoing; set NEXT_PUBLIC_TRIAL_OFFER_UNTIL to close it
 
 export function trialOfferEndsAt(): Date {
   const raw = process.env.NEXT_PUBLIC_TRIAL_OFFER_UNTIL?.trim();

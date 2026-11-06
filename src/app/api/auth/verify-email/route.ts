@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAppUrl } from '@/lib/url';
+import { grantTrial } from '@/lib/trial';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,9 @@ export async function GET(req: NextRequest) {
     }),
     prisma.emailVerificationToken.delete({ where: { token } }),
   ]);
+
+  // Verifying is what unlocks the free Professional period for password sign-ups. Best effort; a repeat or a paid plan is simply skipped.
+  await grantTrial(record.userId).catch(() => {});
 
   return NextResponse.redirect(`${appUrl}/auth/signin?verified=1`);
 }

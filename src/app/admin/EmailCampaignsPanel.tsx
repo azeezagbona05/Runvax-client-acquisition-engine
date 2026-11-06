@@ -238,7 +238,7 @@ export default function EmailCampaignsPanel() {
       {status && (
         <>
           <LaunchCard which={1} title="Launch email 1: the offer" stats={status.launch[1]} maxBatch={status.maxBatch} onDone={() => void load()}
-            blurb="“Get 11 days of Pro access for free.” Every button opens the claim page. Send this first." />
+            blurb="“Get 10 days of Pro access for free.” Every button opens the claim page. Send this first." />
           <LaunchCard which={2} title="Launch email 2: the story and countdown" stats={status.launch[2]} maxBatch={status.maxBatch} onDone={() => void load()}
             blurb="The story-style follow-up with a live countdown to 1 November, for people who haven't claimed their free Pro yet. Send about two days after email 1." />
         </>

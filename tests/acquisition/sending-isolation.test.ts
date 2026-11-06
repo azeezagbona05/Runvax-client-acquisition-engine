@@ -197,7 +197,7 @@ describe('tripwire: every server route that messages prospects uses the guard', 
     'src/app/api/auth/resend-verification/route.ts', 'src/app/api/cron/admin-daily-brief/route.ts', 'src/app/api/cron/expire-plans/route.ts',
     'src/app/api/cron/lifecycle-emails/route.ts', 'src/app/api/cron/onboarding-emails/route.ts', 'src/app/api/payments/webhook/route.ts',
     'src/app/api/trial/start/route.ts', 'src/app/api/user/smtp-test/route.ts', 'src/app/api/whatsapp/template-status/route.ts', 'src/app/api/whatsapp/connect/route.ts',
-    'src/app/api/whatsapp/create-template/route.ts', 'src/app/api/whatsapp/test/route.ts', 'src/lib/acqNotify.ts', 'src/lib/adminOps.ts', 'src/lib/email.ts', 'src/lib/launchCampaign.ts', 'src/lib/lifecycleRunner.ts', 'src/lib/newUserSetup.ts', 'src/lib/usage.ts',
+    'src/app/api/whatsapp/create-template/route.ts', 'src/app/api/whatsapp/test/route.ts', 'src/lib/acqNotify.ts', 'src/lib/adminOps.ts', 'src/lib/email.ts', 'src/lib/launchCampaign.ts', 'src/lib/lifecycleRunner.ts', 'src/lib/newUserSetup.ts', 'src/lib/trial.ts', 'src/lib/usage.ts',
   ]);
 
   it('finds the senders, and each prospect-facing one applies checkRecipient before sending', () => {

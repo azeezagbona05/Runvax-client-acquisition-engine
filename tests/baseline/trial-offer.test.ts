@@ -32,8 +32,8 @@ describe('subscription currency', () => {
 
 describe('trial offer window', () => {
   afterEach(() => { delete process.env.NEXT_PUBLIC_TRIAL_OFFER_UNTIL; });
-  it('is an 11-day Pro trial', () => {
-    expect(TRIAL_DAYS).toBe(11);
+  it('is an 10-day Pro trial', () => {
+    expect(TRIAL_DAYS).toBe(10);
     expect(TRIAL_PLAN).toBe('pro');
   });
   it('opens before the end and closes at it', () => {
@@ -57,22 +57,22 @@ describe('launch emails', () => {
   const e1 = launchCampaignEmailHtml('Ada Obi', 'https://runvax.com', 'Runvax', claim);
   const e2 = launchCountdownEmailHtml('Ada Obi', 'https://runvax.com', 'Runvax', claim, 11);
 
-  it('email 1: 11 days, $0, verify warning, claim-by, unsubscribe, no stray 7s', () => {
+  it('email 1: 10 days, $0, verify warning, claim-by, unsubscribe, no stray 7s', () => {
     expect(e1).toContain('Hi <strong style="color:#1e293b;">Ada</strong>');
-    expect(e1).toContain('11 days of RUNVAX Pro');
+    expect(e1).toContain('10 days of RUNVAX Pro');
     expect(e1).toContain('$0');
-    expect(e1).toContain('Try Pro free for 11 days');
+    expect(e1).toContain('Try Pro free for 10 days');
     expect(e1).toContain('1 November 2026');
     expect(e1).toContain('unsubscribe');
     expect(e1).not.toMatch(/7 days|seven|7-day/i);
     expect(e1).not.toMatch(/localhost/);
-    expect(LAUNCH_EMAIL_1_SUBJECT).toContain('11 Days');
+    expect(LAUNCH_EMAIL_1_SUBJECT).toContain('10 Days');
   });
-  it('email 2: countdown, story, 11 days everywhere', () => {
+  it('email 2: countdown, story, 10 days everywhere', () => {
     expect(e2).toContain('>11<');
     expect(e2).toContain('days until Runvax officially launches');
     expect(e2).toContain('You need more clients.');
-    expect(e2).toContain('Try Pro free for 11 days');
+    expect(e2).toContain('Try Pro free for 10 days');
     expect(e2).not.toMatch(/7 days|seven|7-day|7 free/i);
     expect(e2).not.toMatch(/localhost/);
   });

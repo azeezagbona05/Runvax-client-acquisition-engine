@@ -123,7 +123,7 @@ describe('templates', () => {
       expect(m.html.toLowerCase(), step).not.toMatch(/charged automatically|subscribe now|upgrade/);
       expect(m.html, step).toMatch(/saved prospects|prospects/);
     }
-    expect(renderStep('trial_ends_today', ctx()).subject).toContain('11 days');
+    expect(renderStep('trial_ends_today', ctx()).subject).toContain('10 days');
   });
   it('welcome email asks them to verify and links to the verification URL', () => {
     const w = welcomeEmail({ ...ctx(), verifyUrl: 'https://runvax.com/api/auth/verify-email?token=zzz' });
@@ -137,7 +137,7 @@ describe('trial-started confirmation', () => {
   it('confirms the claim with the real end date, promises no charge, and is an account email', () => {
     process.env.NEXTAUTH_URL = 'https://runvax.com';
     const m = trialStartedEmail({ name: 'Ada Obi', appUrl: 'https://runvax.com', appName: 'Runvax', endsLabel: 'Saturday, 12 December 2026' });
-    expect(m.subject).toContain('11 days');
+    expect(m.subject).toContain('10 days');
     expect(m.html).toContain('12 December 2026');
     expect(m.html).toContain('nothing will be charged');
     expect(m.html).toContain('AI receptionist targets');

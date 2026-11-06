@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { getAppUrl, getAppName } from '@/lib/url';
 import { createTransporter, newUserRegisteredEmailHtml } from '@/lib/email';
 import { welcomeEmail } from '@/lib/lifecycleEmails';
+import { grantTrial } from '@/lib/trial';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
@@ -19,6 +20,9 @@ export async function onGoogleUserCreated(user: { id: string; email?: string | n
 
   // Signing in with Google is the consent moment; the sign-in pages show the Terms/Privacy notice.
   await prisma.user.update({ where: { id: user.id }, data: { termsAcceptedAt: new Date() } }).catch(() => {});
+
+  // Every new account starts with the free Professional period. Google has verified the address already.
+  await grantTrial(user.id, { trustVerified: true }).catch(() => {});
 
   try {
     const welcome = welcomeEmail({ name, appUrl, appName });

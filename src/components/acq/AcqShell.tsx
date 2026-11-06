@@ -12,6 +12,7 @@ import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
 import { PRICING_ENABLED, trialOfferOpen } from '@/lib/promo';
 import StartTrialButton from '@/components/StartTrialButton';
 import Logo from './Logo';
+import TrialBanner from './TrialBanner';
 import { useAcq } from './AcqProvider';
 
 /** One menu for the whole product: Find Prospects first (it is the default page), then the Client Acquisition tools. */
@@ -274,6 +275,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="acq-content">
+          <TrialBanner />
           {gate && !(gate !== 'signin' && (pathname === DEFAULT_HOME || pathname === SETTINGS_HOME)) ? <GateCard gate={gate} /> : children}
         </main>
       </div>
