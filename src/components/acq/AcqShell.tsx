@@ -1,11 +1,12 @@
 'use client';
 
+import { openWelcomeVideo } from '@/components/WelcomeVideo';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
-  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, LogOut, Mail, Menu, MessageCircle,
+  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, PlayCircle, LogOut, Mail, Menu, MessageCircle,
   Search, Send, Settings, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
@@ -257,6 +258,9 @@ export default function AcqShell({ children }: { children: ReactNode }) {
               <Crown size={19} />{!rail && <><span>Upgrade plan</span><span className="acq-badge" style={{ background: '#f3e8ff', color: '#7e22ce' }}>Soon</span></>}
             </button>
           )}
+          <button type="button" onClick={openWelcomeVideo} className="acq-nav-item" title={rail ? 'Watch intro video' : undefined} style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left', ...(rail ? { justifyContent: 'center', padding: 0 } : {}) }}>
+            <PlayCircle size={19} />{!rail && <span>Watch intro video</span>}
+          </button>
           <a href="mailto:info@runvax.com?subject=Runvax%20Support" className="acq-nav-item" title={rail ? 'Help & support' : undefined} style={rail ? { justifyContent: 'center', padding: 0 } : undefined}>
             <LifeBuoy size={19} />{!rail && <span>Help &amp; support</span>}
           </a>

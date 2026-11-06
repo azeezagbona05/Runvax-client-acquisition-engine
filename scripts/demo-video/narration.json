@@ -1,0 +1,70 @@
+{
+  "voice": "ash",
+  "instructions": "Speak in a warm, confident Nigerian English accent, like a polished Lagos business presenter. Natural Nigerian rhythm and intonation, clear and unhurried so every word is easy to follow. Friendly and energetic, never robotic. Say 'RUNVAX' as 'Run-vax'.",
+  "scenes": [
+    {
+      "id": "intro",
+      "text": "Good day, Nigeria! If you run an agency, a software company, or any business that sells to other businesses, you already know the hard part is not the work. The hard part is finding your next customer. Today I will show you RUNVAX, an A.I. powered client acquisition engine. In a few minutes, you will see how to go from zero, to a live campaign, pitching real businesses in Lagos."
+    },
+    {
+      "id": "home",
+      "text": "This is the RUNVAX home page, before you even register. Notice something important. You are not locked into one country. Nigeria, Ghana, Kenya, South Africa, the United Kingdom, Canada, the United States, and many more. In fact, you can search all two hundred and forty nine countries. RUNVAX is designed for the whole world, and Nigeria is where we start."
+    },
+    {
+      "id": "signup",
+      "text": "Let us create an account. It is free, and no card is needed. I enter my name, my work email, and a password. I agree to the terms, and I click create account. That is all."
+    },
+    {
+      "id": "security",
+      "text": "Now I am inside. Before we continue, let me secure this account. In Settings, under Security, I can switch on biometric login, so next time I only need my fingerprint or Face I.D."
+    },
+    {
+      "id": "login",
+      "text": "Now let us log out, and see the login page. You have three ways to get in. First, you can continue with Google, one tap and you are in. Second, you can use your email and password. And third, the one I like most, biometric. I type my email, and RUNVAX offers Face I.D. or Touch I.D. One touch, and I am logged in. No password to forget."
+    },
+    {
+      "id": "switch",
+      "text": "After login, you may land on the classic RUNVAX. See this banner at the top? It invites you to the new experience. This is RUNVAX two point zero, our Client Acquisition portal. Let us switch."
+    },
+    {
+      "id": "tour",
+      "text": "Welcome to RUNVAX two point zero. On the left, everything you need to win clients. Find Prospects. Lead lists. Campaigns. The Automation Builder. Email activity. Your inbox for replies. And your A.I. agents, working like a team behind you."
+    },
+    {
+      "id": "countries",
+      "text": "Let us start with finding customers. Step one is the country. Remember, RUNVAX is built for any country in the world. Watch. Ghana. Kenya. The United Kingdom. Canada. Same tool, same power. But today, our market is Nigeria."
+    },
+    {
+      "id": "search",
+      "text": "Nigeria selected. Now, the location. I will search Victoria Island, in Lagos. You can add several locations at once, like Lekki, Ikeja, or Ikoyi. Then the business category. RUNVAX covers schools, hospitals, clinics, gyms, law firms, real estate, and many more. For this demo, I choose restaurants. And I ask for two hundred businesses. Now I click, Find Prospects."
+    },
+    {
+      "id": "searching",
+      "text": "RUNVAX is now searching live, across the map, and collecting real businesses, with their names, addresses, phone numbers, websites, and Google ratings. This is not a stale database. It is fresh, and it works the same way for a school in Abuja, a hospital in Accra, or a gym in London."
+    },
+    {
+      "id": "filters",
+      "text": "Now the smart part, filters. I do not want to pitch everybody. Say I sell websites. I filter for restaurants with no website. Then, only those with good ratings, and at least twenty reviews, because those are real businesses with real customers. And I can sort by most reviews, or only show those with a phone number. In seconds, a list of two hundred becomes a list of the best prospects."
+    },
+    {
+      "id": "discover",
+      "text": "Finding the business is step one. Step two is finding the person who decides. This is Discover by industry. I choose the industry, restaurants. The place, Nigeria. And the seniority, founders, owners, and directors. You can even narrow by job title. Then, Find people. RUNVAX shows the decision makers, grouped by company, so you pitch the owner, not the receptionist. And you only spend an email reveal when you choose to."
+    },
+    {
+      "id": "campaign",
+      "text": "Now, the best part. The client acquisition engine. I tell RUNVAX in plain English what I sell, and to whom. For example, I run an agency, and I sell online ordering websites and A.I. chatbots, to restaurants in Victoria Island. One sentence. I click build my campaign."
+    },
+    {
+      "id": "building",
+      "text": "Watch the engine work. It studies the offer, writes the emails, plans the follow-ups, and sets up the replies. In moments, you have a full campaign."
+    },
+    {
+      "id": "workflow",
+      "text": "Here is the workflow. A main sequence of emails, follow-ups that change depending on whether the lead opened, and even automatic handling of out-of-office replies. Next, the reply playbook, so you know exactly what to say when someone is interested, or says not now. And you can test and preview every message before a single email goes out."
+    },
+    {
+      "id": "outro",
+      "text": "That is RUNVAX. Find the businesses. Find the decision maker. Launch the campaign. Track every reply, all the way to a signed client. Built for Nigeria, and built for any country in the world. This is how you win clients with A.I. RUNVAX. The A.I. powered B2B client acquisition engine. Create your free account today."
+    }
+  ]
+}

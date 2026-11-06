@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { UpgradeProvider } from '@/context/UpgradeContext';
 import { PlanFeaturesProvider } from '@/context/PlanFeaturesContext';
 import ConditionalNav from '@/components/ConditionalNav';
+import WelcomeVideo from '@/components/WelcomeVideo';
 import AuthProvider from '@/components/AuthProvider';
 import InstallBanner from '@/components/InstallBanner';
 import WaDailyCounter from '@/components/WaDailyCounter';
@@ -364,6 +365,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <ConditionalNav>
                     {children}
                   </ConditionalNav>
+                  <WelcomeVideo />
                   <InstallBanner />
                   <WaDailyCounter />
                   </ToastProvider>
