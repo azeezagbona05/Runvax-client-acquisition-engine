@@ -43,6 +43,34 @@ interface SearchResults {
   leads: Array<{ id: string; campaignId: string; campaignName: string; email: string; business: string | null }>;
 }
 
+
+/** Bottom tab bar for phones: the five places people use most, with the full menu behind "More". Hidden on desktop by CSS. */
+function MobileTabBar({ active, inbox, onMore }: { active: (href: string, exact?: boolean) => boolean; inbox: number; onMore: () => void }) {
+  const tabs = [
+    { href: DEFAULT_HOME, label: 'Find', icon: MapPin },
+    { href: '/client-acquisition/leads', label: 'Leads', icon: Users },
+    { href: '/client-acquisition/campaigns', label: 'Campaigns', icon: Send },
+    { href: '/client-acquisition/inbox', label: 'Inbox', icon: MessageCircle, badge: inbox },
+  ];
+  return (
+    <nav className="acq-tabbar" data-mobile-tabs aria-label="Main">
+      {tabs.map((t) => {
+        const Icon = t.icon; const on = active(t.href);
+        return (
+          <Link key={t.href} href={t.href} className={`acq-tab-item${on ? ' active' : ''}`} aria-current={on ? 'page' : undefined}>
+            <span style={{ position: 'relative', display: 'inline-flex' }}>
+              <Icon size={22} />
+              {t.badge ? <span className="acq-tab-badge">{t.badge > 99 ? '99+' : t.badge}</span> : null}
+            </span>
+            <span>{t.label}</span>
+          </Link>
+        );
+      })}
+      <button type="button" className="acq-tab-item" onClick={onMore} aria-label="More: open the full menu"><Menu size={22} /><span>More</span></button>
+    </nav>
+  );
+}
+
 function GlobalSearch() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -179,6 +207,8 @@ export default function AcqShell({ children }: { children: ReactNode }) {
 
   useEffect(() => { try { setRail(localStorage.getItem('acq_rail') === '1'); } catch { /* default open */ } }, []);
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+  // Lets other fixed elements (the install banner) sit above the phone tab bar.
+  useEffect(() => { if (guest) return; document.documentElement.classList.add('has-tabbar'); return () => document.documentElement.classList.remove('has-tabbar'); }, [guest]);
   const toggleRail = () => setRail((v) => { try { localStorage.setItem('acq_rail', v ? '0' : '1'); } catch { /* not saved */ } return !v; });
 
   const active = (href: string, exact?: boolean) => (exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));
@@ -273,9 +303,9 @@ export default function AcqShell({ children }: { children: ReactNode }) {
       <div className="acq-main" style={{ paddingLeft: undefined }}>
         <style>{`@media (min-width:1024px){.acq-main{padding-left:${rail ? 76 : 250}px}}`}</style>
         <header className="acq-topbar">
-          <button className="acq-icon-btn acq-only-mobile" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={20} /></button>
+          <Link href={DEFAULT_HOME} className="acq-only-mobile" aria-label="RUNVAX Find Prospects" style={{ display: 'inline-flex' }}><Logo compact /></Link>
           <GlobalSearch />
-          <div style={{ flex: 1 }} />
+          <div className="acq-spacer" style={{ flex: 1 }} />
           <span className={`acq-status acq-only-desktop${running ? '' : ' idle'}`}><span className="acq-dot" />{running ? 'Campaigns Running' : 'Nothing Running'}</span>
           <Link href="/client-acquisition/inbox" className="acq-icon-btn" aria-label={inbox > 0 ? `${inbox} replies waiting` : 'Inbox'} style={{ position: 'relative', width: 40, height: 40 }}>
             <Bell size={20} />
@@ -289,6 +319,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
           {gate && !(gate !== 'signin' && (pathname === DEFAULT_HOME || pathname === SETTINGS_HOME)) ? <GateCard gate={gate} /> : children}
         </main>
       </div>
+      <MobileTabBar active={active} inbox={inbox} onMore={() => setMobileOpen(true)} />
     </div>
   );
 }

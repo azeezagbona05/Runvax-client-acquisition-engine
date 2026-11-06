@@ -169,7 +169,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
               </div>
               <label className="acq-faint" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginBottom: 8 }}><input type="checkbox" checked={includeUnconfirmed} onChange={(e) => setIncludeUnconfirmed(e.target.checked)} style={{ accentColor: '#9333ea' }} /> Also add emails that could not be confirmed (default: only confirmed ones, so nothing bounces)</label>
               <div style={{ overflowX: 'auto' }}>
-                <table className="acq-table banded" style={{ minWidth: 1020, tableLayout: 'fixed' }}>
+                <table className="acq-table banded acq-cards acq-cards-people" style={{ minWidth: 1020, tableLayout: 'fixed' }}>
                   <colgroup><col style={{ width: 46 }} /><col style={{ width: '17%' }} /><col style={{ width: '20%' }} /><col style={{ width: '23%' }} /><col style={{ width: '17%' }} /><col style={{ width: '23%' }} /></colgroup>
                   <thead><tr><th><span className="sr-only">Select</span></th><th>Person</th><th>Job title</th><th>Company</th><th>Location</th><th>Email</th></tr></thead>
                   <tbody>
@@ -202,10 +202,10 @@ function GroupRows({ g, picked, toggle, revealed, busy, onReveal }: { g: ReturnT
         const first = i === 0;
         return (
           <tr key={p.revealUrl} style={first ? { borderTop: '2px solid #ede9fe' } : undefined}>
-            <td><input type="checkbox" aria-label={`Select ${maskedName(p)}`} checked={picked.has(p.revealUrl)} onChange={() => toggle(p.revealUrl)} style={{ accentColor: '#9333ea' }} /></td>
-            <td style={{ fontWeight: 600, ...clip }} title={r?.name ?? maskedName(p)}>{r?.name ?? maskedName(p)}</td>
-            <td className="acq-muted" style={clip} title={p.jobTitle}>{p.jobTitle || '—'}</td>
-            <td style={clip}>
+            <td data-cell="check"><input type="checkbox" aria-label={`Select ${maskedName(p)}`} checked={picked.has(p.revealUrl)} onChange={() => toggle(p.revealUrl)} style={{ accentColor: '#9333ea' }} /></td>
+            <td data-cell="person" style={{ fontWeight: 600, ...clip }} title={r?.name ?? maskedName(p)}>{r?.name ?? maskedName(p)}</td>
+            <td data-cell="title" className="acq-muted" style={clip} title={p.jobTitle}>{p.jobTitle || '—'}</td>
+            <td data-cell="company" style={clip}>
               {first ? (
                 <>
                   <b style={{ display: 'block', color: '#0f172a', ...clip }} title={g.company.name || g.company.domain}>{g.company.name || g.company.domain}</b>
@@ -215,8 +215,8 @@ function GroupRows({ g, picked, toggle, revealed, busy, onReveal }: { g: ReturnT
                 </>
               ) : <span className="acq-faint" style={{ fontSize: 12 }} aria-label={`Same company: ${g.company.name || g.company.domain}`}>↳ same company</span>}
             </td>
-            <td className="acq-muted" style={clip} title={p.location}>{p.location || '—'}</td>
-            <td style={clip}>{r?.email ? <span style={{ color: r.smtpStatus === 'valid' ? '#15803d' : '#b45309' }} title={r.smtpStatus === 'valid' ? 'Confirmed to exist' : 'This address could not be confirmed'}>{r.smtpStatus === 'valid' ? '✓ ' : ''}{r.email}</span> : r ? <span className="acq-faint">No email found</span> : <button type="button" className="acq-btn acq-btn-sm" disabled={busy} onClick={() => onReveal(p)}>Reveal email</button>}</td>
+            <td data-cell="loc" className="acq-muted" style={clip} title={p.location}>{p.location || '—'}</td>
+            <td data-cell="pemail" style={clip}>{r?.email ? <span style={{ color: r.smtpStatus === 'valid' ? '#15803d' : '#b45309' }} title={r.smtpStatus === 'valid' ? 'Confirmed to exist' : 'This address could not be confirmed'}>{r.smtpStatus === 'valid' ? '✓ ' : ''}{r.email}</span> : r ? <span className="acq-faint">No email found</span> : <button type="button" className="acq-btn acq-btn-sm" disabled={busy} onClick={() => onReveal(p)}>Reveal email</button>}</td>
           </tr>
         );
       })}

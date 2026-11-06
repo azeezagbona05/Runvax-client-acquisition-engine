@@ -37,7 +37,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {/* Bottom snackbar stack — sits above mobile bottom nav (h-14 + safe area) */}
       <div
         className="fixed inset-x-0 z-[200] flex flex-col items-center gap-2 pointer-events-none px-4"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 4rem)' }}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.25rem)' }}
       >
         {toasts.map((t) => (
           <div

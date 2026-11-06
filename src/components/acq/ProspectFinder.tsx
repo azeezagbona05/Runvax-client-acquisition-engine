@@ -499,18 +499,18 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
               </p>
               {pager}
               <div style={{ overflowX: 'auto' }}>
-                <table className="acq-table" style={{ minWidth: 980 }}>
+                <table className="acq-table acq-cards" style={{ minWidth: 980 }}>
                   <thead><tr><th style={{ width: 32 }}><input type="checkbox" aria-label="Select this page" title="Select this page" checked={pageAllOn} onChange={togglePage} style={{ accentColor: '#9333ea' }} /></th><th>Business</th><th>Address</th><th>Phone</th><th>Website</th><th>Rating</th><th>Email</th></tr></thead>
                   <tbody>
-                    {shown.length === 0 && <tr><td colSpan={7} className="acq-sub" style={{ textAlign: 'center', padding: 20 }}>No prospects match these filters. <button type="button" className="acq-btn acq-btn-sm" onClick={() => { setFilters(DEFAULT_FILTERS); setStatusFilter('any'); }}>Clear filters</button></td></tr>}
+                    {shown.length === 0 && <tr><td data-cell="empty" colSpan={7} className="acq-sub" style={{ textAlign: 'center', padding: 20 }}>No prospects match these filters. <button type="button" className="acq-btn acq-btn-sm" onClick={() => { setFilters(DEFAULT_FILTERS); setStatusFilter('any'); }}>Clear filters</button></td></tr>}
                     {pageRows.map((b) => {
                       const e = emails[b.id];
                       const host = b.website ? b.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '') : '';
                       const href = b.website ? (/^https?:\/\//i.test(b.website) ? b.website : `https://${b.website}`) : '';
                       return (
                         <tr key={b.id}>
-                          <td><input type="checkbox" aria-label={`Select ${b.name}`} checked={picked.has(b.id)} onChange={() => toggle(b.id)} style={{ accentColor: '#9333ea' }} /></td>
-                          <td style={{ maxWidth: 240 }}>
+                          <td data-cell="check"><input type="checkbox" aria-label={`Select ${b.name}`} checked={picked.has(b.id)} onChange={() => toggle(b.id)} style={{ accentColor: '#9333ea' }} /></td>
+                          <td data-cell="biz" style={{ maxWidth: 240 }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <BizLogo name={b.name} website={b.website} />
                               <span style={{ minWidth: 0 }}>
@@ -519,11 +519,11 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                               </span>
                             </span>
                           </td>
-                          <td className="acq-muted" style={{ maxWidth: 240 }}>{b.address || <span className="acq-faint">—</span>}</td>
-                          <td style={{ whiteSpace: 'nowrap' }}>{b.phone || <span className="acq-faint">No phone</span>}</td>
-                          <td style={{ maxWidth: 200 }}>{href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline', overflowWrap: 'anywhere' }}>{host}</a> : <span className="acq-faint">No website</span>}</td>
-                          <td style={{ whiteSpace: 'nowrap' }}>{typeof b.rating === 'number' ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Star size={12} />{b.rating}{b.reviewCount ? ` (${b.reviewCount})` : ''}</span> : <span className="acq-faint">—</span>}</td>
-                          <td style={{ minWidth: 220 }}>
+                          <td data-cell="addr" className="acq-muted" style={{ maxWidth: 240 }}>{b.address || <span className="acq-faint">—</span>}</td>
+                          <td data-cell="phone" style={{ whiteSpace: 'nowrap' }}>{b.phone ? <a href={`tel:${b.phone.replace(/[^+\d]/g, '')}`}>{b.phone}</a> : <span className="acq-faint">No phone</span>}</td>
+                          <td data-cell="web" style={{ maxWidth: 200 }}>{href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline', overflowWrap: 'anywhere' }}>{host}</a> : <span className="acq-faint">No website</span>}</td>
+                          <td data-cell="rating" style={{ whiteSpace: 'nowrap' }}>{typeof b.rating === 'number' ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Star size={12} />{b.rating}{b.reviewCount ? ` (${b.reviewCount})` : ''}</span> : <span className="acq-faint">—</span>}</td>
+                          <td data-cell="email" style={{ minWidth: 220 }}>
                             {(() => {
                               const st = stateOf(b);
                               const action = CONTACT_ACTION[st];

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Download, X, Share } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -12,6 +13,7 @@ export default function InstallBanner() {
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [show, setShow] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     // Running as installed PWA
@@ -64,10 +66,11 @@ export default function InstallBanner() {
     localStorage.setItem('pwa_dismissed_at', String(Date.now()));
   };
 
-  if (!show) return null;
+  // Never cover the sign-in or sign-up form: the banner would sit on top of the buttons on a phone.
+  if (!show || pathname.startsWith('/auth')) return null;
 
   return (
-    <div className="fixed z-[60] left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm"
+    <div className="install-banner fixed z-[60] left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm"
       style={{ bottom: `calc(env(safe-area-inset-bottom) + ${typeof window !== 'undefined' && window.innerWidth < 640 ? '4rem' : '1rem'})` }}>
       <div className="bg-gray-900 border border-purple-500/40 rounded-2xl p-4 shadow-2xl shadow-black/60 flex items-start gap-3">
         <img src="/logo.svg" alt="" className="w-10 h-10 rounded-xl flex-shrink-0 bg-gray-800" />

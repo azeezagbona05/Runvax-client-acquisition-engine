@@ -458,3 +458,74 @@
 .acq-mail-preview pre { margin: 0; padding: 14px; white-space: pre-wrap; font: inherit; font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
 @media (max-width: 720px) { .acq-flow-board { grid-template-columns: 1fr; min-width: 0; } .acq-flow-lane.replies { border-left: 0; padding-left: 0; border-top: 1px dashed var(--brand-line); padding-top: 18px; } }
 @media (prefers-reduced-motion: reduce) { .acq-flow-node.appear, .acq-flow-branch.appear, .acq-build-items span, .acq-flow-node.current { animation: none; } }
+
+/* ───────────── Phone: native-app feel ───────────── */
+.acq-tabbar { display: none; }
+.acq-tab-badge { position: absolute; top: -5px; right: -9px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 700; line-height: 17px; text-align: center; border: 2px solid #fff; box-sizing: content-box; }
+@keyframes acq-sheet { from { transform: translateY(48px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (max-width: 1023px) {
+  .acq-root { -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior-y: none; -webkit-text-size-adjust: 100%; }
+  .acq-root button, .acq-root a { -webkit-touch-callout: none; user-select: none; }
+  .acq-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 36; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, .94); -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px); border-top: 1px solid var(--line); }
+  .acq-tab-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 50px; border: 0; background: transparent; font-size: 11px; font-weight: 600; color: var(--sub); border-radius: 12px; transition: transform .12s ease, color .12s ease; }
+  .acq-tab-item.active { color: #9333ea; }
+  .acq-tab-item.active svg { stroke-width: 2.5; }
+  .acq-tab-item:active { transform: scale(.9); }
+  html.has-tabbar .install-banner { bottom: calc(env(safe-area-inset-bottom) + 76px) !important; }
+  html.has-tabbar .acq-toast, html.has-tabbar [data-toast-root] { bottom: calc(env(safe-area-inset-bottom) + 76px) !important; }
+  .acq-topbar { height: calc(56px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 12px 0; gap: 8px; border-bottom: 1px solid rgba(226, 232, 240, .7); }
+  .acq-kbd { display: none; }
+  .acq-content { padding: 6px 14px calc(92px + env(safe-area-inset-bottom)); }
+  .acq-page-title { font-size: 26px; letter-spacing: -.02em; }
+  .acq-sidebar { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); border-radius: 0 20px 20px 0; }
+  /* Touch targets: at least 44px, and 16px text in fields so iOS does not zoom the page when one is focused. */
+  .acq-btn { height: 44px; border-radius: 12px; }
+  .acq-btn-sm { height: 40px; }
+  .acq-icon-btn { width: 44px; height: 44px; }
+  .acq-input, .acq-select, .acq-textarea { font-size: 16px; min-height: 46px; border-radius: 12px; }
+  .acq-btn:active, .acq-tab:active, .acq-nav-item:active { transform: scale(.97); }
+  .acq-nav-item { min-height: 46px; }
+  .acq-tab { padding: 9px 16px; font-size: 13.5px; }
+  /* Modals become bottom sheets. */
+  .acq-modal-scrim { align-items: flex-end; padding: 0; }
+  .acq-modal { max-width: none; border-radius: 22px 22px 0 0; max-height: 92dvh; overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); animation: acq-sheet .24s cubic-bezier(.2, .8, .2, 1); }
+}
+@media (prefers-reduced-motion: reduce) { .acq-modal { animation: none; } .acq-tab-item { transition: none; } }
+
+/* Tables that turn into cards on a phone (add class acq-cards and a data-cell on each cell). */
+@media (max-width: 767px) {
+  .acq-cards { min-width: 0 !important; display: block; }
+  .acq-cards thead { display: none; }
+  .acq-cards tbody { display: block; }
+  .acq-cards tr { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 6px 8px; align-items: start; margin: 0 0 12px; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+  .acq-cards tr:hover td { background: transparent; }
+  .acq-cards td { display: block; border: 0 !important; padding: 0 !important; max-width: none !important; min-width: 0 !important; white-space: normal !important; font-size: 13.5px; }
+  .acq-cards td[data-cell=check] { grid-column: 1; grid-row: 1; }
+  .acq-cards td[data-cell=check] input { width: 24px; height: 24px; }
+  .acq-cards td[data-cell=biz] { grid-column: 2; grid-row: 1; }
+  .acq-cards td[data-cell=rating] { grid-column: 3; grid-row: 1; font-weight: 600; color: #b45309; }
+  .acq-cards td[data-cell=addr] { grid-column: 2 / 4; grid-row: 2; }
+  .acq-cards td[data-cell=phone] { grid-column: 2; grid-row: 3; font-weight: 600; }
+  .acq-cards td[data-cell=phone] a { color: #7e22ce; display: inline-flex; align-items: center; min-height: 36px; }
+  .acq-cards td[data-cell=web] { grid-column: 3; grid-row: 3; text-align: right; align-self: center; }
+  .acq-cards td[data-cell=email] { grid-column: 1 / 4; grid-row: 4; margin-top: 4px; padding-top: 12px !important; border-top: 1px solid var(--line-soft) !important; }
+  .acq-cards td[data-cell=empty] { grid-column: 1 / -1; }
+}
+
+@media (max-width: 1023px) {
+  .acq-spacer { display: none; }
+  .acq-search { max-width: none; }
+  .acq-search input { height: 44px; padding: 0 12px 0 40px; font-size: 16px; border-radius: 22px; background: #fff; }
+}
+
+@media (max-width: 767px) {
+  .acq-cards-people colgroup { display: none; }
+  .acq-cards-people tr { grid-template-columns: 34px minmax(0, 1fr); }
+  .acq-cards-people td { overflow: visible !important; text-overflow: clip !important; white-space: normal !important; }
+  .acq-cards-people td[data-cell=check] { grid-column: 1; grid-row: 1; }
+  .acq-cards-people td[data-cell=person] { grid-column: 2; grid-row: 1; font-size: 15px; }
+  .acq-cards-people td[data-cell=title] { grid-column: 2; grid-row: 2; }
+  .acq-cards-people td[data-cell=company] { grid-column: 2; grid-row: 3; }
+  .acq-cards-people td[data-cell=loc] { grid-column: 2; grid-row: 4; }
+  .acq-cards-people td[data-cell=pemail] { grid-column: 2; grid-row: 5; margin-top: 4px; }
+}
