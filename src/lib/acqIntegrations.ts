@@ -11,6 +11,8 @@ export interface IntegrationDef {
   fields?: FieldDef[];
   help?: string;
   oauth?: boolean;
+  /** A multi-step setup component instead of a plain form. */
+  guided?: 'whatsapp';
   settingsHref?: string;
   /** Extra buttons once connected. */
   actions?: { action: string; label: string }[];
@@ -18,8 +20,7 @@ export interface IntegrationDef {
 
 export const INTEGRATIONS: IntegrationDef[] = [
   { id: 'wa', name: 'WhatsApp Business', desc: 'Chat with leads and send follow-ups on WhatsApp.', priority: 'Critical', uses: 'Send WhatsApp messages and templates to leads from your own business number.', settingsHref: '/client-acquisition/settings?tab=whatsapp-api',
-    fields: [{ name: 'phoneNumberId', label: 'Phone number ID', placeholder: 'e.g. 109876543210987' }, { name: 'accessToken', label: 'Access token', type: 'password', placeholder: 'Permanent system-user token' }, { name: 'wabaId', label: 'WhatsApp Business Account ID (optional)', placeholder: 'Needed to create message templates', optional: true }],
-    help: 'In Meta Business Suite → WhatsApp Manager → API setup, copy the Phone number ID and a permanent access token. "Manage" opens message templates.' },
+    guided: 'whatsapp' },
   { id: 'gmail', name: 'Gmail / Google Workspace', desc: 'Send and receive email from your own Google mailbox.', priority: 'Critical', uses: 'Campaigns send from your Gmail and replies are read back into the Inbox automatically.',
     fields: [{ name: 'email', label: 'Gmail address', placeholder: 'you@gmail.com' }, { name: 'password', label: 'App password', type: 'password', placeholder: '16-character app password' }],
     help: 'Use a Google app password (Google Account → Security → 2-Step Verification → App passwords), and make sure IMAP is on in Gmail settings.' },

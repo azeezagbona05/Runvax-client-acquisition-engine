@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { Check, AlertTriangle, Loader2 } from 'lucide-react';
 import { INTEGRATIONS, PRIORITY_ORDER, type IntegrationDef, type Priority } from '@/lib/acqIntegrations';
 import { Card } from '@/components/acq/ui';
+import WhatsAppSetup from '@/components/acq/integrations/WhatsAppSetup';
 
 const TONE: Record<Priority, { bg: string; ink: string }> = { Critical: { bg: '#fee2e2', ink: '#b91c1c' }, High: { bg: '#f3e8ff', ink: '#7e22ce' }, Medium: { bg: '#f1f5f9', ink: '#475569' } };
 
-interface Status { id: string; state: 'connected' | 'not_connected' | 'error'; summary: string; detail?: string; lastCheckedAt?: string | null; lastSyncAt?: string | null; extra?: { url?: string } }
+interface Status { id: string; state: 'connected' | 'not_connected' | 'error'; summary: string; detail?: string; lastCheckedAt?: string | null; lastSyncAt?: string | null; extra?: { url?: string; waTemplateStatus?: string } }
 interface Reply { ok: boolean; message: string; redirect?: string; data?: { secret?: string; slots?: string[]; link?: string; meet?: string } }
 
 function IntegrationCard({ def, status, reload }: { def: IntegrationDef; status?: Status; reload: () => void }) {
@@ -55,14 +56,15 @@ function IntegrationCard({ def, status, reload }: { def: IntegrationDef; status?
       {errored && status?.detail && <p style={{ fontSize: 12.5, color: '#b91c1c', marginTop: 6 }}>{status.detail}</p>}
       {connected && status?.lastSyncAt && <p className="acq-sub" style={{ fontSize: 11.5, marginTop: 4 }}>Last synced {new Date(status.lastSyncAt).toLocaleString()}</p>}
 
+      {def.guided === 'whatsapp' && <WhatsAppSetup connected={connected} templateStatus={status?.extra?.waTemplateStatus ?? ''} onChanged={reload} />}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-        {(!connected || errored) && (def.settingsHref && !def.fields
+        {!def.guided && (!connected || errored) && (def.settingsHref && !def.fields
           ? <Link href={def.settingsHref} className="acq-btn acq-btn-sm acq-btn-primary">Connect</Link>
           : <button className="acq-btn acq-btn-sm acq-btn-primary" onClick={connect} disabled={!!busy}>{busy === 'connect' && <Loader2 size={13} className="animate-spin" />}{errored ? 'Reconnect' : 'Connect'}</button>)}
         {(connected || errored) && <button className="acq-btn acq-btn-sm" onClick={() => call('test')} disabled={!!busy}>{busy === 'test' && <Loader2 size={13} className="animate-spin" />}Test connection</button>}
         {connected && def.actions?.map((a) => <button key={a.action} className="acq-btn acq-btn-sm" onClick={() => call(a.action)} disabled={!!busy}>{busy === a.action && <Loader2 size={13} className="animate-spin" />}{a.label}</button>)}
         {connected && def.settingsHref && <Link href={def.settingsHref} className="acq-btn acq-btn-sm">Manage</Link>}
-        {connected && (def.fields || def.oauth) && <button className="acq-btn acq-btn-sm" onClick={() => { if (window.confirm(`Disconnect ${def.name}?`)) call('disconnect'); }} disabled={!!busy}>Disconnect</button>}
+        {!def.guided && connected && (def.fields || def.oauth) && <button className="acq-btn acq-btn-sm" onClick={() => { if (window.confirm(`Disconnect ${def.name}?`)) call('disconnect'); }} disabled={!!busy}>Disconnect</button>}
       </div>
 
       {open && def.fields && (

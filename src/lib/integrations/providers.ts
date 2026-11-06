@@ -20,7 +20,7 @@ const isGoogleHost = (h?: string | null) => !!h && /(^|\.)(gmail|googlemail|goog
 
 export async function allStatuses(userId: string): Promise<IntegrationStatus[]> {
   const [s, rows] = await Promise.all([
-    prisma.userSettings.findUnique({ where: { userId }, select: { waPhoneNumberId: true, waAccessToken: true, waDisplayPhone: true, smtpHost: true, smtpUser: true, smtpPass: true } }),
+    prisma.userSettings.findUnique({ where: { userId }, select: { waPhoneNumberId: true, waAccessToken: true, waDisplayPhone: true, waTemplateStatus: true, smtpHost: true, smtpUser: true, smtpPass: true } }),
     prisma.integrationConnection.findMany({ where: { userId } }).catch(() => []),
   ]);
   const by = new Map(rows.map((r) => [r.provider, r]));
@@ -28,7 +28,7 @@ export async function allStatuses(userId: string): Promise<IntegrationStatus[]> 
   const out: IntegrationStatus[] = [];
 
   out.push(s?.waPhoneNumberId && s.waAccessToken
-    ? { id: 'wa', state: 'connected', summary: s.waDisplayPhone ? `Sending from ${s.waDisplayPhone}` : 'WhatsApp Business connected' }
+    ? { id: 'wa', state: 'connected', summary: `${s.waDisplayPhone ? `Sending from ${s.waDisplayPhone}` : 'WhatsApp Business connected'}. ${s.waTemplateStatus === 'APPROVED' ? 'Message template approved.' : s.waTemplateStatus === 'PENDING' ? 'Message template waiting for Meta review.' : s.waTemplateStatus === 'REJECTED' ? 'Message template was rejected by Meta.' : 'Message template not created yet.'}`, extra: { waTemplateStatus: s.waTemplateStatus ?? '' } }
     : { id: 'wa', state: 'not_connected', summary: 'Not connected yet' });
   out.push(mailbox && isGoogleHost(s?.smtpHost)
     ? { id: 'gmail', state: 'connected', summary: `Sending and reading replies as ${s!.smtpUser}` }
@@ -54,18 +54,12 @@ const hostOf = (u: string) => { try { return new URL(u).host; } catch { return '
 
 // ───────────────────────── WhatsApp ─────────────────────────
 
-export async function connectWhatsApp(userId: string, f: { phoneNumberId?: string; accessToken?: string; wabaId?: string }): Promise<Result> {
-  const id = (f.phoneNumberId ?? '').trim(), token = (f.accessToken ?? '').trim(), wabaId = (f.wabaId ?? '').trim();
-  if (!id || !token) return fail('Enter the phone number ID and the access token.');
-  if (!/^\d{6,}$/.test(id)) return fail('The phone number ID is digits only (not the phone number itself).');
-  try {
-    const res = await fetch(`https://graph.facebook.com/v20.0/${id}?fields=display_phone_number,verified_name,quality_rating`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
-    const d = await res.json() as { display_phone_number?: string; verified_name?: string; error?: { message?: string } };
-    if (!res.ok || d.error) return fail(d.error?.message ?? 'Meta rejected that phone number ID or token.');
-    const data = { waPhoneNumberId: id, waAccessToken: token, waDisplayPhone: d.display_phone_number ?? null, wabaId: wabaId || null };
-    await prisma.userSettings.upsert({ where: { userId }, create: { userId, ...data }, update: data });
-    return { ok: true, message: `Connected ${d.verified_name ?? 'your number'} (${d.display_phone_number ?? id}).` };
-  } catch (e) { return fail(errText(e, 'Could not reach Meta.')); }
+export async function selectWhatsAppPhone(userId: string, f: { id?: string; number?: string; wabaId?: string }): Promise<Result> {
+  const s = await prisma.userSettings.findUnique({ where: { userId }, select: { waAccessToken: true } });
+  if (!s?.waAccessToken) return fail('Paste your access token and detect your numbers first.');
+  if (!f.id || !/^\d{6,}$/.test(f.id)) return fail('Pick one of the detected numbers.');
+  await prisma.userSettings.update({ where: { userId }, data: { waPhoneNumberId: f.id, wabaId: f.wabaId || null, waDisplayPhone: f.number || null, waTemplateName: null, waTemplateStatus: null } });
+  return { ok: true, message: 'Number selected.' };
 }
 
 export async function testWhatsApp(userId: string): Promise<Result> {
@@ -340,7 +334,7 @@ export async function runAction(userId: string, id: IntegrationId, action: strin
   const touch = async (p: Provider, r: Result) => { await markStatus(userId, p, r.ok ? 'connected' : 'error', r.ok ? null : r.message); return r; };
   switch (`${id}:${action}`) {
     case 'wa:test': return testWhatsApp(userId);
-    case 'wa:connect': return connectWhatsApp(userId, { phoneNumberId: str('phoneNumberId'), accessToken: str('accessToken'), wabaId: str('wabaId') });
+    case 'wa:select': return selectWhatsAppPhone(userId, { id: str('id'), number: str('number'), wabaId: str('wabaId') });
     case 'wa:disconnect': await prisma.userSettings.updateMany({ where: { userId }, data: { waPhoneNumberId: null, waAccessToken: null, waDisplayPhone: null, wabaId: null, waTemplateName: null, waTemplateStatus: null } }); return { ok: true, message: 'WhatsApp disconnected.' };
     case 'gmail:connect': return connectMailbox(userId, 'gmail', { email: str('email'), password: str('password') });
     case 'smtp:connect': return connectMailbox(userId, 'smtp', { email: str('email'), password: str('password'), host: str('host'), port: Number(body.port) });
