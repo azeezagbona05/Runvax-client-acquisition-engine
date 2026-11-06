@@ -9,7 +9,7 @@ import WhatsAppSetup from '@/components/acq/integrations/WhatsAppSetup';
 
 const TONE: Record<Priority, { bg: string; ink: string }> = { Critical: { bg: '#fee2e2', ink: '#b91c1c' }, High: { bg: '#f3e8ff', ink: '#7e22ce' }, Medium: { bg: '#f1f5f9', ink: '#475569' } };
 
-interface Status { id: string; state: 'connected' | 'not_connected' | 'error'; summary: string; detail?: string; lastCheckedAt?: string | null; lastSyncAt?: string | null; extra?: { url?: string; waTemplateStatus?: string } }
+interface Status { id: string; state: 'connected' | 'not_connected' | 'error'; summary: string; detail?: string; lastCheckedAt?: string | null; lastSyncAt?: string | null; extra?: { url?: string; waTemplateStatus?: string; webhookUrl?: string; verifyToken?: string; repliesOn?: boolean } }
 interface Reply { ok: boolean; message: string; redirect?: string; data?: { secret?: string; slots?: string[]; link?: string; meet?: string } }
 
 function IntegrationCard({ def, status, reload }: { def: IntegrationDef; status?: Status; reload: () => void }) {
@@ -57,7 +57,7 @@ function IntegrationCard({ def, status, reload }: { def: IntegrationDef; status?
       {errored && status?.detail && <p style={{ fontSize: 12.5, color: '#b91c1c', marginTop: 6 }}>{status.detail}</p>}
       {connected && status?.lastSyncAt && <p className="acq-sub" style={{ fontSize: 11.5, marginTop: 4 }}>Last synced {new Date(status.lastSyncAt).toLocaleString()}</p>}
 
-      {def.guided === 'whatsapp' && <WhatsAppSetup connected={connected} templateStatus={status?.extra?.waTemplateStatus ?? ''} onChanged={reload} />}
+      {def.guided === 'whatsapp' && <WhatsAppSetup connected={connected} templateStatus={status?.extra?.waTemplateStatus ?? ''} extra={status?.extra} onChanged={reload} />}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         {!def.guided && (!connected || errored) && (def.settingsHref && !def.fields
           ? <Link href={def.settingsHref} className="acq-btn acq-btn-sm acq-btn-primary">Connect</Link>

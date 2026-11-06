@@ -3,6 +3,7 @@
 //   6_acquisition_pipeline -> new tables CampaignReply, CampaignLog + 7 new columns on OutreachLead
 //   7_campaign_templates   -> new table CampaignTemplate
 //   8_integration_connections -> new table IntegrationConnection
+//   10_whatsapp_campaigns  -> new table LeadWhatsApp
 // Additive only. Each migration is skipped if it is already applied, so it is safe to run twice.
 // It never touches migrations 1-4 or any RUNVAX 1.0 table. Pass --yes to skip the confirmation prompt.
 const fs = require('fs');
@@ -16,6 +17,7 @@ const MIGRATIONS = [
   { dir: '6_acquisition_pipeline', tables: ['CampaignReply', 'CampaignLog'], columns: ['replyClass', 'pausedUntil', 'stage', 'demoAt', 'closedAt', 'dealValue', 'ownerNotifiedAt'] },
   { dir: '7_campaign_templates', tables: ['CampaignTemplate'], columns: [] },
   { dir: '8_integration_connections', tables: ['IntegrationConnection'], columns: [] },
+  { dir: '10_whatsapp_campaigns', tables: ['LeadWhatsApp'], columns: [] },
 ];
 
 (async () => {

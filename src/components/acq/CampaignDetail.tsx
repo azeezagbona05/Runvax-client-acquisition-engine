@@ -7,6 +7,7 @@ import Link from 'next/link';
 import {
   AlertTriangle, ArrowLeft, Check, Eye, FileText, Link2, Loader2, Mail, MessageCircle, Pause, Pencil, Play, Plus, Send, ShieldCheck, Sparkles, Trash2, Undo2, Wand2, X,
 } from 'lucide-react';
+import CampaignWhatsApp from './CampaignWhatsApp';
 import { useRouter } from 'next/navigation';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import type { LeadStage } from '@/lib/outreachCampaign';
@@ -296,7 +297,7 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
       {!mailboxReady && (
         <div className="acq-warn" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <AlertTriangle size={17} style={{ marginTop: 2, flex: 'none' }} />
-          <span>Campaigns send from <b>your own mailbox</b>, so replies come to you. <Link href="/client-acquisition/settings?tab=email" style={{ textDecoration: 'underline', fontWeight: 600 }}>Connect your email in Settings</Link> to run this one. (Gmail needs an app password.)</span>
+          <span>Campaigns send from <b>your own mailbox</b>, so replies come to you. <Link href="/client-acquisition/integrations" style={{ textDecoration: 'underline', fontWeight: 600 }}>Connect your email in Integrations</Link> (sign in with Google, or use your own SMTP) to run this one.</span>
         </div>
       )}
       {notice && <div className="acq-notice" role="status" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>{notice}</span><button className="acq-link" style={{ color: '#64748b' }} onClick={() => setNotice('')}>Dismiss</button></div>}
@@ -323,6 +324,8 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
         <button className="acq-btn" onClick={() => void saveAsTemplate()}><FileText size={15} /> Save as template</button>
         <button className="acq-btn" style={{ marginLeft: 'auto', color: '#64748b', border: 0, background: 'transparent' }} onClick={() => void del()}><Trash2 size={15} /> Delete</button>
       </div>
+
+      <CampaignWhatsApp campaignId={id} running={running} onSent={refresh} />
 
       <CampaignPipeline leads={data.leads} brief={briefOf(campaign)} onChanged={refresh} />
 

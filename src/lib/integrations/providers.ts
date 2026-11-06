@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { safeFetch } from '@/lib/safeFetch';
 import { getConnection, markStatus, saveConnection, removeConnection, type Provider } from './store';
 import { open, seal } from './crypto';
+import { verifyTokenFor, webhookUrlFor } from '@/lib/waWebhook';
 
 export type IntegrationId = 'wa' | 'gmail' | 'smtp' | 'apollo' | 'snov' | 'gcal' | 'airtable' | 'webhooks';
 export type State = 'connected' | 'not_connected' | 'error';
@@ -28,7 +29,7 @@ export async function allStatuses(userId: string): Promise<IntegrationStatus[]> 
   const out: IntegrationStatus[] = [];
 
   out.push(s?.waPhoneNumberId && s.waAccessToken
-    ? { id: 'wa', state: 'connected', summary: `${s.waDisplayPhone ? `Sending from ${s.waDisplayPhone}` : 'WhatsApp Business connected'}. ${s.waTemplateStatus === 'APPROVED' ? 'Message template approved.' : s.waTemplateStatus === 'PENDING' ? 'Message template waiting for Meta review.' : s.waTemplateStatus === 'REJECTED' ? 'Message template was rejected by Meta.' : 'Message template not created yet.'}`, extra: { waTemplateStatus: s.waTemplateStatus ?? '' } }
+    ? { id: 'wa', state: 'connected', summary: `${s.waDisplayPhone ? `Sending from ${s.waDisplayPhone}` : 'WhatsApp Business connected'}. ${s.waTemplateStatus === 'APPROVED' ? 'Message template approved.' : s.waTemplateStatus === 'PENDING' ? 'Message template waiting for Meta review.' : s.waTemplateStatus === 'REJECTED' ? 'Message template was rejected by Meta.' : 'Message template not created yet.'}`, extra: { waTemplateStatus: s.waTemplateStatus ?? '', webhookUrl: webhookUrlFor(userId), verifyToken: verifyTokenFor(userId), repliesOn: by.has('wa') } }
     : { id: 'wa', state: 'not_connected', summary: 'Not connected yet' });
   const gOauth = by.get('gmail');
   out.push(gOauth
@@ -395,8 +396,14 @@ export async function runAction(userId: string, id: IntegrationId, action: strin
   const touch = async (p: Provider, r: Result) => { await markStatus(userId, p, r.ok ? 'connected' : 'error', r.ok ? null : r.message); return r; };
   switch (`${id}:${action}`) {
     case 'wa:test': return testWhatsApp(userId);
+    case 'wa:webhook': {
+      const secret = (str('appSecret') ?? '').trim();
+      if (!/^[a-f0-9]{16,}$/i.test(secret)) return fail('Paste your Meta app secret (App settings → Basic → App secret).');
+      await saveConnection(userId, 'wa', { appSecret: secret });
+      return { ok: true, message: 'Saved. WhatsApp replies from your campaign contacts will now appear in your Inbox.' };
+    }
     case 'wa:select': return selectWhatsAppPhone(userId, { id: str('id'), number: str('number'), wabaId: str('wabaId') });
-    case 'wa:disconnect': await prisma.userSettings.updateMany({ where: { userId }, data: { waPhoneNumberId: null, waAccessToken: null, waDisplayPhone: null, wabaId: null, waTemplateName: null, waTemplateStatus: null } }); return { ok: true, message: 'WhatsApp disconnected.' };
+    case 'wa:disconnect': await removeConnection(userId, 'wa'); await prisma.userSettings.updateMany({ where: { userId }, data: { waPhoneNumberId: null, waAccessToken: null, waDisplayPhone: null, wabaId: null, waTemplateName: null, waTemplateStatus: null } }); return { ok: true, message: 'WhatsApp disconnected.' };
     case 'gmail:connect': return connectMailbox(userId, 'gmail', { email: str('email'), password: str('password') });
     case 'smtp:connect': return connectMailbox(userId, 'smtp', { email: str('email'), password: str('password'), host: str('host'), port: Number(body.port) });
     case 'gmail:test': case 'smtp:test': return testMailbox(userId);

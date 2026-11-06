@@ -1,3 +1,4 @@
+import { normalizePhone } from '@/lib/phone';
 /**
  * Email outreach campaigns: the parts that need no database.
  *
@@ -14,6 +15,8 @@ export interface LeadInput {
   name?: string;
   business?: string;
   website?: string;
+  /** International digits for WhatsApp (no +). Optional. */
+  phone?: string;
 }
 
 export interface RejectedRow { line: number; raw: string; reason: string }
@@ -26,6 +29,13 @@ export const DEFAULT_DAILY_CAP = 30;
 export const MAX_BATCH = 30;
 
 export const EMAIL_RE = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]{2,}$/;
+
+/** Digits-only international number, or '' when it cannot be a WhatsApp number. Local numbers get the default country code. */
+export const cleanPhone = (raw: string): string => {
+  if (!raw || !raw.trim()) return '';
+  const d = normalizePhone(raw);
+  return d.length >= 8 && d.length <= 15 ? d : '';
+};
 
 export const cleanEmail = (raw: string): string => raw.trim().replace(/^mailto:/i, '').toLowerCase();
 
@@ -71,6 +81,7 @@ const HEADERS: Record<keyof LeadInput | 'first' | 'last', RegExp> = {
   last: /^(last ?name|last|surname|family ?name)$/i,
   business: /^(business( name)?|company( name)?|organi[sz]ation|clinic|practice|firm|employer)$/i,
   website: /^(web ?site|url|domain|site|web)$/i,
+  phone: /^(phone( number)?|mobile( number)?|whats ?app( number)?|tel(ephone)?|cell( phone)?)$/i,
 };
 
 /**
@@ -110,11 +121,13 @@ export function parseLeadCsv(text: string): { leads: LeadInput[]; rejected: Reje
     let name: string;
     let business: string;
     let website: string;
+    let phone = '';
     if (hasHeader) {
       email = cleanEmail(get(col.email));
       name = get(col.name) || `${get(col.first)} ${get(col.last)}`.trim();
       business = get(col.business);
       website = get(col.website);
+      phone = cleanPhone(get(col.phone));
     } else {
       const at = cells.findIndex((c) => c.includes('@'));
       email = at >= 0 ? cleanEmail(cells[at]) : '';
@@ -131,6 +144,7 @@ export function parseLeadCsv(text: string): { leads: LeadInput[]; rejected: Reje
       ...(name ? { name: name.slice(0, 120) } : {}),
       ...(business ? { business: business.slice(0, 160) } : {}),
       ...(website ? { website: website.slice(0, 190) } : {}),
+      ...(phone ? { phone } : {}),
     });
   });
 
@@ -473,7 +487,8 @@ export function sanitizeLeads(raw: unknown): { leads: LeadInput[]; invalid: numb
     seen.add(email);
     const clip = (v: unknown, n: number) => (typeof v === 'string' && v.trim() ? v.replace(/\s+/g, ' ').trim().slice(0, n) : undefined);
     const name = clip(o.name, 120), business = clip(o.business, 160), website = clip(o.website, 190);
-    leads.push({ email, ...(name ? { name } : {}), ...(business ? { business } : {}), ...(website ? { website } : {}) });
+    const phone = typeof o.phone === 'string' ? cleanPhone(o.phone) : '';
+    leads.push({ email, ...(name ? { name } : {}), ...(business ? { business } : {}), ...(website ? { website } : {}), ...(phone ? { phone } : {}) });
   }
   return { leads, invalid };
 }

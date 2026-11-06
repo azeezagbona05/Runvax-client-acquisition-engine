@@ -21,7 +21,7 @@ export interface IngestInput {
   leadId: string;
   text: string;
   subject?: string | null;
-  source: 'manual' | 'inbox';
+  source: 'manual' | 'inbox' | 'whatsapp';
   messageId?: string | null;
   receivedAt?: Date;
 }

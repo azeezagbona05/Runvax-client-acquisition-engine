@@ -205,7 +205,7 @@ describe('tripwire: every server route that messages prospects uses the guard', 
     expect(senders.length).toBeGreaterThan(10);
     const prospectFacing = senders.map(rel).filter((f) => !NOT_PROSPECT_FACING.has(f)).sort();
     // A NEW sender must be classified: guard it, or add it to the list above with a reason.
-    expect(prospectFacing).toEqual(['src/app/api/client-acquisition/replies/[id]/respond/route.ts', 'src/app/api/proposal/route.ts', 'src/app/api/proposal/send-email/route.ts', 'src/app/api/send-email/route.ts', 'src/app/api/whatsapp/send/route.ts', 'src/lib/outreachSender.ts']);
+    expect(prospectFacing).toEqual(['src/app/api/client-acquisition/replies/[id]/respond/route.ts', 'src/app/api/proposal/route.ts', 'src/app/api/proposal/send-email/route.ts', 'src/app/api/send-email/route.ts', 'src/app/api/whatsapp/send/route.ts', 'src/lib/outreachSender.ts', 'src/lib/waCampaign.ts']);
     for (const f of prospectFacing) {
       const src = fs.readFileSync(path.resolve(ROOT, '..', f), 'utf8');
       expect(src, f).toMatch(/checkRecipient\(/);

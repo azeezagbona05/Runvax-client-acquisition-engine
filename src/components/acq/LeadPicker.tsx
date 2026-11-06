@@ -62,7 +62,7 @@ export default function LeadPicker({ leads, onChange }: Props) {
           title={fromProspects.length === 0 ? 'None of your saved prospects have an email yet' : undefined}
           onClick={() => { const next = merge(leads, fromProspects).slice(0, MAX_LEADS_PER_CAMPAIGN); setNote(`${next.length - leads.length} added from your prospects`); onChange(next); }}
         ><Users size={14} /> My prospects with an email ({fromProspects.length})</button>
-        <span className="acq-faint" style={{ fontSize: 12 }}>Columns: email, name, business, website. Only email is required.</span>
+        <span className="acq-faint" style={{ fontSize: 12 }}>Columns: email, name, business, website, phone. Only email is required. Add a phone (with country code) to message them on WhatsApp too.</span>
       </div>
 
       <div>

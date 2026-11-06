@@ -53,5 +53,15 @@ export async function addLeads(campaignId: string, userId: string, raw: unknown)
     skipDuplicates: true,
   });
   result.added = created.count;
+
+  // Phone numbers live in their own table so a database without it yet still adds leads normally.
+  const withPhone = take.filter((l) => l.phone);
+  if (withPhone.length) {
+    try {
+      const ids = await prisma.outreachLead.findMany({ where: { campaignId, email: { in: withPhone.map((l) => l.email) } }, select: { id: true, email: true } });
+      const idOf = new Map(ids.map((i) => [i.email, i.id]));
+      await prisma.leadWhatsApp.createMany({ data: withPhone.flatMap((l) => (idOf.has(l.email) ? [{ userId, campaignId, leadId: idOf.get(l.email)!, phone: l.phone! }] : [])), skipDuplicates: true });
+    } catch { /* WhatsApp table not created yet: leads are still added, WhatsApp just has no numbers */ }
+  }
   return result;
 }

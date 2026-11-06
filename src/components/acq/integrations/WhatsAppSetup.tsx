@@ -8,7 +8,10 @@ interface Phone { id: string; number: string; name: string; quality: string; sta
 const TEMPLATE_PREVIEW = TEMPLATE_BODY.replace('{{1}}', '[Business Name]');
 
 /** The V1 WhatsApp Business setup (token → pick number → outreach template), shown on the Integrations card. */
-export default function WhatsAppSetup({ connected, templateStatus, onChanged }: { connected: boolean; templateStatus: string; onChanged: () => void }) {
+export interface WaExtra { webhookUrl?: string; verifyToken?: string; repliesOn?: boolean }
+
+export default function WhatsAppSetup({ connected, templateStatus, extra, onChanged }: { connected: boolean; templateStatus: string; extra?: WaExtra; onChanged: () => void }) {
+  const [appSecret, setAppSecret] = useState('');
   const [token, setToken] = useState('');
   const [phones, setPhones] = useState<Phone[]>([]);
   const [busy, setBusy] = useState('');
@@ -43,6 +46,13 @@ export default function WhatsAppSetup({ connected, templateStatus, onChanged }: 
   const refresh = () => run('refresh', async () => {
     await fetch('/api/whatsapp/template-status');
     onChanged();
+  });
+
+  const saveSecret = () => run('secret', async () => {
+    const res = await fetch('/api/client-acquisition/integrations/wa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'webhook', appSecret }) });
+    const d = await res.json() as { ok: boolean; message: string };
+    if (!d.ok) { setErr(d.message); return; }
+    setAppSecret(''); onChanged();
   });
 
   const disconnect = () => run('disconnect', async () => {
@@ -113,6 +123,22 @@ export default function WhatsAppSetup({ connected, templateStatus, onChanged }: 
     <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 12.5, color: '#15803d', display: 'inline-flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} />Template approved. The API Send button is active on prospects with a phone number.</span>
       <button className="acq-btn acq-btn-sm" onClick={disconnect} disabled={!!busy}>Disconnect</button>
+      <div style={{ flexBasis: '100%', display: 'grid', gap: 6, marginTop: 6 }}>
+        <p style={{ fontSize: 13, fontWeight: 700 }}>Receive replies in your Inbox {extra?.repliesOn && <span style={{ color: '#15803d', fontWeight: 600 }}>· on</span>}</p>
+        <details style={{ fontSize: 12 }}>
+          <summary style={{ cursor: 'pointer', color: '#7e22ce' }}>{extra?.repliesOn ? 'Webhook details' : 'Set up reply forwarding (optional)'}</summary>
+          <div style={{ marginTop: 6, display: 'grid', gap: 4, color: '#475569', wordBreak: 'break-all' }}>
+            <p>In your Meta app → WhatsApp → Configuration → Webhook, set:</p>
+            <p><b>Callback URL:</b> <code>{extra?.webhookUrl}</code></p>
+            <p><b>Verify token:</b> <code>{extra?.verifyToken}</code></p>
+            <p>Subscribe to the <b>messages</b> field. Then paste your <b>App secret</b> (App settings → Basic) below so we can confirm messages really come from Meta.</p>
+          </div>
+        </details>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input className="acq-input" style={{ flex: '1 1 220px' }} type="password" autoComplete="off" placeholder={extra?.repliesOn ? 'App secret saved. Paste a new one to replace it' : 'Meta app secret'} value={appSecret} onChange={(e) => { setAppSecret(e.target.value); setErr(''); }} />
+          <button className="acq-btn acq-btn-sm acq-btn-primary" onClick={saveSecret} disabled={!appSecret.trim() || !!busy}><Spin k="secret" />Save</button>
+        </div>
+      </div>
       <Err />
     </div>
   );

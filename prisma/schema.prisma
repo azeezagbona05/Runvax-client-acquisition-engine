@@ -1198,6 +1198,7 @@ model OutreachLead {
   dealValue     Int?
   ownerNotifiedAt DateTime?
   replies       CampaignReply[]
+  whatsapp      LeadWhatsApp?
   unsubscribedAt DateTime?
   error         String?          @db.Text
   createdAt     DateTime         @default(now())
@@ -1206,6 +1207,25 @@ model OutreachLead {
   @@index([campaignId, status])
   @@index([userId, email])
   @@index([userId, createdAt])
+}
+
+// The WhatsApp side of a campaign contact: their phone number and whether the approved template has been sent.
+model LeadWhatsApp {
+  id         String       @id @default(cuid())
+  userId     String
+  campaignId String
+  leadId     String       @unique
+  lead       OutreachLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  phone      String       @db.VarChar(32)
+  sentAt     DateTime?
+  messageId  String?
+  error      String?      @db.VarChar(500)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([userId, sentAt])
+  @@index([campaignId, sentAt])
+  @@index([userId, phone])
 }
 
 // A reply from a prospect, matched to the campaign and contact it answers. Only messages from addresses that are
