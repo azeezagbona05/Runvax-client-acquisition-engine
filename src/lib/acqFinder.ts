@@ -261,3 +261,67 @@ export function stopReason(ctx: FinderCtx, dryStreak: number): string | null {
   if (dryStreak >= MAX_DRY_STREAK) return `The last ${MAX_DRY_STREAK} searches found nothing new, so this area looks exhausted.`;
   return null;
 }
+
+// ── Several categories and locations at once ────────────────────────────────────────────────────────────────
+
+/** The most category × location pairs one search may cover. Each pair's first search counts toward daily searches. */
+export const MAX_PAIRS = 20;
+
+export interface FinderPair { industry: string; location: string }
+
+/** Every category in every location, in the order chosen, without repeats, capped at MAX_PAIRS. */
+export function finderPairs(industries: string[], locations: string[]): FinderPair[] {
+  const uniq = (xs: string[]) => xs.map((x) => x.trim()).filter((x, i, a) => x && a.findIndex((y) => norm(y) === norm(x)) === i);
+  const out: FinderPair[] = [];
+  for (const location of uniq(locations)) for (const industry of uniq(industries)) out.push({ industry, location });
+  return out.slice(0, MAX_PAIRS);
+}
+
+/** Validates a multi-pick search. Categories must come from the list; locations can be any place. */
+export function finderErrorMulti(industries: string[], locations: string[]): string | null {
+  const ind = industries.filter((i) => i.trim());
+  if (!ind.length) return 'Choose at least one business category.';
+  const bad = ind.find((i) => !FINDER_INDUSTRIES.some((f) => f.toLowerCase() === i.trim().toLowerCase()));
+  if (bad) return `"${bad}" is not in the category list. Pick categories from the list.`;
+  if (!locations.some((l) => l.trim())) return 'Add at least one location.';
+  return null;
+}
+
+/** Load-more across several pairs: takes turns between pairs so every one gets results, and drops a pair once it is exhausted. */
+export interface MultiCtx { ctxs: FinderCtx[]; dry: number[]; turn: number }
+
+export const startMulti = (ctxs: FinderCtx[]): MultiCtx => ({ ctxs, dry: ctxs.map(() => 0), turn: 0 });
+
+const live = (m: MultiCtx, i: number) => m.dry[i] < MAX_DRY_STREAK && !!planStep(m.ctxs[i]);
+
+/** The next search and which pair it belongs to, or null when every pair is exhausted. Labels name the pair when there are several. */
+export function multiStep(m: MultiCtx): { i: number; step: FinderStep } | null {
+  const n = m.ctxs.length;
+  for (let k = 0; k < n; k++) {
+    const i = (m.turn + k) % n;
+    if (!live(m, i)) continue;
+    const step = planStep(m.ctxs[i])!;
+    const c = m.ctxs[i];
+    const label = step.kind === 'same' ? `${c.industry} in ${c.location}: more` : step.kind === 'landmark' ? `${c.industry} in ${step.location}` : `${c.industry} near ${c.location}: ${step.label.replace(/^Wider area: /, 'wider ')}`;
+    return { i, step: n > 1 ? { ...step, label } : step };
+  }
+  return null;
+}
+
+/** Records how many new results pair `i`'s step found, and passes the turn on. */
+export function advanceMulti(m: MultiCtx, i: number, fresh: number): MultiCtx {
+  const ctxs = m.ctxs.slice(); ctxs[i] = advanceFinder(ctxs[i], fresh);
+  const dry = m.dry.slice(); dry[i] = fresh === 0 ? dry[i] + 1 : 0;
+  return { ctxs, dry, turn: (i + 1) % ctxs.length };
+}
+
+/** Searches left across every pair that is still live. */
+export const multiStepsLeft = (m: MultiCtx): number => m.ctxs.reduce((a, c, i) => a + (live(m, i) ? stepsLeft(c) : 0), 0);
+
+/** Whether a keep-finding run should stop, and why. Null means carry on. */
+export function multiStopReason(m: MultiCtx): string | null {
+  if (multiStep(m)) return null;
+  return m.ctxs.length > 1
+    ? 'Every category, location and nearby area has been tried. There is nothing more to find.'
+    : m.dry[0] >= MAX_DRY_STREAK ? `The last ${MAX_DRY_STREAK} searches found nothing new, so this area looks exhausted.` : 'Every nearby area and search has been tried. There is nothing more to find here.';
+}

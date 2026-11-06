@@ -39,12 +39,27 @@ const COUNTRIES = [
 // Inline map preview is built but paused until the Maps API key is set up — flip to true to bring it back.
 const SHOW_MAP_PREVIEW = false;
 
-// Nigeria first, then alphabetical, Other last
+// Popular countries as chips: Nigeria first, then alphabetical, Other last
 const COUNTRIES_SORTED = [
   COUNTRIES.find((c) => c.code === 'NG')!,
   ...COUNTRIES.filter((c) => c.code !== 'NG' && c.code !== 'OTHER').sort((a, b) => a.name.localeCompare(b.name)),
   COUNTRIES.find((c) => c.code === 'OTHER')!,
 ];
+
+type CountryOpt = { code: string; name: string; flag: string; popular?: boolean };
+
+/** The flag emoji for a two-letter country code. */
+const flagOf = (code: string) =>
+  /^[A-Z]{2}$/.test(code) ? String.fromCodePoint(0x1f1e6 + code.charCodeAt(0) - 65, 0x1f1e6 + code.charCodeAt(1) - 65) : '🌍';
+
+/** Popular countries first, then every other country in the world alphabetically, Other last. */
+function mergeCountries(all: Array<{ code: string; name: string }>): CountryOpt[] {
+  const popular = COUNTRIES_SORTED.filter((c) => c.code !== 'OTHER').map((c) => ({ ...c, popular: true }));
+  const rest = all
+    .filter((c) => !popular.some((p) => p.code === c.code))
+    .map((c) => ({ code: c.code, name: c.name, flag: flagOf(c.code) }));
+  return [...popular, ...rest, COUNTRIES.find((c) => c.code === 'OTHER')!];
+}
 
 interface SearchFormProps {
   onSearch: (data: SearchFormData) => void;
@@ -56,6 +71,7 @@ interface SearchFormProps {
 export default function SearchForm({ onSearch, loading, landing = true, businesses = [] }: SearchFormProps) {
   const [industry, setIndustry]           = useState('');
   const [country, setCountry]             = useState('NG');
+  const [allCountries, setAllCountries]   = useState<CountryOpt[]>(() => mergeCountries([]));
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [location, setLocation]           = useState('');
   const [selectedTier, setSelectedTier]   = useState<'high' | 'mid' | 'budget' | null>(null);
@@ -96,6 +112,16 @@ export default function SearchForm({ onSearch, loading, landing = true, business
   useEffect(() => { getSearchHistory().then(setHistory); }, []);
   useEffect(() => { setTimeStatus(getBestTimeStatus(country)); }, [country]);
 
+  // Every country in the world, loaded once (the popular ones show straight away).
+  useEffect(() => {
+    let live = true;
+    fetch('/api/finder/geo')
+      .then((r) => r.json())
+      .then((j: { countries?: Array<{ code: string; name: string }> }) => { if (live && j.countries?.length) setAllCountries(mergeCountries(j.countries)); })
+      .catch(() => { /* popular list stays */ });
+    return () => { live = false; };
+  }, []);
+
   useEffect(() => {
     if (!showCountryDd) return;
     const handle = (e: MouseEvent) => {
@@ -108,7 +134,7 @@ export default function SearchForm({ onSearch, loading, landing = true, business
     return () => document.removeEventListener('mousedown', handle);
   }, [showCountryDd]);
 
-  const selectedCountry = COUNTRIES.find((c) => c.code === country) ?? COUNTRIES[0];
+  const selectedCountry = allCountries.find((c) => c.code === country) ?? COUNTRIES[0];
 
   // States/regions for this country
   const countryStates = STATES.filter((s) => s.country === country);
@@ -125,11 +151,11 @@ export default function SearchForm({ onSearch, loading, landing = true, business
   });
 
   const filteredCountries = countrySearch.trim()
-    ? COUNTRIES_SORTED.filter((c) =>
+    ? allCountries.filter((c) =>
         c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
         c.code.toLowerCase().includes(countrySearch.toLowerCase()),
       )
-    : COUNTRIES_SORTED;
+    : allCountries;
 
   const indSuggestions = industry.trim()
     ? INDUSTRIES.filter((s) => s.toLowerCase().includes(industry.toLowerCase()))
@@ -400,15 +426,15 @@ export default function SearchForm({ onSearch, loading, landing = true, business
                 ))}
               </div>
 
-              {/* Mobile: searchable dropdown */}
-              <div className="sm:hidden relative" ref={countryDdRef}>
+              {/* Every country in the world: searchable dropdown (the only picker on mobile) */}
+              <div className="relative sm:mt-3" ref={countryDdRef}>
                 <button
                   type="button"
                   onClick={() => setShowCountryDd((v) => !v)}
                   className={`w-full bg-gray-800/80 border rounded-xl pl-4 pr-10 py-3 text-sm text-left flex items-center gap-2.5 transition-colors ${showCountryDd ? 'border-purple-500 text-white' : 'border-white/10 text-white hover:border-purple-500/40'}`}
                 >
                   <span className="text-base leading-none">{selectedCountry.flag}</span>
-                  <span className="flex-1 truncate">{selectedCountry.name}</span>
+                  <span className="flex-1 truncate">{selectedCountry.name}<span className="hidden sm:inline text-gray-500"> · search all {allCountries.length - 1} countries</span></span>
                   <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 transition-transform ${showCountryDd ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -424,7 +450,7 @@ export default function SearchForm({ onSearch, loading, landing = true, business
                         className="w-full bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500"
                       />
                     </div>
-                    <div className="max-h-52 overflow-y-auto">
+                    <div className="max-h-72 overflow-y-auto">
                       {filteredCountries.length === 0 && (
                         <p className="text-center text-gray-600 text-sm py-4">No match</p>
                       )}
@@ -441,8 +467,11 @@ export default function SearchForm({ onSearch, loading, landing = true, business
                         >
                           <span className="text-base leading-none">{c.flag}</span>
                           <span className="flex-1">{c.name}</span>
-                          {i === 0 && !countrySearch && (
+                          {c.popular && !countrySearch && i === 0 && (
                             <span className="text-[10px] text-purple-400 font-bold">Popular</span>
+                          )}
+                          {!c.popular && c.code !== 'OTHER' && !countrySearch && i > 0 && filteredCountries[i - 1]?.popular && (
+                            <span className="text-[10px] text-gray-500 font-bold">All countries</span>
                           )}
                         </button>
                       ))}

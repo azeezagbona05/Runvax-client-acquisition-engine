@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Search, Square, Star, Zap } from 'lucide-react';
 import { AREAS, STATES } from '@/lib/areas';
-import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, DEFAULT_FILTERS, toCsv, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_RUN_SEARCHES, advanceFinder, filterResults, filtersActive, finderError, finderQuery, planStep, startFinder, stepsLeft, stopReason, type FinderBusiness, type FinderCtx, type ContactAction, type ContactState, type RatingFilter, type ResultFilters, type Verdict, type SortKey, type WebsiteFilter } from '@/lib/acqFinder';
+import SearchSelect, { MultiSearchSelect, type SearchOption } from './SearchSelect';
+import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, DEFAULT_FILTERS, toCsv, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_PAIRS, MAX_RUN_SEARCHES, advanceMulti, filterResults, filtersActive, finderErrorMulti, finderPairs, finderQuery, multiStep, multiStepsLeft, multiStopReason, startFinder, startMulti, type FinderBusiness, type FinderCtx, type MultiCtx, type ContactAction, type ContactState, type RatingFilter, type ResultFilters, type Verdict, type SortKey, type WebsiteFilter } from '@/lib/acqFinder';
 import { BizLogo, Card, EmptyState } from './ui';
 import { useAcq } from './AcqProvider';
 import SignupPrompt from './SignupPrompt';
@@ -28,8 +29,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [state, setState] = useState('');
-  const [location, setLocation] = useState('');
-  const [industry, setIndustry] = useState('');
+  const [locations, setLocations] = useState<string[]>([]);
+  const [industries, setIndustries] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [results, setResults] = useState<FinderBusiness[] | null>(null);
@@ -39,7 +40,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [target, setTarget] = useState('');
   const [adding, setAdding] = useState(false);
   const [finding, setFinding] = useState(false);
-  const [ctx, setCtx] = useState<FinderCtx | null>(null);
+  const [ctx, setCtx] = useState<MultiCtx | null>(null);
   const [running, setRunning] = useState(false);
   const [maxRun, setMaxRun] = useState(MAX_RUN_SEARCHES);
   const [want, setWant] = useState(100);
@@ -81,19 +82,31 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     return () => { live = false; };
   }, [guest, results, credits]);
 
+  const countryOptions = useMemo<SearchOption[]>(() => [
+    ...FINDER_COUNTRIES.filter((c) => c.code !== 'OTHER').map((c) => ({ value: c.code, label: c.name, group: 'Popular' })),
+    ...(allCountries ?? []).filter((c) => !FINDER_COUNTRIES.some((f) => f.code === c.code)).map((c) => ({ value: c.code, label: c.name, group: 'All countries' })),
+  ], [allCountries]);
   const countryName = (allCountries ?? FINDER_COUNTRIES).find((c) => c.code === country)?.name ?? country;
   const states = country === 'NG' || country === 'OTHER' ? STATES.filter((s) => s.country === country) : regions;
+  const stateOptions: SearchOption[] = states.length ? [{ value: '', label: 'Any' }, ...states.map((s) => ({ value: s.code, label: s.name }))] : [];
   const places = useMemo(() => {
-    if (country !== 'NG') { const r = regions.find((x) => x.code === state); return r ? [r.name] : []; }
-    const cities = state ? STATES.find((s) => s.code === state)?.cities ?? [] : null;
-    return AREAS.filter((a) => a.country === country && (!cities || cities.includes(a.city))).map((a) => a.name).slice(0, 400);
+    const cities = state ? STATES.find((s) => s.code === state)?.cities ?? null : null;
+    const areas = AREAS.filter((a) => a.country === country && (!cities || cities.includes(a.city))).map((a) => a.name);
+    if (country === 'NG') return Array.from(new Set(areas)).slice(0, 600);
+    // Elsewhere: the chosen region (or every region), plus any neighbourhoods we know. Any other place can be typed in.
+    const r = regions.filter((x) => !state || x.code === state).map((x) => x.name);
+    return Array.from(new Set([...r, ...areas])).slice(0, 600);
   }, [country, state, regions]);
+  const placeOptions = useMemo<SearchOption[]>(() => places.map((p) => ({ value: p, label: p })), [places]);
+  const industryOptions = useMemo<SearchOption[]>(() => FINDER_INDUSTRIES.map((i) => ({ value: i, label: i })), []);
+  const pairs = finderPairs(industries, locations);
+  const pairsWanted = industries.length * locations.length;
   const campaigns = (data?.campaigns ?? []).filter((c) => c.status !== 'completed' || true);
 
   /** Signed-out visitors can look, but anything that does work for them needs an account. Remembers the search so it is still here after sign-up. */
   const needAccount = (why: string): boolean => {
     if (!guest) return false;
-    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify({ country, state, location, industry })); } catch { /* not saved */ }
+    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify({ country, state, locations, industries })); } catch { /* not saved */ }
     setPrompt(why);
     return true;
   };
@@ -105,75 +118,103 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
       const raw = sessionStorage.getItem(PENDING_KEY);
       if (!raw) return;
       sessionStorage.removeItem(PENDING_KEY);
-      const p = JSON.parse(raw) as { country?: string; state?: string; location?: string; industry?: string };
+      const p = JSON.parse(raw) as { country?: string; state?: string; location?: string; industry?: string; locations?: string[]; industries?: string[] };
       if (p.country) setCountry(p.country);
       if (p.state) setState(p.state);
-      if (p.location) setLocation(p.location);
-      if (p.industry) setIndustry(p.industry);
+      const locs = Array.isArray(p.locations) ? p.locations : p.location ? [p.location] : [];
+      const inds = Array.isArray(p.industries) ? p.industries : p.industry ? [p.industry] : [];
+      if (locs.length) setLocations(locs.filter((x) => typeof x === 'string'));
+      if (inds.length) setIndustries(inds.filter((x) => typeof x === 'string'));
     } catch { /* ignore */ }
   }, [guest]);
 
+  /** Runs one Google Maps search and returns the businesses not already in the table. */
+  const fetchFresh = async (body: Record<string, unknown>, room: number, foundBy: string): Promise<{ fresh: FinderBusiness[]; all: FinderBusiness[]; status: number; j: { error?: string; cached?: boolean; code?: string; guestHidden?: number } }> => {
+    const res = await fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await res.json().catch(() => ({})) as { businesses?: FinderBusiness[]; error?: string; cached?: boolean; code?: string; guestHidden?: number };
+    if (!res.ok) return { fresh: [], all: [], status: res.status, j };
+    const all = j.businesses ?? [];
+    const fresh = all.filter((b) => !seen.current.has(b.id)).slice(0, Math.max(0, room)).map((b) => ({ ...b, foundBy }));
+    fresh.forEach((b) => seen.current.add(b.id));
+    return { fresh, all, status: res.status, j };
+  };
+
   const search = async (e: React.FormEvent) => {
     e.preventDefault();
-    const bad = finderError(industry, location);
+    const bad = finderErrorMulti(industries, locations);
     if (bad) { setError(bad); return; }
     stop.current = true; setRunning(false); setProgress('');
     setBusy(true); setError(''); setResults(null); setFilters(DEFAULT_FILTERS); setPicked(new Set()); setEmails({}); setPeople({}); setVerdicts({}); setStatusFilter('any'); setCtx(null); seen.current = new Set();
+    // A free search covers one category in one place; more need an account.
+    const run = guest ? pairs.slice(0, 1) : pairs;
+    const multi = run.length > 1;
+    const ctxs: FinderCtx[] = [];
+    let anyCached = true; let firstError = '';
     try {
-      const res = await fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ industry, location, country, radius: 5, query: finderQuery(industry, location), ...(guest ? { guestPreview: true } : {}) }) });
-      const j = await res.json().catch(() => ({})) as { businesses?: FinderBusiness[]; error?: string; cached?: boolean; code?: string; guestHidden?: number };
-      if (res.status === 402 && j.code === 'GUEST_LIMIT') { needAccount('You have used your free searches for today.'); setError(j.error ?? ''); return; }
-      if (!res.ok) { setError(j.error ?? 'The search failed. Try again in a moment.'); return; }
-      setGuestHidden(guest ? j.guestHidden ?? 0 : 0);
-      const found = (j.businesses ?? []).slice(0, want).map((b) => ({ ...b, foundBy: 'First search' }));
-      setResults(found); setCached(!!j.cached);
-      found.forEach((b) => seen.current.add(b.id));
-      const withLoc = found.filter((b) => b.location);
-      const centre = withLoc.length ? { lat: withLoc.reduce((a, b) => a + b.location!.latitude, 0) / withLoc.length, lng: withLoc.reduce((a, b) => a + b.location!.longitude, 0) / withLoc.length } : undefined;
-      const c0 = startFinder(industry.trim(), location.trim(), country, state, centre);
-      setCtx(c0);
-      if (found.length < want && !guest) { setBusy(false); void keepFinding(c0); }
+      for (let k = 0; k < run.length; k++) {
+        const { industry, location } = run[k];
+        if (multi) setProgress(`Searching ${industry} in ${location} (${k + 1} of ${run.length})…`);
+        const r = await fetchFresh({ industry, location, country, radius: 5, query: finderQuery(industry, location), ...(guest ? { guestPreview: true } : {}) }, want - seen.current.size, multi ? `${industry} in ${location}` : 'First search');
+        if (r.status === 402 && r.j.code === 'GUEST_LIMIT') { needAccount('You have used your free searches for today.'); setError(r.j.error ?? ''); return; }
+        if (r.status === 402) { firstError = r.j.error ?? 'You have used all of today\'s searches on your plan.'; break; }
+        if (r.status >= 400) { firstError = firstError || (r.j.error ?? 'The search failed. Try again in a moment.'); continue; }
+        if (guest) setGuestHidden(r.j.guestHidden ?? 0);
+        anyCached = anyCached && !!r.j.cached;
+        if (r.fresh.length) setResults((x) => [...(x ?? []), ...r.fresh]);
+        const withLoc = r.all.filter((b) => b.location);
+        const centre = withLoc.length ? { lat: withLoc.reduce((a2, b2) => a2 + b2.location!.latitude, 0) / withLoc.length, lng: withLoc.reduce((a2, b2) => a2 + b2.location!.longitude, 0) / withLoc.length } : undefined;
+        ctxs.push(startFinder(industry, location, country, state, centre));
+        if (seen.current.size >= want) break;
+      }
+      if (!ctxs.length) { setError(firstError || 'The search failed. Try again in a moment.'); return; }
+      setResults((x) => x ?? []);
+      if (!guest) setGuestHidden(0);
+      setCached(anyCached);
+      if (firstError) setError(firstError);
+      setProgress(multi ? `Searched ${ctxs.length} of ${run.length} category and location pairs: ${seen.current.size} businesses.` : '');
+      const m = startMulti(ctxs);
+      setCtx(m);
+      if (seen.current.size < want && !guest && !firstError) { setBusy(false); void keepFinding(m); }
     } catch { setError('Could not reach the search. Check your connection.'); } finally { setBusy(false); }
   };
 
   /** Runs one load-more step. Returns the new context, how many new prospects it found, and a reason to stop if it must. */
-  const runStep = async (c: FinderCtx, room = Infinity): Promise<{ ctx: FinderCtx; fresh: number; halt?: string }> => {
-    const step = planStep(c);
-    if (!step) return { ctx: c, fresh: 0 };
+  const runStep = async (m: MultiCtx, room = Infinity): Promise<{ ctx: MultiCtx; fresh: number; halt?: string }> => {
+    const next = multiStep(m);
+    if (!next) return { ctx: m, fresh: 0 };
+    const { i, step } = next;
     try {
-      const res = await fetch('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: step.query, lat: step.lat, lng: step.lng, radius: c.radius, location: step.location, country: c.country }) });
-      const j = await res.json().catch(() => ({})) as { businesses?: FinderBusiness[]; error?: string; code?: string };
-      if (res.status === 402) return { ctx: c, fresh: 0, halt: j.error ?? 'You have used all of today\'s searches on your plan.' };
-      if (!res.ok) return { ctx: advanceFinder(c, 0), fresh: 0, ...(res.status >= 500 ? { halt: j.error ?? 'The search failed. Try again in a moment.' } : {}) };
-      const fresh = (j.businesses ?? []).filter((b) => !seen.current.has(b.id)).slice(0, room).map((b) => ({ ...b, foundBy: step.label }));
-      fresh.forEach((b) => seen.current.add(b.id));
-      if (fresh.length) setResults((r) => [...(r ?? []), ...fresh]);
-      return { ctx: advanceFinder(c, fresh.length), fresh: fresh.length };
-    } catch { return { ctx: c, fresh: 0, halt: 'Could not reach the search. Check your connection.' }; }
+      const r = await fetchFresh({ query: step.query, lat: step.lat, lng: step.lng, radius: m.ctxs[i].radius, location: step.location, country: m.ctxs[i].country }, room, step.label);
+      if (r.status === 402) return { ctx: m, fresh: 0, halt: r.j.error ?? 'You have used all of today\'s searches on your plan.' };
+      if (r.status >= 400) return { ctx: advanceMulti(m, i, 0), fresh: 0, ...(r.status >= 500 ? { halt: r.j.error ?? 'The search failed. Try again in a moment.' } : {}) };
+      if (r.fresh.length) setResults((x) => [...(x ?? []), ...r.fresh]);
+      return { ctx: advanceMulti(m, i, r.fresh.length), fresh: r.fresh.length };
+    } catch { return { ctx: m, fresh: 0, halt: 'Could not reach the search. Check your connection.' }; }
   };
 
   const loadMore = async () => {
     if (needAccount('Loading more results needs an account.')) return;
     if (!ctx || running) return;
     setBusy(true); setError('');
+    const label = multiStep(ctx)?.step.label;
     const r = await runStep(ctx);
     setCtx(r.ctx); setBusy(false);
-    setProgress(r.halt ? '' : `${planStep(ctx)?.label}: ${r.fresh} new`);
+    setProgress(r.halt ? '' : `${label}: ${r.fresh} new`);
     if (r.halt) setError(r.halt);
   };
 
   /** Keeps running steps until Google has nothing more, the plan's searches run out, or the user stops it. */
-  const keepFinding = async (from: FinderCtx | null = ctx) => {
+  const keepFinding = async (from: MultiCtx | null = ctx) => {
     if (needAccount('Searching until there is no more needs an account.')) return;
     if (!from || running) return;
     stop.current = false; setRunning(true); setError('');
-    let c = from; let dry = 0; let total = 0; let n = 0;
+    let c = from; let total = 0; let n = 0;
     while (!stop.current) {
-      const why = seen.current.size >= want ? `Found ${seen.current.size} businesses, your target.` : n >= maxRun ? `Reached your limit of ${maxRun} searches for this run.` : stopReason(c, dry);
+      const why = seen.current.size >= want ? `Found ${seen.current.size} businesses, your target.` : n >= maxRun ? `Reached your limit of ${maxRun} searches for this run.` : multiStopReason(c);
       if (why) { setProgress(`Done: ${seen.current.size} businesses in the table (${n} extra searches). ${why}`); break; }
-      setProgress(`${planStep(c)?.label} · ${seen.current.size} of ${want} businesses`);
+      setProgress(`${multiStep(c)?.step.label} · ${seen.current.size} of ${want} businesses`);
       const r = await runStep(c, want - seen.current.size);
-      n++; total += r.fresh; dry = r.fresh === 0 ? dry + 1 : 0; c = r.ctx; setCtx(c);
+      n++; total += r.fresh; c = r.ctx; setCtx(c);
       if (r.halt) { setError(r.halt); setProgress(`Stopped: ${total} new prospects found in ${n} searches.`); break; }
     }
     if (stop.current) setProgress(`Stopped: ${total} new prospects found in ${n} searches.`);
@@ -354,21 +395,18 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
       <form onSubmit={search} style={{ display: 'grid', gap: 12 }}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <div><label style={label} htmlFor="pf-country">1 · Country</label>
-            <select id="pf-country" className="acq-select" value={country} onChange={(e) => { setCountry(e.target.value); setState(''); setLocation(''); }}>
-              <optgroup label="Popular">{FINDER_COUNTRIES.filter((c) => c.code !== 'OTHER').map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</optgroup>
-              <optgroup label={allCountries ? 'All countries' : 'Loading all countries…'}>{(allCountries ?? []).filter((c) => !FINDER_COUNTRIES.some((f) => f.code === c.code)).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</optgroup>
-            </select></div>
+            <SearchSelect id="pf-country" value={country} options={countryOptions} placeholder="Choose a country" searchPlaceholder="Search all countries" onChange={(v) => { setCountry(v); setState(''); setLocations([]); }} /></div>
           <div><label style={label} htmlFor="pf-state">2 · State or region</label>
-            <select id="pf-state" className="acq-select" value={state} onChange={(e) => { const v = e.target.value; setState(v); const r = regions.find((x) => x.code === v); setLocation(country === 'NG' ? '' : r ? r.name : ''); }} disabled={!states.length}>
-              <option value="">{states.length ? 'Any' : country === 'NG' || regions.length ? 'Not needed' : 'Loading…'}</option>
-              {states.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
-            </select></div>
-          <div><label style={label} htmlFor="pf-loc">3 · Location</label><input id="pf-loc" className="acq-input" list="pf-places" value={location} onChange={(e) => setLocation(e.target.value)} placeholder={country === 'NG' ? 'e.g. Lekki, Lagos' : `e.g. a city in ${countryName}`} maxLength={120} /><datalist id="pf-places">{places.map((p) => <option key={p} value={p} />)}</datalist></div>
-          <div><label style={label} htmlFor="pf-ind">4 · Business category</label><input id="pf-ind" className="acq-input" list="pf-inds" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Dental Clinics" maxLength={80} /><datalist id="pf-inds">{FINDER_INDUSTRIES.map((i) => <option key={i} value={i} />)}</datalist></div>
+            <SearchSelect id="pf-state" value={state} options={stateOptions} disabled={!states.length} placeholder={states.length ? 'Any' : country === 'NG' || regions.length ? 'Not needed' : 'Loading…'} searchPlaceholder="Search regions" onChange={(v) => { setState(v); const r = regions.find((x) => x.code === v); setLocations(country === 'NG' || !r ? [] : [r.name]); }} /></div>
+          <div><label style={label} htmlFor="pf-loc">3 · Locations</label>
+            <MultiSearchSelect id="pf-loc" values={locations} options={placeOptions} onChange={setLocations} allowCustom max={MAX_PAIRS} customLabel={(q) => `Add "${q.slice(0, 120)}" as a location`} placeholder={country === 'NG' ? 'e.g. Lekki, Ikeja' : `Pick or type cities in ${countryName}`} searchPlaceholder="Search or type a place" emptyText="Type a place name to add it" /></div>
+          <div><label style={label} htmlFor="pf-ind">4 · Business categories</label>
+            <MultiSearchSelect id="pf-ind" values={industries} options={industryOptions} onChange={setIndustries} max={MAX_PAIRS} placeholder="e.g. Dental Clinics" searchPlaceholder="Search categories" /></div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>5 · How many businesses <input type="number" min={1} inputMode="numeric" className="acq-input" aria-label="How many businesses" style={{ width: 110, height: 36 }} value={wantText} onChange={(e) => { setWantText(e.target.value); const n = Math.floor(Number(e.target.value)); if (n >= 1) setWant(n); }} onBlur={() => setWantText(String(want))} /></label>
           <button className="acq-btn acq-btn-primary" type="submit" disabled={busy || running}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Find prospects</button>
+          {pairsWanted > 1 && <span className="acq-sub" role="status" style={{ fontSize: 12.5, color: pairsWanted > MAX_PAIRS ? '#b45309' : undefined }}>{industries.length} {industries.length === 1 ? 'category' : 'categories'} × {locations.length} {locations.length === 1 ? 'location' : 'locations'}: searches every category in every location ({Math.min(pairsWanted, MAX_PAIRS)} searches to start{pairsWanted > MAX_PAIRS ? `; only the first ${MAX_PAIRS} pairs run, remove some to cover the rest` : ''}).{guest ? ' Without an account only the first pair is searched.' : ''}</span>}
           <span className="acq-faint" style={{ fontSize: 12 }}>One search returns up to about 20 to 60 businesses, so RUNVAX keeps searching the same location, then nearby areas, until it reaches your number. Each search counts toward your plan&apos;s daily searches.</span>
         </div>
       </form>
@@ -449,11 +487,11 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                 {running
                   ? <button className="acq-btn acq-btn-sm" onClick={() => { stop.current = true; }}><Square size={13} /> Stop</button>
                   : <>
-                      <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!ctx || !planStep(ctx) || busy} onClick={() => void keepFinding()}><Zap size={14} /> Keep finding until there is no more</button>
-                      <button className="acq-btn acq-btn-sm" disabled={!ctx || !planStep(ctx) || busy} onClick={() => void loadMore()}>{busy && ctx ? <Loader2 size={14} className="animate-spin" /> : null} Load more: {ctx && planStep(ctx) ? planStep(ctx)!.label : 'nothing left'}</button>
+                      <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!ctx || !multiStep(ctx) || busy} onClick={() => void keepFinding()}><Zap size={14} /> Keep finding until there is no more</button>
+                      <button className="acq-btn acq-btn-sm" disabled={!ctx || !multiStep(ctx) || busy} onClick={() => void loadMore()}>{busy && ctx ? <Loader2 size={14} className="animate-spin" /> : null} Load more: {ctx && multiStep(ctx) ? multiStep(ctx)!.step.label : 'nothing left'}</button>
                     </>}
                 {!running && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12.5 }}>Up to <input type="number" min={1} inputMode="numeric" className="acq-input" aria-label="Searches per run" style={{ width: 90, height: 30 }} value={maxRun} onChange={(e) => setMaxRun(Math.max(1, Math.floor(Number(e.target.value)) || 1))} /> searches</label>}
-                <span className="acq-sub" style={{ fontSize: 12.5 }} role="status">{running && <Loader2 size={13} className="animate-spin" style={{ display: 'inline', marginRight: 6 }} />}{progress || (ctx && planStep(ctx) ? `Tries the same location first, then nearby areas, then a wider area. Up to ${stepsLeft(ctx)} searches left; each counts toward your daily searches.` : 'Everything nearby has been tried.')}</span>
+                <span className="acq-sub" style={{ fontSize: 12.5 }} role="status">{running && <Loader2 size={13} className="animate-spin" style={{ display: 'inline', marginRight: 6 }} />}{progress || (ctx && multiStep(ctx) ? `Tries the same location first, then nearby areas, then a wider area${ctx.ctxs.length > 1 ? `, taking turns across your ${ctx.ctxs.length} category and location pairs` : ''}. Up to ${multiStepsLeft(ctx)} searches left; each counts toward your daily searches.` : 'Everything nearby has been tried.')}</span>
               </div>
               <p className="acq-faint" style={{ fontSize: 12, marginBottom: 6, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span>Only <b>verified</b> contacts are added to a campaign, so nothing bounces.{picked.size > 0 && notReady > 0 ? ` ${notReady} of your ${picked.size} selected ${notReady === 1 ? 'is' : 'are'} not ready yet.` : ''}{campaigns.length === 0 ? ' Create a campaign first to add prospects to it.' : ''}</span>

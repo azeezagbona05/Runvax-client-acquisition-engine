@@ -20,14 +20,20 @@ test.describe('Find Prospects (signed in)', () => {
   });
 
   test('every country is listed and picking one fills the regions', async ({ page }) => {
-    const country = page.getByLabel('1 · Country');
-    await expect(country.locator('option')).not.toHaveCount(14, { timeout: 15_000 });
-    expect(await country.locator('option').count()).toBeGreaterThan(240);
-    await country.selectOption('CA');
-    const region = page.getByLabel('2 · State or region');
-    await expect(region.locator('option', { hasText: 'Ontario' })).toHaveCount(1);
-    await country.selectOption('NG');
-    await expect(region.locator('option', { hasText: 'Lagos' })).toHaveCount(1);
+    const country = page.getByRole('combobox', { name: '1 · Country' });
+    await country.click();
+    await expect(page.getByRole('option')).not.toHaveCount(12, { timeout: 15_000 });
+    expect(await page.getByRole('option').count()).toBeGreaterThan(240);
+    await country.fill('canada');
+    await page.getByRole('option', { name: 'Canada' }).click();
+    const region = page.getByRole('combobox', { name: '2 · State or region' });
+    await region.click(); await region.fill('ontario');
+    await expect(page.getByRole('option', { name: 'Ontario' })).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await country.click(); await country.fill('nigeria');
+    await page.getByRole('option', { name: 'Nigeria', exact: true }).click();
+    await region.click(); await region.fill('lagos');
+    await expect(page.getByRole('option', { name: 'Lagos' })).toHaveCount(1);
   });
 
   test('the number of businesses is not capped at 100', async ({ page }) => {
