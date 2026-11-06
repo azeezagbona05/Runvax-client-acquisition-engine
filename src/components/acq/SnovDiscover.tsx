@@ -79,10 +79,10 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
       for (let i = 0; i < list.length; i += 10) {
         setRevealing(`${done} of ${list.length} revealed…`);
         const res = await fetch('/api/snov/reveal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: list.slice(i, i + 10).map((p) => p.revealUrl) }) });
-        const j = await res.json().catch(() => ({})) as { results?: Record<string, Revealed>; balance?: number | null; error?: string; stopped?: string };
+        const j = await res.json().catch(() => ({})) as { results?: Record<string, Revealed>; reveals?: number; error?: string; stopped?: string; code?: string };
         if (!res.ok) { setError(j.error ?? 'Could not reveal the emails.'); break; }
         setRevealed((r) => ({ ...r, ...(j.results ?? {}) }));
-        if (typeof j.balance === 'number') setBalance(j.balance);
+        if (typeof j.reveals === 'number') setBalance(j.reveals);
         done += Math.min(10, list.length - i);
         if (j.stopped) { setError(j.stopped); break; }
       }
@@ -117,7 +117,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
 
   return (
     <Card title="Discover with Snov" right={<span className="acq-sub" style={{ fontSize: 12.5 }}>{balance !== null ? `${balance.toLocaleString('en-US')} email reveals left` : ''}</span>}>
-      <p className="acq-sub" style={{ fontSize: 13, marginBottom: 12 }}>Find the managers and owners of businesses by industry and place. Searching is free. Only revealing an email costs a credit, and only when one is found.</p>
+      <p className="acq-sub" style={{ fontSize: 13, marginBottom: 12 }}>Find the managers and owners of businesses by industry and place. Searching is free. Revealing an email uses one of your email reveals, and only when one is found.</p>
       <form onSubmit={(e) => { e.preventDefault(); void search(1); }} style={{ display: 'grid', gap: 12 }}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <div><label style={label} htmlFor="sd-ind">Industry</label>

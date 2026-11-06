@@ -1306,3 +1306,26 @@ model IntegrationConnection {
 
   @@unique([userId, provider])
 }
+
+// Purchased or granted email-reveal credits (the wallet). Monthly plan allowances are counted from the ledger.
+model EmailWallet {
+  userId    String   @id
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+// Every email-reveal credit used or added. (userId, revealKey) is unique so one revealed email is never charged twice.
+model EmailCreditLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // reveal | topup | grant
+  source    String // allowance | wallet
+  credits   Int
+  revealKey String?
+  period    String? // YYYY-MM, for allowance use
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, revealKey])
+  @@index([userId, kind, source, period])
+}

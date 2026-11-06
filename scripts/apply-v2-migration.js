@@ -2,6 +2,7 @@
 //   5_outreach_campaigns   -> new tables OutreachCampaign, OutreachLead
 //   6_acquisition_pipeline -> new tables CampaignReply, CampaignLog + 7 new columns on OutreachLead
 //   7_campaign_templates   -> new table CampaignTemplate
+//   9_email_credits        -> new tables EmailWallet, EmailCreditLedger
 //   8_integration_connections -> new table IntegrationConnection
 //   10_whatsapp_campaigns  -> new table LeadWhatsApp
 // Additive only. Each migration is skipped if it is already applied, so it is safe to run twice.
@@ -18,6 +19,7 @@ const MIGRATIONS = [
   { dir: '7_campaign_templates', tables: ['CampaignTemplate'], columns: [] },
   { dir: '8_integration_connections', tables: ['IntegrationConnection'], columns: [] },
   { dir: '10_whatsapp_campaigns', tables: ['LeadWhatsApp'], columns: [] },
+  { dir: '9_email_credits', tables: ['EmailWallet', 'EmailCreditLedger'], columns: [] },
 ];
 
 (async () => {
