@@ -40,11 +40,11 @@ function LimitNotice({ featureName, onClose }: { featureName?: string; onClose: 
           </div>
           <button onClick={onClose} aria-label="Close" className="text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
-        <h3 className="text-white font-bold text-lg mb-2">You&apos;ve reached today&apos;s limit</h3>
+        <h3 className="text-white font-bold text-lg mb-2">Paid plans are available soon</h3>
         <p className="text-gray-400 text-sm">
-          {featureName ? `${featureName} isn't available on your account right now. ` : ''}
-          Daily limits reset overnight, so you can pick up where you left off tomorrow.
-          {trialOfferOpen() ? ` Or try Pro free for ${TRIAL_DAYS} days — $0, no card — for higher limits and every feature.` : ''}
+          {featureName ? `${featureName} is part of Professional. ` : 'This needs a higher plan. '}
+          Upgrading will open here very soon, and everything you have built stays safe until then.
+          {trialOfferOpen() ? ` In the meantime, new accounts can try Professional free for ${TRIAL_DAYS} days, $0, no card.` : ''}
         </p>
         <div className="mt-5 space-y-2">
           <StartTrialButton />

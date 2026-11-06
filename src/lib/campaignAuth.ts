@@ -24,7 +24,7 @@ export async function requireCampaignSender(req: NextRequest): Promise<{ ok: tru
   return {
     ok: false,
     response: NextResponse.json({
-      error: `Sending campaigns is part of Pro. Your campaign and leads are saved and ready.${trialOfferOpen() ? ` Start your free ${TRIAL_DAYS}-day Pro trial to send.` : ' Contact info@runvax.com to unlock sending.'}`,
+      error: `Sending campaigns is part of Professional. Your campaign and leads are saved and ready.${trialOfferOpen() ? ` Start your free ${TRIAL_DAYS}-day Professional trial to send, or paid plans will be available soon.` : ' Paid plans are available soon.'}`,
       code: 'SENDING_LOCKED',
     }, { status: 403 }),
   };

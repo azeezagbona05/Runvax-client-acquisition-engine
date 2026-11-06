@@ -13,6 +13,7 @@ import { PRICING_ENABLED, trialOfferOpen } from '@/lib/promo';
 import StartTrialButton from '@/components/StartTrialButton';
 import Logo from './Logo';
 import TrialBanner from './TrialBanner';
+import { useUpgrade } from '@/context/UpgradeContext';
 import { useAcq } from './AcqProvider';
 
 /** One menu for the whole product: Find Prospects first (it is the default page), then the Client Acquisition tools. */
@@ -155,7 +156,7 @@ function UserMenu() {
 function GateCard({ gate }: { gate: 'signin' | 'locked' | 'unverified' | 'setup' }) {
   const copy = {
     signin: { title: 'Sign in to start winning clients', body: 'Client Acquisition is where your campaigns, leads and replies live.', action: <Link href="/auth/signin" className="acq-btn acq-btn-primary">Sign in</Link> },
-    locked: { title: 'Sending campaigns is part of Pro', body: 'You can build campaigns and import leads now. Sending needs a Pro plan.', action: trialOfferOpen() ? <StartTrialButton /> : <a href="mailto:info@runvax.com?subject=Unlock%20sending" className="acq-btn acq-btn-primary">Contact us to unlock sending</a> },
+    locked: { title: 'Sending campaigns is part of Professional', body: 'You can build campaigns and import leads now. Sending needs the Professional plan.', action: trialOfferOpen() ? <StartTrialButton /> : <span className="acq-btn" aria-disabled="true" style={{ cursor: 'default' }}>Paid plans are available soon</span> },
     setup: { title: 'Client Acquisition needs one database update', body: 'The tables for campaigns and contacts have not been created yet. An administrator needs to apply migration 5_outreach_campaigns once. Nothing else is affected.', action: null },
     unverified: { title: 'Verify your email first', body: 'We sent you a verification link. Campaigns are only for verified accounts, so your emails reach inboxes and not spam folders.', action: null },
   }[gate];
@@ -171,6 +172,7 @@ function GateCard({ gate }: { gate: 'signin' | 'locked' | 'unverified' | 'setup'
 export default function AcqShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { data, gate, guest } = useAcq();
+  const { triggerUpgrade } = useUpgrade();
   const [rail, setRail] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -246,10 +248,14 @@ export default function AcqShell({ children }: { children: ReactNode }) {
               <div className="acq-progress"><i style={{ width: `${pctUsed}%` }} /></div>
             </div>
           )}
-          {PRICING_ENABLED && (
+          {PRICING_ENABLED ? (
             <Link href="/pricing" className="acq-nav-item" title={rail ? 'Upgrade plan' : undefined} style={rail ? { justifyContent: 'center', padding: 0 } : undefined}>
               <Crown size={19} />{!rail && <span>Upgrade plan</span>}
             </Link>
+          ) : (
+            <button type="button" onClick={() => triggerUpgrade('feature', 'Professional')} className="acq-nav-item" title={rail ? 'Upgrade plan: available soon' : undefined} style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left', ...(rail ? { justifyContent: 'center', padding: 0 } : {}) }}>
+              <Crown size={19} />{!rail && <><span>Upgrade plan</span><span className="acq-badge" style={{ background: '#f3e8ff', color: '#7e22ce' }}>Soon</span></>}
+            </button>
           )}
           <a href="mailto:info@runvax.com?subject=Runvax%20Support" className="acq-nav-item" title={rail ? 'Help & support' : undefined} style={rail ? { justifyContent: 'center', padding: 0 } : undefined}>
             <LifeBuoy size={19} />{!rail && <span>Help &amp; support</span>}

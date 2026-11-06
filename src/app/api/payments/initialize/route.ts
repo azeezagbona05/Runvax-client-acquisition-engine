@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   // Pricing is switched off for the launch: never start a charge.
-  if (!PRICING_ENABLED) return NextResponse.json({ error: 'Paid plans are not available right now' }, { status: 503 });
+  if (!PRICING_ENABLED) return NextResponse.json({ error: 'Paid plans are available soon.', code: 'PAYMENTS_SOON' }, { status: 503 });
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
