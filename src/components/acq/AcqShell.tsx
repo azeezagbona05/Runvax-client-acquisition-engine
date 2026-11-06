@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
-  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, Lock, Mail, Menu, MessageCircle,
+  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, Lock, LogOut, Mail, Menu, MessageCircle,
   Search, Send, Settings, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
@@ -241,18 +241,25 @@ export default function AcqShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        {!rail && (
-          <div className="acq-card" style={{ margin: 16, padding: 16 }}>
-            <p style={{ fontWeight: 700, fontSize: 15 }}>Sending today</p>
-            <p className="acq-sub" style={{ fontSize: 13.5, margin: '6px 0 10px' }}>{sending.today.toLocaleString('en-US')} / {sending.limit.toLocaleString('en-US')}</p>
-            <div className="acq-progress"><i style={{ width: `${pctUsed}%` }} /></div>
-            {PRICING_ENABLED ? (
-              <Link href="/pricing" className="acq-btn" style={{ width: '100%', marginTop: 14, background: '#f3e8ff', borderColor: '#f3e8ff', color: '#9333ea' }}><Crown size={16} /> Upgrade Plan</Link>
-            ) : (
-              <Link href={`${SETTINGS_HOME}?tab=email`} className="acq-btn" style={{ width: '100%', marginTop: 14, background: '#f3e8ff', borderColor: '#f3e8ff', color: '#9333ea' }}><Settings size={16} /> Email settings</Link>
-            )}
-          </div>
-        )}
+        <div style={{ padding: rail ? '10px' : '12px', borderTop: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {!rail && (
+            <div style={{ padding: '4px 14px 10px' }}>
+              <p className="acq-sub" style={{ fontSize: 12.5, marginBottom: 6 }}>Sending today · {sending.today.toLocaleString('en-US')} / {sending.limit.toLocaleString('en-US')}</p>
+              <div className="acq-progress"><i style={{ width: `${pctUsed}%` }} /></div>
+            </div>
+          )}
+          {PRICING_ENABLED && (
+            <Link href="/pricing" className="acq-nav-item" title={rail ? 'Upgrade plan' : undefined} style={rail ? { justifyContent: 'center', padding: 0 } : undefined}>
+              <Crown size={19} />{!rail && <span>Upgrade plan</span>}
+            </Link>
+          )}
+          <a href="mailto:info@runvax.com?subject=Runvax%20Support" className="acq-nav-item" title={rail ? 'Help & support' : undefined} style={rail ? { justifyContent: 'center', padding: 0 } : undefined}>
+            <LifeBuoy size={19} />{!rail && <span>Help &amp; support</span>}
+          </a>
+          <button onClick={() => void signOut({ callbackUrl: '/' })} className="acq-nav-item" title={rail ? 'Sign out' : undefined} style={{ width: '100%', border: 0, background: 'transparent', color: '#b91c1c', textAlign: 'left', ...(rail ? { justifyContent: 'center', padding: 0 } : {}) }}>
+            <LogOut size={19} />{!rail && <span>Sign out</span>}
+          </button>
+        </div>
       </aside>
 
       <div className="acq-main" style={{ paddingLeft: undefined }}>
