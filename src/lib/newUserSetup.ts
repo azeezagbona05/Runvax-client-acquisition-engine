@@ -29,8 +29,9 @@ export async function onGoogleUserCreated(user: { id: string; email?: string | n
       html: welcome.html,
     });
     await prisma.lifecycleEmail.create({ data: { userId: user.id, key: 'welcome' } }).catch(() => {});
-  } catch {
-    // Welcome email is non-critical.
+  } catch (err) {
+    // Non-critical, but log it: a silent failure here means new users never get the email.
+    console.error('[newUserSetup] welcome email failed for', email, err instanceof Error ? err.message : err);
   }
 
   if (ADMIN_EMAILS.length > 0) {
@@ -42,8 +43,8 @@ export async function onGoogleUserCreated(user: { id: string; email?: string | n
         subject: `New user registered (Google) — ${totalUsers} total users`,
         html: newUserRegisteredEmailHtml(name, email, totalUsers, appUrl, appName),
       });
-    } catch {
-      // Admin notification is non-critical.
+    } catch (err) {
+      console.error('[newUserSetup] admin notification failed', err instanceof Error ? err.message : err);
     }
   }
 }

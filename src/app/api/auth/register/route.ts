@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       text: `Hi ${name},\n\nClick the link below to verify your email:\n\n${verifyUrl}\n\nThis link expires in 24 hours.\n\n— ${senderName}`,
       html: verificationEmailHtml(name, verifyUrl, senderName),
     });
-  } catch {
+  } catch (err) { console.error("[register] verification email failed", err instanceof Error ? err.message : err);
     // Verification email failed — user can resend later. Don't break signup.
   }
 
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       html: welcome.html,
     });
     await prisma.lifecycleEmail.create({ data: { userId: user.id, key: 'welcome' } }).catch(() => {});
-  } catch {
+  } catch (err) { console.error("[register] welcome email failed", err instanceof Error ? err.message : err);
     // Welcome email is non-critical — never block signup on it.
   }
 
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
         subject: `New user registered — ${totalUsers} total users`,
         html: newUserRegisteredEmailHtml(name, email, totalUsers, appUrl, senderName),
       });
-    } catch {
+    } catch (err) { console.error("[register] admin notification failed", err instanceof Error ? err.message : err);
       // Admin notification is non-critical — never block signup on it.
     }
   }
