@@ -1,3 +1,4 @@
+import { useUserKeys } from '@/lib/integrations/keys';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/requireUser';
 import { rateLimit } from '@/lib/rateLimiter';
@@ -22,6 +23,7 @@ const clip = (v: unknown, n: number) => (typeof v === 'string' ? v.slice(0, n) :
 export async function POST(req: NextRequest) {
   const user = await requireUser(req);
   if (!user.ok) return user.response;
+  await useUserKeys(user.userId);
   const body = await req.json().catch(() => ({})) as { name?: unknown; address?: unknown; website?: unknown; category?: unknown; categoryTypes?: unknown; deep?: unknown };
   const name = clip(body.name, 120)?.trim();
   if (!name) return NextResponse.json({ error: 'Business name required' }, { status: 400 });

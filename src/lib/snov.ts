@@ -12,7 +12,11 @@
  * status. Nothing here is called unless a user asks for a deeper search.
  */
 
+import { keyStore } from '@/lib/integrations/keys';
+
 const BASE = 'https://api.snov.io';
+
+const snovCreds = (): { id: string; secret: string } => keyStore.getStore()?.snov ?? { id: process.env.SNOV_CLIENT_ID?.trim() ?? '', secret: process.env.SNOV_CLIENT_SECRET?.trim() ?? '' };
 const TIMEOUT_MS = 8000;
 
 export interface SnovOpts {
@@ -34,26 +38,28 @@ export interface SnovEmail {
 }
 
 export function snovEnabled(): boolean {
-  return !!process.env.SNOV_CLIENT_ID?.trim() && !!process.env.SNOV_CLIENT_SECRET?.trim();
+  const c = snovCreds();
+  return !!c.id && !!c.secret;
 }
 
-let cached: { token: string; expires: number } | null = null;
+let cached: { token: string; expires: number; id: string } | null = null;
 
 /** Test hook: forget the cached access token. */
 export function resetSnovToken(): void { cached = null; }
 
 async function accessToken(): Promise<string> {
-  if (cached && cached.expires > Date.now() + 30_000) return cached.token;
+  const creds = snovCreds();
+  if (cached && cached.id === creds.id && cached.expires > Date.now() + 30_000) return cached.token;
   const res = await fetch(`${BASE}/v1/oauth/access_token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ grant_type: 'client_credentials', client_id: process.env.SNOV_CLIENT_ID, client_secret: process.env.SNOV_CLIENT_SECRET }),
+    body: JSON.stringify({ grant_type: 'client_credentials', client_id: creds.id, client_secret: creds.secret }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Snov.io sign-in failed (${res.status}). Check SNOV_CLIENT_ID and SNOV_CLIENT_SECRET.`);
   const json = await res.json() as { access_token?: string; expires_in?: number };
   if (!json.access_token) throw new Error('Snov.io sign-in returned no token.');
-  cached = { token: json.access_token, expires: Date.now() + (json.expires_in ?? 3600) * 1000 };
+  cached = { token: json.access_token, expires: Date.now() + (json.expires_in ?? 3600) * 1000, id: creds.id };
   return cached.token;
 }
 

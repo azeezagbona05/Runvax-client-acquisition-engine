@@ -1,3 +1,4 @@
+import { emitWebhook } from '@/lib/integrations/providers';
 import { prisma } from '@/lib/prisma';
 import { classifyReplyRules, suggestReplyRules, freshText, STOPS_SEQUENCE, isPositive, type ReplyClass } from '@/lib/replyIntel';
 import { sanitizeAutomation } from '@/lib/automation';
@@ -105,6 +106,9 @@ export async function ingestReply(i: IngestInput, deps: IngestDeps = {}): Promis
       .then(() => prisma.outreachLead.update({ where: { id: lead.id }, data: { ownerNotifiedAt: now } }))
       .catch(() => undefined);
   }
+
+  emitWebhook(i.userId, 'reply.received', { replyId: reply.id, campaign: lead.campaign.name, lead: { email: lead.email, name: lead.name, business: lead.business }, replyType: cls.replyClass, text: freshText(text).slice(0, 2000) });
+  if (isPositive(cls.replyClass)) emitWebhook(i.userId, 'lead.interested', { replyId: reply.id, campaign: lead.campaign.name, lead: { email: lead.email, name: lead.name, business: lead.business }, replyType: cls.replyClass });
 
   return { ok: true, duplicate: false, replyId: reply.id, replyClass: cls.replyClass, stoppedSequence: stops };
 }

@@ -30,6 +30,7 @@ model User {
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
   accounts                 Account[]
+  integrationConnections   IntegrationConnection[]
   sessions                 Session[]
   prospects                Prospect[]
   settings                 UserSettings?
@@ -1264,4 +1265,24 @@ model CampaignTemplate {
   updatedAt      DateTime @updatedAt
 
   @@index([userId, createdAt])
+}
+
+// A tool a user has connected to Client Acquisition (Apollo, Snov.io, Google Calendar, Airtable, webhooks).
+// WhatsApp and email live in UserSettings already, so they are not stored here. `secret` is AES-GCM encrypted JSON.
+model IntegrationConnection {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider      String
+  secret        String?   @db.Text
+  meta          Json?
+  // connected | error
+  status        String    @default("connected")
+  statusDetail  String?   @db.VarChar(500)
+  lastCheckedAt DateTime?
+  lastSyncAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, provider])
 }

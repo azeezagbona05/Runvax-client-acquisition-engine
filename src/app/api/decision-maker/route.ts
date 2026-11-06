@@ -1,3 +1,4 @@
+import { useUserKeys } from '@/lib/integrations/keys';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/requireUser';
 import { rateLimit } from '@/lib/rateLimiter';
@@ -53,6 +54,7 @@ async function persist(
 export async function POST(req: NextRequest) {
   const user = await requireUser(req);
   if (!user.ok) return user.response;
+  await useUserKeys(user.userId);
   if (!rateLimit(`decision-maker:${user.userId}`, { maxRequests: 30, windowMs: 60_000 }).ok) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }

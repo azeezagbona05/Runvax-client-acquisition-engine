@@ -1,3 +1,4 @@
+import { useUserKeys } from '@/lib/integrations/keys';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/requireUser';
 import { rateLimit } from '@/lib/rateLimiter';
@@ -17,6 +18,7 @@ const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export async function POST(req: NextRequest) {
   const user = await requireUser(req);
   if (!user.ok) return user.response;
+  await useUserKeys(user.userId);
   if (!rateLimit(`dm-verify:${user.userId}`, { maxRequests: 20, windowMs: 60_000 }).ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   if (!snovEnabled()) return NextResponse.json({ error: 'Email checking is not switched on yet.' }, { status: 501 });
   const u = await prisma.user.findUnique({ where: { id: user.userId }, select: { plan: true } });

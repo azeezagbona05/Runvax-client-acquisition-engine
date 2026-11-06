@@ -8,7 +8,11 @@
  * https://docs.apollo.io before relying on them.
  */
 
+import { keyStore } from '@/lib/integrations/keys';
+
 const BASE = 'https://api.apollo.io/api/v1';
+
+export const apolloKey = (): string => keyStore.getStore()?.apollo ?? process.env.APOLLO_API_KEY ?? '';
 
 export const DECISION_TITLES = [
   'owner', 'founder', 'ceo', 'managing director', 'director',
@@ -25,7 +29,7 @@ export interface DecisionMaker {
 }
 
 export function apolloEnabled(): boolean {
-  return !!process.env.APOLLO_API_KEY;
+  return !!apolloKey();
 }
 
 export function domainFromUrl(url?: string | null): string | null {
@@ -41,7 +45,7 @@ export function domainFromUrl(url?: string | null): string | null {
 async function call<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.APOLLO_API_KEY ?? '', 'Cache-Control': 'no-cache' },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apolloKey(), 'Cache-Control': 'no-cache' },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Apollo ${res.status}`);

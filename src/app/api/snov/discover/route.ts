@@ -1,3 +1,4 @@
+import { useUserKeys } from '@/lib/integrations/keys';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/requireUser';
 import { rateLimit } from '@/lib/rateLimiter';
@@ -16,6 +17,7 @@ async function paidUser(req: NextRequest) {
   if (!user.ok) return { error: user.response };
   const u = await prisma.user.findUnique({ where: { id: user.userId }, select: { plan: true } });
   if (!u || u.plan === 'free') return { error: NextResponse.json({ error: 'Discover with Snov is available on paid plans.' }, { status: 403 }) };
+  await useUserKeys(user.userId);
   return { userId: user.userId };
 }
 

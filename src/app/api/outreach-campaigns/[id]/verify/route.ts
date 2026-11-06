@@ -1,3 +1,4 @@
+import { useUserKeys } from '@/lib/integrations/keys';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireCampaignUser } from '@/lib/campaignAuth';
@@ -16,6 +17,7 @@ const PER_REQUEST = 50;
 export async function GET(req: NextRequest) {
   const user = await requireCampaignUser(req);
   if (!user.ok) return user.response;
+  await useUserKeys(user.userId);
   return NextResponse.json({ available: snovEnabled() });
 }
 
@@ -27,6 +29,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await requireCampaignUser(req);
   if (!user.ok) return user.response;
+  await useUserKeys(user.userId);
   if (!rateLimit(`acq-verify:${user.userId}`, { maxRequests: 12, windowMs: 60_000 }).ok) {
     return NextResponse.json({ error: 'Slow down: try again in a minute.' }, { status: 429 });
   }
