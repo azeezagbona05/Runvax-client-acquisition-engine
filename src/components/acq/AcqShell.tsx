@@ -143,8 +143,6 @@ function UserMenu() {
       {open && (
         <div className="acq-dropdown" role="menu" style={{ top: 50, right: 0, width: 220, padding: 6 }}>
           <Link href={DEFAULT_HOME} className="acq-nav-item" style={{ height: 38 }}>Find Prospects</Link>
-          <Link href="/pipeline" className="acq-nav-item" style={{ height: 38 }}>Prospect CRM</Link>
-          <Link href="/command-centre" className="acq-nav-item" style={{ height: 38 }}>Dashboard</Link>
           <Link href={SETTINGS_HOME} className="acq-nav-item" style={{ height: 38 }}>Settings</Link>
           <button onClick={() => void signOut({ callbackUrl: '/' })} className="acq-nav-item" style={{ height: 38, width: '100%', border: 0, background: 'transparent', color: '#b91c1c', textAlign: 'left' }}>Sign out</button>
         </div>
