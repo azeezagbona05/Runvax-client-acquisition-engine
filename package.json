@@ -10,7 +10,8 @@
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "test:integration": "vitest run -c vitest.integration.config.mts"
+    "test:integration": "vitest run -c vitest.integration.config.mts",
+    "test:e2e": "playwright test"
   },
   "prisma": {
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
@@ -52,6 +53,7 @@
     "zod": "4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",
     "@types/mailparser": "^3.9.0",

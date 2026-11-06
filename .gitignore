@@ -39,3 +39,7 @@ next-env.d.ts
 
 # launch campaign send log
 scripts/.launch-campaign-sent.log
+
+# playwright
+test-results/
+playwright-report/
