@@ -14,7 +14,7 @@ import { PRICING_ENABLED } from '@/lib/promo';
 import Logo from './Logo';
 import { useAcq } from './AcqProvider';
 
-/** One menu for the whole product: Find Prospects first (it is the default page), then the Client Acquisition tools, then the classic prospecting pages. */
+/** One menu for the whole product: Find Prospects first (it is the default page), then the Client Acquisition tools. */
 const NAV_GROUPS: Array<{ heading?: string; items: ReadonlyArray<{ href: string; label: string; icon: typeof Home; exact?: boolean; badge?: boolean }> }> = [
   { items: [
     { href: DEFAULT_HOME, label: 'Find Prospects', icon: MapPin },
@@ -29,9 +29,6 @@ const NAV_GROUPS: Array<{ heading?: string; items: ReadonlyArray<{ href: string;
     { href: '/client-acquisition/agents', label: 'AI Agents', icon: Bot },
     { href: '/client-acquisition/templates', label: 'Templates', icon: FileText },
     { href: '/client-acquisition/integrations', label: 'Integrations', icon: Zap },
-  ] },
-  { heading: 'Prospecting', items: [
-    { href: '/', label: 'Classic Find Prospects', icon: Search, exact: true },
   ] },
   { items: [
     { href: SETTINGS_HOME, label: 'Settings', icon: Settings },
