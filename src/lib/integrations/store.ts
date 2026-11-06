@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { open, seal } from './crypto';
 
-export type Provider = 'apollo' | 'snov' | 'gcal' | 'airtable' | 'webhooks';
+export type Provider = 'apollo' | 'snov' | 'gcal' | 'airtable' | 'webhooks' | 'gmail' | 'wa';
 
 export async function getConnection(userId: string, provider: Provider) {
   const row = await prisma.integrationConnection.findUnique({ where: { userId_provider: { userId, provider } } });

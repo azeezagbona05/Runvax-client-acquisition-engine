@@ -69,20 +69,21 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
   const toggle = (url: string) => setPicked((s) => { const n = new Set(s); if (n.has(url)) n.delete(url); else n.add(url); return n; });
   const toReveal = (result?.prospects ?? []).filter((p) => picked.has(p.revealUrl) && !revealed[p.revealUrl]);
 
-  const reveal = async () => {
-    if (!toReveal.length) return;
-    if (!window.confirm(`Reveal emails for ${toReveal.length} ${toReveal.length === 1 ? 'person' : 'people'}?\n\nThis uses up to ${toReveal.length} Snov.io credit${toReveal.length === 1 ? '' : 's'} (1 for each email found, nothing if none is found). You have ${balance ?? 'an unknown number of'} credits.`)) return;
+  /** Reveals the given people (default: everyone ticked). One credit each, only when an email is found. */
+  const reveal = async (list: typeof toReveal = toReveal) => {
+    if (!list.length || revealing) return;
+    if (!window.confirm(`Reveal ${list.length === 1 ? 'this email' : `emails for ${list.length} people`}?\n\nThis uses up to ${list.length} email reveal${list.length === 1 ? '' : 's'} (1 for each email found, nothing if none is found or if you revealed it before). You have ${balance ?? 'an unknown number of'} left.`)) return;
     setError('');
     let done = 0;
     try {
-      for (let i = 0; i < toReveal.length; i += 10) {
-        setRevealing(`${done} of ${toReveal.length} revealed…`);
-        const res = await fetch('/api/snov/reveal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: toReveal.slice(i, i + 10).map((p) => p.revealUrl) }) });
+      for (let i = 0; i < list.length; i += 10) {
+        setRevealing(`${done} of ${list.length} revealed…`);
+        const res = await fetch('/api/snov/reveal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ urls: list.slice(i, i + 10).map((p) => p.revealUrl) }) });
         const j = await res.json().catch(() => ({})) as { results?: Record<string, Revealed>; balance?: number | null; error?: string; stopped?: string };
         if (!res.ok) { setError(j.error ?? 'Could not reveal the emails.'); break; }
         setRevealed((r) => ({ ...r, ...(j.results ?? {}) }));
         if (typeof j.balance === 'number') setBalance(j.balance);
-        done += Math.min(10, toReveal.length - i);
+        done += Math.min(10, list.length - i);
         if (j.stopped) { setError(j.stopped); break; }
       }
     } finally { setRevealing(''); }
@@ -115,7 +116,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
   const textSuggestions = suggest.filter((s): s is string => typeof s === 'string');
 
   return (
-    <Card title="Discover with Snov" right={<span className="acq-sub" style={{ fontSize: 12.5 }}>{balance !== null ? `${balance.toLocaleString('en-US')} Snov credits left` : ''}</span>}>
+    <Card title="Discover with Snov" right={<span className="acq-sub" style={{ fontSize: 12.5 }}>{balance !== null ? `${balance.toLocaleString('en-US')} email reveals left` : ''}</span>}>
       <p className="acq-sub" style={{ fontSize: 13, marginBottom: 12 }}>Find the managers and owners of businesses by industry and place. Searching is free. Only revealing an email costs a credit, and only when one is found.</p>
       <form onSubmit={(e) => { e.preventDefault(); void search(1); }} style={{ display: 'grid', gap: 12 }}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -162,7 +163,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
                 <span className="acq-sub" style={{ fontSize: 12.5 }}>page {result.page} of {result.totalPages.toLocaleString('en-US')} · {groups.length} companies here</span>
                 <button type="button" className="acq-btn acq-btn-sm" onClick={() => setPicked(autoPick(groups, 3))}><Sparkles size={13} /> Pick the top 3 per company</button>
                 <button type="button" className="acq-btn acq-btn-sm" onClick={() => setPicked(new Set())} disabled={!picked.size}>Clear</button>
-                <button type="button" className="acq-btn acq-btn-primary acq-btn-sm" disabled={!toReveal.length || !!revealing} onClick={() => void reveal()}>{revealing ? <><Loader2 size={14} className="animate-spin" /> {revealing}</> : `Reveal emails for ${toReveal.length} (about ${toReveal.length} credits)`}</button>
+                <button type="button" className="acq-btn acq-btn-primary acq-btn-sm" disabled={!toReveal.length || !!revealing} onClick={() => void reveal()}>{revealing ? <><Loader2 size={14} className="animate-spin" /> {revealing}</> : `Reveal emails for ${toReveal.length} (up to ${toReveal.length} reveals)`}</button>
                 <select className="acq-select" aria-label="Add to campaign" style={{ width: 'auto', minWidth: 190, height: 36, marginLeft: 'auto' }} value={target} onChange={(e) => setTarget(e.target.value)}><option value="">Choose a campaign…</option>{campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                 <button type="button" className="acq-btn acq-btn-primary acq-btn-sm" disabled={!target || !readyLeads.length || adding} onClick={() => void add()}>{adding ? <Loader2 size={14} className="animate-spin" /> : null} Add {readyLeads.length} to campaign</button>
               </div>
@@ -172,7 +173,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
                   <colgroup><col style={{ width: 46 }} /><col style={{ width: '17%' }} /><col style={{ width: '20%' }} /><col style={{ width: '23%' }} /><col style={{ width: '17%' }} /><col style={{ width: '23%' }} /></colgroup>
                   <thead><tr><th><span className="sr-only">Select</span></th><th>Person</th><th>Job title</th><th>Company</th><th>Location</th><th>Email</th></tr></thead>
                   <tbody>
-                    {groups.map((g) => <GroupRows key={g.key} g={g} picked={picked} toggle={toggle} revealed={revealed} />)}
+                    {groups.map((g) => <GroupRows key={g.key} g={g} picked={picked} toggle={toggle} revealed={revealed} busy={!!revealing} onReveal={(p) => void reveal([p])} />)}
                   </tbody>
                 </table>
               </div>
@@ -191,7 +192,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
 
 const clip = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
 
-function GroupRows({ g, picked, toggle, revealed }: { g: ReturnType<typeof groupByCompany>[number]; picked: Set<string>; toggle: (url: string) => void; revealed: Record<string, Revealed> }) {
+function GroupRows({ g, picked, toggle, revealed, busy, onReveal }: { g: ReturnType<typeof groupByCompany>[number]; picked: Set<string>; toggle: (url: string) => void; revealed: Record<string, Revealed>; busy: boolean; onReveal: (p: ReturnType<typeof groupByCompany>[number]['people'][number]) => void }) {
   const site = g.company.domain ? `https://${g.company.domain}` : '';
   const detail = [g.company.size && `${g.company.size} people`, g.company.industry].filter(Boolean).join(' · ');
   return (
@@ -215,7 +216,7 @@ function GroupRows({ g, picked, toggle, revealed }: { g: ReturnType<typeof group
               ) : <span className="acq-faint" style={{ fontSize: 12 }} aria-label={`Same company: ${g.company.name || g.company.domain}`}>↳ same company</span>}
             </td>
             <td className="acq-muted" style={clip} title={p.location}>{p.location || '—'}</td>
-            <td style={clip}>{r?.email ? <span style={{ color: r.smtpStatus === 'valid' ? '#15803d' : '#b45309' }} title={r.smtpStatus === 'valid' ? 'Confirmed to exist' : 'Snov.io could not confirm this address'}>{r.smtpStatus === 'valid' ? '✓ ' : ''}{r.email}</span> : <span className="acq-faint">Not revealed</span>}</td>
+            <td style={clip}>{r?.email ? <span style={{ color: r.smtpStatus === 'valid' ? '#15803d' : '#b45309' }} title={r.smtpStatus === 'valid' ? 'Confirmed to exist' : 'This address could not be confirmed'}>{r.smtpStatus === 'valid' ? '✓ ' : ''}{r.email}</span> : r ? <span className="acq-faint">No email found</span> : <button type="button" className="acq-btn acq-btn-sm" disabled={busy} onClick={() => onReveal(p)}>Reveal email</button>}</td>
           </tr>
         );
       })}

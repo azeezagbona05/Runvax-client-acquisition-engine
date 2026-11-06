@@ -47,6 +47,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [progress, setProgress] = useState('');
   const [people, setPeople] = useState<Record<string, People>>({});
   const [findingDm, setFindingDm] = useState(false);
+  const [credits, setCredits] = useState<{ on: boolean; balance: number | null } | null>(null);
   const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
   const [verifying, setVerifying] = useState<Set<string>>(new Set());
   const [verifyingAll, setVerifyingAll] = useState(false);
@@ -71,6 +72,14 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     fetch(`/api/finder/geo?country=${encodeURIComponent(country)}`).then((r) => r.json()).then((j: { regions?: Array<{ code: string; name: string }> }) => { if (live) setRegions(j.regions ?? []); }).catch(() => {});
     return () => { live = false; };
   }, [country]);
+
+  // Whether the credit-based people lookup is on for this account, so the page can say what a lookup costs.
+  useEffect(() => {
+    if (guest || !results || credits) return;
+    let live = true;
+    fetch('/api/client-acquisition/people').then((r) => (r.ok ? r.json() : null)).then((j: { credits?: boolean; balance?: number | null } | null) => { if (live) setCredits({ on: !!j?.credits, balance: j?.balance ?? null }); }).catch(() => { if (live) setCredits({ on: false, balance: null }); });
+    return () => { live = false; };
+  }, [guest, results, credits]);
 
   const countryName = (allCountries ?? FINDER_COUNTRIES).find((c) => c.code === country)?.name ?? country;
   const states = country === 'NG' || country === 'OTHER' ? STATES.filter((s) => s.country === country) : regions;
@@ -188,33 +197,40 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     setFinding(false);
   };
 
-  /** Decision-makers and their emails for one business: the free sources first, then the paid ones (Snov.io, Hunter…) when allowed. */
-  const findPeople = async (b: FinderBusiness, opts: { deep?: boolean } = {}) => {
+  /**
+   * The people at one business and their emails. The first search looks the business's website up for everyone attached to it
+   * (paid plans); if that finds nobody, RUNVAX's own contact intelligence takes over. `deep` is the extra paid search for a name with no email.
+   */
+  const findPeople = async (b: FinderBusiness, opts: { deep?: boolean; max?: number } = {}) => {
     if (needAccount('Finding decision-makers needs an account.')) return;
     setPeople((m) => ({ ...m, [b.id]: { state: 'loading' } }));
-    const ask = async (deep: boolean) => {
-      const res = await fetch('/api/decision-maker/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, deep }) });
-      const j = await res.json().catch(() => ({})) as { candidates?: Person[]; channels?: Channel[]; error?: string };
-      return { ok: res.ok, status: res.status, people: j.candidates ?? [], channels: j.channels ?? [], error: j.error };
-    };
     try {
-      // "Find email" and "Retry discovery" go straight to the deeper (paid) search; a first search starts with the free sources.
-      let r = opts.deep ? { ok: true, status: 200, people: [] as Person[], channels: [] as Channel[], error: undefined as string | undefined } : await ask(false);
-      let note: string | undefined;
-      if (r.ok && !r.people.some((p) => p.email)) {
-        const deep = await ask(true);
-        if (deep.ok) r = deep;
-        else if (opts.deep) r = deep;
-        else if (deep.status === 403) note = 'A deeper email search needs a paid plan.';
-        else if (deep.status === 429) note = deep.error;
+      if (opts.deep) {
+        const res = await fetch('/api/decision-maker/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, deep: true }) });
+        const j = await res.json().catch(() => ({})) as { candidates?: Person[]; channels?: Channel[]; error?: string };
+        setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: j.candidates ?? [], channels: j.channels ?? [], note: res.ok ? undefined : (res.status === 403 ? 'A deeper email search needs a paid plan.' : j.error ?? 'Lookup failed.') } }));
+        return;
       }
-      setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: r.people, channels: r.channels, note: r.ok ? note : (r.error ?? 'Lookup failed.') } }));
+      const res = await fetch('/api/client-acquisition/people', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, max: opts.max ?? 5 }) });
+      const j = await res.json().catch(() => ({})) as { people?: Array<{ name: string; title: string; email?: string; emailState?: 'confirmed' | 'unconfirmed'; linkedin?: string; sourcePage?: string }>; channels?: Channel[]; note?: string; error?: string; balance?: number | null };
+      if (!res.ok) { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: j.error ?? 'Lookup failed.' } })); return; }
+      if (typeof j.balance === 'number') setCredits((c) => (c ? { ...c, balance: j.balance ?? null } : c));
+      const list: Person[] = (j.people ?? []).map((p) => ({ name: p.name, title: p.title, source: 'lookup', ...(p.email ? { email: p.email, emailStatus: p.emailState === 'confirmed' ? 'valid' : 'unconfirmed' } : {}), ...(p.linkedin ? { linkedin: p.linkedin } : {}), ...(p.sourcePage ? { sourcePage: p.sourcePage } : {}) }));
+      setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: list, channels: j.channels ?? [], note: list.length ? undefined : j.note } }));
     } catch { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: 'Lookup failed.' } })); }
+  };
+  /** One row's dropdown: up to N people. Says what it can cost first when the credit-based lookup is on. */
+  const askPeople = (b: FinderBusiness, n: number) => {
+    if (needAccount('Finding decision-makers needs an account.')) return;
+    if (credits?.on && !window.confirm(`Find up to ${n} people at ${b.name}?\n\nYou are charged 1 email reveal for each email found (up to ${n}), nothing for a person with no email or for an address you revealed before. You have ${credits.balance ?? 'an unknown number of'} reveals left. If nobody is found, RUNVAX's own contact search is tried next, which is free.`)) return;
+    void findPeople(b, { max: n });
   };
   const findPeopleForSelected = async () => {
     if (needAccount('Finding decision-makers needs an account.')) return;
-    setFindingDm(true);
     const todo = (results ?? []).filter((b) => picked.has(b.id) && !people[b.id]);
+    if (!todo.length) return;
+    if (credits?.on && !window.confirm(`Find up to 5 people at ${todo.length} business${todo.length === 1 ? '' : 'es'}?\n\nThis can use up to ${todo.length * 5} email reveals (1 for each email found, nothing otherwise). You have ${credits.balance ?? 'an unknown number of'} left. Businesses with nobody found fall back to RUNVAX's own contact search, which is free.`)) return;
+    setFindingDm(true);
     // Two at a time: each can chain several provider calls.
     for (let i = 0; i < todo.length; i += 2) await Promise.all(todo.slice(i, i + 2).map((b) => findPeople(b)));
     setFindingDm(false);
@@ -511,7 +527,11 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                   {pp?.state === 'done' && pp.note && <span className="acq-faint" style={{ fontSize: 11.5 }}>{pp.note}</span>}
                                   {busyRow
                                     ? <span className="acq-sub" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}><Loader2 size={13} className="animate-spin" /> {verifying.has(b.id) ? 'Verifying…' : pp?.state === 'loading' ? 'Searching…' : 'Looking…'}</span>
-                                    : action && <button className={`acq-btn acq-btn-sm ${action === 'retry' ? '' : 'acq-btn-primary'}`} onClick={() => act(b, action)}>{ACTION_LABEL[action]}</button>}
+                                    : action === 'find_dm'
+                                      ? <select className="acq-select" aria-label={`Find people at ${b.name}`} style={{ height: 32, width: 'auto', minWidth: 150, fontWeight: 600, color: '#7e22ce' }} value="" onChange={(ev) => { const n = Number(ev.target.value); ev.target.value = ''; if (n) askPeople(b, n); }}>
+                                          <option value="">Find people ▾</option><option value="3">Up to 3 people</option><option value="5">Up to 5 people</option><option value="10">Up to 10 people</option>
+                                        </select>
+                                      : action && <button className={`acq-btn acq-btn-sm ${action === 'retry' ? '' : 'acq-btn-primary'}`} onClick={() => act(b, action)}>{ACTION_LABEL[action]}</button>}
                                   {!busyRow && (st === 'untouched' || st === 'none') && e?.state !== 'done' && (
                                     <button type="button" className="acq-btn acq-btn-sm" style={{ border: 0, background: 'transparent', color: '#64748b', padding: 0, height: 'auto' }} onClick={() => void findEmail(b)}>Business email only</button>
                                   )}

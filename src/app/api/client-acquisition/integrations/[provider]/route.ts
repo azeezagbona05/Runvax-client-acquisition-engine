@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/requireUser';
 import { rateLimit } from '@/lib/rateLimiter';
-import { gcalStartUrl, runAction, type IntegrationId } from '@/lib/integrations/providers';
+import { gcalStartUrl, gmailStartUrl, runAction, type IntegrationId } from '@/lib/integrations/providers';
 
 export const dynamic = 'force-dynamic';
 const IDS: IntegrationId[] = ['wa', 'gmail', 'smtp', 'apollo', 'snov', 'gcal', 'airtable', 'webhooks'];
@@ -19,6 +19,10 @@ export async function POST(req: NextRequest, { params }: { params: { provider: s
   if (id === 'gcal' && action === 'connect') {
     const url = gcalStartUrl(user.userId, typeof body.tz === 'string' ? body.tz.slice(0, 60) : 'UTC');
     return url ? NextResponse.json({ ok: true, redirect: url }) : NextResponse.json({ ok: false, message: 'Google sign-in is not configured on this server (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / NEXTAUTH_URL).' });
+  }
+  if (id === 'gmail' && action === 'connect' && !body.email) {
+    const url = gmailStartUrl(user.userId);
+    return url ? NextResponse.json({ ok: true, redirect: url }) : NextResponse.json({ ok: false, message: 'Google sign-in is not configured on this server (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / NEXTAUTH_URL). You can still connect with an app password.' });
   }
   try {
     return NextResponse.json(await runAction(user.userId, id, action, body));

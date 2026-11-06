@@ -30,8 +30,13 @@ export async function allStatuses(userId: string): Promise<IntegrationStatus[]> 
   out.push(s?.waPhoneNumberId && s.waAccessToken
     ? { id: 'wa', state: 'connected', summary: `${s.waDisplayPhone ? `Sending from ${s.waDisplayPhone}` : 'WhatsApp Business connected'}. ${s.waTemplateStatus === 'APPROVED' ? 'Message template approved.' : s.waTemplateStatus === 'PENDING' ? 'Message template waiting for Meta review.' : s.waTemplateStatus === 'REJECTED' ? 'Message template was rejected by Meta.' : 'Message template not created yet.'}`, extra: { waTemplateStatus: s.waTemplateStatus ?? '' } }
     : { id: 'wa', state: 'not_connected', summary: 'Not connected yet' });
-  out.push(mailbox && isGoogleHost(s?.smtpHost)
-    ? { id: 'gmail', state: 'connected', summary: `Sending and reading replies as ${s!.smtpUser}` }
+  const gOauth = by.get('gmail');
+  out.push(gOauth
+    ? (gOauth.status === 'connected'
+      ? { id: 'gmail', state: 'connected', summary: `Signed in with Google as ${(gOauth.meta as Record<string, unknown> | null)?.email ?? 'your account'}. Sending and reading replies.`, lastCheckedAt: gOauth.lastCheckedAt?.toISOString() ?? null }
+      : { id: 'gmail', state: 'error', summary: 'Needs attention', detail: gOauth.statusDetail ?? undefined })
+    : mailbox && isGoogleHost(s?.smtpHost)
+    ? { id: 'gmail', state: 'connected', summary: `Sending and reading replies as ${s!.smtpUser} (app password)` }
     : { id: 'gmail', state: 'not_connected', summary: 'Not connected yet' });
   out.push(mailbox && !isGoogleHost(s?.smtpHost)
     ? { id: 'smtp', state: 'connected', summary: `${s!.smtpUser} via ${s!.smtpHost}` }
@@ -101,12 +106,28 @@ export async function connectMailbox(userId: string, kind: 'gmail' | 'smtp', f: 
 }
 
 export async function testMailbox(userId: string): Promise<Result> {
+  const g = await getConnection(userId, 'gmail');
+  if (g) {
+    const a = await gmailAccessToken(userId);
+    if (!('token' in a)) return a;
+    try {
+      await nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { type: 'OAuth2', user: a.email, accessToken: a.token } }).verify();
+    } catch (e) { return fail(`Gmail would not let us send: ${errText(e, 'sign-in failed')}`); }
+    const imap = new ImapFlow({ host: 'imap.gmail.com', port: 993, secure: true, auth: { user: a.email, accessToken: a.token }, logger: false });
+    try { await imap.connect(); await imap.logout(); } catch (e) {
+      try { await imap.logout(); } catch { /* closed */ }
+      return { ok: true, message: `Sending works. Reading replies did not: ${errText(e, 'IMAP sign-in failed')}. Turn on IMAP in Gmail settings → Forwarding and POP/IMAP.` };
+    }
+    await markStatus(userId, 'gmail', 'connected', null);
+    return { ok: true, message: 'Sending and reading replies both work.' };
+  }
   const s = await prisma.userSettings.findUnique({ where: { userId }, select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true } });
   if (!s?.smtpHost || !s.smtpUser || !s.smtpPass) return fail('No mailbox is connected yet.');
   return checkMailbox(s.smtpHost, s.smtpPort ?? 587, s.smtpUser, s.smtpPass);
 }
 
 export async function disconnectMailbox(userId: string): Promise<Result> {
+  await removeConnection(userId, 'gmail');
   await prisma.userSettings.updateMany({ where: { userId }, data: { smtpHost: null, smtpPort: null, smtpUser: null, smtpPass: null } });
   return { ok: true, message: 'Mailbox disconnected. Campaigns will not send until you connect one.' };
 }
@@ -238,6 +259,46 @@ export function emitWebhook(userId: string, event: WebhookEvent, data: unknown):
       if (!r.ok) await markStatus(userId, 'webhooks', 'error', r.error ?? `Endpoint answered ${r.status}`);
     } catch { /* never break reply handling */ }
   })();
+}
+
+// ───────────────────────── Gmail sign-in (OAuth) ─────────────────────────
+
+export const GMAIL_SCOPES = ['https://mail.google.com/', 'openid', 'email'];
+export const gmailRedirect = () => `${(process.env.NEXTAUTH_URL ?? '').replace(/\/$/, '')}/api/client-acquisition/integrations/google-mail/callback`;
+
+export function gmailStartUrl(userId: string): string | null {
+  const base = (process.env.NEXTAUTH_URL ?? '').replace(/\/$/, '');
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !base) return null;
+  const state = seal({ userId, kind: 'gmail', exp: Date.now() + 10 * 60_000 });
+  const q = new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID, redirect_uri: gmailRedirect(), response_type: 'code', scope: GMAIL_SCOPES.join(' '), access_type: 'offline', prompt: 'consent', state });
+  return `https://accounts.google.com/o/oauth2/v2/auth?${q}`;
+}
+
+export async function gmailFinish(code: string, state: string): Promise<Result> {
+  const st = open<{ userId: string; kind: string; exp: number }>(state);
+  if (!st || st.kind !== 'gmail' || st.exp < Date.now()) return fail('That connection link expired. Start again from Integrations.');
+  const res = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ code, client_id: process.env.GOOGLE_CLIENT_ID ?? '', client_secret: process.env.GOOGLE_CLIENT_SECRET ?? '', redirect_uri: gmailRedirect(), grant_type: 'authorization_code' }) });
+  const t = await res.json().catch(() => ({})) as { refresh_token?: string; id_token?: string; scope?: string; error_description?: string };
+  if (!res.ok || !t.refresh_token) return fail(t.error_description ?? 'Google did not return mailbox access. Try again and allow every permission.');
+  if (!(t.scope ?? '').includes('mail.google.com')) return fail('Mail permission was not granted. Try again and tick the Gmail box.');
+  let email = '';
+  try { email = (JSON.parse(Buffer.from((t.id_token ?? '').split('.')[1], 'base64url').toString()) as { email?: string }).email ?? ''; } catch { /* checked below */ }
+  if (!email) return fail('Google did not tell us which address signed in. Try again.');
+  await saveConnection(st.userId, 'gmail', { refreshToken: t.refresh_token }, { email });
+  return { ok: true, message: 'Connected' };
+}
+
+/** A fresh Gmail access token for this user's signed-in Google account. */
+export async function gmailAccessToken(userId: string): Promise<{ token: string; email: string } | Result> {
+  const c = await getConnection(userId, 'gmail');
+  if (!c?.secrets.refreshToken) return fail('Gmail is not connected.');
+  const res = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ refresh_token: c.secrets.refreshToken, client_id: process.env.GOOGLE_CLIENT_ID ?? '', client_secret: process.env.GOOGLE_CLIENT_SECRET ?? '', grant_type: 'refresh_token' }) });
+  const t = await res.json().catch(() => ({})) as { access_token?: string };
+  if (!res.ok || !t.access_token) {
+    await markStatus(userId, 'gmail', 'error', 'Google no longer accepts the saved sign-in. Sign in with Google again.');
+    return fail('Google no longer accepts the saved sign-in. Sign in with Google again.');
+  }
+  return { token: t.access_token, email: String(c.metaObj.email ?? '') };
 }
 
 // ───────────────────────── Google Calendar ─────────────────────────

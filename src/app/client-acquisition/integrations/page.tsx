@@ -39,6 +39,7 @@ function IntegrationCard({ def, status, reload }: { def: IntegrationDef; status?
   };
 
   const connect = () => (def.oauth ? call('connect', { tz: Intl.DateTimeFormat().resolvedOptions().timeZone }) : def.fields ? setOpen((o) => !o) : null);
+  const both = !!(def.oauth && def.fields);
 
   return (
     <Card>
@@ -60,7 +61,8 @@ function IntegrationCard({ def, status, reload }: { def: IntegrationDef; status?
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         {!def.guided && (!connected || errored) && (def.settingsHref && !def.fields
           ? <Link href={def.settingsHref} className="acq-btn acq-btn-sm acq-btn-primary">Connect</Link>
-          : <button className="acq-btn acq-btn-sm acq-btn-primary" onClick={connect} disabled={!!busy}>{busy === 'connect' && <Loader2 size={13} className="animate-spin" />}{errored ? 'Reconnect' : 'Connect'}</button>)}
+          : <button className="acq-btn acq-btn-sm acq-btn-primary" onClick={connect} disabled={!!busy}>{busy === 'connect' && <Loader2 size={13} className="animate-spin" />}{errored ? 'Reconnect' : both ? 'Sign in with Google' : 'Connect'}</button>)}
+        {!def.guided && (!connected || errored) && both && <button className="acq-btn acq-btn-sm" onClick={() => setOpen((o) => !o)} disabled={!!busy}>Use an app password instead</button>}
         {(connected || errored) && <button className="acq-btn acq-btn-sm" onClick={() => call('test')} disabled={!!busy}>{busy === 'test' && <Loader2 size={13} className="animate-spin" />}Test connection</button>}
         {connected && def.actions?.map((a) => <button key={a.action} className="acq-btn acq-btn-sm" onClick={() => call(a.action)} disabled={!!busy}>{busy === a.action && <Loader2 size={13} className="animate-spin" />}{a.label}</button>)}
         {connected && def.settingsHref && <Link href={def.settingsHref} className="acq-btn acq-btn-sm">Manage</Link>}
@@ -100,9 +102,9 @@ export default function IntegrationsPage() {
 
   useEffect(() => {
     load();
-    const q = new URLSearchParams(window.location.search), g = q.get('gcal');
+    const q = new URLSearchParams(window.location.search), g = q.get('gcal') ?? q.get('gmail'), what = q.get('gmail') ? 'Gmail' : 'Google Calendar';
     if (g) {
-      setBanner(g === 'connected' ? { ok: true, text: 'Google Calendar connected.' } : g === 'cancelled' ? { ok: false, text: 'Google Calendar was not connected.' } : { ok: false, text: q.get('msg') || 'Google Calendar could not be connected.' });
+      setBanner(g === 'connected' ? { ok: true, text: `${what} connected.` } : g === 'cancelled' ? { ok: false, text: `${what} was not connected.` } : { ok: false, text: q.get('msg') || `${what} could not be connected.` });
       window.history.replaceState(null, '', '/client-acquisition/integrations');
     }
   }, [load]);

@@ -7,7 +7,7 @@ export function isNotInstalled(err: unknown): boolean {
 
 export function notInstalledResponse(): NextResponse {
   return NextResponse.json({
-    error: 'Client Acquisition needs one database update (migrations 5, 6 and 7). Ask an administrator to apply it.',
+    error: 'Client Acquisition needs one database update (migrations 5 to 9). Ask an administrator to apply it.',
     code: 'V2_NOT_INSTALLED',
   }, { status: 503 });
 }

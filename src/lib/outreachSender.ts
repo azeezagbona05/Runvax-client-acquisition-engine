@@ -10,6 +10,7 @@
  * daily cron, can never email the same person twice.
  */
 
+import { getConnection } from '@/lib/integrations/store';
 import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
@@ -46,6 +47,20 @@ export async function loadMailbox(userId: string): Promise<UserMailbox | null> {
       replyEmail: true, senderName: true, businessName: true, whatsapp: true, tagline: true,
     },
   });
+  // Signed in with Google: send with the account's own OAuth login, no password stored.
+  const g = await getConnection(userId, 'gmail').catch(() => null);
+  if (g && g.status === 'connected' && g.secrets.refreshToken && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    const email = String(g.metaObj.email ?? '');
+    if (EMAIL_RE.test(email)) {
+      const fromName = (s?.smtpFrom ?? s?.businessName ?? s?.senderName ?? '').replace(/["\r\n<>]/g, '').trim() || undefined;
+      return {
+        transport: nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { type: 'OAuth2', user: email, clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET, refreshToken: g.secrets.refreshToken } }),
+        fromAddress: email, fromName,
+        replyTo: s?.replyEmail && s.replyEmail.toLowerCase() !== email.toLowerCase() && EMAIL_RE.test(s.replyEmail) ? s.replyEmail : undefined,
+        sender: { name: s?.senderName, business: s?.businessName, whatsapp: s?.whatsapp, tagline: s?.tagline },
+      };
+    }
+  }
   // No mailbox of their own: an administrator may use the platform's mail server (the same SMTP the app already sends with).
   if (!s?.smtpHost || !s.smtpUser || !s.smtpPass) return loadPlatformMailbox(userId, s ?? null);
   const fromAddress = s.smtpUser.includes('@') ? s.smtpUser : (s.replyEmail ?? '');

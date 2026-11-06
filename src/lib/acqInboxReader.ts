@@ -1,3 +1,4 @@
+import { getConnection } from '@/lib/integrations/store';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { prisma } from '@/lib/prisma';
@@ -17,7 +18,17 @@ export interface InboxCheck { ok: true; scanned: number; replies: number; duplic
  */
 export async function checkInbox(userId: string, deps: IngestDeps = {}): Promise<InboxCheck | { ok: false; error: string }> {
   const s = await prisma.userSettings.findUnique({ where: { userId }, select: { smtpHost: true, smtpUser: true, smtpPass: true } });
-  if (!s?.smtpHost || !s.smtpUser || !s.smtpPass) return { ok: false, error: 'Connect your mailbox in Settings → Email first. Replies are read with the same login.' };
+  let imapOpts: { host: string; auth: { user: string; pass: string } | { user: string; accessToken: string } } | null = null;
+  const g = await getConnection(userId, 'gmail').catch(() => null);
+  if (g && g.status === 'connected') {
+    const { gmailAccessToken } = await import('@/lib/integrations/providers');
+    const a = await gmailAccessToken(userId);
+    if (!('token' in a)) return { ok: false, error: a.message };
+    imapOpts = { host: 'imap.gmail.com', auth: { user: a.email, accessToken: a.token } };
+  } else if (s?.smtpHost && s.smtpUser && s.smtpPass) {
+    imapOpts = { host: imapHostFor(s.smtpHost), auth: { user: s.smtpUser, pass: s.smtpPass } };
+  }
+  if (!imapOpts) return { ok: false, error: 'Connect your mailbox in Integrations first. Replies are read with the same login.' };
 
   const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000);
   const leads = await prisma.outreachLead.findMany({
@@ -28,7 +39,7 @@ export async function checkInbox(userId: string, deps: IngestDeps = {}): Promise
   for (const l of leads) if (!byEmail.has(l.email.toLowerCase())) byEmail.set(l.email.toLowerCase(), l.id);
   if (!byEmail.size) return { ok: true, scanned: 0, replies: 0, duplicates: 0 };
 
-  const client = new ImapFlow({ host: imapHostFor(s.smtpHost), port: 993, secure: true, auth: { user: s.smtpUser, pass: s.smtpPass }, logger: false });
+  const client = new ImapFlow({ host: imapOpts.host, port: 993, secure: true, auth: imapOpts.auth, logger: false });
   let scanned = 0, replies = 0, duplicates = 0;
   try {
     await client.connect();

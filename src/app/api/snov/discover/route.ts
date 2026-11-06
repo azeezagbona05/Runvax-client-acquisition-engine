@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/requireUser';
 import { rateLimit } from '@/lib/rateLimiter';
 import { prisma } from '@/lib/prisma';
-import { SnovFilterError, searchProspects, snovBalance, snovEnabled, type ManagementLevel } from '@/lib/snov';
+import { SnovFilterError, searchProspects, snovEnabled, type ManagementLevel } from '@/lib/snov';
+import { loadCredits } from '@/lib/emailCredits';
 import { SNOV_INDUSTRIES } from '@/lib/snovDiscover';
 
 export const dynamic = 'force-dynamic';
@@ -21,12 +22,12 @@ async function paidUser(req: NextRequest) {
   return { userId: user.userId };
 }
 
-/** GET: is Snov switched on, how many credits are left, and the industries to choose from. */
+/** GET: is the lookup switched on, how many email reveals this account has left, and the industries to choose from. */
 export async function GET(req: NextRequest) {
   const who = await paidUser(req);
   if ('error' in who) return who.error;
   if (!snovEnabled()) return NextResponse.json({ available: false });
-  return NextResponse.json({ available: true, balance: await snovBalance(), industries: SNOV_INDUSTRIES });
+  return NextResponse.json({ available: true, balance: (await loadCredits(who.userId)).total, industries: SNOV_INDUSTRIES });
 }
 
 /**
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       industry: str(b.industry, 80), specialties: list(b.specialties, 60), ...(locality ? { location: { locality, type } } : {}),
       levels, jobTitles: list(b.jobTitles, 60), size: str(b.size, 20),
     }, page);
-    return NextResponse.json({ ...result, balance: await snovBalance() });
+    return NextResponse.json({ ...result, balance: (await loadCredits(who.userId)).total });
   } catch (e) {
     if (e instanceof SnovFilterError) return NextResponse.json({ error: e.message, field: e.field, suggestions: e.suggestions }, { status: 422 });
     console.error('[snov-discover]', e instanceof Error ? e.message : e);

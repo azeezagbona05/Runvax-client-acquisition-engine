@@ -21,9 +21,9 @@ export interface IntegrationDef {
 export const INTEGRATIONS: IntegrationDef[] = [
   { id: 'wa', name: 'WhatsApp Business', desc: 'Chat with leads and send follow-ups on WhatsApp.', priority: 'Critical', uses: 'Send WhatsApp messages and templates to leads from your own business number.', settingsHref: '/client-acquisition/settings?tab=whatsapp-api',
     guided: 'whatsapp' },
-  { id: 'gmail', name: 'Gmail / Google Workspace', desc: 'Send and receive email from your own Google mailbox.', priority: 'Critical', uses: 'Campaigns send from your Gmail and replies are read back into the Inbox automatically.',
+  { id: 'gmail', name: 'Gmail / Google Workspace', desc: 'Send and receive email from your own Google mailbox.', priority: 'Critical', uses: 'Campaigns send from your Gmail and replies are read back into the Inbox automatically.', oauth: true,
     fields: [{ name: 'email', label: 'Gmail address', placeholder: 'you@gmail.com' }, { name: 'password', label: 'App password', type: 'password', placeholder: '16-character app password' }],
-    help: 'Use a Google app password (Google Account → Security → 2-Step Verification → App passwords), and make sure IMAP is on in Gmail settings.' },
+    help: 'Prefer not to sign in with Google? Use a Google app password (Google Account → Security → 2-Step Verification → App passwords), and make sure IMAP is on in Gmail settings.' },
   { id: 'apollo', name: 'Apollo', desc: 'Find and enrich business contacts.', priority: 'High', uses: 'Decision-maker lookups use your own Apollo credits to find the owner and their email.',
     fields: [{ name: 'apiKey', label: 'Apollo API key', type: 'password', placeholder: 'Paste your API key' }], help: 'Apollo → Settings → Integrations → API → create a key.' },
   { id: 'snov', name: 'Snov.io', desc: 'Email discovery and verification.', priority: 'High', uses: 'Finds owners\' emails, checks addresses before sending and powers Discover with Snov, using your own credits.',

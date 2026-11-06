@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/requireUser';
 import { rateLimit } from '@/lib/rateLimiter';
 import { prisma } from '@/lib/prisma';
-import { revealEmail, revealPath, snovBalance, snovEnabled } from '@/lib/snov';
+import { revealEmail, revealPath, snovEnabled } from '@/lib/snov';
+import { NO_CREDITS_MESSAGE, chargeReveals, reserve } from '@/lib/emailCredits';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -12,8 +13,9 @@ const PER_REQUEST = 10;
 
 /**
  * POST { urls: string[] } (up to 10 reveal links from a Discover search) — gets each person's name and email.
- * Costs 1 Snov credit per person whose email is found, so it is paid plans only, capped per request and per hour.
- * Answers { results: { [url]: { name?, email?, smtpStatus?, linkedin? } }, balance }. A person with no email is left out of results.
+ * Each person whose email is found costs 1 email reveal from the account's allowance or wallet (nothing when none is found, and
+ * nothing for an address revealed before). Paid plans only, capped per request and per hour.
+ * Answers { results: { [url]: { name?, email?, smtpStatus?, linkedin? } }, reveals }. A person with no email is left out of results.
  */
 export async function POST(req: NextRequest) {
   const user = await requireUser(req);
@@ -26,6 +28,12 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({})) as { urls?: unknown };
   const urls = Array.isArray(body.urls) ? Array.from(new Set(body.urls.filter((x): x is string => typeof x === 'string' && !!revealPath(x)))).slice(0, PER_REQUEST) : [];
   if (!urls.length) return NextResponse.json({ error: 'Nothing to reveal.' }, { status: 400 });
+
+  // Nobody reveals without balance: only as many as the account can pay for are attempted.
+  const { allowed, summary } = await reserve(user.userId, urls.length);
+  if (allowed === 0) return NextResponse.json({ error: NO_CREDITS_MESSAGE, code: 'NO_REVEALS', reveals: summary.total }, { status: 402 });
+  const requested = urls.length;
+  urls.splice(allowed);
 
   // The ceiling on credit spend per person: best effort, in memory.
   if (!rateLimit(`snov-reveal:${user.userId}`, { maxRequests: 300, windowMs: 3_600_000 }).ok) {
@@ -40,9 +48,12 @@ export async function POST(req: NextRequest) {
     const settled = await Promise.allSettled(group.map((url) => revealEmail(url)));
     settled.forEach((r, j) => {
       if (r.status === 'fulfilled' && r.value?.email) results[group[j]] = { name: r.value.name, email: r.value.email, smtpStatus: r.value.smtpStatus, linkedin: r.value.linkedin };
-      if (r.status === 'rejected' && /not enough credits/i.test(r.reason instanceof Error ? r.reason.message : '')) stopped = 'Snov.io is out of credits.';
+      if (r.status === 'rejected' && /not enough credits/i.test(r.reason instanceof Error ? r.reason.message : '')) stopped = 'The email lookup is temporarily unavailable. Try again later.';
     });
     if (stopped) break;
   }
-  return NextResponse.json({ results, balance: await snovBalance(), ...(stopped ? { stopped } : {}) });
+  // Charge only for the emails that were actually found; a failed or empty reveal costs the user nothing.
+  const charge = await chargeReveals(user.userId, Object.values(results).map((r) => r.email).filter((e): e is string => !!e));
+  const limited = urls.length < requested ? 'Only part of your selection was revealed: that is all your remaining email reveals cover.' : undefined;
+  return NextResponse.json({ results, reveals: charge.summary.total, charged: charge.charged, ...((stopped ?? limited) ? { stopped: stopped ?? limited } : {}) });
 }
