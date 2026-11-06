@@ -1,5 +1,6 @@
 import { emitWebhook } from '@/lib/integrations/providers';
 import { prisma } from '@/lib/prisma';
+import { renderPlay } from '@/lib/replyPlaybook';
 import { classifyReplyRules, suggestReplyRules, freshText, STOPS_SEQUENCE, isPositive, type ReplyClass } from '@/lib/replyIntel';
 import { sanitizeAutomation } from '@/lib/automation';
 import { REPLY_LABEL } from '@/lib/replyIntel';
@@ -65,10 +66,13 @@ export async function ingestReply(i: IngestInput, deps: IngestDeps = {}): Promis
     if (ai && ai.confidence > cls.confidence) { cls = { ...cls, replyClass: ai.replyClass, confidence: ai.confidence }; classifiedBy = 'ai'; }
   }
 
-  const brief = sanitizeAutomation(lead.campaign.automation)?.brief ?? null;
-  const ruleSuggestion = suggestReplyRules({ replyClass: cls.replyClass, replyText: text, leadName: lead.name, business: lead.business, brief });
-  let suggestion = ruleSuggestion; let suggestionBy = 'rules';
-  if (deps.suggestAi && isPositive(cls.replyClass)) {
+  const saved = sanitizeAutomation(lead.campaign.automation);
+  const brief = saved?.brief ?? null;
+  // The campaign's own playbook answer comes first: it is what the sender chose to say for this kind of reply.
+  const playAnswer = renderPlay(saved?.playbook, cls.replyClass, { name: lead.name, business: lead.business });
+  const ruleSuggestion = playAnswer ?? suggestReplyRules({ replyClass: cls.replyClass, replyText: text, leadName: lead.name, business: lead.business, brief });
+  let suggestion = ruleSuggestion; let suggestionBy = playAnswer ? 'playbook' : 'rules';
+  if (!playAnswer && deps.suggestAi && isPositive(cls.replyClass)) {
     const ai = await deps.suggestAi({ replyClass: cls.replyClass, text: freshText(text), leadName: lead.name, business: lead.business }).catch(() => null);
     if (ai && ai.trim()) { suggestion = ai.trim().slice(0, 4000); suggestionBy = 'ai'; }
   }

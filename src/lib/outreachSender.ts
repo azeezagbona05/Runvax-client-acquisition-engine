@@ -19,7 +19,7 @@ import { checkRecipient } from '@/lib/acquisition/recipientGuard';
 import { getAppUrl } from '@/lib/url';
 import { snovEnabled, verifyEmail, type SnovEmail } from '@/lib/snov';
 import { trackedLink } from '@/lib/trackedLink';
-import { conditionMet, followUpWaits, sanitizeAutomation } from '@/lib/automation';
+import { conditionMet, followUpWaits, sanitizeAutomation, stepCopy } from '@/lib/automation';
 import { STOPS_FOLLOW_UPS } from '@/lib/replyIntel';
 import { logAgent } from '@/lib/acqReplies';
 import {
@@ -279,7 +279,9 @@ export async function sendBatch(
     const input: LeadInput = { email: lead.email, name: lead.name ?? undefined, business: lead.business ?? undefined, website: lead.website ?? undefined };
     // A lead personalised by the pitch engine gets its own first email; everything else uses the template.
     // Each follow-up uses its own step of the saved sequence; without one, the campaign's single follow-up template.
-    const step = isFollowUp ? seq?.emails[lead.followUpsSent + 1] : undefined;
+    // Someone who opened but did not reply gets the step's "opened" wording when it has one.
+    const stepRaw = isFollowUp ? seq?.emails[lead.followUpsSent + 1] : undefined;
+    const step = stepRaw ? stepCopy(stepRaw, !!lead.openedAt) : undefined;
     const subjectTpl = isFollowUp ? (step?.subject ?? campaign.followUpSubject ?? DEFAULT_FOLLOW_UP_SUBJECT) : campaign.subject;
     const bodyTpl = isFollowUp ? (step?.body ?? campaign.followUpBody ?? DEFAULT_FOLLOW_UP_BODY) : campaign.body;
     const own = !isFollowUp && lead.customSubject && lead.customBody;
@@ -346,7 +348,7 @@ export async function sendBatch(
 /** One real-looking email to the user themselves, so they can check the wording and that their mailbox works. */
 export async function sendTestEmail(
   userId: string,
-  args: { campaign: { subject: string; body: string }; to: string },
+  args: { campaign: { subject: string; body: string }; to: string; originalSubject?: string },
   deps: Deps = {},
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const mailbox = deps.mailbox === undefined ? await loadMailbox(userId) : deps.mailbox;
@@ -356,6 +358,7 @@ export async function sendTestEmail(
     subject: args.campaign.subject, body: args.campaign.body, sender: mailbox.sender,
     lead: { email: args.to, name: 'Alex Sample', business: 'Sample Business' },
     unsubscribeUrl: `${appUrl}/api/oc/unsubscribe?t=preview`,
+    ...(args.originalSubject ? { originalSubject: renderTemplate(args.originalSubject, { email: args.to, name: 'Alex Sample', business: 'Sample Business' }) } : {}),
   });
   try {
     await mailbox.transport.sendMail({

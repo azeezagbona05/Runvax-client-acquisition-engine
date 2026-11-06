@@ -12,6 +12,7 @@
 
 import { HARD_DAILY_MAX, canonTokens, unknownTokens } from '@/lib/outreachCampaign';
 import { sanitizeBrief, type CampaignBrief } from '@/lib/campaignBrief';
+import { sanitizePlaybook, type ReplyPlay } from '@/lib/replyPlaybook';
 
 export const DAY = 86_400_000;
 export const MAX_EMAILS = 5;
@@ -37,6 +38,8 @@ export interface AutoEmail {
   waitDays: number;
   /** When to send it. Always 'no_reply' for the first email. */
   sendIf: SendIf;
+  /** Different wording for people who opened an earlier email but did not reply. Follow-ups only. */
+  openedVariant?: { subject: string; body: string };
 }
 
 export interface ReplyRules {
@@ -58,6 +61,8 @@ export interface Automation {
   weekdaysOnly: boolean;
   /** The campaign setup this was built from (objective, offer, audience, goal), so it can be shown, edited and tracked. */
   brief?: CampaignBrief;
+  /** What to say back for each kind of reply. */
+  playbook?: ReplyPlay[];
 }
 
 export const DEFAULT_REPLY_RULES: ReplyRules = { notifyInterested: true, outOfOfficePauseDays: 3 };
@@ -96,10 +101,17 @@ export function sanitizeAutomation(raw: unknown): Automation | null {
     const subject = cleanCopy(text(x.subject, 190).replace(/\s+/g, ' '), i > 0);
     const body = cleanCopy(text(x.body, 8000), i > 0);
     if (!subject || !body) return;
+    const sendIf: SendIf = i === 0 ? 'no_reply' : SEND_IFS.includes(x.sendIf as SendIf) ? (x.sendIf as SendIf) : 'no_reply';
+    const v = x.openedVariant && typeof x.openedVariant === 'object' ? x.openedVariant as Record<string, unknown> : null;
+    const vSubject = v ? cleanCopy(text(v.subject, 190).replace(/\s+/g, ' '), true) : '';
+    const vBody = v ? cleanCopy(text(v.body, 8000), true) : '';
+    // A variant only makes sense when the step can reach someone who opened.
+    const variantOk = i > 0 && vSubject && vBody && (sendIf === 'no_reply' || sendIf === 'opened' || sendIf === 'clicked');
     emails.push({
       subject, body,
       waitDays: i === 0 ? 0 : clamp(x.waitDays, 1, MAX_WAIT_DAYS, 3),
-      sendIf: i === 0 ? 'no_reply' : SEND_IFS.includes(x.sendIf as SendIf) ? (x.sendIf as SendIf) : 'no_reply',
+      sendIf,
+      ...(variantOk ? { openedVariant: { subject: vSubject, body: vBody } } : {}),
     });
   });
   if (emails.length === 0) return null;
@@ -121,7 +133,14 @@ export function sanitizeAutomation(raw: unknown): Automation | null {
     windowEnd: Math.max(endH, startH + 1),
     weekdaysOnly: r.weekdaysOnly === false ? false : true,
     ...(r.brief ? { brief: sanitizeBrief(r.brief) } : {}),
+    ...(r.playbook ? { playbook: sanitizePlaybook(r.playbook) } : {}),
   };
+}
+
+/** The wording one follow-up uses for this contact: the "opened" variant when they opened and it has one. */
+export function stepCopy(step: AutoEmail, opened: boolean): { subject: string; body: string; variant: boolean } {
+  if (opened && step.openedVariant) return { ...step.openedVariant, variant: true };
+  return { subject: step.subject, body: step.body, variant: false };
 }
 
 /** Problems that block saving, in plain words. Empty means it is fine. */
@@ -241,7 +260,8 @@ export function simulate(a: Automation, scenario: Scenario, maxDays = 60): SimEv
     const act = nextAction(a, state, now);
     if (act.type === 'send') {
       state.sentCount = act.index + 1; state.lastSentAt = now;
-      out.push({ day: d, kind: 'send', text: `Email ${act.index + 1} is ${a.sendMode === 'review' ? 'ready for you to send' : 'sent'}: "${a.emails[act.index].subject}"` });
+      const copy = stepCopy(a.emails[act.index], !!state.openedAt);
+      out.push({ day: d, kind: 'send', text: `Email ${act.index + 1} is ${a.sendMode === 'review' ? 'ready for you to send' : 'sent'}${copy.variant ? ' (the version for people who opened)' : ''}: "${copy.subject}"` });
     } else if (act.type === 'stop') {
       out.push({ day: d, kind: 'stop', text: act.reason }); return out;
     } else if (act.type === 'done') {
@@ -286,6 +306,9 @@ export function engineSupport(a: Automation): EngineNote[] {
   notes.push({ level: 'ok', text: `Each of the ${a.emails.length} emails goes out with its own wording, on ${dayNumbers(a).map((d) => `Day ${d}`).join(', ')}.` });
   notes.push({ level: 'ok', text: 'Follow-ups stop the moment someone replies, opts out, bounces, books a meeting or is marked as a proposal or customer. An out-of-office reply only pauses them.' });
   notes.push({ level: 'ok', text: 'Every email carries an unsubscribe link, and anyone who has unsubscribed from any of your campaigns is never emailed again.' });
+  const variants = a.emails.filter((e) => e.openedVariant).length;
+  if (variants) notes.push({ level: 'ok', text: `${variants} follow-up${variants === 1 ? ' has' : 's have'} a second version that goes to people who opened but did not reply.` });
+  if (a.playbook?.some((p) => p.response.trim())) notes.push({ level: 'ok', text: 'Each reply is sorted (interested, question, meeting, objection, no, out-of-office, unsubscribe) and the playbook answer for that kind is drafted in your Inbox for you to send.' });
   if (a.emails.length - 1 > ENGINE_MAX_FOLLOW_UPS) notes.push({ level: 'limit', text: `The engine sends the introduction and up to ${ENGINE_MAX_FOLLOW_UPS} follow-ups.` });
   notes.push({ level: 'ok', text: 'Replies are read from your mailbox when you check your inbox (it uses the same login as your outgoing mail). Only messages from your campaign contacts are looked at.' });
   notes.push({ level: 'planned', text: 'Follow-ups wait for your click on the campaign page. Fully automatic sending is switched off until reply detection runs on its own and the legal review is done.' });

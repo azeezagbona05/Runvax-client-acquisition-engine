@@ -9,6 +9,7 @@
 import { HARD_DAILY_MAX } from '@/lib/outreachCampaign';
 import { MAX_EMAILS, MAX_WAIT_DAYS, sanitizeAutomation, type Automation, type AutoEmail, type SendIf } from '@/lib/automation';
 import { briefFromText, shortOffer, type CampaignBrief, type Objective } from '@/lib/campaignBrief';
+import { defaultPlaybook } from '@/lib/replyPlaybook';
 
 export interface Knobs {
   count: number;
@@ -77,8 +78,9 @@ export function buildFromBrief(brief: CampaignBrief, knobs: Knobs): Automation {
 
   const parts: string[] = [hi];
   parts.push(`I came across {{business}} and wanted to introduce something${brief.audience ? ` we are building specifically for ${aud}` : ' that may be relevant to you'}.`);
+  const startsWithOffer = brief.offerSummary.toLowerCase().startsWith(short.toLowerCase());
   parts.push(brief.offerSummary
-    ? `At ${short}, ${/^we\b/i.test(brief.offerSummary) ? brief.offerSummary : brief.offerSummary.charAt(0).toLowerCase() + brief.offerSummary.slice(1)}${/[.!?]$/.test(brief.offerSummary) ? '' : '.'}`
+    ? `${startsWithOffer ? brief.offerSummary : `At ${short}, ${/^we\b/i.test(brief.offerSummary) ? brief.offerSummary : brief.offerSummary.charAt(0).toLowerCase() + brief.offerSummary.slice(1)}`}${/[.!?]$/.test(brief.offerSummary) ? '' : '.'}`
     : `${short} is designed to help ${kind} reach, engage and win more customers.`);
   if (brief.features.length) parts.push(`${brief.features.length > 1 ? 'Our system includes' : 'It includes'}:\n\n${brief.features.map((f) => `- ${f.replace(/^[-•*\d.)\s]+/, '')}`).join('\n')}`);
   if (brief.features.length) parts.push('The idea is to help {{business}} attract, engage and convert more customers without depending entirely on manual processes.');
@@ -108,13 +110,28 @@ export function buildFromBrief(brief: CampaignBrief, knobs: Knobs): Automation {
     },
   };
   const order = ({ 1: [], 2: ['final'], 3: ['review', 'final'], 4: ['review', 'demo', 'final'], 5: ['review', 'educate', 'demo', 'final'] } as Record<number, Array<keyof typeof touches>>)[knobs.count] ?? ['review', 'educate', 'demo', 'final'];
-  const emails = [first, ...order.map((k) => ({ ...touches[k], ...(knobs.gapDays !== null ? { waitDays: knobs.gapDays } : {}) }))];
+  // People who opened but did not reply have seen the pitch: they get a shorter, more direct version.
+  const opened: Partial<Record<keyof typeof touches, { subject: string; body: string }>> = {
+    review: {
+      subject: 'Re: {{subject}}',
+      body: [hi, `Thank you for taking a look at my note about ${short}.`, `If any part of it stood out for {{business}}, I would be glad to show you exactly how it would work, with no obligation.`, FOLLOW_ASK[brief.objective], sign].join('\n\n'),
+    },
+    educate: {
+      subject: `A quick example for {{business}}`,
+      body: [hi, `Since you had a look at ${short}, here is the short version of how it usually helps ${kind}: every enquiry gets an answer straight away, follow-ups happen on time, and fewer opportunities slip through.`, `Would it help if I showed you what that would look like for {{business}}?`, sign].join('\n\n'),
+    },
+    demo: {
+      subject: `15 minutes to see ${short} for {{business}}`,
+      body: [hi, `You have had a look at ${short}, so the most useful next step is a short walkthrough built around {{business}}.`, 'Would one day this week or next suit you? Reply with a time and I will send an invite.', sign].join('\n\n'),
+    },
+  };
+  const emails = [first, ...order.map((k) => ({ ...touches[k], ...(knobs.gapDays !== null ? { waitDays: knobs.gapDays } : {}), ...(opened[k] && touches[k].sendIf !== 'not_opened' ? { openedVariant: opened[k] } : {}) }))];
 
   return sanitizeAutomation({
     name: brief.name || [short, brief.audience].filter(Boolean).join(': ') || 'Customer outreach campaign',
     emails, stopOnReply: knobs.stopOnReply, replyRules: { notifyInterested: true, outOfOfficePauseDays: 3 },
     sendMode: 'review', dailyCap: knobs.dailyCap, windowStart: 9, windowEnd: 17, weekdaysOnly: true,
-    brief,
+    brief, playbook: defaultPlaybook(brief, bye),
   }) as Automation;
 }
 

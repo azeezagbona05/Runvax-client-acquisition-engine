@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, FileText, Plus, Upload } from 'lucide-react';
+import { ChevronDown, FileText, Plus, Sparkles, Upload } from 'lucide-react';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import type { LeadInput } from '@/lib/outreachCampaign';
 import { useAcq } from './AcqProvider';
@@ -33,11 +33,12 @@ export default function AcqActions({ onNotice, preset, openNew, hideNew }: { onN
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {!hideNew && <div ref={ref} style={{ position: 'relative' }}>
           <div className="acq-btn acq-btn-primary acq-btn-split" style={{ padding: 0, height: 44 }}>
-            <button onClick={() => router.push('/client-acquisition/templates')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: '100%', padding: '0 6px 0 18px', background: 'transparent', border: 0, color: '#fff', font: 'inherit', fontWeight: 600 }}><Plus size={18} /> New Campaign</button>
+            <button onClick={() => router.push('/client-acquisition/automation')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: '100%', padding: '0 6px 0 18px', background: 'transparent', border: 0, color: '#fff', font: 'inherit', fontWeight: 600 }}><Plus size={18} /> New Campaign</button>
             <button className="acq-split-chev" onClick={() => setMenu((v) => !v)} aria-label="More ways to start a campaign" aria-haspopup="menu" aria-expanded={menu} style={{ background: 'transparent', color: '#fff', border: 0, borderLeft: '1px solid rgba(255,255,255,.28)' }}><ChevronDown size={16} /></button>
           </div>
           {menu && (
             <div className="acq-dropdown" role="menu" style={{ top: 50, right: 0, minWidth: 220, padding: 6 }}>
+              <button role="menuitem" className="acq-nav-item" style={{ height: 38, width: '100%', border: 0, background: 'transparent', textAlign: 'left' }} onClick={() => { setMenu(false); router.push('/client-acquisition/automation'); }}><Sparkles size={16} /> Autopilot (one prompt builds it all)</button>
               <button role="menuitem" className="acq-nav-item" style={{ height: 38, width: '100%', border: 0, background: 'transparent', textAlign: 'left' }} onClick={() => { setMenu(false); setForm({}); }}><Plus size={16} /> Quick form (write the emails yourself)</button>
               <button role="menuitem" className="acq-nav-item" style={{ height: 38, width: '100%', border: 0, background: 'transparent', textAlign: 'left' }} onClick={() => { setMenu(false); router.push('/client-acquisition/templates'); }}><FileText size={16} /> From a template</button>
             </div>

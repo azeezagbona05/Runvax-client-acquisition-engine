@@ -71,3 +71,13 @@ describe('ingestReply', () => {
     expect(db.state.replies).toHaveLength(1);
   });
 });
+
+describe('ingestReply with a campaign playbook', () => {
+  it('drafts the playbook answer for that kind of reply', async () => {
+    db.state.lead = { ...lead, campaign: { name: 'Dental AI Hub', automation: { name: 'x', emails: [{ subject: 'Hi', body: 'Body' }], playbook: { not_interested: 'Thanks {{name}}. What made it not a fit for {{business}}?' } } } };
+    const r = await ingestReply({ userId: 'u1', leadId: 'l1', text: 'Not interested, thanks.', source: 'manual' });
+    expect(r.ok && r.replyClass).toBe('not_interested');
+    expect(db.state.replies[0].suggestion).toBe('Thanks Dr. Ada. What made it not a fit for Bright Dental?'); // same greeting as the emails
+    expect(db.state.replies[0].suggestionBy).toBe('playbook');
+  });
+});

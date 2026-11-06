@@ -21,6 +21,10 @@ import { Card } from '../ui';
 import LeadPicker from '../LeadPicker';
 import type { LeadInput } from '@/lib/outreachCampaign';
 import Robot from '../agents/Robot';
+import AutopilotSetup from './AutopilotSetup';
+import WorkflowCanvas from './WorkflowCanvas';
+import CampaignTest from './CampaignTest';
+import { ACTION_LABEL, PLAY_ACTION, PLAY_LABEL, defaultPlaybook, sanitizePlaybook } from '@/lib/replyPlaybook';
 
 interface Msg { id: number; role: 'user' | 'assistant'; text: string; bullets?: string[]; notice?: string; source?: 'ai' | 'rules' }
 interface CampaignOpt { id: string; name: string; status: string }
@@ -65,6 +69,8 @@ export default function AutomationBuilder() {
   const [contacts, setContacts] = useState<LeadInput[]>([]);
   const [createdId, setCreatedId] = useState('');
   const [step, setStep] = useState(1);
+  // Autopilot (one prompt builds everything) is the default; a template, a saved template or a campaign opens the manual builder.
+  const [mode, setMode] = useState<'auto' | 'manual'>(wantTemplate || wantMine || wantCampaign ? 'manual' : 'auto');
   const endRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(1);
 
@@ -145,6 +151,8 @@ export default function AutomationBuilder() {
   const support = useMemo(() => (auto ? engineSupport(auto) : []), [auto]);
   const events = useMemo(() => (auto ? simulate(auto, scenario) : []), [auto, scenario]);
 
+  // The playbook as saved (kept raw while typing); a campaign without one starts from the built-in answers.
+  const plays = useMemo(() => (auto?.playbook?.length ? auto.playbook : sanitizePlaybook(null, defaultPlaybook(auto?.brief ?? brief))), [auto, brief]);
   const edit = (patch: Partial<Automation>) => setAuto((a) => (a ? { ...a, ...patch } : a));
   const editEmail = (i: number, patch: Partial<Automation['emails'][number]>) => setAuto((a) => (a ? { ...a, emails: a.emails.map((e, k) => (k === i ? { ...e, ...patch } : e)) } : a));
   const addEmail = () => setAuto((a) => (a && a.emails.length < MAX_EMAILS ? { ...a, emails: [...a.emails, emptyEmail(a.emails.length)] } : a));
@@ -212,6 +220,21 @@ export default function AutomationBuilder() {
         </div>
       </header>
 
+      <div className="acq-seg" role="tablist" aria-label="How to build the campaign" style={{ justifySelf: 'start' }}>
+        <button role="tab" aria-selected={mode === 'auto'} className={mode === 'auto' ? 'on' : ''} onClick={() => setMode('auto')}><Sparkles size={15} /> Autopilot: AI builds everything</button>
+        <button role="tab" aria-selected={mode === 'manual'} className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><ListChecks size={15} /> Build manually</button>
+      </div>
+
+      {mode === 'auto' && (
+        <AutopilotSetup onManual={(a, b, id) => {
+          setAuto(a); setBrief(b); setFeaturesText(b.features.join('\n'));
+          if (id) { setTarget(id); setCreatedId(id); setCampaigns((c) => (c && !c.some((x) => x.id === id) ? [{ id, name: a.name, status: 'draft' }, ...c] : c)); }
+          setStep(2); setMode('manual');
+          push({ role: 'assistant', text: 'I loaded the campaign Autopilot built. Edit anything below, or tell me what to change.' });
+        }} />
+      )}
+
+      {mode === 'manual' && (<>
       <nav className="acq-steps" aria-label="Campaign builder steps">
         <ol>
           {STEPS.map((s, i) => {
@@ -310,6 +333,18 @@ export default function AutomationBuilder() {
                             <div><label style={label}>Subject</label><input className="acq-input" value={e.subject} maxLength={190} onChange={(ev) => editEmail(i, { subject: ev.target.value })} aria-label={`Subject of email ${i + 1}`} /></div>
                             <div><label style={label}>Email</label><textarea className="acq-textarea" rows={7} value={e.body} onChange={(ev) => editEmail(i, { body: ev.target.value })} aria-label={`Body of email ${i + 1}`} /></div>
                             <p className="acq-faint" style={{ fontSize: 11.5 }}>Placeholders: {'{{name}}'} (first name), {'{{business}}'}, {'{{website}}'}{i > 0 ? ', {{subject}} (the first email\'s subject)' : ''}. A signature and an unsubscribe link are added automatically.</p>
+                            {i > 0 && e.sendIf !== 'not_opened' && (
+                              <div style={{ borderTop: '1px dashed var(--line)', paddingTop: 10, display: 'grid', gap: 8 }}>
+                                <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
+                                  <input type="checkbox" style={{ accentColor: '#9333ea' }} checked={!!e.openedVariant} onChange={(ev) => editEmail(i, { openedVariant: ev.target.checked ? { subject: e.subject, body: e.body } : undefined })} />
+                                  <b>Different wording for people who opened but did not reply</b>
+                                </label>
+                                {e.openedVariant && (<>
+                                  <input className="acq-input" value={e.openedVariant.subject} maxLength={190} aria-label={`Opened-version subject of email ${i + 1}`} onChange={(ev) => editEmail(i, { openedVariant: { ...e.openedVariant!, subject: ev.target.value } })} />
+                                  <textarea className="acq-textarea" rows={6} value={e.openedVariant.body} aria-label={`Opened-version body of email ${i + 1}`} onChange={(ev) => editEmail(i, { openedVariant: { ...e.openedVariant!, body: ev.target.value } })} />
+                                </>)}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -357,6 +392,25 @@ export default function AutomationBuilder() {
                   </div>
                 </Card>
               </div>
+              <Card title="Workflow">
+                <p className="acq-sub" style={{ fontSize: 13, marginBottom: 12 }}>Every email, wait and condition, where each branch goes, and how replies are handled. Click an email to open it in the editor.</p>
+                <WorkflowCanvas auto={auto} onSelect={(id) => { const m = id.match(/^e(\d+)v?$/); if (m) { setOpen(Number(m[1])); setStep(2); } }} />
+              </Card>
+              <Card title="When they reply, say this">
+                <p className="acq-sub" style={{ fontSize: 13, marginBottom: 12 }}>Each reply is sorted automatically and the answer for its kind is drafted in your Inbox for you to check and send. Use {'{{name}}'} and {'{{business}}'}.</p>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {plays.map((p) => (
+                    <div key={p.replyClass} style={{ display: 'grid', gap: 6, alignContent: 'start', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
+                      <b style={{ fontSize: 13.5 }}>{PLAY_LABEL[p.replyClass]}</b>
+                      <span className="acq-faint" style={{ fontSize: 12 }}>{ACTION_LABEL[PLAY_ACTION[p.replyClass]]}</span>
+                      {p.action === 'pause' || p.action === 'stop' ? null : (
+                        <textarea className="acq-textarea" rows={5} value={p.response} aria-label={`Answer when: ${PLAY_LABEL[p.replyClass]}`}
+                          onChange={(ev) => edit({ playbook: plays.map((x) => (x.replyClass === p.replyClass ? { ...x, response: ev.target.value } : x)) })} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card title="Test it before you run it">
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
@@ -387,6 +441,9 @@ export default function AutomationBuilder() {
 
           {step === 4 && auto && (
             <>
+              <Card title="Test & preview">
+                <CampaignTest auto={briefIsBlank(brief) ? auto : { ...auto, brief }} campaignId={target || createdId || null} />
+              </Card>
               <Card title="Who should get it?">
                 <LeadPicker leads={contacts} onChange={setContacts} />
                 <p className="acq-faint" style={{ fontSize: 12, marginTop: 10 }}>Upload a CSV or paste addresses. Anyone who has unsubscribed from your campaigns before is skipped automatically.</p>
@@ -452,6 +509,7 @@ export default function AutomationBuilder() {
           </Card>
         </aside>
       </div>
+      </>)}
     </div>
   );
 }

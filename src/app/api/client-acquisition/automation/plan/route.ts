@@ -7,6 +7,7 @@ import { sanitizeAutomation, summarize, engineSupport } from '@/lib/automation';
 import { logAgent } from '@/lib/acqReplies';
 import { OFFICIAL_TEMPLATES } from '@/lib/templateLibrary';
 import { strategyFor } from '@/lib/templateEngine';
+import { defaultPlaybook } from '@/lib/replyPlaybook';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -37,7 +38,8 @@ export async function POST(req: NextRequest) {
 
   const template = typeof body.templateId === 'string' ? OFFICIAL_TEMPLATES.find((t) => t.id === body.templateId) : undefined;
   const result = await planAutomation(prompt, current, { useAi, brief: body.brief, template });
-  const automation = result.automation;
+  // Template and revised plans get a playbook too, so every campaign knows what to say to each kind of reply.
+  const automation = result.automation.playbook ? result.automation : { ...result.automation, playbook: defaultPlaybook(result.automation.brief ?? result.brief) };
   await logAgent(user.userId, 'strategist', current ? 'Revised the campaign plan' : 'Planned a campaign', `${automation.emails.length} emails, built by ${result.source === 'ai' ? 'AI' : 'the built-in planner'}.`);
   return NextResponse.json({
     strategy: template && automation.brief ? strategyFor(template, automation.brief, automation) : null,
