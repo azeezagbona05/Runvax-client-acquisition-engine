@@ -13,7 +13,7 @@ async function signedIn(page: Page) {
 test('one prompt builds the whole campaign, with the workflow, playbook and a test run', async ({ page, isMobile }) => {
   await signedIn(page);
   await page.goto('/client-acquisition/automation');
-  await expect(page.getByRole('tab', { name: /Autopilot/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: 'Let AI build it' })).toHaveAttribute('aria-selected', 'true');
   if (SHOTS && !isMobile) await page.screenshot({ path: `${SHOTS}/1-prompt.png`, fullPage: true });
 
   await page.getByLabel('What do you want to sell, and to whom?').fill('I want to sell AI agents to dental clinic, visibility, receptionist, follow up and patient reactivation');
@@ -50,6 +50,6 @@ test('one prompt builds the whole campaign, with the workflow, playbook and a te
 test('manual building is still one click away', async ({ page }) => {
   await signedIn(page);
   await page.goto('/client-acquisition/automation');
-  await page.getByRole('tab', { name: 'Build manually' }).click();
-  await expect(page.getByRole('heading', { name: 'Campaign Setup', exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'I will fill it in' }).click();
+  await expect(page.getByRole('heading', { name: 'What are you offering?' })).toBeVisible();
 });

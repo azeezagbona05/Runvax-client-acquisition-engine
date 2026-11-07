@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -20,7 +20,6 @@ import CampaignReview from './CampaignReview';
 import { Card } from '../ui';
 import LeadPicker from '../LeadPicker';
 import type { LeadInput } from '@/lib/outreachCampaign';
-import Robot from '../agents/Robot';
 import AutopilotSetup from './AutopilotSetup';
 import WorkflowCanvas from './WorkflowCanvas';
 import CampaignTest from './CampaignTest';
@@ -58,6 +57,8 @@ export default function AutomationBuilder() {
   const [approved, setApproved] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([{ id: 0, role: 'assistant', text: 'Tell me about the customers you want to win and what you offer, and I will set up the whole sequence: emails, delays, follow-up rules and reply handling. Or just press the button and I will start with a sensible default.' }]);
   const [input, setInput] = useState('');
+  // The AI chat panel and the summary stay out of the way until someone asks for help.
+  const [helper, setHelper] = useState(false);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(0);
   const [scenario, setScenario] = useState<Scenario>('no_reply');
@@ -203,26 +204,17 @@ export default function AutomationBuilder() {
 
   return (
     <div className="acq-stack">
-      <header className="acq-hero">
-        <span className="acq-hero-icon" aria-hidden><Wand2 size={26} /></span>
-        <div className="acq-hero-text">
-          <h1 className="acq-page-title">Campaign Automation Builder</h1>
-          <p className="acq-sub" style={{ marginTop: 2, maxWidth: 640 }}>Create a complete AI-powered outreach campaign that finds, engages, and converts {brief.audience.trim() || 'your next customers'}.</p>
-        </div>
-        <div className="acq-hero-right acq-only-desktop">
-          {brief.offer.trim() && (
-            <div className="acq-hero-agent">
-              <span style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><Sparkles size={18} /></span>
-              <span style={{ minWidth: 0 }}><b style={{ display: 'block', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brief.offer}</b><span className="acq-sub" style={{ display: 'block', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brief.audience.trim() ? `For ${brief.audience}` : 'Your AI outreach campaign'}</span></span>
-            </div>
-          )}
-          <div aria-hidden style={{ width: 120, height: 88, overflow: 'hidden', pointerEvents: 'none' }}><Robot size={120} /></div>
-        </div>
-      </header>
+      <div style={{ paddingTop: 4 }}>
+        <h1 className="acq-page-title">Build a campaign</h1>
+        <p className="acq-sub" style={{ marginTop: 2, maxWidth: 560 }}>Let AI build it for you, or fill it in yourself.</p>
+      </div>
 
-      <div className="acq-seg" role="tablist" aria-label="How to build the campaign" style={{ justifySelf: 'start' }}>
-        <button role="tab" aria-selected={mode === 'auto'} className={mode === 'auto' ? 'on' : ''} onClick={() => setMode('auto')}><Sparkles size={15} /> Autopilot: AI builds everything</button>
-        <button role="tab" aria-selected={mode === 'manual'} className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><ListChecks size={15} /> Build manually</button>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="acq-seg" role="tablist" aria-label="How to build the campaign">
+          <button role="tab" aria-selected={mode === 'auto'} className={mode === 'auto' ? 'on' : ''} onClick={() => setMode('auto')}><Sparkles size={15} /> Let AI build it</button>
+          <button role="tab" aria-selected={mode === 'manual'} className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><ListChecks size={15} /> I will fill it in</button>
+        </div>
+        {mode === 'manual' && <button type="button" className="acq-link" aria-expanded={helper} onClick={() => setHelper((v) => !v)}><MessageSquare size={14} /> {helper ? 'Hide AI help' : 'Ask AI for help'}</button>}
       </div>
 
       {mode === 'auto' && (
@@ -235,67 +227,47 @@ export default function AutomationBuilder() {
       )}
 
       {mode === 'manual' && (<>
-      <nav className="acq-steps" aria-label="Campaign builder steps">
-        <ol>
-          {STEPS.map((s, i) => {
+      <nav aria-label="Campaign builder steps" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, maxWidth: helper ? undefined : 860 }}>
+        <p className="acq-sub" style={{ fontSize: 14 }}>Step {step} of {STEPS.length} · <b style={{ color: '#0f172a' }}>{STEPS[step - 1]}</b></p>
+        <ol style={{ display: 'flex', gap: 6, listStyle: 'none', margin: 0, padding: 0 }}>
+          {STEPS.map((name, i) => {
             const n = i + 1;
-            return (
-              <Fragment key={s}>
-                {i > 0 && <li className="acq-step-line" aria-hidden />}
-                <li>
-                  <button className={`acq-step${step === n ? ' active' : ''}${step > n ? ' done' : ''}`} disabled={n > 1 && !auto} aria-current={step === n ? 'step' : undefined} onClick={() => setStep(n)}>
-                    <span className="acq-step-num">{step > n ? <Check size={16} strokeWidth={3} /> : n}</span>
-                    <span className="acq-step-label">{s}</span>
-                  </button>
-                </li>
-              </Fragment>
-            );
+            return <li key={name}><button type="button" aria-label={`Go to ${name}`} aria-current={step === n ? 'step' : undefined} disabled={n > 1 && !auto} onClick={() => setStep(n)}
+              style={{ width: step === n ? 26 : 10, height: 10, padding: 0, border: 0, borderRadius: 999, background: n <= step ? '#9333ea' : '#e9d5ff', transition: 'width .2s', cursor: n > 1 && !auto ? 'default' : 'pointer' }} /></li>;
           })}
         </ol>
       </nav>
 
       {notice && <div className="acq-notice" role="status" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>{notice}</span><button className="acq-link" style={{ color: '#64748b' }} onClick={() => setNotice('')}>Dismiss</button></div>}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]" style={{ alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
+      <div className={`grid grid-cols-1 gap-4${helper ? ' xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]' : ''}`} style={{ alignItems: 'start' }}>
+        <div style={{ display: 'grid', gap: 16, minWidth: 0, maxWidth: helper ? undefined : 860 }}>
           {step === 1 && (
             <>
               {tpl && tpl.source === 'official'
                 ? <GuidedSetup tpl={tpl} brief={brief} setBrief={setBrief} featuresText={featuresText} setFeaturesText={setFeaturesText} busy={busy} built={!!auto} contactsCount={contacts.length} onGenerate={() => void ask(input, true)} />
                 : (
-      <section className="acq-card acq-setup" aria-label="Campaign setup">
-        <div className="acq-setup-head">
-          <span className="acq-setup-icon" aria-hidden><Target size={22} /></span>
-          <div><h2 className="acq-title" style={{ fontSize: 18, fontWeight: 800 }}>Campaign Setup</h2><p className="acq-sub" style={{ fontSize: 13 }}>Define your campaign goal, offer, and target for the AI agent.</p></div>
-        </div>
-        <div className="acq-setup-grid">
-          <div><label className="acq-flabel" htmlFor="cs-name">Campaign name<i>*</i></label><div className="acq-ifield"><Megaphone size={16} /><input id="cs-name" className="acq-input" maxLength={120} value={brief.name} onChange={(e) => setBrief({ ...brief, name: e.target.value })} placeholder="e.g. Dental AI Hub – Clinic Outreach" /></div></div>
-          <div><label className="acq-flabel" htmlFor="cs-obj">Campaign objective<i>*</i></label><div className="acq-ifield"><Target size={16} /><select id="cs-obj" className="acq-select" value={brief.objective} onChange={(e) => setBrief({ ...brief, objective: e.target.value as Objective })}>{OBJECTIVES.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></div></div>
-          <div><label className="acq-flabel" htmlFor="cs-offer">Product or service<i>*</i></label><div className="acq-ifield"><Package size={16} /><input id="cs-offer" className="acq-input" maxLength={200} value={brief.offer} onChange={(e) => setBrief({ ...brief, offer: e.target.value })} placeholder="e.g. Dental AI Hub – AI enquiry and appointment assistant" /></div></div>
-          <div><label className="acq-flabel" htmlFor="cs-aud">Target market<i>*</i></label><div className="acq-ifield"><MapPin size={16} /><input id="cs-aud" className="acq-input" maxLength={200} value={brief.audience} onChange={(e) => setBrief({ ...brief, audience: e.target.value })} placeholder="e.g. Dental clinics in Nigeria" /></div></div>
-          <div className="acq-span-2">
-            <label className="acq-flabel" htmlFor="cs-sum">What it does<i>*</i></label>
-            <div className="acq-ifield acq-ifield-area"><Sparkles size={16} /><textarea id="cs-sum" className="acq-textarea" rows={3} maxLength={500} value={brief.offerSummary} onChange={(e) => setBrief({ ...brief, offerSummary: e.target.value })} placeholder="One or two sentences on what it does for the customer." /><span className="acq-counter">{brief.offerSummary.length} / 500</span></div>
+      <section className="acq-card" aria-label="Campaign setup" style={{ padding: 20, display: 'grid', gap: 16 }}>
+        <div><h2 className="acq-title" style={{ fontSize: 20 }}>What are you offering?</h2><p className="acq-sub" style={{ fontSize: 14 }}>Three answers is enough to start.</p></div>
+        <div><label className="acq-flabel" htmlFor="cs-offer">Product or service</label><input id="cs-offer" className="acq-input" maxLength={200} value={brief.offer} onChange={(e) => setBrief({ ...brief, offer: e.target.value })} placeholder="e.g. An AI assistant that answers patient enquiries" /></div>
+        <div><label className="acq-flabel" htmlFor="cs-sum">What it does for them</label><textarea id="cs-sum" className="acq-textarea" rows={3} maxLength={500} value={brief.offerSummary} onChange={(e) => setBrief({ ...brief, offerSummary: e.target.value })} placeholder="One or two sentences." /></div>
+        <div><label className="acq-flabel" htmlFor="cs-aud">Who do you want to reach?</label><input id="cs-aud" className="acq-input" maxLength={200} value={brief.audience} onChange={(e) => setBrief({ ...brief, audience: e.target.value })} placeholder="e.g. Dental clinics in Lagos" /></div>
+        <details>
+          <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14, color: '#7e22ce', minHeight: 40, display: 'flex', alignItems: 'center' }}>More options</summary>
+          <div style={{ display: 'grid', gap: 14, paddingTop: 8 }}>
+            <div><label className="acq-flabel" htmlFor="cs-name">Campaign name</label><input id="cs-name" className="acq-input" maxLength={120} value={brief.name} onChange={(e) => setBrief({ ...brief, name: e.target.value })} placeholder="We will suggest one" /></div>
+            <div><label className="acq-flabel" htmlFor="cs-obj">Main objective</label><select id="cs-obj" className="acq-select" value={brief.objective} onChange={(e) => setBrief({ ...brief, objective: e.target.value as Objective })}>{OBJECTIVES.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></div>
+            <div><label className="acq-flabel" htmlFor="cs-goal">Goal</label><input id="cs-goal" className="acq-input" maxLength={200} value={brief.goal} onChange={(e) => setBrief({ ...brief, goal: e.target.value })} placeholder="e.g. Book 20 demos" /></div>
+            <div><label className="acq-flabel" htmlFor="cs-feat">What it includes (one per line)</label><textarea id="cs-feat" className="acq-textarea" rows={4} value={featuresText} onChange={(e) => { setFeaturesText(e.target.value); setBrief({ ...brief, features: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 8) }); }} placeholder={'Instant replies to enquiries\nAutomated follow-ups'} /></div>
+            <div><label className="acq-flabel" htmlFor="cs-sign">How your emails end</label><input id="cs-sign" className="acq-input" maxLength={200} value={brief.signOff} onChange={(e) => setBrief({ ...brief, signOff: e.target.value })} placeholder="e.g. Azeez, Harzotech" /></div>
           </div>
-          <div>
-            <label className="acq-flabel" htmlFor="cs-feat">What it includes <span>(one per line)</span></label>
-            <div className="acq-ifield acq-ifield-area"><ListChecks size={16} /><textarea id="cs-feat" className="acq-textarea" rows={5} value={featuresText} onChange={(e) => { setFeaturesText(e.target.value); setBrief({ ...brief, features: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 8) }); }} placeholder={'Instant replies to patient enquiries\nAutomated follow-ups\nAppointment booking'} /></div>
-          </div>
-          <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
-            <div><label className="acq-flabel" htmlFor="cs-goal">Campaign goal<i>*</i></label><div className="acq-ifield"><Flag size={16} /><input id="cs-goal" className="acq-input" maxLength={200} value={brief.goal} onChange={(e) => setBrief({ ...brief, goal: e.target.value })} placeholder="e.g. Book 20 demos" /></div></div>
-            <div><label className="acq-flabel" htmlFor="cs-sign">Sign-off</label><div className="acq-ifield"><User size={16} /><input id="cs-sign" className="acq-input" maxLength={200} value={brief.signOff} onChange={(e) => setBrief({ ...brief, signOff: e.target.value })} placeholder="e.g. Azeez, Harzotech Innovative Solutions" /></div></div>
-          </div>
-        </div>
+        </details>
       </section>
                 )}
-              <section className="acq-banner" aria-label="Set up automatically">
-                <span style={{ width: 52, height: 52, borderRadius: 14, background: '#fff', color: 'var(--brand)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', boxShadow: '0 4px 12px rgba(147,51,234,.15)' }}><Mail size={24} /></span>
-                <div style={{ flex: '1 1 240px', minWidth: 0 }}><h2 className="acq-title" style={{ fontSize: 16.5, fontWeight: 800 }}>Let AI set it up for you</h2><p className="acq-sub" style={{ fontSize: 13 }}>Create the full campaign (emails, follow-ups and timing) instantly with AI.</p></div>
-                <button className="acq-btn acq-btn-primary" style={{ height: 44 }} disabled={busy} onClick={() => void ask(auto ? 'Start again with a sensible default' : '')}>
-                  {busy ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />} {auto ? 'Start over with a default setup' : 'Set up my campaign automatically'}
-                </button>
-              </section>
-              {nav(null, { label: 'Next: Email Sequence', disabled: busy, onClick: () => (auto ? setStep(2) : void ask(input, true)) })}
+              <button type="button" className="acq-link" style={{ justifySelf: 'start' }} disabled={busy} onClick={() => void ask(auto ? 'Start again with a sensible default' : '')}>
+                {busy ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />} {auto ? 'Start over with a default setup' : 'Or let AI fill this in for me'}
+              </button>
+              {nav(null, { label: 'Next', disabled: busy, onClick: () => (auto ? setStep(2) : void ask(input, true)) })}
             </>
           )}
 
@@ -471,7 +443,7 @@ export default function AutomationBuilder() {
           )}
         </div>
 
-        <aside className="acq-sticky-xl" style={{ display: 'grid', gap: 16, minWidth: 0 }}>
+        {helper && <aside className="acq-sticky-xl" style={{ display: 'grid', gap: 16, minWidth: 0 }}>
           <section className="acq-card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '16px 18px 4px', display: 'flex', gap: 12, alignItems: 'center' }}>
               <span style={{ width: 42, height: 42, borderRadius: 12, background: 'var(--brand-soft)', color: 'var(--brand)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><Sparkles size={20} /></span>
@@ -507,7 +479,7 @@ export default function AutomationBuilder() {
               ))}
             </div>
           </Card>
-        </aside>
+        </aside>}
       </div>
       </>)}
     </div>
