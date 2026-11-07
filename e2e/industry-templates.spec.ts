@@ -9,57 +9,77 @@ async function signedIn(page: Page) {
   await page.route('**/api/client-acquisition/**', (r) => r.fulfill({ status: 503, json: { error: 'offline in this test' } }));
 }
 
-test('"What do you sell?": 17 industries, an intelligence panel, drafts, and a template to start from', async ({ page, isMobile }) => {
-  test.setTimeout(180_000);
+test('New campaign: pick an industry, pick a campaign, with a short guide behind a button', async ({ page, isMobile }) => {
+  test.setTimeout(240_000);
+  const name = isMobile ? 'phone' : 'desktop';
   await signedIn(page);
   await page.goto('/client-acquisition/templates', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: 'What do you sell?' })).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByRole('heading', { name: 'What do you sell?' })).toBeVisible({ timeout: 120_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
 
-  // All 17 industries, in four groups, with their template counts.
-  const picks = page.locator('button[aria-pressed]').filter({ hasText: /campaign template/ });
-  await expect(picks).toHaveCount(17);
-  await expect(page.getByRole('group', { name: 'Professional services' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Real Estate/ }).filter({ hasText: 'High priority' })).toBeVisible();
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/templates-${isMobile ? 'phone' : 'desktop'}-1.png`, fullPage: false });
+  // Step 1: just the industries. Plain tiles, no long text.
+  const tiles = page.getByRole('group', { name: 'Industries' }).getByRole('button');
+  await expect(tiles).toHaveCount(17);
+  await expect(tiles.first()).toHaveAccessibleName(/Real Estate|Healthcare/); // the popular ones first
+  await expect(page.getByText(/campaign template/)).toHaveCount(0);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/wizard-${name}-1.png` });
 
-  // Choosing one filters the templates and opens that industry's intelligence.
-  await page.getByRole('button', { name: /Solar & Energy/ }).click();
-  const panel = page.getByRole('region', { name: 'Solar & Energy intelligence' });
-  await expect(panel).toBeVisible();
-  await expect(panel.getByText('Installation company discovery')).toBeVisible();
-  await expect(panel.getByText('Planned').first()).toBeVisible();
+  // The search narrows the tiles.
+  await page.getByLabel('Search industries').fill('solar');
+  await expect(tiles).toHaveCount(1);
+  await page.getByLabel('Search industries').fill('');
+
+  // Step 2: the campaigns for that industry, each one line and one button.
+  await page.getByRole('button', { name: 'Solar & Energy' }).click();
+  await expect(page.getByRole('heading', { name: 'Solar & Energy' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sales CRM & Quotation Automation' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Dental AI Hub – Clinic Outreach' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Use this/ })).toHaveCount(2);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/wizard-${name}-2.png` });
 
-  // Decision-makers, with the local names for the chosen country.
-  await panel.getByRole('tab', { name: 'Who to approach' }).click();
-  await expect(panel.getByText('Sales Director')).toBeVisible();
-  await panel.getByLabel('Country for job titles').selectOption('US');
-  await expect(panel.getByText('Also look for in this country')).toBeVisible();
+  // The guide: five short pages with Next and Back, not one long scroll.
+  await page.getByRole('button', { name: 'Industry guide' }).click();
+  const guide = page.getByRole('region', { name: 'Solar & Energy guide' });
+  await expect(guide.getByRole('heading', { name: 'Who we contact' })).toBeVisible();
+  await expect(guide.getByText('1 of 5')).toBeVisible();
+  await guide.getByLabel('Country for job titles').selectOption('US');
+  await guide.getByRole('button', { name: 'Next' }).click();
+  await expect(guide.getByRole('heading', { name: 'What we look for' })).toBeVisible();
+  await guide.getByRole('button', { name: 'Next' }).click();
+  await expect(guide.getByRole('heading', { name: 'How we write' })).toBeVisible();
+  await guide.getByRole('button', { name: 'Next' }).click();
+  await expect(guide.getByRole('heading', { name: 'Messages to copy' })).toBeVisible();
+  await guide.getByRole('button', { name: 'WhatsApp introduction' }).click();
+  await expect(guide.getByText(/Reply STOP/)).toBeVisible();
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/wizard-${name}-3.png` });
+  await guide.getByRole('button', { name: 'Next' }).click();
+  await expect(guide.getByRole('heading', { name: 'How leads are scored' })).toBeVisible();
+  await expect(guide.getByText('5 of 5')).toBeVisible();
+  await guide.getByRole('button', { name: 'Back' }).click();
+  await expect(guide.getByRole('heading', { name: 'Messages to copy' })).toBeVisible();
+  await guide.getByRole('button', { name: 'Next' }).click();
+  await guide.getByRole('button', { name: 'Choose a campaign' }).click();
+  await expect(page.getByRole('heading', { name: 'Sales CRM & Quotation Automation' })).toBeVisible();
 
-  // Offers, approach and compliance.
-  await panel.getByRole('tab', { name: 'Offers and approach' }).click();
-  await expect(panel.getByText('Quotation automation')).toBeVisible();
-  await expect(panel.getByText(/not legal advice/)).toBeVisible();
+  // The preview leads with the emails; everything else is one tap away.
+  await page.getByRole('button', { name: 'See the emails' }).first().click();
+  const preview = page.getByRole('dialog', { name: /preview/ });
+  await expect(preview.getByText('The emails (you can edit them)')).toBeVisible();
+  await expect(preview.getByText('Ideal customer')).toBeHidden();
+  await preview.getByText('More details').click();
+  await expect(preview.getByText('Ideal customer')).toBeVisible();
+  await preview.getByRole('button', { name: 'Close', exact: true }).click();
 
-  // The six outreach drafts, each with an opt-out where it contacts someone.
-  await panel.getByRole('tab', { name: 'Outreach drafts' }).click();
-  for (const c of ['Cold email', 'LinkedIn connection', 'LinkedIn follow-up', 'WhatsApp introduction', 'Follow-up email', 'Meeting invitation']) await expect(panel.getByText(new RegExp(`^${c}`)).first()).toBeVisible();
-  await expect(panel.getByText(/of 300 characters/)).toBeVisible();
+  // Healthcare shows its safeguard up front, and Back returns to all industries.
+  await page.getByRole('button', { name: 'All industries' }).click();
+  await page.getByRole('button', { name: 'Healthcare & Dental' }).click();
+  await expect(page.getByRole('note')).toContainText('patient health information');
+  await page.getByRole('button', { name: 'All industries' }).click();
 
-  // How leads are scored.
-  await panel.getByRole('tab', { name: 'How leads are scored' }).click();
-  await expect(panel.getByText('Identified business opportunity')).toBeVisible();
-  await expect(panel.getByText(/Priority A: high potential/)).toBeVisible();
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/templates-${isMobile ? 'phone' : 'desktop'}-2.png`, fullPage: false });
-
-  // Healthcare shows its patient-information safeguard up front.
-  await page.getByRole('button', { name: /Healthcare & Dental/ }).click();
-  await expect(page.getByRole('region', { name: 'Healthcare & Dental intelligence' }).getByRole('note')).toContainText('patient health information');
-
-  // Using a template starts a campaign from it.
-  await page.getByRole('button', { name: /Solar & Energy/ }).click();
-  await page.getByRole('button', { name: 'Use Template' }).first().click();
-  await page.waitForURL(/\/client-acquisition\/automation\?template=solar-/, { timeout: 60_000 });
+  // The last industry is remembered, so coming back is one tap.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('button', { name: /Continue with Healthcare & Dental/ })).toBeVisible({ timeout: 60_000 });
+  await page.getByRole('button', { name: 'Solar & Energy' }).click();
+  await page.getByRole('button', { name: /Use this/ }).first().click();
+  await page.waitForURL(/\/client-acquisition\/automation\?template=solar-/, { timeout: 90_000 });
 });

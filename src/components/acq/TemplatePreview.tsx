@@ -24,13 +24,7 @@ export default function TemplatePreview({ t, onClose, onUse }: { t: TemplateConf
           <div><p className="acq-sub" style={{ fontSize: 12.5 }}>{t.industry} · {t.category}</p><h2 className="acq-title" style={{ fontSize: 20 }}>{t.name}</h2><p className="acq-sub" style={{ marginTop: 4 }}>{t.description}</p></div>
           <button className="acq-icon-btn" aria-label="Close preview" onClick={onClose}><X size={18} /></button>
         </div>
-        <H>Ideal customer</H><p style={{ fontSize: 13.5 }}>{t.idealCustomer}</p>
-        <H>Who it targets</H><List items={t.audienceCriteria} />
-        <H>Campaign objectives</H><List items={t.objectives} />
-        <H>Messaging strategy</H><List items={t.messagingStrategy} />
-        <H>Recommended call to action</H><p style={{ fontSize: 13.5 }}><b>{t.cta.recommended}</b>. Alternatives: {t.cta.alternatives.join('; ')}.</p>
-        <H>Channels</H><p style={{ fontSize: 13.5 }}>Email sends today. {t.channels.filter((c) => c !== 'email').map((c) => c[0].toUpperCase() + c.slice(1)).join(', ')} {t.channels.length > 1 ? 'is planned and not switched on.' : ''}</p>
-        <H>Example follow-up sequence (editable)</H>
+        <H>The emails (you can edit them)</H>
         <div style={{ display: 'grid', gap: 8 }}>
           {seq.emails.map((e, i) => (
             <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
@@ -42,11 +36,20 @@ export default function TemplatePreview({ t, onClose, onUse }: { t: TemplateConf
           ))}
         </div>
         <p className="acq-faint" style={{ fontSize: 12, marginTop: 6 }}>Placeholders like {'{{business}}'} are filled for each contact. This wording is an example until you enter your own details.</p>
+        <details style={{ marginTop: 14 }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14, color: '#7e22ce', minHeight: 36, display: 'flex', alignItems: 'center' }}>More details</summary>
+        <H>Ideal customer</H><p style={{ fontSize: 13.5 }}>{t.idealCustomer}</p>
+        <H>Who it targets</H><List items={t.audienceCriteria} />
+        <H>Campaign objectives</H><List items={t.objectives} />
+        <H>Messaging strategy</H><List items={t.messagingStrategy} />
+        <H>Recommended call to action</H><p style={{ fontSize: 13.5 }}><b>{t.cta.recommended}</b>. Alternatives: {t.cta.alternatives.join('; ')}.</p>
+        <H>Channels</H><p style={{ fontSize: 13.5 }}>Email sends today. {t.channels.filter((c) => c !== 'email').map((c) => c[0].toUpperCase() + c.slice(1)).join(', ')} {t.channels.length > 1 ? 'is planned and not switched on.' : ''}</p>
         <H>Conversion stages</H><p style={{ fontSize: 13.5 }}>{PIPELINE.map((p) => t.stageLabels[p.id]).join(' → ')}</p>
         <H>Metrics tracked</H><p style={{ fontSize: 13.5 }}>{t.metrics.map((m) => m.label).join(', ')}. Real numbers only, counted as the campaign runs.</p>
         <H>What each agent focuses on</H>
         <List items={WORKFORCE.map((w) => `${w.name}: ${t.agents[w.id]}`)} />
         <H>Contacting this audience</H><p style={{ fontSize: 13.5 }}>{t.contactNote}</p>
+        </details>
         <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
           <button className="acq-btn" onClick={onClose}>Close</button>
           <button className="acq-btn acq-btn-primary" onClick={onUse}>Use template</button>

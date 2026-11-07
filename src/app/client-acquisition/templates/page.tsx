@@ -2,39 +2,29 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BedDouble, Building2, Calculator, CalendarDays, Car, Code2, Factory, FileText, GraduationCap, HardHat, Home, Loader2, Megaphone, Boxes, Pencil, Scale, Search, Sparkles, Stethoscope, Sun, Trash2, Truck, UtensilsCrossed, Users, Wand2, type LucideIcon } from 'lucide-react';
+import { FileText, Loader2, Pencil, Search, Trash2, Wand2 } from 'lucide-react';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
-import { OFFICIAL_TEMPLATES, filterTemplates, templateCountByIndustry, type TemplateConfig } from '@/lib/templateLibrary';
-import { INDUSTRIES_INTEL, INDUSTRY_GROUPS, industryById, type IndustryId } from '@/lib/industryIntel';
-import IndustryIntelPanel from '@/components/acq/IndustryIntelPanel';
-import { OBJECTIVES } from '@/lib/campaignBrief';
+import { filterTemplates, type TemplateConfig } from '@/lib/templateLibrary';
+import TemplateWizard from '@/components/acq/TemplateWizard';
+import { TEMPLATE_ICON } from '@/components/acq/templateIcons';
 import { useAcq } from '@/components/acq/AcqProvider';
 import CampaignFormModal from '@/components/acq/CampaignFormModal';
 import TemplatePreview from '@/components/acq/TemplatePreview';
 import { Card, EmptyState } from '@/components/acq/ui';
 
 type Tab = 'official' | 'mine' | 'scratch';
-const ICON: Record<TemplateConfig['art']['icon'], LucideIcon> = {
-  dental: Stethoscope, restaurant: UtensilsCrossed, hotel: BedDouble, property: Home, custom: FileText,
-  building: Building2, stethoscope: Stethoscope, megaphone: Megaphone, scale: Scale, calculator: Calculator, code: Code2, sun: Sun, truck: Truck, hardhat: HardHat,
-  sparkles: Sparkles, car: Car, users: Users, school: GraduationCap, boxes: Boxes, factory: Factory, calendar: CalendarDays,
-};
 
 function TemplateCard({ t, onPreview, onUse, onDelete, onRename }: { t: TemplateConfig; onPreview: () => void; onUse: () => void; onDelete?: () => void; onRename?: () => void }) {
-  const Icon = ICON[t.art.icon];
-  const objective = OBJECTIVES.find((o) => o.id === t.primaryObjective)?.label ?? '';
+  const Icon = TEMPLATE_ICON[t.art.icon];
   return (
-    <section className="acq-card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div aria-hidden style={{ height: 96, background: `linear-gradient(135deg, ${t.art.from}, ${t.art.to})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}><Icon size={42} strokeWidth={1.5} /></div>
-      <div style={{ padding: 16, display: 'grid', gap: 6, flex: 1, alignContent: 'start' }}>
-        <p className="acq-sub" style={{ fontSize: 12.5 }}>{t.industry} · {t.category}</p>
-        <h2 className="acq-title" style={{ fontSize: 15.5, fontWeight: 700 }}>{t.name}</h2>
-        <p className="acq-sub" style={{ fontSize: 13 }}>{t.description}</p>
-        <p style={{ fontSize: 12.5, marginTop: 4 }}><span className="acq-sub">Primary objective: </span><b>{objective}</b></p>
+    <section className="acq-card" style={{ padding: 16, display: 'grid', gap: 10, alignContent: 'space-between' }}>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <span aria-hidden style={{ width: 40, height: 40, borderRadius: 12, background: '#f3e8ff', color: '#9333ea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><Icon size={20} /></span>
+        <div><h2 className="acq-title" style={{ fontSize: 15.5, fontWeight: 700 }}>{t.name}</h2><p className="acq-sub" style={{ fontSize: 13.5, marginTop: 2 }}>{t.description}</p></div>
       </div>
-      <div style={{ display: 'flex', gap: 8, padding: '0 16px 16px', flexWrap: 'wrap' }}>
-        <button className="acq-btn acq-btn-sm" onClick={onPreview}>Preview</button>
-        <button className="acq-btn acq-btn-primary acq-btn-sm" onClick={onUse}>Use Template</button>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button className="acq-btn acq-btn-primary" onClick={onUse}>Use this</button>
+        <button className="acq-link" onClick={onPreview}>See the emails</button>
         {onRename && <button className="acq-icon-btn" aria-label={`Rename ${t.name}`} onClick={onRename}><Pencil size={15} /></button>}
         {onDelete && <button className="acq-icon-btn" aria-label={`Delete ${t.name}`} onClick={onDelete}><Trash2 size={15} /></button>}
       </div>
@@ -48,8 +38,6 @@ export default function TemplatesPage() {
   const { reload } = useAcq();
   const [tab, setTab] = useState<Tab>('official');
   const [q, setQ] = useState('');
-  const [industry, setIndustry] = useState<IndustryId | ''>('');
-  const counts = useMemo(() => templateCountByIndustry(), []);
   const [mine, setMine] = useState<TemplateConfig[] | null>(null);
   const [ready, setReady] = useState(true);
   const [preview, setPreview] = useState<TemplateConfig | null>(null);
@@ -78,15 +66,14 @@ export default function TemplatesPage() {
     setNote(res.ok ? 'Renamed.' : 'Could not rename it.'); await load();
   };
 
-  const official = useMemo(() => filterTemplates(OFFICIAL_TEMPLATES, q, industry), [q, industry]);
   const myList = useMemo(() => filterTemplates(mine ?? [], q, ''), [mine, q]);
-  const TABS: Array<{ id: Tab; label: string }> = [{ id: 'official', label: 'Official Templates' }, { id: 'mine', label: `My Templates${mine ? ` (${mine.length})` : ''}` }, { id: 'scratch', label: 'Start from Scratch' }];
+  const TABS: Array<{ id: Tab; label: string }> = [{ id: 'official', label: 'Templates' }, { id: 'mine', label: `My templates${mine ? ` (${mine.length})` : ''}` }, { id: 'scratch', label: 'From scratch' }];
 
   return (
     <div className="acq-stack">
       <div style={{ paddingTop: 4 }}>
         <h1 className="acq-page-title">New campaign</h1>
-        <p className="acq-sub" style={{ marginTop: 2, maxWidth: 720 }}>Start from an industry template: it brings the audience, messaging, follow-up sequence and stages. You add your own offer and audience, review everything and approve before anything is sent.</p>
+        <p className="acq-sub" style={{ marginTop: 2, maxWidth: 560 }}>Pick an industry, pick a campaign, and you are ready to start.</p>
       </div>
       {note && <div className="acq-notice" role="status" style={{ display: 'flex', justifyContent: 'space-between' }}><span>{note}</span><button className="acq-link" onClick={() => setNote('')}>Dismiss</button></div>}
 
@@ -94,7 +81,7 @@ export default function TemplatesPage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           {TABS.map((t) => <button key={t.id} className={`acq-tab${tab === t.id ? ' active' : ''}`} onClick={() => setTab(t.id)}>{t.label}</button>)}
         </div>
-        {tab !== 'scratch' && (
+        {tab === 'mine' && (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: 420 }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: 14, color: '#94a3b8' }} />
@@ -105,33 +92,7 @@ export default function TemplatesPage() {
       </Card>
 
 
-      {tab === 'official' && (
-        <Card>
-          <h2 className="acq-title" style={{ fontSize: 17 }}>What do you sell?</h2>
-          <p className="acq-sub" style={{ fontSize: 13.5, margin: '2px 0 12px' }}>Choose an industry to start your acquisition campaign.</p>
-          {INDUSTRY_GROUPS.map((g) => (
-            <div key={g} style={{ marginBottom: 12 }}>
-              <p className="acq-sub" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>{g}</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label={g}>
-                {INDUSTRIES_INTEL.filter((i) => i.group === g).map((i) => {
-                  const n = counts[i.id] ?? 0; const on = industry === i.id;
-                  return (
-                    <button key={i.id} type="button" aria-pressed={on} onClick={() => setIndustry(on ? '' : i.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: `1.5px solid ${on ? '#9333ea' : '#e2e8f0'}`, background: on ? '#faf5ff' : '#fff', minHeight: 56 }}>
-                      <span aria-hidden style={{ width: 36, height: 36, borderRadius: 10, background: '#f3e8ff', color: '#9333ea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{(() => { const Icon = ICON[i.icon]; return <Icon size={18} />; })()}</span>
-                      <span style={{ minWidth: 0 }}><b style={{ display: 'block', fontSize: 14, color: '#0f172a' }}>{i.label}</b><span className="acq-sub" style={{ fontSize: 12.5 }}>{n} campaign template{n === 1 ? '' : 's'}{i.highPriority ? ' · High priority' : ''}</span></span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </Card>
-      )}
-      {tab === 'official' && industry && industryById(industry) && <IndustryIntelPanel key={industry} id={industry} />}
-      {tab === 'official' && (official.length === 0
-        ? <Card><EmptyState title="No templates match" body="Try a different word or pick All industries." /></Card>
-        : <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">{official.map((t) => <TemplateCard key={t.id} t={t} onPreview={() => setPreview(t)} onUse={() => use(t)} />)}</div>)}
+      {tab === 'official' && <Card><TemplateWizard onUse={use} onPreview={setPreview} /></Card>}
 
       {tab === 'mine' && (mine === null ? <Card><Loader2 className="animate-spin" size={18} /></Card>
         : !ready ? <Card><EmptyState title="Saved templates need one database update" body="Official templates work now. Ask an administrator to apply migration 7 to turn on My Templates." /></Card>
