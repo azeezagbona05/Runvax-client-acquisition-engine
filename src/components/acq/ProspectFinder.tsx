@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState, type VisibilityState } from '@tanstack/react-table';
 import { Loader2, Search, Square, Star, Zap } from 'lucide-react';
 import { AREAS, STATES } from '@/lib/areas';
 import SearchSelect, { MultiSearchSelect, type SearchOption } from './SearchSelect';
-import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, DEFAULT_FILTERS, toCsv, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_PAIRS, MAX_RUN_SEARCHES, advanceMulti, filterResults, filtersActive, finderErrorMulti, finderPairs, finderQuery, multiStep, multiStepsLeft, multiStopReason, startFinder, startMulti, type FinderBusiness, type FinderCtx, type MultiCtx, type ContactAction, type ContactState, type RatingFilter, type ResultFilters, type Verdict, type SortKey, type WebsiteFilter } from '@/lib/acqFinder';
+import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, toCsv, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_PAIRS, MAX_RUN_SEARCHES, advanceMulti, finderErrorMulti, finderPairs, finderQuery, multiStep, multiStepsLeft, multiStopReason, startFinder, startMulti, type FinderBusiness, type FinderCtx, type MultiCtx, type ContactAction, type ContactState, type Verdict } from '@/lib/acqFinder';
+import { EMPTY_GROUP, applyGroup, makeRecord, searchRecords, type FilterGroup, type ProspectRecord } from '@/lib/prospectQuery';
+import ProspectToolbar from './ProspectToolbar';
 import { BizLogo, Card, EmptyState } from './ui';
 import { useAcq } from './AcqProvider';
 import SignupPrompt from './SignupPrompt';
@@ -17,6 +20,21 @@ type Channel = { type: 'decision_maker_email' | 'general_email' | 'contact_form'
 type People = { state: 'loading' } | { state: 'done'; people: Person[]; channels: Channel[]; note?: string };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const label = { fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6, display: 'block' } as const;
+
+const COLUMN_LABEL: Record<string, string> = { check: '', name: 'Business', address: 'Address', phone: 'Phone', website: 'Website', rating: 'Rating', reviews: 'Reviews', contact: 'Email' };
+const COLUMN_PICKER = [{ id: 'address', label: 'Address' }, { id: 'phone', label: 'Phone' }, { id: 'website', label: 'Website' }, { id: 'rating', label: 'Rating' }, { id: 'reviews', label: 'Reviews' }, { id: 'contact', label: 'Email' }];
+const CONTACT_ORDER: ContactState[] = ['verified', 'unverified', 'person_no_email', 'business_only', 'untouched', 'none'];
+const TABLE_COLUMNS: ColumnDef<ProspectRecord>[] = [
+  { id: 'check', header: '', enableSorting: false, enableHiding: false, accessorFn: () => null },
+  { id: 'name', accessorFn: (r) => r.b.name.toLowerCase(), sortingFn: 'text' },
+  { id: 'address', accessorFn: (r) => r.b.address?.toLowerCase() ?? '', sortingFn: 'text' },
+  { id: 'phone', accessorFn: (r) => (r.b.phone ? 0 : 1), sortingFn: 'basic' },
+  { id: 'website', accessorFn: (r) => (r.b.website?.trim() ? 1 : 0), sortingFn: 'basic' },
+  // A missing rating always sorts last, whichever way the column is sorted.
+  { id: 'rating', accessorFn: (r) => r.b.rating, sortUndefined: 'last', sortingFn: 'basic' },
+  { id: 'reviews', accessorFn: (r) => r.b.reviewCount ?? 0, sortingFn: 'basic' },
+  { id: 'contact', accessorFn: (r) => CONTACT_ORDER.indexOf(r.contact), sortingFn: 'basic' },
+];
 
 /** Finds businesses with the same search RUNVAX 1.0 uses, lists them, finds their emails and adds them to a campaign. */
 export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => void }) {
@@ -53,8 +71,12 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [verifying, setVerifying] = useState<Set<string>>(new Set());
   const [verifyingAll, setVerifyingAll] = useState(false);
   const [includeUnverified, setIncludeUnverified] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<ContactState | 'any'>('any');
-  const [filters, setFilters] = useState<ResultFilters>(DEFAULT_FILTERS);
+  const [query, setQuery] = useState('');
+  const [applied, setApplied] = useState('');
+  const [searchPending, startSearch] = useTransition();
+  const [group, setGroup] = useState<FilterGroup>(EMPTY_GROUP);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [colVis, setColVis] = useState<VisibilityState>({ reviews: false });
   const seen = useRef(new Set<string>());
   const stop = useRef(false);
   useEffect(() => () => { stop.current = true; }, []);
@@ -144,7 +166,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     const bad = finderErrorMulti(industries, locations);
     if (bad) { setError(bad); return; }
     stop.current = true; setRunning(false); setProgress('');
-    setBusy(true); setError(''); setResults(null); setFilters(DEFAULT_FILTERS); setPicked(new Set()); setEmails({}); setPeople({}); setVerdicts({}); setStatusFilter('any'); setCtx(null); seen.current = new Set();
+    setBusy(true); setError(''); setResults(null); setQuery(''); setApplied(''); setGroup(EMPTY_GROUP); setSorting([]); setPicked(new Set()); setEmails({}); setPeople({}); setVerdicts({}); setCtx(null); seen.current = new Set();
     // A free search covers one category in one place; more need an account.
     const run = guest ? pairs.slice(0, 1) : pairs;
     const multi = run.length > 1;
@@ -330,19 +352,40 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const ready = (results ?? []).filter((b) => picked.has(b.id) && leadsFor(b).length > 0);
   const notReady = (results ?? []).filter((b) => picked.has(b.id) && leadsFor(b).length === 0).length;
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const shown = useMemo(() => filterResults(results ?? [], filters, (b) => { const e = emails[b.id]; return e?.state === 'done' && !!e.email; }).filter((b) => statusFilter === 'any' || stateOf(b) === statusFilter),
+  // Every business with what we know about it, flattened for the search and the advanced filter.
+  const records = useMemo(() => (results ?? []).map((b) => makeRecord(b, {
+    contact: stateOf(b),
+    emails: [generalEmailOf(b), ...(peopleOf(b) ?? []).map((p) => p.email)].filter((x): x is string => !!x),
+    people: peopleOf(b) ?? [],
+  })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [results, filters, emails, people, verdicts, statusFilter]);
-  const setF = <K extends keyof ResultFilters>(k: K, v: ResultFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
+    [results, emails, people, verdicts]);
+  // The search runs a moment after typing stops, as a low-priority update, so typing never stalls on a big list.
+  useEffect(() => {
+    if (query === applied) return;
+    const t = setTimeout(() => startSearch(() => setApplied(query)), 200);
+    return () => clearTimeout(t);
+  }, [query, applied]);
+  const searching = query !== applied || searchPending;
+  const matched = useMemo(() => applyGroup(searchRecords(records, applied), group), [records, applied, group]);
+  const table = useReactTable<ProspectRecord>({
+    data: matched, columns: TABLE_COLUMNS, getRowId: (r) => r.b.id,
+    state: { sorting, columnVisibility: colVis }, onSortingChange: setSorting, onColumnVisibilityChange: setColVis,
+    getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(),
+  });
+  const sortedRows = table.getRowModel().rows;
+  const visibleIds = table.getVisibleLeafColumns().map((c) => c.id);
+  const shown = useMemo(() => sortedRows.map((r) => r.original.b), [sortedRows]);
+  const clearFilters = () => { setQuery(''); setApplied(''); setGroup(EMPTY_GROUP); setSorting([]); };
   const allOn = !!shown.length && shown.every((b) => picked.has(b.id));
-  // Pagination: the table shows one page of the filtered rows at a time.
+  // Pagination: the table shows one page of the matching rows at a time.
   const pageCount = Math.max(1, Math.ceil(shown.length / pageSize));
   const curPage = Math.min(page, pageCount);
   const pageRows = useMemo(() => shown.slice((curPage - 1) * pageSize, curPage * pageSize), [shown, curPage, pageSize]);
   const from = shown.length ? (curPage - 1) * pageSize + 1 : 0;
   const to = Math.min(shown.length, curPage * pageSize);
-  // A new filter, sort or page size starts again from page 1.
-  useEffect(() => { setPage(1); }, [filters, statusFilter, pageSize]);
+  // A new search, filter, sort or page size starts again from page 1.
+  useEffect(() => { setPage(1); }, [applied, group, sorting, pageSize]);
   const pageAllOn = pageRows.length > 0 && pageRows.every((b) => picked.has(b.id));
   const togglePage = () => setPicked((s) => { const n = new Set(s); if (pageAllOn) pageRows.forEach((b) => n.delete(b.id)); else pageRows.forEach((b) => n.add(b.id)); return n; });
   const pager = (
@@ -445,7 +488,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
           {results.length === 0 ? <EmptyState title="No businesses found" body="Try a nearby area or a different category." /> : (
             <>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
-                <b style={{ fontSize: 14 }}>{filtersActive(filters) || statusFilter !== 'any' ? `${shown.length} of ${results.length}` : results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
+                <b style={{ fontSize: 14 }}>{shown.length !== results.length ? `${shown.length} of ${results.length}` : results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(shown.map((b) => b.id)))} style={{ accentColor: '#9333ea' }} /> Select all {shown.length.toLocaleString('en-US')}</label>
                 <button className="acq-btn acq-btn-sm" disabled={!picked.size || finding} onClick={() => void findForSelected()}>{finding ? <Loader2 size={14} className="animate-spin" /> : null} Find business emails for {picked.size || 'selected'}</button>
                 <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!picked.size || findingDm} onClick={() => void findPeopleForSelected()}>{findingDm ? <Loader2 size={14} className="animate-spin" /> : null} Find decision-makers for {picked.size || 'selected'}</button>
@@ -456,33 +499,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                 </select>
                 <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!target || !ready.length || adding} onClick={() => void add()}>{adding ? <Loader2 size={14} className="animate-spin" /> : null} Add {ready.length} ready to campaign</button>
               </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', margin: '4px 0 10px', padding: 10, border: '1px solid #e2e8f0', borderRadius: 12 }} role="group" aria-label="Filter and sort the prospects">
-                <div><label style={label} htmlFor="pf-f-web">Website</label>
-                  <select id="pf-f-web" className="acq-select" style={{ height: 34, width: 'auto' }} value={filters.website} onChange={(e) => setF('website', e.target.value as WebsiteFilter)}>
-                    <option value="any">Any</option><option value="without">No website</option><option value="with">Has a website</option>
-                  </select></div>
-                <div><label style={label} htmlFor="pf-f-rate">Rating</label>
-                  <select id="pf-f-rate" className="acq-select" style={{ height: 34, width: 'auto' }} value={filters.rating} onChange={(e) => setF('rating', e.target.value as RatingFilter)}>
-                    <option value="any">Any</option><option value="4.5+">4.5 and up</option><option value="4+">4.0 and up</option><option value="3.5+">3.5 and up</option><option value="3+">3.0 and up</option>
-                    <option value="under4">Under 4.0</option><option value="under3.5">Under 3.5</option><option value="unrated">No rating yet</option>
-                  </select></div>
-                <div><label style={label} htmlFor="pf-f-rev">Reviews</label>
-                  <select id="pf-f-rev" className="acq-select" style={{ height: 34, width: 'auto' }} value={filters.minReviews} onChange={(e) => setF('minReviews', Number(e.target.value))}>
-                    <option value={0}>Any</option><option value={5}>5 or more</option><option value={20}>20 or more</option><option value={50}>50 or more</option><option value={100}>100 or more</option>
-                  </select></div>
-                <div><label style={label} htmlFor="pf-f-sort">Show first</label>
-                  <select id="pf-f-sort" className="acq-select" style={{ height: 34, width: 'auto' }} value={filters.sort} onChange={(e) => setF('sort', e.target.value as SortKey)}>
-                    <option value="found">Order found</option><option value="no-website-first">No website first</option><option value="website-first">Has a website first</option>
-                    <option value="rating-high">Highest rated</option><option value="rating-low">Lowest rated</option><option value="reviews-high">Most reviews</option>
-                  </select></div>
-                <div><label style={label} htmlFor="pf-f-status">Contact status</label>
-                  <select id="pf-f-status" className="acq-select" style={{ height: 34, width: 'auto' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as ContactState | 'any')}>
-                    <option value="any">Any</option>{(Object.keys(CONTACT_LABEL) as ContactState[]).map((k) => <option key={k} value={k}>{CONTACT_LABEL[k]}</option>)}
-                  </select></div>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, height: 34 }}><input type="checkbox" checked={filters.phoneOnly} onChange={(e) => setF('phoneOnly', e.target.checked)} style={{ accentColor: '#9333ea' }} /> Has a phone</label>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, height: 34 }}><input type="checkbox" checked={filters.emailOnly} onChange={(e) => setF('emailOnly', e.target.checked)} style={{ accentColor: '#9333ea' }} /> Email found</label>
-                {filtersActive(filters) || filters.sort !== 'found' || statusFilter !== 'any' ? <button type="button" className="acq-btn acq-btn-sm" onClick={() => { setFilters(DEFAULT_FILTERS); setStatusFilter('any'); }}>Clear</button> : null}
-              </div>
+              <ProspectToolbar query={query} onQuery={setQuery} searching={searching} group={group} onGroup={setGroup} sorting={sorting} onSorting={setSorting}
+                columns={COLUMN_PICKER} visibility={colVis} onVisibility={setColVis} shown={shown.length} total={results.length} />
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 10px', padding: 10, background: '#faf5ff', border: '1px solid #f3e8ff', borderRadius: 12 }}>
                 {running
                   ? <button className="acq-btn acq-btn-sm" onClick={() => { stop.current = true; }}><Square size={13} /> Stop</button>
@@ -500,17 +518,21 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
               {pager}
               <div style={{ overflowX: 'auto' }}>
                 <table className="acq-table acq-cards" style={{ minWidth: 980 }}>
-                  <thead><tr><th style={{ width: 32 }}><input type="checkbox" aria-label="Select this page" title="Select this page" checked={pageAllOn} onChange={togglePage} style={{ accentColor: '#9333ea' }} /></th><th>Business</th><th>Address</th><th>Phone</th><th>Website</th><th>Rating</th><th>Email</th></tr></thead>
+                  <thead>{table.getHeaderGroups().map((hg) => (
+                    <tr key={hg.id}>{hg.headers.map((h) => h.column.id === 'check'
+                      ? <th key={h.id} style={{ width: 32 }}><input type="checkbox" aria-label="Select this page" title="Select this page" checked={pageAllOn} onChange={togglePage} style={{ accentColor: '#9333ea' }} /></th>
+                      : <th key={h.id} aria-sort={h.column.getIsSorted() === 'asc' ? 'ascending' : h.column.getIsSorted() === 'desc' ? 'descending' : 'none'}>
+                          <button type="button" className="acq-sort" onClick={h.column.getToggleSortingHandler()} title="Sort by this column">{COLUMN_LABEL[h.column.id]}<span aria-hidden="true">{h.column.getIsSorted() === 'asc' ? ' ▲' : h.column.getIsSorted() === 'desc' ? ' ▼' : ''}</span></button>
+                        </th>)}</tr>))}</thead>
                   <tbody>
-                    {shown.length === 0 && <tr><td data-cell="empty" colSpan={7} className="acq-sub" style={{ textAlign: 'center', padding: 20 }}>No prospects match these filters. <button type="button" className="acq-btn acq-btn-sm" onClick={() => { setFilters(DEFAULT_FILTERS); setStatusFilter('any'); }}>Clear filters</button></td></tr>}
+                    {shown.length === 0 && <tr><td data-cell="empty" colSpan={Math.max(1, visibleIds.length)} className="acq-sub" style={{ textAlign: 'center', padding: 20 }}>No prospects match this search and these filters. <button type="button" className="acq-btn acq-btn-sm" onClick={clearFilters}>Clear them</button></td></tr>}
                     {pageRows.map((b) => {
                       const e = emails[b.id];
                       const host = b.website ? b.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '') : '';
                       const href = b.website ? (/^https?:\/\//i.test(b.website) ? b.website : `https://${b.website}`) : '';
-                      return (
-                        <tr key={b.id}>
-                          <td data-cell="check"><input type="checkbox" aria-label={`Select ${b.name}`} checked={picked.has(b.id)} onChange={() => toggle(b.id)} style={{ accentColor: '#9333ea' }} /></td>
-                          <td data-cell="biz" style={{ maxWidth: 240 }}>
+                      const cells: Record<string, ReactNode> = {
+                        check: <td key="check" data-cell="check"><input type="checkbox" aria-label={`Select ${b.name}`} checked={picked.has(b.id)} onChange={() => toggle(b.id)} style={{ accentColor: '#9333ea' }} /></td>,
+                        name: <td key="name" data-cell="biz" style={{ maxWidth: 240 }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <BizLogo name={b.name} website={b.website} />
                               <span style={{ minWidth: 0 }}>
@@ -518,12 +540,12 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                 <span className="acq-sub" style={{ fontSize: 12 }}>{b.category}{b.foundBy && b.foundBy !== 'First search' ? <span className="acq-pill acq-pill-purple" style={{ marginLeft: 6, fontWeight: 500 }}>{b.foundBy}</span> : null}</span>
                               </span>
                             </span>
-                          </td>
-                          <td data-cell="addr" className="acq-muted" style={{ maxWidth: 240 }}>{b.address || <span className="acq-faint">—</span>}</td>
-                          <td data-cell="phone" style={{ whiteSpace: 'nowrap' }}>{b.phone ? <a href={`tel:${b.phone.replace(/[^+\d]/g, '')}`}>{b.phone}</a> : <span className="acq-faint">No phone</span>}</td>
-                          <td data-cell="web" style={{ maxWidth: 200 }}>{href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline', overflowWrap: 'anywhere' }}>{host}</a> : <span className="acq-faint">No website</span>}</td>
-                          <td data-cell="rating" style={{ whiteSpace: 'nowrap' }}>{typeof b.rating === 'number' ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Star size={12} />{b.rating}{b.reviewCount ? ` (${b.reviewCount})` : ''}</span> : <span className="acq-faint">—</span>}</td>
-                          <td data-cell="email" style={{ minWidth: 220 }}>
+                          </td>,
+                        address: <td key="address" data-cell="addr" className="acq-muted" style={{ maxWidth: 240 }}>{b.address || <span className="acq-faint">—</span>}</td>,
+                        phone: <td key="phone" data-cell="phone" style={{ whiteSpace: 'nowrap' }}>{b.phone || <span className="acq-faint">No phone</span>}</td>,
+                        website: <td key="website" data-cell="web" style={{ maxWidth: 200 }}>{href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline', overflowWrap: 'anywhere' }}>{host}</a> : <span className="acq-faint">No website</span>}</td>,
+                        rating: <td key="rating" data-cell="rating" style={{ whiteSpace: 'nowrap' }}>{typeof b.rating === 'number' ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Star size={12} />{b.rating}{b.reviewCount ? ` (${b.reviewCount})` : ''}</span> : <span className="acq-faint">—</span>}</td>,
+                        contact: <td key="contact" data-cell="email" style={{ minWidth: 220 }}>
                             {(() => {
                               const st = stateOf(b);
                               const action = CONTACT_ACTION[st];
@@ -576,9 +598,10 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                 </div>
                               );
                             })()}
-                          </td>
-                        </tr>
-                      );
+                          </td>,
+                        reviews: <td key="reviews" data-cell="reviews" style={{ whiteSpace: 'nowrap' }}>{b.reviewCount ? b.reviewCount.toLocaleString('en-US') : <span className="acq-faint">0</span>}</td>,
+                      };
+                      return <tr key={b.id}>{visibleIds.map((id) => cells[id])}</tr>;
                     })}
                   </tbody>
                 </table>

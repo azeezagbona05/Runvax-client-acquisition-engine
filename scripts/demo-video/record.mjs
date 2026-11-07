@@ -131,13 +131,13 @@ await scene('searching', 'Searching live across the map…', async () => {
   await sleep(1500);
 });
 
-await scene('filters', 'Filter the list down to the best prospects', async () => {
-  await page.getByRole('group', { name: 'Filter and sort the prospects' }).scrollIntoViewIfNeeded(); await sleep(1500);
-  await click(page.locator('#pf-f-web')); await page.locator('#pf-f-web').selectOption('without'); await sleep(2500);
-  await click(page.locator('#pf-f-rate')); await page.locator('#pf-f-rate').selectOption('4+'); await sleep(2500);
-  await click(page.locator('#pf-f-rev')); await page.locator('#pf-f-rev').selectOption('20'); await sleep(2500);
-  await click(page.locator('#pf-f-sort')); await page.locator('#pf-f-sort').selectOption('reviews-high'); await sleep(2500);
-  await click(page.getByLabel(/Has a phon/i)); await sleep(2000);
+await scene('filters', 'Search inside the results and filter to the best prospects', async () => {
+  await page.getByRole('searchbox', { name: 'Search prospects' }).scrollIntoViewIfNeeded(); await sleep(1500);
+  await type(page.getByRole('searchbox', { name: 'Search prospects' }), 'lekki'); await sleep(2500);
+  await click(page.getByRole('button', { name: 'Clear search' })); await sleep(1200);
+  await click(page.getByRole('button', { name: /^Filters/ })); await sleep(1500);
+  for (const f of ['No website', 'Rated 4.0+', '20+ reviews', 'Has a phone']) { await click(page.getByRole('button', { name: f, exact: true })); await sleep(2200); }
+  await click(page.getByLabel('Sort prospects')); await page.getByLabel('Sort prospects').selectOption('reviews-high'); await sleep(2500);
   await smoothScroll(500, 4);
 });
 

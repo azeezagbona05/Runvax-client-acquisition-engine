@@ -547,3 +547,8 @@
   .acq-rt td[data-hide] { display: none; }
   .acq-rt td p { overflow: visible !important; text-overflow: clip !important; white-space: normal !important; }
 }
+
+/* Sortable column headers in the prospects table */
+.acq-sort { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; white-space: nowrap; }
+.acq-sort:hover { color: var(--ink); }
+@media (max-width: 767px) { .acq-cards td[data-cell=reviews] { display: none; } }
