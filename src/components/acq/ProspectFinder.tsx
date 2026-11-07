@@ -1,9 +1,11 @@
 'use client';
 
+import { celebrate } from '@/lib/celebrate';
+import CountUp from './CountUp';
 import { NO_AUTOFILL } from '@/lib/noAutofill';
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState, type VisibilityState } from '@tanstack/react-table';
-import { Loader2, Search, Square, Star, Zap } from 'lucide-react';
+import { Check, Loader2, Search, Square, Star, Zap } from 'lucide-react';
 import { AREAS, STATES } from '@/lib/areas';
 import SearchSelect, { MultiSearchSelect, type SearchOption } from './SearchSelect';
 import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, toCsv, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_PAIRS, MAX_RUN_SEARCHES, advanceMulti, finderErrorMulti, finderPairs, finderQuery, multiStep, multiStepsLeft, multiStopReason, startFinder, startMulti, type FinderBusiness, type FinderCtx, type MultiCtx, type ContactAction, type ContactState, type Verdict } from '@/lib/acqFinder';
@@ -75,6 +77,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [query, setQuery] = useState('');
   const [applied, setApplied] = useState('');
   const [searchPending, startSearch] = useTransition();
+  const [foundNote, setFoundNote] = useState<{ n: number; where: string; hit: boolean } | null>(null);
+  const wasWorking = useRef(false);
   const [group, setGroup] = useState<FilterGroup>(EMPTY_GROUP);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [colVis, setColVis] = useState<VisibilityState>({ reviews: false });
@@ -167,7 +171,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     const bad = finderErrorMulti(industries, locations);
     if (bad) { setError(bad); return; }
     stop.current = true; setRunning(false); setProgress('');
-    setBusy(true); setError(''); setResults(null); setQuery(''); setApplied(''); setGroup(EMPTY_GROUP); setSorting([]); setPicked(new Set()); setEmails({}); setPeople({}); setVerdicts({}); setCtx(null); seen.current = new Set();
+    setBusy(true); setError(''); setResults(null); setFoundNote(null); wasWorking.current = false; setQuery(''); setApplied(''); setGroup(EMPTY_GROUP); setSorting([]); setPicked(new Set()); setEmails({}); setPeople({}); setVerdicts({}); setCtx(null); seen.current = new Set();
     // A free search covers one category in one place; more need an account.
     const run = guest ? pairs.slice(0, 1) : pairs;
     const multi = run.length > 1;
@@ -368,6 +372,17 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     return () => clearTimeout(t);
   }, [query, applied]);
   const searching = query !== applied || searchPending;
+  // When a search ends with results, land the number and say so. A small burst only if it reached the number asked for.
+  useEffect(() => {
+    if (busy || running) { wasWorking.current = true; return; }
+    if (!wasWorking.current || !results?.length) return;
+    wasWorking.current = false;
+    const where = locations.slice(0, 2).join(', ') + (locations.length > 2 ? ` +${locations.length - 2}` : '');
+    const hit = results.length >= want;
+    setFoundNote({ n: results.length, where, hit });
+    if (hit) celebrate({ kind: 'done', title: `${results.length.toLocaleString('en-US')} businesses found`, body: where ? `In ${where}. Filter them, then find who runs them.` : 'Filter them, then find who runs them.' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, running, results]);
   const matched = useMemo(() => applyGroup(searchRecords(records, applied), group), [records, applied, group]);
   const table = useReactTable<ProspectRecord>({
     data: matched, columns: TABLE_COLUMNS, getRowId: (r) => r.b.id,
@@ -474,7 +489,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <Loader2 size={22} className="animate-spin" style={{ color: '#9333ea', flex: 'none' }} />
               <b style={{ fontSize: 15 }}>Searching for prospects…</b>
-              <span style={{ marginLeft: 'auto', fontSize: 15 }}><b style={{ fontSize: 22, color: '#7e22ce' }}>{n}</b> <span className="acq-sub">of {want} found</span></span>
+              <span style={{ marginLeft: 'auto', fontSize: 15 }}><b style={{ fontSize: 22, color: '#7e22ce' }}><CountUp value={n} /></b> <span className="acq-sub">of {want} found</span></span>
             </div>
             <div style={{ height: 8, background: '#ede9fe', borderRadius: 999, overflow: 'hidden' }} role="progressbar" aria-valuenow={n} aria-valuemin={0} aria-valuemax={want} aria-label="Prospects found">
               <div style={{ width: `${pct}%`, height: '100%', background: '#9333ea', transition: 'width .4s ease' }} />
@@ -488,6 +503,12 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
         <div style={{ marginTop: 16 }}>
           {results.length === 0 ? <EmptyState title="No businesses found" body="Try a nearby area or a different category." /> : (
             <>
+              {foundNote && (
+                <div className="acq-found" role="status">
+                  <span className="acq-found-check"><Check size={18} strokeWidth={3} /></span>
+                  <span style={{ fontSize: 14.5 }}><b style={{ fontSize: 17, color: '#7e22ce' }}><CountUp value={foundNote.n} /></b> businesses found{foundNote.where ? ` in ${foundNote.where}` : ''}. {foundNote.hit ? 'You hit your target.' : 'That is every match this search could reach.'}</span>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
                 <b style={{ fontSize: 14 }}>{shown.length !== results.length ? `${shown.length} of ${results.length}` : results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(shown.map((b) => b.id)))} style={{ accentColor: '#9333ea' }} /> Select all {shown.length.toLocaleString('en-US')}</label>

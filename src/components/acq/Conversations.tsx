@@ -1,5 +1,6 @@
 'use client';
 
+import { celebrate, isFirstWin } from '@/lib/celebrate';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CalendarCheck, Check, Loader2, RefreshCw, Send } from 'lucide-react';
@@ -38,16 +39,21 @@ function Detail({ r, onChanged }: { r: Reply; onChanged: () => Promise<void> }) 
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
 
-  const call = async (key: string, url: string, init: RequestInit, ok: string) => {
+  const call = async (key: string, url: string, init: RequestInit, ok: string): Promise<boolean> => {
     setBusy(key); setMsg('');
     try {
       const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } });
       const j = await res.json().catch(() => ({})) as { error?: string };
-      if (!res.ok) { setMsg(j.error ?? 'That did not work.'); return; }
+      if (!res.ok) { setMsg(j.error ?? 'That did not work.'); return false; }
       setMsg(ok); await onChanged();
-    } catch { setMsg('Could not reach the server.'); } finally { setBusy(''); }
+      return true;
+    } catch { setMsg('Could not reach the server.'); return false; } finally { setBusy(''); }
   };
-  const stage = (st: string | null, extra: Record<string, unknown> = {}) => call(`s-${st}`, `/api/client-acquisition/pipeline/${r.leadId}`, { method: 'PATCH', body: JSON.stringify({ stage: st, ...extra }) }, st ? 'Saved. Follow-ups to this contact have stopped.' : 'Saved.');
+  const stage = async (st: string | null, extra: Record<string, unknown> = {}) => {
+    const ok = await stageCall(st, extra);
+    if (ok && st === 'customer') celebrate({ title: isFirstWin() ? 'You won your first client!' : 'You just won a client!', body: `${r.business || r.name || r.email} is now a customer. Well done.` });
+  };
+  const stageCall = (st: string | null, extra: Record<string, unknown> = {}) => call(`s-${st}`, `/api/client-acquisition/pipeline/${r.leadId}`, { method: 'PATCH', body: JSON.stringify({ stage: st, ...extra }) }, st ? 'Saved. Follow-ups to this contact have stopped.' : 'Saved.');
   const saveDemo = () => call('demo', `/api/client-acquisition/pipeline/${r.leadId}`, { method: 'PATCH', body: JSON.stringify({ stage: 'demo_booked', demoAt: new Date(demo).toISOString() }) }, 'Demo recorded. Follow-ups to this contact have stopped.');
   const closed = r.stage === 'customer';
 

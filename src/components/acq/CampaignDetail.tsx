@@ -1,5 +1,6 @@
 'use client';
 
+import { celebrate, isFirstWin } from '@/lib/celebrate';
 import CampaignPipeline from './CampaignPipeline';
 import { sanitizeAutomation } from '@/lib/automation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -241,6 +242,7 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
   const leadAction = async (l: LeadDto, body: Record<string, unknown>) => {
     await fetch(`/api/outreach-campaigns/${id}/leads/${l.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     await refresh();
+    if (body.outcome === 'interested') celebrate({ title: isFirstWin() ? 'Your first interested lead!' : 'A lead is interested!', body: `${l.business || l.name || l.email} wants to talk. Reply while they are warm.` });
   };
   const removeLead = async (l: LeadDto) => {
     if (!window.confirm(l.sentAt ? `Stop emailing ${l.email}? They stay in the history.` : `Remove ${l.email} from this campaign?`)) return;

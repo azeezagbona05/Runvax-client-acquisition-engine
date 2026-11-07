@@ -1,5 +1,6 @@
 'use client';
 
+import { celebrate, isFirstWin } from '@/lib/celebrate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, MessageCircle, X } from 'lucide-react';
@@ -33,6 +34,7 @@ export default function InboxPage() {
   const decide = async (i: Item, outcome: 'interested' | 'not_interested') => {
     await fetch(`/api/outreach-campaigns/${i.campaignId}/leads/${i.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ outcome }) });
     await Promise.all([load(), reload()]);
+    if (outcome === 'interested') celebrate({ title: isFirstWin() ? 'Your first interested lead!' : 'A lead is interested!', body: `${i.business || i.name || i.email} wants to talk. Reply while they are warm.` });
   };
 
   const lists = useMemo(() => ({

@@ -1,5 +1,6 @@
 'use client';
 
+import CelebrationHost from './CelebrationHost';
 import { openWelcomeVideo } from '@/components/WelcomeVideo';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -328,6 +329,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
           {gate && !(gate !== 'signin' && (pathname === DEFAULT_HOME || pathname === SETTINGS_HOME)) ? <GateCard gate={gate} /> : children}
         </main>
       </div>
+      <CelebrationHost />
       <MobileTabBar active={active} inbox={inbox} onMore={() => setMobileOpen(true)} />
     </div>
   );

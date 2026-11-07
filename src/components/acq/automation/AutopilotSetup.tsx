@@ -1,5 +1,6 @@
 'use client';
 
+import { celebrate } from '@/lib/celebrate';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, FlaskConical, GitBranch, Loader2, Mail, MessageSquare, Pencil, Rocket, Search, Send, Sparkles, Upload, Wand2 } from 'lucide-react';
@@ -62,6 +63,12 @@ export default function AutopilotSetup({ onManual }: { onManual: (a: Automation,
   const handleGate = useHandleAIResponse();
   const [prompt, setPrompt] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
+  // The moment a build finishes, say so: this is the payoff of the one-sentence prompt.
+  const lastPhase = useRef<Phase>('idle');
+  useEffect(() => {
+    if (phase === 'done' && lastPhase.current === 'building') celebrate({ kind: 'done', title: 'Your acquisition engine is ready', body: 'Emails, follow-ups and reply handling are built. Review them, then launch.' });
+    lastPhase.current = phase;
+  }, [phase]);
   const [steps, setSteps] = useState<BuildStep[]>([]);
   const [active, setActive] = useState(-1);
   const [auto, setAuto] = useState<Automation | null>(null);

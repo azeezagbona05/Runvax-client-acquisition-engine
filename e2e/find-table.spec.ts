@@ -37,6 +37,10 @@ test.describe('Find Prospects table', () => {
 
   test('live search, advanced filters, sorting and columns', async ({ page, isMobile }) => {
     await findEight(page);
+    // The finished search lands with a "found" banner, and a small burst because it reached the number asked for.
+    await expect(page.locator('.acq-found')).toContainText('8');
+    await expect(page.locator('.acq-found')).toContainText('You hit your target');
+    await expect(page.locator('.acq-celebrate-card')).toContainText('businesses found');
     const search = page.getByRole('searchbox', { name: 'Search prospects' });
 
     // No browser or password-manager suggestions pop up over the form fields.
