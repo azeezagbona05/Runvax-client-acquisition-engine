@@ -25,7 +25,7 @@ export function planTeamQueries(o: { businessName: string; domain?: string | nul
   const city = (o.city ?? '').trim();
   const qs: string[] = [
     `site:linkedin.com/in "${name}" ${city} ${titleQuery(o.titles.slice(0, 6))}`.replace(/\s+/g, ' ').trim(),
-    `site:linkedin.com/in "${name}" ${MANAGEMENT}`,
+    `site:linkedin.com/in "${name}" ${city} ${MANAGEMENT}`.replace(/\s+/g, ' ').trim(),
   ];
   if (o.domain) qs.push(`site:linkedin.com/in "${o.domain}"`);
   qs.push(`"${name}" ${city} ${titleQuery(o.titles.slice(0, 4))} -jobs`.replace(/\s+/g, ' ').trim());

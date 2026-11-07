@@ -14,6 +14,7 @@ describe('the search plan', () => {
     expect(q[0]).toContain('site:linkedin.com/in "Smile Dental Clinic" Lagos');
     expect(q[0]).toContain('"principal dentist"');
     expect(q[1]).toMatch(/director OR manager OR head/);
+    expect(q[1]).toContain('Lagos'); // the city narrows a short or common name
     expect(q[2]).toBe('site:linkedin.com/in "smiledental.ng"');
     expect(q[3]).not.toContain('site:linkedin.com');
   });
