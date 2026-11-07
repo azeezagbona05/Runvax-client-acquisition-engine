@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { V2_COOKIE, homeRedirect } from '@/lib/v2Preference';
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Someone who switched to RUNVAX 2.0 lands there from the classic home page, as soon as they are signed in.
+  if (pathname === '/') {
+    if (req.cookies.get(V2_COOKIE)?.value === '1') {
+      const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+      const to = homeRedirect({ pathname, cookie: '1', signedIn: !!token });
+      if (to) return NextResponse.redirect(new URL(to, req.url));
+    }
+    return NextResponse.next();
+  }
 
   // Admin login page is always accessible
   if (pathname === '/admin/login') return NextResponse.next();
@@ -38,5 +49,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/growth', '/growth/:path*', '/acquisition', '/acquisition/:path*'],
+  matcher: ['/', '/admin/:path*', '/growth', '/growth/:path*', '/acquisition', '/acquisition/:path*'],
 };

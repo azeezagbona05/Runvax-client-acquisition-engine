@@ -1,14 +1,15 @@
 'use client';
 
 import CelebrationHost from './CelebrationHost';
-import { celebrate, takeSwitchCelebration } from '@/lib/celebrate';
+import { celebrate, markSwitched, takeSwitchCelebration } from '@/lib/celebrate';
+import { setPrefersV2 } from '@/lib/v2Preference';
 import { openWelcomeVideo } from '@/components/WelcomeVideo';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
-  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, PlayCircle, LogOut, Mail, Menu, MessageCircle,
+  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, PlayCircle, Undo2, LogOut, Mail, Menu, MessageCircle,
   Search, Send, Settings, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
@@ -221,6 +222,8 @@ export default function AcqShell({ children }: { children: ReactNode }) {
   // Arriving from the classic app through the switch button: congratulate them (flowers and a chime), at most once a week.
   useEffect(() => {
     if (guest) return;
+    // Arriving from the invitation email is switching too: remember it, and celebrate.
+    try { if (new URLSearchParams(window.location.search).get('ref') === 'v2-invite') markSwitched(); } catch { /* ignore */ }
     const t = setTimeout(() => {
       if (takeSwitchCelebration()) celebrate({ kind: 'welcome', title: 'Congratulations! Welcome to the new Experience Centre', body: 'You are now on RUNVAX 2.0. Find businesses, reach the decision-maker and let your AI team win clients.' });
     }, 700);
@@ -307,6 +310,9 @@ export default function AcqShell({ children }: { children: ReactNode }) {
               <Crown size={19} />{!rail && <><span>Upgrade plan</span><span className="acq-badge" style={{ background: '#f3e8ff', color: '#7e22ce' }}>Soon</span></>}
             </button>
           )}
+          <button type="button" onClick={() => { setPrefersV2(false); window.location.assign('/'); }} className="acq-nav-item" title={rail ? 'Classic RUNVAX' : undefined} style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left', ...(rail ? { justifyContent: 'center', padding: 0 } : {}) }}>
+            <Undo2 size={19} />{!rail && <span>Classic RUNVAX</span>}
+          </button>
           <button type="button" onClick={openWelcomeVideo} className="acq-nav-item" title={rail ? 'Watch intro video' : undefined} style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left', ...(rail ? { justifyContent: 'center', padding: 0 } : {}) }}>
             <PlayCircle size={19} />{!rail && <span>Watch intro video</span>}
           </button>

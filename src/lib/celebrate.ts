@@ -1,4 +1,5 @@
 import { primeAudio } from './chime';
+import { setPrefersV2 } from './v2Preference';
 
 /** Lets any screen ask for a celebration without knowing how it is drawn. The host in the Client Acquisition shell listens for it. */
 export const CELEBRATE_EVENT = 'runvax:celebrate';
@@ -29,6 +30,7 @@ const WELCOME_EVERY_MS = 7 * 24 * 60 * 60 * 1000;
 /** Call from the click that switches someone to RUNVAX 2.0: it wakes the audio and leaves a note for the new screen. */
 export function markSwitched(): void {
   try { sessionStorage.setItem(JUST_SWITCHED, '1'); } catch { /* the celebration is skipped */ }
+  setPrefersV2(true); // from now on, signing in lands in the new experience
   primeAudio();
 }
 

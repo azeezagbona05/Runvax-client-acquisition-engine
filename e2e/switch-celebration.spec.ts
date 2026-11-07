@@ -23,7 +23,7 @@ const notes = (page: Page) => page.evaluate(() => (window as unknown as { __note
 
 async function switchOver(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  const cta = page.getByRole('link', { name: /Try RUNVAX 2.0/ });
+  const cta = page.locator('.v2n-banner').getByRole('link', { name: /Switch to RUNVAX 2.0/ });
   await expect(cta).toBeVisible({ timeout: 90_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
   await cta.click();
@@ -59,9 +59,15 @@ test('switching to RUNVAX 2.0 congratulates with flowers and a chime, once, and 
   await page.getByRole('status').filter({ hasText: 'Again' }).click({ position: { x: 20, y: 20 } });
   await expect(page.getByRole('status').filter({ hasText: 'Again' })).toBeHidden();
 
-  // Going back and switching again within a week is not celebrated again.
+  // With 2.0 as the home, the classic home page hands straight on.
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('link', { name: /Try RUNVAX 2.0/ }).click({ timeout: 90_000 });
+  await page.waitForURL('**/client-acquisition/find', { timeout: 90_000 });
+
+  // Going back to the classic app and switching again within a week is not celebrated again.
+  if (isMobile) await page.getByRole('button', { name: /More/ }).click(); // on a phone the menu is behind More
+  await page.getByRole('button', { name: 'Classic RUNVAX' }).click();
+  await page.waitForURL((u) => u.pathname === '/', { timeout: 90_000 });
+  await page.locator('.v2n-banner').getByRole('link', { name: /Switch to RUNVAX 2.0/ }).click({ timeout: 90_000 });
   await page.waitForURL('**/client-acquisition/find');
   await page.waitForTimeout(2500);
   await expect(page.getByText('Welcome to the new Experience Centre')).toHaveCount(0);

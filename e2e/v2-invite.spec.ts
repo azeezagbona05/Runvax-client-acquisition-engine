@@ -12,7 +12,7 @@ test('the RUNVAX 2.0 invite: animated banner, then a popup that can be snoozed',
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const banner = page.getByText('RUNVAX 2.0 is here.');
   await expect(banner).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole('link', { name: /Try RUNVAX 2.0/ })).toBeVisible();
+  await expect(page.locator('.v2n-banner').getByRole('link', { name: /Switch to RUNVAX 2.0/ })).toBeVisible();
   // The banner really animates.
   expect(await page.locator('.v2n-cta').first().evaluate((el) => getComputedStyle(el).animationName)).not.toBe('none');
 
@@ -44,7 +44,7 @@ test('the RUNVAX 2.0 invite: animated banner, then a popup that can be snoozed',
   await page.waitForTimeout(6000);
   await expect(popup).toBeHidden();
 
-  await page.getByRole('link', { name: /Try RUNVAX 2.0/ }).click();
+  await page.locator('.v2n-banner').getByRole('link', { name: /Switch to RUNVAX 2.0/ }).click();
   await page.waitForURL('**/client-acquisition/find');
 });
 
