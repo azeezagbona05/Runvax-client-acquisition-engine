@@ -1,6 +1,7 @@
 'use client';
 
 import { celebrate } from '@/lib/celebrate';
+import FullScreen from '../FullScreen';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, FlaskConical, GitBranch, Loader2, Mail, MessageSquare, Pencil, Rocket, Search, Send, Sparkles, Upload, Wand2 } from 'lucide-react';
@@ -263,10 +264,10 @@ export default function AutopilotSetup({ onManual }: { onManual: (a: Automation,
             </div>
           )}
 
-          {(tab === 'workflow' || phase !== 'done') && <WorkflowCanvas key={phase} auto={auto} onSelect={() => setTab('test')} />}
+          {(tab === 'workflow' || phase !== 'done') && <FullScreen title="Sequence workflow"><WorkflowCanvas key={phase} auto={auto} onSelect={() => setTab('test')} /></FullScreen>}
 
           {phase === 'done' && tab === 'emails' && (
-            <div style={{ display: 'grid', gap: 10 }}>
+            <FullScreen title="Emails"><div style={{ display: 'grid', gap: 10 }}>
               {auto.emails.map((e, i) => (
                 <details key={i} className="acq-card" open={i === 0} style={{ padding: '12px 16px' }}>
                   <summary style={{ cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -283,11 +284,11 @@ export default function AutopilotSetup({ onManual }: { onManual: (a: Automation,
                   )}
                 </details>
               ))}
-            </div>
+            </div></FullScreen>
           )}
 
           {phase === 'done' && tab === 'replies' && (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <FullScreen title="Reply playbook"><div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {(auto.playbook ?? []).map((p) => (
                 <section key={p.replyClass} className="acq-card acq-card-pad" style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
                   <b style={{ fontSize: 14 }}>{PLAY_LABEL[p.replyClass]}</b>
@@ -295,10 +296,10 @@ export default function AutopilotSetup({ onManual }: { onManual: (a: Automation,
                   {p.response ? <pre style={{ whiteSpace: 'pre-wrap', font: 'inherit', fontSize: 13, lineHeight: 1.55, margin: 0, color: 'var(--ink-2)' }}>{p.response}</pre> : <p className="acq-faint" style={{ fontSize: 12.5 }}>No answer is sent.</p>}
                 </section>
               ))}
-            </div>
+            </div></FullScreen>
           )}
 
-          {phase === 'done' && tab === 'test' && <CampaignTest auto={auto} campaignId={campaignId} />}
+          {phase === 'done' && tab === 'test' && <FullScreen title="Test and preview"><CampaignTest auto={auto} campaignId={campaignId} /></FullScreen>}
 
           {phase === 'done' && tab === 'leads' && (
             <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 12 }}>

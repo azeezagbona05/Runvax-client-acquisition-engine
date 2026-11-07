@@ -573,3 +573,12 @@
 @keyframes acq-found-in { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes acq-found-ring { 0% { box-shadow: 0 0 0 0 rgba(147, 51, 234, .5); } 100% { box-shadow: 0 0 0 14px rgba(147, 51, 234, 0); } }
 @media (prefers-reduced-motion: reduce) { .acq-found, .acq-found-check { animation: none; } }
+
+/* Full screen for big panels (workflow, emails, replies, test) */
+.acq-fs-bar { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.acq-fs.open { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: #f6f8fc; padding-top: env(safe-area-inset-top); }
+.acq-fs.open .acq-fs-bar { justify-content: space-between; align-items: center; gap: 12px; margin: 0; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line); }
+.acq-fs-title { font-size: 16px; color: var(--ink); }
+.acq-fs.open .acq-fs-body { flex: 1; min-height: 0; overflow: auto; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+.acq-fs.open .acq-fs-inner { max-width: 1500px; margin: 0 auto; }
+.acq-fs, .acq-fs-body, .acq-fs-inner { min-width: 0; max-width: 100%; }

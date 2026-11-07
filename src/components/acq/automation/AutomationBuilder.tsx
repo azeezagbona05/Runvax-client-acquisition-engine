@@ -18,6 +18,7 @@ import { briefFromTemplate, mergeBrief, planFromTemplate, type Strategy } from '
 import { GuidedSetup, StrategyPanel } from './GuidedSetup';
 import CampaignReview from './CampaignReview';
 import { Card } from '../ui';
+import FullScreen from '../FullScreen';
 import LeadPicker from '../LeadPicker';
 import type { LeadInput } from '@/lib/outreachCampaign';
 import AutopilotSetup from './AutopilotSetup';
@@ -274,7 +275,7 @@ export default function AutomationBuilder() {
           {step === 2 && auto && (
             <>
               {strategy && <StrategyPanel s={strategy} />}
-              <Card>
+              <FullScreen title="Email sequence"><Card>
                 <label style={label} htmlFor="auto-name">Automation name</label>
                 <input id="auto-name" className="acq-input" style={{ height: 44, fontWeight: 600 }} value={auto.name} maxLength={120} onChange={(e) => edit({ name: e.target.value })} />
 
@@ -330,8 +331,8 @@ export default function AutomationBuilder() {
                   </div>
                 </div>
                 {issues.length > 0 && <p role="alert" style={{ marginTop: 14, color: '#b45309', fontSize: 13, background: '#fff8eb', border: '1px solid #fcd9a6', borderRadius: 10, padding: '8px 12px' }}>{issues[0]}</p>}
-              </Card>
-              {nav(() => setStep(1), { label: 'Next: Auto Follow-up', disabled: issues.length > 0, onClick: () => setStep(3) })}
+              </Card></FullScreen>
+              {nav(() => setStep(1), { label: 'Next', disabled: issues.length > 0, onClick: () => setStep(3) })}
             </>
           )}
 
@@ -407,7 +408,7 @@ export default function AutomationBuilder() {
                   </div>
                 </Card>
               </div>
-              {nav(() => setStep(2), { label: 'Next: Review & Deploy', onClick: () => setStep(4) })}
+              {nav(() => setStep(2), { label: 'Next', onClick: () => setStep(4) })}
             </>
           )}
 

@@ -45,6 +45,18 @@ test('the campaign builder is calm: a few questions, one next step, AI help only
   await page.getByLabel('Product or service name').or(page.locator('#gs-offer')).fill('Harzo Property Sites');
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByText('Step 2 of 4')).toBeVisible({ timeout: 60_000 });
+
+  // Step 2 fits the screen: nothing pushes the page sideways.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+
+  // The email sequence can go full screen, and what is typed there is still there afterwards.
+  await page.getByRole('button', { name: 'Full screen: Email sequence' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Email sequence' });
+  await expect(dlg).toBeVisible();
+  await dlg.getByLabel('Automation name').fill('My renamed campaign');
+  await page.keyboard.press('Escape');
+  await expect(dlg).toBeHidden();
+  await expect(page.getByLabel('Automation name')).toHaveValue('My renamed campaign');
 });
 
 test('without a template it asks three things', async ({ page }) => {
