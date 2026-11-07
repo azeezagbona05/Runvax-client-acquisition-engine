@@ -32,6 +32,18 @@ beforeEach(() => {
 });
 
 describe('admin email campaigns', () => {
+  it('the RUNVAX 2.0 invitation (launch_3) is test-sent to the admin only, needs SEND, and sends in batches', async () => {
+    expect((await post({ campaign: 'launch_3', action: 'send' })).status).toBe(400);
+    expect(mocks.sendLaunchBatch).not.toHaveBeenCalled();
+    const t = await post({ campaign: 'launch_3', action: 'test' });
+    expect(t.status).toBe(200);
+    expect(mocks.sendLaunchTest).toHaveBeenCalledWith(3, 'admin@runvax.com');
+    const s = await post({ campaign: 'launch_3', action: 'send', confirm: 'SEND' });
+    expect(s.status).toBe(200);
+    expect(mocks.sendLaunchBatch).toHaveBeenCalledWith(3);
+    expect(mocks.auditCreate).toHaveBeenCalled();
+  });
+
   it('is admin only', async () => {
     mocks.requireAdmin.mockResolvedValue({ ok: false, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) });
     const res = await post({ campaign: 'launch_1', action: 'send', confirm: 'SEND' });

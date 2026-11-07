@@ -30,6 +30,11 @@ export function trialOfferOpen(now: Date = new Date()): boolean {
   return now.getTime() < trialOfferEndsAt().getTime();
 }
 
+/** True when the offer has a real end date (within two years), so an email can say "claim by" without printing a far-future placeholder. */
+export function trialOfferHasDeadline(now: Date = new Date()): boolean {
+  return trialOfferEndsAt().getTime() - now.getTime() < 2 * 365 * 24 * 60 * 60 * 1000;
+}
+
 /** The last day the offer can be claimed, e.g. "Saturday, 7 November 2026". */
 export function trialOfferLastDayLabel(): string {
   const lastDay = new Date(trialOfferEndsAt().getTime() - 1);

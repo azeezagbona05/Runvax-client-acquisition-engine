@@ -1,21 +1,24 @@
 import { prisma } from '@/lib/prisma';
 import {
-  createTransporter, launchCampaignEmailHtml, launchCountdownEmailHtml, LAUNCH_EMAIL_1_SUBJECT, launchEmail2Subject,
+  createTransporter, launchCampaignEmailHtml, launchCountdownEmailHtml, LAUNCH_EMAIL_1_SUBJECT, launchEmail2Subject, v2InviteEmailHtml, v2InviteSubject,
 } from '@/lib/email';
 import { getAppUrl, getAppName } from '@/lib/url';
-import { trialOfferLastDayLabel, daysUntilLaunch } from '@/lib/promo';
+import { trialOfferLastDayLabel, daysUntilLaunch, trialOfferOpen, trialOfferHasDeadline } from '@/lib/promo';
 import { unsubscribeUrl } from '@/lib/unsubscribe';
 import { emailConfigured } from '@/lib/lifecycleRunner';
 
 /**
- * The two launch emails (offer, then countdown), sent from the admin dashboard.
+ * The launch emails (1: the offer, 2: the countdown, 3: the invitation to try RUNVAX 2.0), sent from the admin dashboard.
  *
  * "Who already got it" lives in the LifecycleEmail table (key launch_1 / launch_2), so a send
  * can be resumed in batches, never double-sends, and the dashboard always shows true counts.
  * People who unsubscribed (key 'optout') and suspended accounts are skipped.
  */
 
-export type LaunchWhich = 1 | 2;
+export type LaunchWhich = 1 | 2 | 3;
+
+/** Accounts this new already land in RUNVAX 2.0 when they sign up, so the invitation to try it is for people who joined before. */
+export const INVITE_MIN_ACCOUNT_AGE_DAYS = 3;
 export const launchKey = (w: LaunchWhich) => `launch_${w}` as const;
 
 /** Per request: keeps a batch inside the serverless time limit (about 0.5s per email). */
@@ -29,21 +32,23 @@ export interface Audience {
   alreadySent: number;
   /** Email 2 only: people who already claimed the free Pro, so a "claim it" reminder doesn't apply. */
   alreadyClaimed: number;
-  eligible: Array<{ id: string; email: string; name: string | null; verified: boolean }>;
+  /** Email 3 only: accounts too new to be "existing users" (they already start in RUNVAX 2.0). */
+  joinedRecently: number;
+  eligible: Array<{ id: string; email: string; name: string | null; verified: boolean; claimed: boolean }>;
 }
 
 export async function launchAudience(which: LaunchWhich): Promise<Audience> {
   const users = await prisma.user.findMany({
     where: { isSuspended: false, email: { not: null } },
-    select: { id: true, email: true, name: true, emailVerified: true },
+    select: { id: true, email: true, name: true, emailVerified: true, createdAt: true },
     orderBy: { createdAt: 'asc' },
   });
   const rows = await prisma.lifecycleEmail.findMany({
     where: { key: { in: [launchKey(which), 'optout'] } },
     select: { userId: true, key: true },
   });
-  // Email 2 reminds people to claim the offer, so it skips anyone who already has (a trial, or a paid plan).
-  const claimed = which === 2
+  // Who already has a trial or a paid plan: email 2 skips them; email 3 still invites them, but without the trial offer.
+  const claimed = which !== 1
     ? new Set((await prisma.payment.findMany({
         where: { OR: [{ reference: { startsWith: 'trial_' } }, { amount: { gt: 0 }, status: 'success' }] },
         select: { userId: true },
@@ -54,26 +59,33 @@ export async function launchAudience(which: LaunchWhich): Promise<Audience> {
 
   const seen = new Set<string>();
   const eligible: Audience['eligible'] = [];
-  let optedOut = 0, alreadySent = 0, alreadyClaimed = 0;
+  const newerThan = Date.now() - INVITE_MIN_ACCOUNT_AGE_DAYS * 24 * 60 * 60 * 1000;
+  let optedOut = 0, alreadySent = 0, alreadyClaimed = 0, joinedRecently = 0;
   for (const u of users) {
     const email = u.email!.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || seen.has(email)) continue;
     seen.add(email);
     if (out.has(u.id)) { optedOut++; continue; }
     if (sent.has(u.id)) { alreadySent++; continue; }
-    if (claimed.has(u.id)) { alreadyClaimed++; continue; }
-    eligible.push({ id: u.id, email, name: u.name, verified: !!u.emailVerified });
+    if (which === 3 && u.createdAt.getTime() > newerThan) { joinedRecently++; continue; }
+    if (which === 2 && claimed.has(u.id)) { alreadyClaimed++; continue; }
+    eligible.push({ id: u.id, email, name: u.name, verified: !!u.emailVerified, claimed: claimed.has(u.id) });
   }
   return {
     total: seen.size,
     verified: users.filter((u) => u.emailVerified).length,
     unverified: users.filter((u) => !u.emailVerified).length,
-    optedOut, alreadySent, alreadyClaimed, eligible,
+    optedOut, alreadySent, alreadyClaimed, joinedRecently, eligible,
   };
 }
 
-function render(which: LaunchWhich, name: string, unsub?: string) {
+function render(which: LaunchWhich, name: string, unsub?: string, claimed = false) {
   const appUrl = getAppUrl(), appName = getAppName(), claimBy = trialOfferLastDayLabel();
+  if (which === 3) {
+    // The free trial is mentioned only to people who can still claim it: one trial per account, and the offer may have closed.
+    const trialAvailable = trialOfferOpen() && !claimed;
+    return { subject: v2InviteSubject(trialAvailable), html: v2InviteEmailHtml(name, appUrl, appName, { trialAvailable, claimBy: trialOfferHasDeadline() ? claimBy : null }, unsub) };
+  }
   if (which === 1) return { subject: LAUNCH_EMAIL_1_SUBJECT, html: launchCampaignEmailHtml(name, appUrl, appName, claimBy, unsub) };
   const daysLeft = daysUntilLaunch();
   return { subject: launchEmail2Subject(daysLeft), html: launchCountdownEmailHtml(name, appUrl, appName, claimBy, daysLeft, unsub) };
@@ -112,7 +124,7 @@ export async function sendLaunchBatch(which: LaunchWhich, limit = MAX_BATCH): Pr
     try { await prisma.lifecycleEmail.create({ data: { userId: u.id, key: launchKey(which) } }); } catch { continue; }
     try {
       const unsub = unsubscribeUrl(appUrl, u.id);
-      const mail = render(which, u.name ?? '', unsub);
+      const mail = render(which, u.name ?? '', unsub, u.claimed);
       await transporter.sendMail({
         from: from(), to: u.email, subject: mail.subject, html: mail.html,
         headers: { 'List-Unsubscribe': `<${unsub}>, <mailto:info@runvax.com?subject=Unsubscribe>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },

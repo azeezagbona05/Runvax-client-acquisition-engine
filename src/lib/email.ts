@@ -691,3 +691,42 @@ export function launchCountdownEmailHtml(name: string, appUrl: string, appName: 
   return emailShell(appName, body, pre, MARKETING_NOTE(appName, unsubscribeUrl));
 }
 
+
+
+/** Email 3: an invitation for existing users to come and try RUNVAX 2.0, with the free trial for those who can still claim it. */
+export const v2InviteSubject = (trialAvailable: boolean) =>
+  trialAvailable ? `RUNVAX 2.0 is here: come and see it, with ${TRIAL_DAYS} days of Pro free` : 'RUNVAX 2.0 is here: come and see the new experience';
+
+export function v2InviteEmailHtml(name: string, appUrl: string, appName: string, o: { trialAvailable: boolean; /** The last day to claim, or null when the offer has no end date yet. */ claimBy: string | null }, unsubscribeUrl?: string): string {
+  const home = `${appUrl}/client-acquisition/find?ref=v2-invite`;
+  const trial = o.trialAvailable
+    ? `<p style="margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:1px;color:#7c3aed;">AND IT&rsquo;S FREE TO TRY</p>
+       <p style="${p}">Every account can start one free trial of Pro: <strong>${TRIAL_DAYS} days, $0, no credit card.</strong> It starts when you claim it, so there is no rush to switch today.</p>
+       ${offerCard()}
+       ${ctaButton(`Claim my ${TRIAL_DAYS} free days`, `${appUrl}/claim-pro`)}`
+    : '';
+  const body = `
+    ${iconBadge('✨', '#7c3aed')}
+    <h1 style="${h1}">Meet ${appName} 2.0: your new client acquisition engine.</h1>
+    <p style="${p}">Hi <strong style="color:#1e293b;">${firstNameOf(name)}</strong>,</p>
+    <p style="${p}">You have been using ${appName} to find clients. We have built something new on top of it and we would love you to come and try it. It is called <strong>${appName} 2.0</strong>.</p>
+    ${ctaButton(`Switch to ${appName} 2.0`, home)}
+
+    <p style="margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:1px;color:#7c3aed;">WHAT&rsquo;S NEW</p>
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 26px;">
+      ${featureRow('🌍', 'Find businesses in any country', 'Pick a country, an area and a category, such as restaurants in Victoria Island, and see the businesses with their phone, website and rating.')}
+      ${featureRow('🎯', 'Reach the person who decides', 'Look up the owner or manager of a business, with how sure we are and where we found them.')}
+      ${featureRow('🤖', 'An AI team that does the follow-up', 'Describe what you sell in one sentence and it builds the emails, the follow-ups and the reply handling. You review everything before anything is sent.')}
+      ${featureRow('🧭', 'Campaign templates for 17 industries', 'Start from a template for real estate, healthcare, solar, legal, education and more.')}
+      ${featureRow('📱', 'Made for your phone', 'It works like an app on your phone, so you can run your outreach from anywhere.')}
+    </table>
+
+    ${trial}
+
+    <p style="${p}">Switching takes one click, and you can go back to the classic ${appName} from the menu whenever you like.</p>
+    ${ctaButton(`Come and see ${appName} 2.0`, home)}
+    ${o.trialAvailable ? `<p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">${o.claimBy ? `Claim your free ${TRIAL_DAYS} days by ${o.claimBy}. ` : ''}One free trial per account. Offer subject to eligibility.</p>` : ''}
+    <p style="margin:0;font-size:15px;color:#334155;line-height:1.6;">See you inside ${appName} 2.0!<br><strong>The ${appName} Team</strong></p>
+  `;
+  return emailShell(appName, body, o.trialAvailable ? `Come and try ${appName} 2.0. ${TRIAL_DAYS} days of Pro free, no credit card.` : `Come and try ${appName} 2.0.`, MARKETING_NOTE(appName, unsubscribeUrl));
+}

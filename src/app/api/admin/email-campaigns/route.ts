@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**
- * Admin-only control for the email campaigns: the two launch emails and the new-user workflow.
+ * Admin-only control for the email campaigns: the launch emails (offer, countdown, RUNVAX 2.0 invitation) and the new-user workflow.
  * Every real send is audit-logged. A "send" needs the typed confirmation word, so a stray
  * request can never email the user base.
  */
@@ -23,11 +23,11 @@ export async function GET() {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
   try {
-    const [a1, a2] = await Promise.all([launchAudience(1), launchAudience(2)]);
+    const [a1, a2, a3] = await Promise.all([launchAudience(1), launchAudience(2), launchAudience(3)]);
     const strip = (a: Awaited<ReturnType<typeof launchAudience>>) => ({
-      total: a.total, verified: a.verified, unverified: a.unverified, optedOut: a.optedOut, alreadySent: a.alreadySent, alreadyClaimed: a.alreadyClaimed, eligible: a.eligible.length,
+      total: a.total, verified: a.verified, unverified: a.unverified, optedOut: a.optedOut, alreadySent: a.alreadySent, alreadyClaimed: a.alreadyClaimed, joinedRecently: a.joinedRecently, eligible: a.eligible.length,
     });
-    return NextResponse.json({ ok: true, emailConfigured: emailConfigured(), maxBatch: MAX_BATCH, launch: { 1: strip(a1), 2: strip(a2) } });
+    return NextResponse.json({ ok: true, emailConfigured: emailConfigured(), maxBatch: MAX_BATCH, launch: { 1: strip(a1), 2: strip(a2), 3: strip(a3) } });
   } catch (e) {
     console.error('[admin/email-campaigns] status', e);
     return NextResponse.json({ ok: false, error: UNAVAILABLE }, { status: 503 });
@@ -35,7 +35,7 @@ export async function GET() {
 }
 
 type Body = {
-  campaign?: 'launch_1' | 'launch_2' | 'workflow';
+  campaign?: 'launch_1' | 'launch_2' | 'launch_3' | 'workflow';
   action?: 'test' | 'send' | 'preview' | 'run';
   confirm?: string;
 };
@@ -61,8 +61,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ── A launch email ──
-    if (campaign === 'launch_1' || campaign === 'launch_2') {
-      const which: LaunchWhich = campaign === 'launch_1' ? 1 : 2;
+    if (campaign === 'launch_1' || campaign === 'launch_2' || campaign === 'launch_3') {
+      const which: LaunchWhich = campaign === 'launch_1' ? 1 : campaign === 'launch_2' ? 2 : 3;
 
       if (action === 'test') {
         if (!emailConfigured()) return NextResponse.json({ error: 'Email is not configured on this server.' }, { status: 503 });

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Send, Mail, Eye, Play, Square, AlertTriangle, CheckCircle } from 'lucide-react';
 
-interface AudienceStats { total: number; verified: number; unverified: number; optedOut: number; alreadySent: number; alreadyClaimed: number; eligible: number }
-interface Status { ok: boolean; emailConfigured: boolean; maxBatch: number; launch: { 1: AudienceStats; 2: AudienceStats } }
+interface AudienceStats { total: number; verified: number; unverified: number; optedOut: number; alreadySent: number; alreadyClaimed: number; joinedRecently?: number; eligible: number }
+interface Status { ok: boolean; emailConfigured: boolean; maxBatch: number; launch: { 1: AudienceStats; 2: AudienceStats; 3: AudienceStats } }
 interface WorkflowResult { ok: boolean; skipped?: boolean; reason?: string; dryRun: boolean; considered: number; sent: Record<string, number>; failed: number }
 
 const STEP_LABEL: Record<string, string> = {
@@ -28,7 +28,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 /** Sends in batches until nobody is left, with a stop button; shows live progress. */
 function LaunchCard({ which, title, blurb, stats, maxBatch, onDone }: {
-  which: 1 | 2; title: string; blurb: string; stats: AudienceStats; maxBatch: number; onDone: () => void;
+  which: 1 | 2 | 3; title: string; blurb: string; stats: AudienceStats; maxBatch: number; onDone: () => void;
 }) {
   const campaign = `launch_${which}`;
   const [testing, setTesting] = useState(false);
@@ -90,7 +90,9 @@ function LaunchCard({ which, title, blurb, stats, maxBatch, onDone }: {
         <Stat label="Unsubscribed" value={stats.optedOut} />
         {which === 2
           ? <Stat label="Already claimed (skipped)" value={stats.alreadyClaimed} />
-          : <Stat label="Unverified (can't log in)" value={stats.unverified} />}
+          : which === 3
+            ? <Stat label="Joined in the last 3 days (skipped)" value={stats.joinedRecently ?? 0} />
+            : <Stat label="Unverified (can't log in)" value={stats.unverified} />}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mt-4">
@@ -241,6 +243,8 @@ export default function EmailCampaignsPanel() {
             blurb="“Get 10 days of Pro access for free.” Every button opens the claim page. Send this first." />
           <LaunchCard which={2} title="Launch email 2: the story and countdown" stats={status.launch[2]} maxBatch={status.maxBatch} onDone={() => void load()}
             blurb="The story-style follow-up with a live countdown to 1 November, for people who haven't claimed their free Pro yet. Send about two days after email 1." />
+          <LaunchCard which={3} title="Launch email 3: come and try RUNVAX 2.0" stats={status.launch[3]} maxBatch={status.maxBatch} onDone={() => void load()}
+            blurb="Invites existing users to switch to RUNVAX 2.0. People who can still claim it also hear about the free 10 days of Pro, no card. People who already have a trial or a paid plan get the invitation without the offer. Skips accounts under 3 days old (they start in 2.0 already) and anyone unsubscribed. Send a test to yourself first." />
         </>
       )}
       <WorkflowCard />
