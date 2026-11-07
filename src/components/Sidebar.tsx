@@ -82,7 +82,7 @@ export default function Sidebar() {
         <div className={`flex items-center h-16 px-3 border-b border-white/[0.06] flex-shrink-0 ${rail ? 'justify-center' : 'justify-between'}`}>
           {!rail && (
             <div className="flex items-center gap-2.5 min-w-0 pl-1">
-              <img src="/logo.svg" alt="" className="w-8 h-8 flex-shrink-0" />
+              <img src="/logo-icon.png" alt="" className="object-contain w-8 h-8 flex-shrink-0" />
               <div className="min-w-0">
                 <div className="text-sm font-black text-white leading-tight">Runvax</div>
                 <div className="text-[10px] text-gray-600 leading-tight">Find · Pitch · Win</div>

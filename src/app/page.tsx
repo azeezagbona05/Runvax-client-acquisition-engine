@@ -706,7 +706,7 @@ export default function Home() {
               <div className="absolute inset-0 flex items-start justify-center pt-10 px-4 z-10">
                 <div className="bg-gray-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 max-w-md w-full p-5 sm:p-8 text-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-purple-900/30">
-                    <img src="/logo.svg" alt="" className="w-10 h-10" />
+                    <img src="/logo-icon.png" alt="" className="object-contain w-10 h-10" />
                   </div>
 
                   {guestStats.noWebsite > 0 ? (

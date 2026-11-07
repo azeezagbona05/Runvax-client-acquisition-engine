@@ -73,7 +73,7 @@ export default function InstallBanner() {
     <div className="install-banner fixed z-[60] left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm"
       style={{ bottom: `calc(env(safe-area-inset-bottom) + ${typeof window !== 'undefined' && window.innerWidth < 640 ? '4rem' : '1rem'})` }}>
       <div className="bg-gray-900 border border-purple-500/40 rounded-2xl p-4 shadow-2xl shadow-black/60 flex items-start gap-3">
-        <img src="/logo.svg" alt="" className="w-10 h-10 rounded-xl flex-shrink-0 bg-gray-800" />
+        <img src="/logo-icon.png" alt="" className="object-contain w-10 h-10 rounded-xl flex-shrink-0 bg-gray-800" />
         <div className="flex-1 min-w-0">
           <p className="font-bold text-white text-sm leading-tight">Add to Home Screen</p>
           {isIOS ? (

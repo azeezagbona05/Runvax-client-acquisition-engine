@@ -52,7 +52,7 @@ function ResetPasswordContent() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-orange-500 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <img src="/logo.svg" alt="Runvax" className="w-7 h-7" />
+            <img src="/logo-icon.png" alt="Runvax" className="object-contain w-7 h-7" />
           </div>
           <h1 className="text-2xl font-black text-white">Set new password</h1>
           <p className="text-gray-500 text-sm mt-1">Choose a strong password for your account</p>

@@ -86,7 +86,7 @@ export default function Nav() {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="flex items-center justify-between px-4 h-14">
-          <img src="/logo.svg" alt="Runvax" className="w-8 h-8" />
+          <img src="/logo-icon.png" alt="Runvax" className="object-contain w-8 h-8" />
 
           <div className="flex items-center gap-2">
             {!PRICING_ENABLED && <StartTrialButton variant="pill" />}
