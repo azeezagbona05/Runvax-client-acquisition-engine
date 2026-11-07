@@ -9,6 +9,7 @@ import { chargeReveals, loadCredits } from '@/lib/emailCredits';
 import { findDecisionMakers } from '@/lib/dmFinder';
 import { findPeople, MAX_PEOPLE } from '@/lib/acqPeople';
 import { logAgent } from '@/lib/acqReplies';
+import { webSearchConfigured } from '@/lib/webSearch';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -56,5 +57,7 @@ export async function POST(req: NextRequest) {
   const hide = new Set((charge?.unaffordable ?? []).map((e) => e.toLowerCase()));
   const people = hide.size ? result.people.map((p) => (p.email && hide.has(p.email.toLowerCase()) ? { ...p, email: undefined, emailState: undefined } : p)) : result.people;
   await logAgent(user.userId, 'audience', `Looked up the people at ${name}`, people.length ? `${people.length} found.` : 'Nobody found.');
-  return NextResponse.json({ ...result, people, balance: creditsOk ? (charge?.summary.total ?? before.total) : null });
+  // Be straight about why a search came back empty when the LinkedIn search is not switched on.
+  const note = !people.length && !webSearchConfigured() ? `${result.note ?? 'No named people were found.'} Searching for LinkedIn profiles is not switched on yet.` : result.note;
+  return NextResponse.json({ ...result, ...(note ? { note } : {}), people, searchOn: webSearchConfigured(), balance: creditsOk ? (charge?.summary.total ?? before.total) : null });
 }

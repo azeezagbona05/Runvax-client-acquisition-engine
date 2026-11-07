@@ -12,12 +12,14 @@
  */
 
 import { safeFetch } from '@/lib/safeFetch';
+import { webSearch, webSearchConfigured } from '@/lib/webSearch';
+import { classifyHits, planTeamQueries } from '@/lib/teamIntel';
 import { apolloEnabled, domainFromUrl, findDecisionMaker } from '@/lib/apollo';
 import { domainContacts, findEmail as snovFindEmail, snovEnabled, verifyEmails } from '@/lib/snov';
 import { emailPatterns } from '@/lib/emailPatterns';
 import { channelsOf, crawlSite, rankedPeople, type ContactChannel, type SiteIntel } from '@/lib/siteIntel';
 import {
-  cleanPhone, extractDecisionMaker, industryTitles, titleQuery, mapApifyItem, mergeCandidates, isStrong, parseLinkedInResult, parseSnippetResult, titleRank,
+  cleanPhone, extractDecisionMaker, industryTitles, titleQuery, mapApifyItem, mergeCandidates, isStrong, titleRank,
   type DmCandidate, type DmSource,
 } from '@/lib/decisionMaker';
 
@@ -85,55 +87,15 @@ const website: Provider = {
 
 // ── Free: public web search ──────────────────────────────────────────────────
 
-interface SearchHit { title?: string; url?: string; description?: string }
-
-async function braveSearch(q: string): Promise<SearchHit[]> {
-  const key = process.env.BRAVE_SEARCH_KEY;
-  if (!key || !key.trim() || key.includes('your-')) return [];
-  try {
-    const res = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=10`, {
-      headers: { Accept: 'application/json', 'X-Subscription-Token': key },
-      signal: AbortSignal.timeout(SEARCH_TIMEOUT),
-    });
-    if (!res.ok) return [];
-    const json = await res.json() as { web?: { results?: SearchHit[] } };
-    return json.web?.results ?? [];
-  } catch { return []; }
-}
-
-const strip = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
-
-/** Best-effort fallback when no search API key is set. Engines throttle servers, so empty is normal. */
-async function bingSearch(q: string): Promise<SearchHit[]> {
-  const html = await getText(`https://www.bing.com/search?q=${encodeURIComponent(q)}&mkt=en-NG`, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept-Language': 'en-US,en;q=0.9' },
-  }, SEARCH_TIMEOUT);
-  if (!html || html.length < 500 || /captcha/i.test(html)) return [];
-  const out: SearchHit[] = [];
-  for (const block of Array.from(html.matchAll(/<li class="b_algo"[\s\S]*?<\/li>/g)).slice(0, 10)) {
-    const a = block[0].match(/<h2[^>]*><a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/);
-    if (!a) continue;
-    const p = block[0].match(/<p[^>]*>([\s\S]*?)<\/p>/);
-    out.push({ url: a[1].replace(/&amp;/g, '&'), title: strip(a[2]), description: p ? strip(p[1]) : '' });
-  }
-  return out;
-}
-
 const search: Provider = {
-  id: 'search', paid: false, enabled: () => true,
-  async run({ businessName, city, category, categoryTypes }) {
-    const short = businessName.split('(')[0].trim();
+  id: 'search', paid: false, enabled: () => webSearchConfigured(),
+  async run({ businessName, city, category, categoryTypes, domain }) {
     const titles = industryTitles(category, categoryTypes);
-    const queries = [
-      `site:linkedin.com/in "${short}" ${city} ${titleQuery(titles)}`,
-      `"${short}" ${city} ${titleQuery(titles.slice(0, 4))} -jobs`,
-    ];
-    const engine = process.env.BRAVE_SEARCH_KEY?.trim() ? braveSearch : bingSearch;
-    const hits = (await Promise.all(queries.map((q) => engine(q)))).flat();
     const out: DmCandidate[] = [];
-    for (const h of hits) {
-      const c = parseLinkedInResult(h, short) ?? parseSnippetResult(h, short);
-      if (c) out.push(c);
+    // One search at a time: a search API rate-limits bursts, and the plan stops early once enough people are named.
+    for (const q of planTeamQueries({ businessName, domain, city, titles })) {
+      out.push(...classifyHits(await webSearch(q), { businessName, domain }));
+      if (new Set(out.map((c) => c.name.toLowerCase())).size >= 6) break;
     }
     return out;
   },

@@ -360,6 +360,10 @@ export interface DmCandidate {
   sources?: DmSource[];
   /** The page where this person was found, when we know it. */
   sourcePage?: string;
+  /** How firmly they are tied to this business: 'confirmed' (their own profile names it next to a title) or 'likely'. */
+  match?: 'confirmed' | 'likely';
+  /** The page and snippet that put them here, so it can be checked. */
+  evidence?: { url: string; snippet: string };
 }
 
 const COMPANY_NOISE = /\b(ltd|limited|llc|inc|plc|co|company|the|and|of|nigeria|ng|group|services|solutions)\b/g;
@@ -485,8 +489,13 @@ export function mergeCandidates(all: DmCandidate[]): DmCandidate[] {
     if (!prev) { byName.set(key, { ...c, sources: [c.source] }); continue; }
     const sources = Array.from(new Set([...(prev.sources ?? [prev.source]), c.source]));
     const better = titleRank(c.title) >= 0 && (titleRank(prev.title) < 0 || titleRank(c.title) < titleRank(prev.title)) ? c : prev;
+    // Named by the company's own website and also found on the open web: that is as firm as it gets.
+    const match = prev.match === 'confirmed' || c.match === 'confirmed' || (sources.includes('website') && sources.includes('search')) ? 'confirmed' : (prev.match ?? c.match);
+    const evidence = prev.evidence ?? c.evidence;
     byName.set(key, {
       ...prev,
+      ...(match ? { match } : {}),
+      ...(evidence ? { evidence } : {}),
       title: better.title,
       linkedin: prev.linkedin ?? c.linkedin,
       email: prev.email ?? c.email,

@@ -18,7 +18,7 @@ import SignupPrompt from './SignupPrompt';
 const PENDING_KEY = 'rv_pending_find';
 
 type Email = { state: 'loading' } | { state: 'done'; email: string | null };
-type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string; sourcePage?: string; linkedin?: string };
+type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string }; linkedin?: string };
 type Channel = { type: 'decision_maker_email' | 'general_email' | 'contact_form' | 'business_phone' | 'none'; value?: string; person?: string; sourcePage?: string };
 type People = { state: 'loading' } | { state: 'done'; people: Person[]; channels: Channel[]; note?: string };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -280,10 +280,10 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
         return;
       }
       const res = await fetch('/api/client-acquisition/people', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, max: opts.max ?? 5 }) });
-      const j = await res.json().catch(() => ({})) as { people?: Array<{ name: string; title: string; email?: string; emailState?: 'confirmed' | 'unconfirmed'; linkedin?: string; sourcePage?: string }>; channels?: Channel[]; note?: string; error?: string; balance?: number | null };
+      const j = await res.json().catch(() => ({})) as { people?: Array<{ name: string; title: string; email?: string; emailState?: 'confirmed' | 'unconfirmed'; linkedin?: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string } }>; channels?: Channel[]; note?: string; error?: string; balance?: number | null };
       if (!res.ok) { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: j.error ?? 'Lookup failed.' } })); return; }
       if (typeof j.balance === 'number') setCredits((c) => (c ? { ...c, balance: j.balance ?? null } : c));
-      const list: Person[] = (j.people ?? []).map((p) => ({ name: p.name, title: p.title, source: 'lookup', ...(p.email ? { email: p.email, emailStatus: p.emailState === 'confirmed' ? 'valid' : 'unconfirmed' } : {}), ...(p.linkedin ? { linkedin: p.linkedin } : {}), ...(p.sourcePage ? { sourcePage: p.sourcePage } : {}) }));
+      const list: Person[] = (j.people ?? []).map((p) => ({ name: p.name, title: p.title, source: 'lookup', ...(p.email ? { email: p.email, emailStatus: p.emailState === 'confirmed' ? 'valid' : 'unconfirmed' } : {}), ...(p.linkedin ? { linkedin: p.linkedin } : {}), ...(p.sourcePage ? { sourcePage: p.sourcePage } : {}), ...(p.match ? { match: p.match } : {}), ...(p.evidence ? { evidence: p.evidence } : {}) }));
       setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: list, channels: j.channels ?? [], note: list.length ? undefined : j.note } }));
     } catch { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: 'Lookup failed.' } })); }
   };
@@ -586,6 +586,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                         <b>{p.name}</b>{p.title ? <span className="acq-sub"> · {p.title}</span> : null}
                                         {p.sourcePage ? <a href={p.sourcePage} target="_blank" rel="noopener noreferrer" className="acq-faint" style={{ marginLeft: 6, textDecoration: 'underline' }} title="The page where we found this person">source</a> : null}
                                         {p.linkedin ? <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="acq-faint" style={{ marginLeft: 6, textDecoration: 'underline' }}>LinkedIn</a> : null}
+                                        {p.match ? <span className={`acq-pill ${p.match === 'confirmed' ? 'acq-pill-green' : 'acq-pill-amber'}`} style={{ marginLeft: 6 }} title={p.evidence?.snippet ? `Why: ${p.evidence.snippet}` : p.match === 'confirmed' ? 'Their own profile names this business next to this title.' : 'This business is named near them, but not on their own headline.'}>{p.match === 'confirmed' ? 'Confirmed' : 'Likely'}</span> : null}
                                         <br />
                                         {p.email
                                           ? v === 'invalid' ? <span className="acq-faint" style={{ textDecoration: 'line-through' }} title="The email check says this address does not exist">{p.email}</span>
