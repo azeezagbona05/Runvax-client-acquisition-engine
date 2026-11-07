@@ -39,6 +39,12 @@ test.describe('Find Prospects table', () => {
     await findEight(page);
     const search = page.getByRole('searchbox', { name: 'Search prospects' });
 
+    // No browser or password-manager suggestions pop up over the form fields.
+    for (const sel of ['#pf-country', '#pf-state', '#pf-loc', '#pf-ind']) await expect(page.locator(sel)).toHaveAttribute('autocomplete', 'nope');
+    await expect(page.getByLabel('How many businesses')).toHaveAttribute('autocomplete', 'nope');
+    await expect(search).toHaveAttribute('autocomplete', 'nope');
+    await expect(page.locator('form').first()).toHaveAttribute('autocomplete', 'off');
+
     // Search narrows as you type (after a short pause), matches any word in any column, and clearing restores everything.
     await search.fill('lekki');
     await expect(page.getByText('1 of 8 prospects')).toBeVisible();

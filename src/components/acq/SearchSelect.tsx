@@ -1,5 +1,6 @@
 'use client';
 
+import { NO_AUTOFILL } from '@/lib/noAutofill';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Plus, Search, X } from 'lucide-react';
 
@@ -106,7 +107,7 @@ function Picker({ id, options: allOptions, placeholder = 'Select…', searchPlac
         ))}
         {open && (!multi || !values.length) && <Search size={15} aria-hidden style={{ color: 'var(--sub)', flex: 'none', marginLeft: multi ? 6 : 0 }} />}
         <input
-          ref={input} id={id} disabled={disabled} autoComplete="off"
+          ref={input} id={id} disabled={disabled} {...NO_AUTOFILL} name={`${id}-search`}
           role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list"
           aria-activedescendant={open && shown[active] ? `${listId}-${active}` : undefined}
           value={open || multi ? q : single?.label ?? ''}

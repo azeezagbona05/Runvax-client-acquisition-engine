@@ -1,5 +1,6 @@
 'use client';
 
+import { NO_AUTOFILL } from '@/lib/noAutofill';
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState, type VisibilityState } from '@tanstack/react-table';
 import { Loader2, Search, Square, Star, Zap } from 'lucide-react';
@@ -399,7 +400,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
         </label>
         <button type="button" className="acq-btn acq-btn-sm" disabled={curPage <= 1} onClick={() => setPage(1)} aria-label="First page">«</button>
         <button type="button" className="acq-btn acq-btn-sm" disabled={curPage <= 1} onClick={() => setPage(curPage - 1)}>Previous</button>
-        <span style={{ fontSize: 13, minWidth: 90, textAlign: 'center' }}>Page <input type="number" min={1} max={pageCount} className="acq-input" aria-label="Page number" style={{ width: 62, height: 30, padding: '0 6px', textAlign: 'center' }} value={curPage} onChange={(e) => { const n = Math.floor(Number(e.target.value)); if (n >= 1) setPage(Math.min(n, pageCount)); }} /> of {pageCount.toLocaleString('en-US')}</span>
+        <span style={{ fontSize: 13, minWidth: 90, textAlign: 'center' }}>Page <input {...NO_AUTOFILL} name="pf-page" type="number" min={1} max={pageCount} className="acq-input" aria-label="Page number" style={{ width: 62, height: 30, padding: '0 6px', textAlign: 'center' }} value={curPage} onChange={(e) => { const n = Math.floor(Number(e.target.value)); if (n >= 1) setPage(Math.min(n, pageCount)); }} /> of {pageCount.toLocaleString('en-US')}</span>
         <button type="button" className="acq-btn acq-btn-sm" disabled={curPage >= pageCount} onClick={() => setPage(curPage + 1)}>Next</button>
         <button type="button" className="acq-btn acq-btn-sm" disabled={curPage >= pageCount} onClick={() => setPage(pageCount)} aria-label="Last page">»</button>
       </div>
@@ -435,7 +436,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
 
   return (
     <Card title="Find prospects">
-      <form onSubmit={search} style={{ display: 'grid', gap: 12 }}>
+      <form onSubmit={search} autoComplete="off" style={{ display: 'grid', gap: 12 }}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <div><label style={label} htmlFor="pf-country">1 · Country</label>
             <SearchSelect id="pf-country" value={country} options={countryOptions} placeholder="Choose a country" searchPlaceholder="Search all countries" onChange={(v) => { setCountry(v); setState(''); setLocations([]); }} /></div>
@@ -447,7 +448,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
             <MultiSearchSelect id="pf-ind" values={industries} options={industryOptions} onChange={setIndustries} max={MAX_PAIRS} placeholder="e.g. Dental Clinics" searchPlaceholder="Search categories" /></div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>5 · How many businesses <input type="number" min={1} inputMode="numeric" className="acq-input" aria-label="How many businesses" style={{ width: 110, height: 36 }} value={wantText} onChange={(e) => { setWantText(e.target.value); const n = Math.floor(Number(e.target.value)); if (n >= 1) setWant(n); }} onBlur={() => setWantText(String(want))} /></label>
+          <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>5 · How many businesses <input {...NO_AUTOFILL} name="pf-count" type="number" min={1} inputMode="numeric" className="acq-input" aria-label="How many businesses" style={{ width: 110, height: 36 }} value={wantText} onChange={(e) => { setWantText(e.target.value); const n = Math.floor(Number(e.target.value)); if (n >= 1) setWant(n); }} onBlur={() => setWantText(String(want))} /></label>
           <button className="acq-btn acq-btn-primary" type="submit" disabled={busy || running}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Find prospects</button>
           {pairsWanted > 1 && <span className="acq-sub" role="status" style={{ fontSize: 12.5, color: pairsWanted > MAX_PAIRS ? '#b45309' : undefined }}>{industries.length} {industries.length === 1 ? 'category' : 'categories'} × {locations.length} {locations.length === 1 ? 'location' : 'locations'}: searches every category in every location ({Math.min(pairsWanted, MAX_PAIRS)} searches to start{pairsWanted > MAX_PAIRS ? `; only the first ${MAX_PAIRS} pairs run, remove some to cover the rest` : ''}).{guest ? ' Without an account only the first pair is searched.' : ''}</span>}
           <span className="acq-faint" style={{ fontSize: 12 }}>One search returns up to about 20 to 60 businesses, so RUNVAX keeps searching the same location, then nearby areas, until it reaches your number. Each search counts toward your plan&apos;s daily searches.</span>
@@ -508,7 +509,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                       <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!ctx || !multiStep(ctx) || busy} onClick={() => void keepFinding()}><Zap size={14} /> Keep finding until there is no more</button>
                       <button className="acq-btn acq-btn-sm" disabled={!ctx || !multiStep(ctx) || busy} onClick={() => void loadMore()}>{busy && ctx ? <Loader2 size={14} className="animate-spin" /> : null} Load more: {ctx && multiStep(ctx) ? multiStep(ctx)!.step.label : 'nothing left'}</button>
                     </>}
-                {!running && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12.5 }}>Up to <input type="number" min={1} inputMode="numeric" className="acq-input" aria-label="Searches per run" style={{ width: 90, height: 30 }} value={maxRun} onChange={(e) => setMaxRun(Math.max(1, Math.floor(Number(e.target.value)) || 1))} /> searches</label>}
+                {!running && <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12.5 }}>Up to <input {...NO_AUTOFILL} name="pf-runs" type="number" min={1} inputMode="numeric" className="acq-input" aria-label="Searches per run" style={{ width: 90, height: 30 }} value={maxRun} onChange={(e) => setMaxRun(Math.max(1, Math.floor(Number(e.target.value)) || 1))} /> searches</label>}
                 <span className="acq-sub" style={{ fontSize: 12.5 }} role="status">{running && <Loader2 size={13} className="animate-spin" style={{ display: 'inline', marginRight: 6 }} />}{progress || (ctx && multiStep(ctx) ? `Tries the same location first, then nearby areas, then a wider area${ctx.ctxs.length > 1 ? `, taking turns across your ${ctx.ctxs.length} category and location pairs` : ''}. Up to ${multiStepsLeft(ctx)} searches left; each counts toward your daily searches.` : 'Everything nearby has been tried.')}</span>
               </div>
               <p className="acq-faint" style={{ fontSize: 12, marginBottom: 6, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>

@@ -1,5 +1,6 @@
 'use client';
 
+import { NO_AUTOFILL } from '@/lib/noAutofill';
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Search, Sparkles } from 'lucide-react';
 import { COMPANY_SIZES, LEVELS, autoPick, groupByCompany, maskedName } from '@/lib/snovDiscover';
@@ -118,13 +119,13 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
   return (
     <Card title="Discover by industry" right={<span className="acq-sub" style={{ fontSize: 12.5 }}>{balance !== null ? `${balance.toLocaleString('en-US')} email reveals left` : ''}</span>}>
       <p className="acq-sub" style={{ fontSize: 13, marginBottom: 12 }}>Find the managers and owners of businesses by industry and place. Searching is free. Revealing an email uses one of your email reveals, and only when one is found.</p>
-      <form onSubmit={(e) => { e.preventDefault(); void search(1); }} style={{ display: 'grid', gap: 12 }}>
+      <form onSubmit={(e) => { e.preventDefault(); void search(1); }} autoComplete="off" style={{ display: 'grid', gap: 12 }}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <div><label style={label} htmlFor="sd-ind">Industry</label>
             <select id="sd-ind" className="acq-select" value={industry} onChange={(e) => setIndustry(e.target.value)}>{(info.industries ?? []).map((i) => <option key={i} value={i}>{i}</option>)}</select></div>
           <div style={{ gridColumn: 'span 2' }}><label style={label} htmlFor="sd-loc">Place</label>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input id="sd-loc" className="acq-input" value={locality} onChange={(e) => setLocality(e.target.value)} placeholder="e.g. Lagos, Nigeria" maxLength={120} />
+              <input id="sd-loc" {...NO_AUTOFILL} name="sd-place" className="acq-input" value={locality} onChange={(e) => setLocality(e.target.value)} placeholder="e.g. Lagos, Nigeria" maxLength={120} />
               <select className="acq-select" aria-label="Kind of place" style={{ width: 110 }} value={locType} onChange={(e) => setLocType(e.target.value as 'state' | 'city' | 'country')}><option value="state">State</option><option value="city">City</option><option value="country">Country</option></select>
             </div></div>
           <div><label style={label} htmlFor="sd-size">Company size</label>
@@ -139,8 +140,8 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
           ))}
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div><label style={label} htmlFor="sd-titles">Job titles (optional, comma separated)</label><input id="sd-titles" className="acq-input" value={titles} onChange={(e) => setTitles(e.target.value)} placeholder="e.g. dentist, owner, medical director" /><span className="acq-faint" style={{ fontSize: 11.5 }}>Best for narrow niches: there may be no &ldquo;dental&rdquo; industry, but &ldquo;dentist&rdquo; as a title finds them.</span></div>
-          <div><label style={label} htmlFor="sd-spec">Company specialties (optional)</label><input id="sd-spec" className="acq-input" value={specialties} onChange={(e) => setSpecialties(e.target.value)} placeholder="exact wording" /><span className="acq-faint" style={{ fontSize: 11.5 }}>Matches exact wording only, so it often finds nothing. Try job titles first.</span></div>
+          <div><label style={label} htmlFor="sd-titles">Job titles (optional, comma separated)</label><input id="sd-titles" {...NO_AUTOFILL} name="sd-titles" className="acq-input" value={titles} onChange={(e) => setTitles(e.target.value)} placeholder="e.g. dentist, owner, medical director" /><span className="acq-faint" style={{ fontSize: 11.5 }}>Best for narrow niches: there may be no &ldquo;dental&rdquo; industry, but &ldquo;dentist&rdquo; as a title finds them.</span></div>
+          <div><label style={label} htmlFor="sd-spec">Company specialties (optional)</label><input id="sd-spec" {...NO_AUTOFILL} name="sd-specialties" className="acq-input" value={specialties} onChange={(e) => setSpecialties(e.target.value)} placeholder="exact wording" /><span className="acq-faint" style={{ fontSize: 11.5 }}>Matches exact wording only, so it often finds nothing. Try job titles first.</span></div>
         </div>
         <div><button className="acq-btn acq-btn-primary" type="submit" disabled={busy}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Find people</button></div>
       </form>

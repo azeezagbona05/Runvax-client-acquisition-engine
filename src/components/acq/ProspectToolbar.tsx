@@ -1,5 +1,6 @@
 'use client';
 
+import { NO_AUTOFILL } from '@/lib/noAutofill';
 import { useEffect, useRef, useState } from 'react';
 import { Columns3, ListFilter, Loader2, Plus, Search, X } from 'lucide-react';
 import type { SortingState, VisibilityState } from '@tanstack/react-table';
@@ -38,10 +39,10 @@ function RuleRow({ rule, index, onChange, onRemove }: { rule: Rule; index: numbe
             <option value="">Choose…</option>{CONTACT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         : <>
-            <input className="acq-input" style={{ width: 150, height: 38 }} aria-label={`Rule ${n} value`} inputMode={kind === 'number' ? 'decimal' : undefined} placeholder={kind === 'number' ? 'Number' : 'Text'}
+            <input {...NO_AUTOFILL} name={`pf-rule-${n}`} className="acq-input" style={{ width: 150, height: 38 }} aria-label={`Rule ${n} value`} inputMode={kind === 'number' ? 'decimal' : undefined} placeholder={kind === 'number' ? 'Number' : 'Text'}
               value={rule.value} onChange={(e) => onChange({ ...rule, value: e.target.value })} />
             {rule.op === 'between' && <><span className="acq-sub" style={{ fontSize: 13 }}>and</span>
-              <input className="acq-input" style={{ width: 110, height: 38 }} aria-label={`Rule ${n} upper value`} inputMode="decimal" placeholder="Number" value={rule.value2 ?? ''} onChange={(e) => onChange({ ...rule, value2: e.target.value })} /></>}
+              <input {...NO_AUTOFILL} name={`pf-rule-${n}b`} className="acq-input" style={{ width: 110, height: 38 }} aria-label={`Rule ${n} upper value`} inputMode="decimal" placeholder="Number" value={rule.value2 ?? ''} onChange={(e) => onChange({ ...rule, value2: e.target.value })} /></>}
           </>)}
       <button type="button" className="acq-icon-btn" aria-label={`Remove rule ${n}`} onClick={onRemove}><X size={16} /></button>
     </div>
@@ -75,7 +76,7 @@ export default function ProspectToolbar(props: {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: '1 1 280px', minWidth: 0 }}>
           <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: '#94a3b8' }} />
-          <input className="acq-input" style={{ paddingLeft: 36, paddingRight: 36, height: 40 }} type="search" aria-label="Search prospects" placeholder="Search name, area, phone, website, email or owner…"
+          <input {...NO_AUTOFILL} name="pf-table-search" className="acq-input" style={{ paddingLeft: 36, paddingRight: 36, height: 40 }} type="search" aria-label="Search prospects" placeholder="Search name, area, phone, website, email or owner…"
             value={query} onChange={(e) => onQuery(e.target.value)} />
           {searching ? <Loader2 size={16} className="animate-spin" aria-label="Searching" style={{ position: 'absolute', right: 12, top: 12, color: '#9333ea' }} />
             : query ? <button type="button" aria-label="Clear search" className="acq-icon-btn" style={{ position: 'absolute', right: 2, top: 2, width: 36, height: 36 }} onClick={() => onQuery('')}><X size={15} /></button> : null}
