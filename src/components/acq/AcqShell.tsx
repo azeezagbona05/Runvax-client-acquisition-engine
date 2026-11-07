@@ -1,6 +1,7 @@
 'use client';
 
 import CelebrationHost from './CelebrationHost';
+import { celebrate, takeSwitchCelebration } from '@/lib/celebrate';
 import { openWelcomeVideo } from '@/components/WelcomeVideo';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -217,6 +218,14 @@ export default function AcqShell({ children }: { children: ReactNode }) {
 
   useEffect(() => { try { setRail(localStorage.getItem('acq_rail') === '1'); } catch { /* default open */ } }, []);
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+  // Arriving from the classic app through the switch button: congratulate them (flowers and a chime), at most once a week.
+  useEffect(() => {
+    if (guest) return;
+    const t = setTimeout(() => {
+      if (takeSwitchCelebration()) celebrate({ kind: 'welcome', title: 'Congratulations! Welcome to the new Experience Centre', body: 'You are now on RUNVAX 2.0. Find businesses, reach the decision-maker and let your AI team win clients.' });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [guest]);
   // Lets other fixed elements (the install banner) sit above the phone tab bar.
   useEffect(() => { if (guest) return; document.documentElement.classList.add('has-tabbar'); return () => document.documentElement.classList.remove('has-tabbar'); }, [guest]);
   const toggleRail = () => setRail((v) => { try { localStorage.setItem('acq_rail', v ? '0' : '1'); } catch { /* not saved */ } return !v; });

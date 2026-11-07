@@ -28,7 +28,13 @@ export default function WelcomeVideo() {
     let seen = false;
     try { seen = !!localStorage.getItem(KEY); } catch { /* ignore */ }
     if (seen) return;
-    const t = setTimeout(() => setOpen(true), 1500);
+    // Not on top of the switch celebration: they will see the video another time.
+    const t = setTimeout(() => {
+      let switching = false;
+      try { switching = !!sessionStorage.getItem('runvax_just_switched'); } catch { /* ignore */ }
+      if (switching || document.querySelector('.acq-celebrate')) return;
+      setOpen(true);
+    }, 1500);
     return () => clearTimeout(t);
   }, [pathname]);
 

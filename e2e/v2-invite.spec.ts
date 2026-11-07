@@ -18,6 +18,22 @@ test('the RUNVAX 2.0 invite: animated banner, then a popup that can be snoozed',
 
   const popup = page.getByRole('dialog', { name: /Meet RUNVAX 2.0/ });
   await expect(popup).toBeVisible({ timeout: 15_000 });
+  // Everything that sits on purple is white: the headline, the subtitle, the badge, the icons and the button.
+  const notWhite = await popup.evaluate((root) => {
+    const rgb = (c: string) => { const m = c.match(/rgba?\(([^)]+)\)/); return m ? m[1].split(',').map((x) => Number(x.trim())) : null; };
+    const solid = (c: string) => { const v = rgb(c); return !!v && (v.length < 4 || v[3] > 0.95); };
+    const purple = (c: string) => { const v = rgb(c); return !!v && v[0] >= 100 && v[0] <= 170 && v[1] <= 80 && v[2] >= 190; };
+    const bgOf = (el: Element) => { for (let e: Element | null = el; e; e = e.parentElement) { const bg = getComputedStyle(e).backgroundColor; if (solid(bg)) return bg; } return ''; };
+    const out: string[] = [];
+    root.querySelectorAll('*').forEach((el) => {
+      const text = Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').trim());
+      if (!text && el.tagName.toLowerCase() !== 'svg') return;
+      const colour = getComputedStyle(el).color;
+      if (purple(bgOf(el)) && colour !== 'rgb(255, 255, 255)') out.push(`${el.tagName} ${(el.textContent ?? '').trim().slice(0, 30)} ${colour}`);
+    });
+    return out;
+  });
+  expect(notWhite).toEqual([]);
   await popup.getByRole('button', { name: 'Maybe later' }).click();
   await expect(popup).toBeHidden();
   await expect(banner).toBeVisible();

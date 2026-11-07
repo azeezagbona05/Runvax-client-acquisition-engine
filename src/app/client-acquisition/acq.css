@@ -592,3 +592,16 @@
 .acq-flow-add:hover { background: var(--brand-faint, #faf5ff); }
 .acq-fs.open .acq-flow-canvas { max-height: none; height: calc(100vh - 190px); }
 .acq-build-pct { font-size: 28px; font-weight: 800; color: #7e22ce; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+
+/* Welcome: flowers drop and sway down the screen */
+.acq-flowers { position: absolute; inset: 0; overflow: hidden; }
+.acq-flower { position: absolute; top: -60px; opacity: 0; animation-name: acq-flower-fall; animation-timing-function: linear; animation-fill-mode: forwards; filter: drop-shadow(0 2px 3px rgba(76, 29, 149, .18)); }
+@keyframes acq-flower-fall {
+  0% { transform: translate(0, 0) rotate(0); opacity: 0; }
+  8% { opacity: 1; }
+  25% { transform: translate(var(--sway), 25vh) rotate(calc(var(--rot) * .25)); }
+  50% { transform: translate(calc(var(--sway) * -1), 55vh) rotate(calc(var(--rot) * .5)); }
+  75% { transform: translate(var(--sway), 85vh) rotate(calc(var(--rot) * .75)); }
+  100% { transform: translate(var(--drift), 112vh) rotate(var(--rot)); opacity: .95; }
+}
+@media (prefers-reduced-motion: reduce) { .acq-flowers { display: none; } }
