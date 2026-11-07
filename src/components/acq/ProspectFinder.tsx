@@ -9,6 +9,7 @@ import { Check, Loader2, Search, Square, Star, Zap } from 'lucide-react';
 import { AREAS, STATES } from '@/lib/areas';
 import SearchSelect, { MultiSearchSelect, type SearchOption } from './SearchSelect';
 import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, toCsv, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_PAIRS, MAX_RUN_SEARCHES, advanceMulti, finderErrorMulti, finderPairs, finderQuery, multiStep, multiStepsLeft, multiStopReason, startFinder, startMulti, type FinderBusiness, type FinderCtx, type MultiCtx, type ContactAction, type ContactState, type Verdict } from '@/lib/acqFinder';
+import { EMAIL_BASIS_HINT, EMAIL_BASIS_LABEL } from '@/lib/emailIntel';
 import { EMPTY_GROUP, applyGroup, makeRecord, searchRecords, type FilterGroup, type ProspectRecord } from '@/lib/prospectQuery';
 import ProspectToolbar from './ProspectToolbar';
 import { BizLogo, Card, EmptyState } from './ui';
@@ -18,7 +19,7 @@ import SignupPrompt from './SignupPrompt';
 const PENDING_KEY = 'rv_pending_find';
 
 type Email = { state: 'loading' } | { state: 'done'; email: string | null };
-type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string }; linkedin?: string };
+type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string }; emailBasis?: 'published' | 'inferred' | 'guess'; emailSource?: string; linkedin?: string };
 type Channel = { type: 'decision_maker_email' | 'general_email' | 'contact_form' | 'business_phone' | 'none'; value?: string; person?: string; sourcePage?: string };
 type People = { state: 'loading' } | { state: 'done'; people: Person[]; channels: Channel[]; note?: string };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -280,10 +281,10 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
         return;
       }
       const res = await fetch('/api/client-acquisition/people', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, max: opts.max ?? 5 }) });
-      const j = await res.json().catch(() => ({})) as { people?: Array<{ name: string; title: string; email?: string; emailState?: 'confirmed' | 'unconfirmed'; linkedin?: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string } }>; channels?: Channel[]; note?: string; error?: string; balance?: number | null };
+      const j = await res.json().catch(() => ({})) as { people?: Array<{ name: string; title: string; email?: string; emailState?: 'confirmed' | 'unconfirmed'; linkedin?: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string }; emailBasis?: 'published' | 'inferred' | 'guess'; emailSource?: string }>; channels?: Channel[]; note?: string; error?: string; balance?: number | null };
       if (!res.ok) { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: j.error ?? 'Lookup failed.' } })); return; }
       if (typeof j.balance === 'number') setCredits((c) => (c ? { ...c, balance: j.balance ?? null } : c));
-      const list: Person[] = (j.people ?? []).map((p) => ({ name: p.name, title: p.title, source: 'lookup', ...(p.email ? { email: p.email, emailStatus: p.emailState === 'confirmed' ? 'valid' : 'unconfirmed' } : {}), ...(p.linkedin ? { linkedin: p.linkedin } : {}), ...(p.sourcePage ? { sourcePage: p.sourcePage } : {}), ...(p.match ? { match: p.match } : {}), ...(p.evidence ? { evidence: p.evidence } : {}) }));
+      const list: Person[] = (j.people ?? []).map((p) => ({ name: p.name, title: p.title, source: 'lookup', ...(p.email ? { email: p.email, emailStatus: p.emailState === 'confirmed' ? 'valid' : 'unconfirmed' } : {}), ...(p.linkedin ? { linkedin: p.linkedin } : {}), ...(p.sourcePage ? { sourcePage: p.sourcePage } : {}), ...(p.match ? { match: p.match } : {}), ...(p.evidence ? { evidence: p.evidence } : {}), ...(p.emailBasis ? { emailBasis: p.emailBasis } : {}), ...(p.emailSource ? { emailSource: p.emailSource } : {}) }));
       setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: list, channels: j.channels ?? [], note: list.length ? undefined : j.note } }));
     } catch { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: 'Lookup failed.' } })); }
   };
@@ -311,7 +312,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     people: peopleOf(b), businessEmail: emails[b.id]?.state === 'done' ? emailOf(b) : undefined,
     businessChannel: channelsOf(b).some((c) => c.type === 'general_email' || c.type === 'contact_form'), verdicts,
   });
-  const personOk = (p: Person) => { const v = p.email ? verdicts[p.email.toLowerCase()] : undefined; return v ? v === 'valid' : isVerifiedStatus(p.emailStatus); };
+  const personOk = (p: Person) => { const v = p.email ? verdicts[p.email.toLowerCase()] : undefined; return v ? v === 'valid' : isVerifiedStatus(p.emailStatus) || p.emailBasis === 'published'; };
   const usablePeople = (b: FinderBusiness) => (peopleOf(b) ?? []).filter((p) => p.email && verdicts[p.email.toLowerCase()] !== 'invalid');
 
   /** Check the addresses of one business's people with Snov.io and remember each answer. */
@@ -590,7 +591,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                         <br />
                                         {p.email
                                           ? v === 'invalid' ? <span className="acq-faint" style={{ textDecoration: 'line-through' }} title="The email check says this address does not exist">{p.email}</span>
-                                            : <span style={{ color: personOk(p) ? '#15803d' : '#b45309' }} title={personOk(p) ? 'Verified' : 'Not verified yet'}>{personOk(p) ? '✓ ' : ''}{p.email}</span>
+                                            : <><span style={{ color: personOk(p) ? '#15803d' : '#b45309' }} title={p.emailBasis ? EMAIL_BASIS_HINT[p.emailBasis] : personOk(p) ? 'Verified' : 'Not verified yet'}>{personOk(p) && !p.emailBasis ? '✓ ' : ''}{p.email}</span>
+                                              {p.emailBasis ? <span className={`acq-pill ${p.emailBasis === 'published' ? 'acq-pill-green' : p.emailBasis === 'inferred' ? 'acq-pill-blue' : 'acq-pill-amber'}`} style={{ marginLeft: 6 }} title={`${EMAIL_BASIS_HINT[p.emailBasis]}${p.emailSource ? ` Seen at ${p.emailSource}` : ''}`}>{EMAIL_BASIS_LABEL[p.emailBasis]}</span> : null}</>
                                           : <span className="acq-faint">no email yet</span>}
                                       </span>
                                     );

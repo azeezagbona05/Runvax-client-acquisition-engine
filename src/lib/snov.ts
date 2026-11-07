@@ -13,6 +13,7 @@
  */
 
 import { keyStore } from '@/lib/integrations/keys';
+import { splitName } from '@/lib/personName';
 
 const BASE = 'https://api.snov.io';
 
@@ -117,10 +118,7 @@ function toEmail(r: RawEmail | undefined): SnovEmail | null {
 }
 
 /** "Dr. Ada Okafor" → ["Ada", "Okafor"]. Needs a first and last name. */
-export function splitName(full: string): [string, string] | null {
-  const parts = full.replace(/^(dr|mr|mrs|ms|miss|prof|engr|barr)\.?\s+/i, '').trim().split(/\s+/);
-  return parts.length < 2 ? null : [parts[0], parts[parts.length - 1]];
-}
+export { splitName };
 
 /**
  * The email address of one named person at a domain, or null when Snov has none.

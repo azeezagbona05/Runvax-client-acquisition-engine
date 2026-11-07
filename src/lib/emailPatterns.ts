@@ -1,4 +1,4 @@
-import { splitName } from '@/lib/snov';
+import { splitName } from '@/lib/personName';
 
 const plain = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 

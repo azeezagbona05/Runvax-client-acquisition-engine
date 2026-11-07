@@ -22,6 +22,9 @@ export interface PersonFound {
   match?: 'confirmed' | 'likely';
   /** The page and snippet that put them here, so it can be checked. */
   evidence?: { url: string; snippet: string };
+  /** How we know their email: published online, the company's pattern, or a best guess. Never "verified". */
+  emailBasis?: 'published' | 'inferred' | 'guess';
+  emailSource?: string;
 }
 
 export interface ChannelFound { type: 'decision_maker_email' | 'general_email' | 'contact_form' | 'business_phone' | 'none'; value?: string; person?: string; sourcePage?: string }
@@ -62,7 +65,7 @@ export function tidyPeople(list: PersonFound[], max = MAX_PEOPLE): PersonFound[]
     const name = clean(p.name, 120);
     if (!name) continue;
     const email = p.email && EMAIL_OK.test(p.email) ? p.email.toLowerCase() : undefined;
-    const next: PersonFound = { name, title: clean(p.title, 120), ...(email ? { email, emailState: p.emailState ?? 'unconfirmed' } : {}), ...(p.phone ? { phone: clean(p.phone, 40) } : {}), ...(p.linkedin ? { linkedin: clean(p.linkedin, 200) } : {}), ...(p.sourcePage ? { sourcePage: clean(p.sourcePage, 300) } : {}), ...(p.match ? { match: p.match } : {}), ...(p.evidence ? { evidence: { url: clean(p.evidence.url, 300), snippet: clean(p.evidence.snippet, 240) } } : {}) };
+    const next: PersonFound = { name, title: clean(p.title, 120), ...(email ? { email, emailState: p.emailState ?? 'unconfirmed' } : {}), ...(p.phone ? { phone: clean(p.phone, 40) } : {}), ...(p.linkedin ? { linkedin: clean(p.linkedin, 200) } : {}), ...(p.sourcePage ? { sourcePage: clean(p.sourcePage, 300) } : {}), ...(p.match ? { match: p.match } : {}), ...(email && p.emailBasis ? { emailBasis: p.emailBasis } : {}), ...(email && p.emailSource ? { emailSource: clean(p.emailSource, 300) } : {}), ...(p.evidence ? { evidence: { url: clean(p.evidence.url, 300), snippet: clean(p.evidence.snippet, 240) } } : {}) };
     const key = name.toLowerCase();
     const old = by.get(key);
     if (!old || (!old.email && next.email)) by.set(key, { ...old, ...next });
@@ -85,7 +88,7 @@ export async function findPeople(input: PeopleInput, deps: PeopleDeps): Promise<
   try {
     const city = (input.address ?? '').split(',').map((s) => s.trim()).filter(Boolean);
     const r = await deps.fallback({ businessName: input.name, city: city[1] ?? city[0] ?? '', website: input.website, category: input.category });
-    const people = tidyPeople(r.candidates.map((c) => ({ name: c.name, title: c.title, email: c.email, emailState: c.email ? emailStateOf(c.emailStatus) : undefined, phone: c.phone, linkedin: c.linkedin, sourcePage: c.sourcePage, match: c.match, evidence: c.evidence })), max);
+    const people = tidyPeople(r.candidates.map((c) => ({ name: c.name, title: c.title, email: c.email, emailState: c.email ? emailStateOf(c.emailStatus) : undefined, phone: c.phone, linkedin: c.linkedin, sourcePage: c.sourcePage, match: c.match, evidence: c.evidence, emailBasis: c.emailBasis, emailSource: c.emailSource })), max);
     if (people.length) return { people, via: 'fallback', channels: r.channels };
     // Nobody named, but the website may still give a general inbox or a contact form.
     if (r.channels?.some((c) => c.type !== 'none')) return { people: [], via: 'none', channels: r.channels, note: 'No named people were found, but the business has a general contact.' };

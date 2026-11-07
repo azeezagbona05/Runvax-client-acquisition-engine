@@ -364,6 +364,10 @@ export interface DmCandidate {
   match?: 'confirmed' | 'likely';
   /** The page and snippet that put them here, so it can be checked. */
   evidence?: { url: string; snippet: string };
+  /** How we know their email (published online, the company's pattern, or a best guess). Never "verified". */
+  emailBasis?: 'published' | 'inferred' | 'guess';
+  /** The page the email was seen on, when published. */
+  emailSource?: string;
 }
 
 const COMPANY_NOISE = /\b(ltd|limited|llc|inc|plc|co|company|the|and|of|nigeria|ng|group|services|solutions)\b/g;
@@ -480,11 +484,21 @@ const norm = (n: string) => n.toLowerCase().replace(/\b(dr|mr|mrs|ms|miss|engr|e
  * two independent sources is far more likely to be real, so agreement raises confidence.
  * Ordering: strongest title first, then confidence, then how many sources agree.
  */
+/** Femi Aluko and Babafemi Aluko: the same last name and one first name inside the other. */
+export function samePerson(a: string, b: string): boolean {
+  const ta = norm(a).split(' ').filter(Boolean), tb = norm(b).split(' ').filter(Boolean);
+  if (ta.length < 2 || tb.length < 2) return norm(a) === norm(b);
+  if (ta[ta.length - 1] !== tb[tb.length - 1]) return false;
+  const fa = ta[0], fb = tb[0];
+  return fa === fb || (Math.min(fa.length, fb.length) >= 3 && (fa.includes(fb) || fb.includes(fa)));
+}
+
 export function mergeCandidates(all: DmCandidate[]): DmCandidate[] {
   const byName = new Map<string, DmCandidate>();
   for (const c of all) {
-    const key = norm(c.name);
-    if (!key) continue;
+    const own = norm(c.name);
+    if (!own) continue;
+    const key = Array.from(byName.keys()).find((k) => samePerson(k, c.name)) ?? own;
     const prev = byName.get(key);
     if (!prev) { byName.set(key, { ...c, sources: [c.source] }); continue; }
     const sources = Array.from(new Set([...(prev.sources ?? [prev.source]), c.source]));
@@ -499,6 +513,8 @@ export function mergeCandidates(all: DmCandidate[]): DmCandidate[] {
       title: better.title,
       linkedin: prev.linkedin ?? c.linkedin,
       email: prev.email ?? c.email,
+      ...((prev.email ? prev.emailBasis : c.emailBasis) ? { emailBasis: prev.email ? prev.emailBasis : c.emailBasis } : {}),
+      ...((prev.email ? prev.emailSource : c.emailSource) ? { emailSource: prev.email ? prev.emailSource : c.emailSource } : {}),
       emailStatus: prev.emailStatus ?? c.emailStatus,
       phone: prev.phone ?? c.phone,
       source: CONF_RANK[c.confidence] > CONF_RANK[prev.confidence] ? c.source : prev.source,

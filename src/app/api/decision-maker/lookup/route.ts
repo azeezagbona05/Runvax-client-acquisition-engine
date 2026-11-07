@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     candidates: result.candidates.slice(0, 5).map((c) => ({
       name: c.name, title: c.title, source: c.source, confidence: c.confidence,
       ...(c.email ? { email: c.email, emailStatus: c.emailStatus } : {}), ...(c.phone ? { phone: c.phone } : {}), ...(c.linkedin ? { linkedin: c.linkedin } : {}), ...(c.sourcePage ? { sourcePage: c.sourcePage } : {}),
-      ...(c.match ? { match: c.match } : {}), ...(c.evidence ? { evidence: c.evidence } : {}),
+      ...(c.match ? { match: c.match } : {}), ...(c.evidence ? { evidence: c.evidence } : {}), ...(c.emailBasis ? { emailBasis: c.emailBasis } : {}), ...(c.emailSource ? { emailSource: c.emailSource } : {}),
     })),
     searchOn: webSearchConfigured(),
     ran: result.ran, paidAvailable: result.paidAvailable, channels: result.channels,

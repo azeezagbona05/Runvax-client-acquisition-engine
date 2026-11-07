@@ -14,6 +14,7 @@
 import { safeFetch } from '@/lib/safeFetch';
 import { webSearch, webSearchConfigured } from '@/lib/webSearch';
 import { classifyHits, planTeamQueries } from '@/lib/teamIntel';
+import { enrichEmails } from '@/lib/emailEnrich';
 import { apolloEnabled, domainFromUrl, findDecisionMaker } from '@/lib/apollo';
 import { domainContacts, findEmail as snovFindEmail, snovEnabled, verifyEmails } from '@/lib/snov';
 import { emailPatterns } from '@/lib/emailPatterns';
@@ -300,6 +301,12 @@ export async function findDecisionMakers(ctx: FindContext, opts: { deep?: boolea
       candidates = mergeCandidates(found);
     }
   }
+
+  // Free, from public information: published addresses, then the company's own pattern, then (without a paid checker) one labelled guess.
+  candidates = mergeCandidates(await enrichEmails(candidates, {
+    domain: full.domain, siteEmails: full.intel?.emails ?? [], allowGuess: !opts.deep,
+    search: webSearchConfigured() && !opts.skipSearch ? (q) => webSearch(q) : undefined,
+  }));
 
   if (opts.deep) candidates = mergeCandidates(await fillByPattern(candidates, full.domain));
 
