@@ -3,8 +3,11 @@
  *
  * Today that is Brave Search (BRAVE_SEARCH_KEY). Nothing here fetches Google, Bing or LinkedIn pages directly: scraping their
  * results pages breaks their terms and gets blocked, so without a key the answer is simply "no results", and callers can say
- * that search is not switched on. Results are cached for a day and identical searches in flight are shared, so the same
- * business is never searched twice and credits are not spent twice.
+ * that search is not switched on.
+ *
+ * Retention: Brave's standard plans do not allow keeping any part of its results (only its "storage rights" plan does). So by default
+ * nothing is kept: a search runs each time, and only identical searches happening at the same moment are shared. If the account is on a
+ * plan with storage rights, set BRAVE_ALLOW_CACHE=1 and results are also remembered for a day, which saves credits.
  */
 
 export interface SearchHit { title?: string; url?: string; description?: string }
@@ -14,6 +17,9 @@ const MAX_ENTRIES = 500;
 const TIMEOUT_MS = 8000;
 const cache = new Map<string, { at: number; hits: SearchHit[] }>();
 const inflight = new Map<string, Promise<SearchHit[]>>();
+
+/** Whether results may be remembered. Off unless the owner confirms the plan allows it. */
+export const cacheAllowed = (): boolean => process.env.BRAVE_ALLOW_CACHE === '1';
 
 /** True when a real search key is set (a placeholder from an example file does not count). */
 export function webSearchConfigured(): boolean {
@@ -41,15 +47,17 @@ async function brave(q: string, fetchImpl: FetchLike): Promise<SearchHit[] | nul
 export async function webSearch(query: string, deps: { fetchImpl?: FetchLike } = {}): Promise<SearchHit[]> {
   const q = query.replace(/\s+/g, ' ').trim();
   if (!q || !webSearchConfigured()) return [];
-  const hit = cache.get(q);
+  const hit = cacheAllowed() ? cache.get(q) : undefined;
   if (hit && Date.now() - hit.at < TTL_MS) return hit.hits;
   const running = inflight.get(q);
   if (running) return running;
   const p = (async () => {
     const hits = await brave(q, deps.fetchImpl ?? ((u, i) => fetch(u, i)));
     if (hits === null) return [];
-    if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value as string);
-    cache.set(q, { at: Date.now(), hits });
+    if (cacheAllowed()) {
+      if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value as string);
+      cache.set(q, { at: Date.now(), hits });
+    }
     return hits;
   })().finally(() => inflight.delete(q));
   inflight.set(q, p);

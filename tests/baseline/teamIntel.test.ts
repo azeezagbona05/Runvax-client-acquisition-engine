@@ -86,7 +86,14 @@ describe('the search layer', () => {
     expect(webSearchConfigured()).toBe(false);
     expect(f).not.toHaveBeenCalled();
   });
-  it('searches once and remembers: the same question is not paid for twice', async () => {
+  it('keeps nothing by default, because standard plans do not allow retaining results: each search runs', async () => {
+    const f = ok([{ title: 'T', url: 'https://u' }]);
+    await webSearch('q-nokeep', { fetchImpl: f });
+    await webSearch('q-nokeep', { fetchImpl: f });
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+  it('remembers for a day when the plan has storage rights (BRAVE_ALLOW_CACHE=1): the same question is not paid for twice', async () => {
+    vi.stubEnv('BRAVE_ALLOW_CACHE', '1');
     const f = ok([{ title: 'T', url: 'https://u', description: 'D', extra: 'ignored' }]);
     const a = await webSearch('site:linkedin.com/in "Acme"', { fetchImpl: f });
     const b = await webSearch('  site:linkedin.com/in   "Acme" ', { fetchImpl: f });
