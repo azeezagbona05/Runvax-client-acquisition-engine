@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BedDouble, FileText, Home, Loader2, Pencil, Search, Stethoscope, Trash2, UtensilsCrossed, Wand2, type LucideIcon } from 'lucide-react';
+import { BedDouble, Building2, Calculator, CalendarDays, Car, Code2, Factory, FileText, GraduationCap, HardHat, Home, Loader2, Megaphone, Boxes, Pencil, Scale, Search, Sparkles, Stethoscope, Sun, Trash2, Truck, UtensilsCrossed, Users, Wand2, type LucideIcon } from 'lucide-react';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
-import { INDUSTRIES, OFFICIAL_TEMPLATES, filterTemplates, type TemplateConfig } from '@/lib/templateLibrary';
+import { OFFICIAL_TEMPLATES, filterTemplates, templateCountByIndustry, type TemplateConfig } from '@/lib/templateLibrary';
+import { INDUSTRIES_INTEL, INDUSTRY_GROUPS, industryById, type IndustryId } from '@/lib/industryIntel';
+import IndustryIntelPanel from '@/components/acq/IndustryIntelPanel';
 import { OBJECTIVES } from '@/lib/campaignBrief';
 import { useAcq } from '@/components/acq/AcqProvider';
 import CampaignFormModal from '@/components/acq/CampaignFormModal';
@@ -12,7 +14,11 @@ import TemplatePreview from '@/components/acq/TemplatePreview';
 import { Card, EmptyState } from '@/components/acq/ui';
 
 type Tab = 'official' | 'mine' | 'scratch';
-const ICON: Record<TemplateConfig['art']['icon'], LucideIcon> = { dental: Stethoscope, restaurant: UtensilsCrossed, hotel: BedDouble, property: Home, custom: FileText };
+const ICON: Record<TemplateConfig['art']['icon'], LucideIcon> = {
+  dental: Stethoscope, restaurant: UtensilsCrossed, hotel: BedDouble, property: Home, custom: FileText,
+  building: Building2, stethoscope: Stethoscope, megaphone: Megaphone, scale: Scale, calculator: Calculator, code: Code2, sun: Sun, truck: Truck, hardhat: HardHat,
+  sparkles: Sparkles, car: Car, users: Users, school: GraduationCap, boxes: Boxes, factory: Factory, calendar: CalendarDays,
+};
 
 function TemplateCard({ t, onPreview, onUse, onDelete, onRename }: { t: TemplateConfig; onPreview: () => void; onUse: () => void; onDelete?: () => void; onRename?: () => void }) {
   const Icon = ICON[t.art.icon];
@@ -42,7 +48,8 @@ export default function TemplatesPage() {
   const { reload } = useAcq();
   const [tab, setTab] = useState<Tab>('official');
   const [q, setQ] = useState('');
-  const [industry, setIndustry] = useState('');
+  const [industry, setIndustry] = useState<IndustryId | ''>('');
+  const counts = useMemo(() => templateCountByIndustry(), []);
   const [mine, setMine] = useState<TemplateConfig[] | null>(null);
   const [ready, setReady] = useState(true);
   const [preview, setPreview] = useState<TemplateConfig | null>(null);
@@ -93,15 +100,35 @@ export default function TemplatesPage() {
               <Search size={15} style={{ position: 'absolute', left: 12, top: 14, color: '#94a3b8' }} />
               <input className="acq-input" style={{ paddingLeft: 34 }} placeholder="Search templates" aria-label="Search templates" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
-            {tab === 'official' && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} role="group" aria-label="Industry">
-                {['', ...INDUSTRIES].map((i) => <button key={i || 'all'} className={`acq-chip${industry === i ? ' on' : ''}`} aria-pressed={industry === i} onClick={() => setIndustry(i)}>{i || 'All industries'}</button>)}
-              </div>
-            )}
           </div>
         )}
       </Card>
 
+
+      {tab === 'official' && (
+        <Card>
+          <h2 className="acq-title" style={{ fontSize: 17 }}>What do you sell?</h2>
+          <p className="acq-sub" style={{ fontSize: 13.5, margin: '2px 0 12px' }}>Choose an industry to start your acquisition campaign.</p>
+          {INDUSTRY_GROUPS.map((g) => (
+            <div key={g} style={{ marginBottom: 12 }}>
+              <p className="acq-sub" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>{g}</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label={g}>
+                {INDUSTRIES_INTEL.filter((i) => i.group === g).map((i) => {
+                  const n = counts[i.id] ?? 0; const on = industry === i.id;
+                  return (
+                    <button key={i.id} type="button" aria-pressed={on} onClick={() => setIndustry(on ? '' : i.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', padding: '12px 14px', borderRadius: 14, border: `1.5px solid ${on ? '#9333ea' : '#e2e8f0'}`, background: on ? '#faf5ff' : '#fff', minHeight: 56 }}>
+                      <span aria-hidden style={{ width: 36, height: 36, borderRadius: 10, background: '#f3e8ff', color: '#9333ea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{(() => { const Icon = ICON[i.icon]; return <Icon size={18} />; })()}</span>
+                      <span style={{ minWidth: 0 }}><b style={{ display: 'block', fontSize: 14, color: '#0f172a' }}>{i.label}</b><span className="acq-sub" style={{ fontSize: 12.5 }}>{n} campaign template{n === 1 ? '' : 's'}{i.highPriority ? ' · High priority' : ''}</span></span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+      {tab === 'official' && industry && industryById(industry) && <IndustryIntelPanel key={industry} id={industry} />}
       {tab === 'official' && (official.length === 0
         ? <Card><EmptyState title="No templates match" body="Try a different word or pick All industries." /></Card>
         : <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">{official.map((t) => <TemplateCard key={t.id} t={t} onPreview={() => setPreview(t)} onUse={() => use(t)} />)}</div>)}

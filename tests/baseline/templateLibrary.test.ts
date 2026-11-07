@@ -9,9 +9,10 @@ const knobs = parseKnobs('');
 const build = (id: string, over = {}) => { const t = templateById(id)!; return buildFromTemplate(t, mergeBrief(briefFromTemplate(t), over), knobs); };
 
 describe('official templates', () => {
-  it('has the four industries', () => {
-    expect(OFFICIAL_TEMPLATES.map((t) => t.id)).toEqual(['dental-clinics', 'restaurants', 'hotels', 'real-estate']);
-    expect(INDUSTRIES).toEqual(['Dental Clinics', 'Restaurants', 'Hotels', 'Real Estate']);
+  it('keeps the original four first, followed by the industry set', () => {
+    expect(OFFICIAL_TEMPLATES.slice(0, 4).map((t) => t.id)).toEqual(['dental-clinics', 'restaurants', 'hotels', 'real-estate']);
+    expect(INDUSTRIES.slice(0, 4)).toEqual(['Dental Clinics', 'Restaurants', 'Hotels', 'Real Estate']);
+    expect(OFFICIAL_TEMPLATES.length).toBeGreaterThan(4);
   });
   it('carries the full configuration on every record', () => {
     for (const t of OFFICIAL_TEMPLATES) {

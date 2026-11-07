@@ -179,7 +179,7 @@ describe('industryTitles', () => {
     expect(industryTitles('Co-working space')[0]).not.toBe('salon owner');
   });
   it('falls back to generic titles, deduplicated and capped', () => {
-    expect(industryTitles('Widget wholesaler')).toEqual(['owner', 'founder', 'managing director', 'CEO']);
+    expect(industryTitles('Widget maker')).toEqual(['owner', 'founder', 'managing director', 'CEO']);
     const t = industryTitles('Restaurant');
     expect(new Set(t.map((x) => x.toLowerCase())).size).toBe(t.length);
     expect(t.length).toBeLessThanOrEqual(6);

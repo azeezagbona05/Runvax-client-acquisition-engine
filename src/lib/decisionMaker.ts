@@ -312,8 +312,16 @@ const INDUSTRY_TITLES: Array<{ match: RegExp; titles: string[] }> = [
   { match: /school|academy|college|tutor|nursery|kindergarten|daycare|education/i, titles: ['proprietor', 'principal', 'head teacher', 'director'] },
   { match: /\bcar\b|car (dealer|repair|wash)|auto|mechanic|garage|dealer|tyre|tire/i, titles: ['owner', 'dealer principal', 'general manager', 'managing director'] },
   { match: /plumb|electric|roof|construct|contractor|builder|hvac|clean|landscap|pest|locksmith/i, titles: ['owner', 'founder', 'managing director', 'operations manager'] },
+  // Industry set (RUNVAX 2.0 templates): more specific than the generic "agency" row below, so they come first.
+  { match: /recruit|staffing|employment agenc|hr consult|human resources/i, titles: ['founder', 'recruitment director', 'managing director', 'HR director'] },
+  { match: /event|entertainment|conference|wedding planner/i, titles: ['founder', 'event director', 'CEO', 'operations manager'] },
+  { match: /software|saas|information technology|managed service|app developer|it consult/i, titles: ['CEO', 'founder', 'CTO', 'head of engineering'] },
   { match: /architect|design|interior|agency|marketing|studio|photograph/i, titles: ['founder', 'principal', 'creative director', 'managing director'] },
   { match: /store|shop|retail|boutique|supermarket|pharmacy|market/i, titles: ['owner', 'founder', 'store manager', 'managing director'] },
+  { match: /solar|renewable|photovoltaic|energy/i, titles: ['owner', 'CEO', 'sales director', 'operations manager'] },
+  { match: /logistic|freight|courier|shipping|haulage|trucking|cargo/i, titles: ['managing director', 'operations director', 'owner', 'CEO'] },
+  { match: /manufactur|factory|packaging|industrial/i, titles: ['CEO', 'owner', 'operations director', 'commercial director'] },
+  { match: /wholesal|distribut|importer|supplier/i, titles: ['managing director', 'sales director', 'procurement director', 'owner'] },
 ];
 
 const DEFAULT_TITLES = ['owner', 'founder', 'managing director', 'CEO'];
