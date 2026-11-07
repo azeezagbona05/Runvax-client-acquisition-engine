@@ -529,3 +529,21 @@
   .acq-cards-people td[data-cell=loc] { grid-column: 2; grid-row: 4; }
   .acq-cards-people td[data-cell=pemail] { grid-column: 2; grid-row: 5; margin-top: 4px; }
 }
+
+/* Generic phone table: each row becomes a card. data-primary and data-wide take a full line, data-label shows a small caption
+   above the value, data-actions is a footer row of buttons, data-hide drops a cell on phones. */
+@media (max-width: 767px) {
+  .acq-rt { min-width: 0 !important; display: block; table-layout: auto !important; }
+  .acq-rt colgroup, .acq-rt thead { display: none; }
+  .acq-rt tbody { display: block; }
+  .acq-rt tr { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 18px; margin: 0 0 12px; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+  .acq-rt tr:hover td { background: transparent; }
+  .acq-rt td { display: block; border: 0 !important; padding: 0 !important; width: auto !important; max-width: none !important; min-width: 0 !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; font-size: 13.5px; text-align: left !important; }
+  .acq-rt td[data-primary], .acq-rt td[data-wide], .acq-rt td[data-actions] { flex: 1 0 100%; overflow-wrap: anywhere; }
+  .acq-rt td[data-primary] { font-size: 15px; }
+  .acq-rt td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 2px; font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--sub); }
+  .acq-rt td[data-actions] { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 2px; padding-top: 10px !important; border-top: 1px solid var(--line-soft) !important; }
+  .acq-rt td[data-actions] .acq-link, .acq-rt td[data-actions] button { min-height: 40px; }
+  .acq-rt td[data-hide] { display: none; }
+  .acq-rt td p { overflow: visible !important; text-overflow: clip !important; white-space: normal !important; }
+}

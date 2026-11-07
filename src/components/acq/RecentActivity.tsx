@@ -15,15 +15,15 @@ export const ACTIVITY_ICON: Record<ActivityType, { icon: typeof Mail; color: str
 export function ActivityRows({ events, now = Date.now() }: { events: ActivityEvent[]; now?: number }) {
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table className="acq-table" style={{ minWidth: 640 }}>
+      <table className="acq-table acq-rt" style={{ minWidth: 640 }}>
         <tbody>
           {events.map((e) => {
             const { icon: Icon, color } = ACTIVITY_ICON[e.type];
             return (
               <tr key={e.id}>
-                <td style={{ width: 34, paddingLeft: 4 }}><Icon size={17} style={{ color }} /></td>
-                <td style={{ color: '#1e293b', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.text}</td>
-                <td className="acq-muted" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.campaignName}</td>
+                <td data-hide style={{ width: 34, paddingLeft: 4 }}><Icon size={17} style={{ color }} /></td>
+                <td data-primary style={{ color: '#1e293b', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.text}</td>
+                <td data-wide className="acq-muted" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.campaignName}</td>
                 <td className="acq-muted" style={{ whiteSpace: 'nowrap' }}>{timeAgo(e.at, now)}</td>
                 <td style={{ textAlign: 'right', paddingRight: 4 }}><Pill label={e.pill} /></td>
               </tr>

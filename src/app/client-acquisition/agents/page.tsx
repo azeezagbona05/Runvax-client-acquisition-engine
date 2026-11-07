@@ -41,11 +41,11 @@ export default function AgentsPage() {
           : !data ? <div style={{ display: 'grid', gap: 12 }}>{[0, 1, 2, 3].map((i) => <Skeleton key={i} h={22} />)}</div>
           : data.log.length === 0 ? <EmptyState title="No activity yet" body="Build a campaign and the agents start working. Everything they do is listed here." />
           : (
-            <table className="acq-table"><tbody>
+            <table className="acq-table acq-rt"><tbody>
               {data.log.map((a) => (
                 <tr key={a.id}>
-                  <td style={{ width: 200, fontWeight: 600, color: '#0f172a' }}>{names[a.agent] ?? a.agent}</td>
-                  <td>{a.action}{a.detail ? <span className="acq-sub" style={{ display: 'block', fontSize: 12.5 }}>{a.detail}</span> : null}</td>
+                  <td data-primary style={{ width: 200, fontWeight: 600, color: '#0f172a' }}>{names[a.agent] ?? a.agent}</td>
+                  <td data-wide>{a.action}{a.detail ? <span className="acq-sub" style={{ display: 'block', fontSize: 12.5 }}>{a.detail}</span> : null}</td>
                   <td className="acq-muted" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{timeAgo(a.at, now)}</td>
                 </tr>
               ))}

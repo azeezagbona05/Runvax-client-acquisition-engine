@@ -385,26 +385,26 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
           <div className="acq-sub" style={{ padding: '48px 16px', textAlign: 'center' }}>No leads yet. Use <b>Add leads</b> to upload a list.</div>
         ) : (
           <div style={{ overflowX: 'auto', padding: '8px 18px 6px' }}>
-            <table className="acq-table" style={{ minWidth: 820 }}>
+            <table className="acq-table acq-rt" style={{ minWidth: 820 }}>
               <thead><tr><th style={{ paddingTop: 8 }}>Lead</th><th>Status</th><th>Sent</th><th>Opens</th><th>Clicks</th><th>Follow-ups</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
               <tbody>
                 {shown.map((l) => {
                   const st = l.repliedAt && l.outcome === 'interested' ? { label: 'Interested', tone: 'acq-pill-green' } : l.repliedAt && l.outcome === 'not_interested' ? { label: 'Not interested', tone: 'acq-pill-gray' } : STAGE_PILL[l.stage];
                   return (
                     <tr key={l.id}>
-                      <td style={{ maxWidth: 280 }}>
+                      <td data-primary style={{ maxWidth: 280 }}>
                         <p style={{ fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.email}</p>
                         <p className="acq-sub" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[l.name, l.business].filter(Boolean).join(' · ') || '—'}</p>
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span className={`acq-pill ${st.tone}`}>{st.label}</span>
                         {l.error && <p style={{ fontSize: 11, color: '#b91c1c', marginTop: 3, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={l.error}>{l.error}</p>}
                       </td>
-                      <td className="acq-muted" style={{ whiteSpace: 'nowrap' }}>{fmt(l.sentAt)}</td>
-                      <td className="acq-muted">{l.openCount > 0 ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', color: '#9333ea' }} title={l.openedAt ? `First opened ${timeAgoShort(l.openedAt)}` : undefined}><Eye size={13} />{l.openCount}</span> : '—'}</td>
-                      <td className="acq-muted">{l.clickCount > 0 ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', color: '#9333ea' }}><Link2 size={13} />{l.clickCount}</span> : '—'}</td>
-                      <td className="acq-muted">{l.followUpsSent || '—'}</td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td data-label="Sent" className="acq-muted" style={{ whiteSpace: 'nowrap' }}>{fmt(l.sentAt)}</td>
+                      <td data-label="Opens" className="acq-muted">{l.openCount > 0 ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', color: '#9333ea' }} title={l.openedAt ? `First opened ${timeAgoShort(l.openedAt)}` : undefined}><Eye size={13} />{l.openCount}</span> : '—'}</td>
+                      <td data-label="Clicks" className="acq-muted">{l.clickCount > 0 ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', color: '#9333ea' }}><Link2 size={13} />{l.clickCount}</span> : '—'}</td>
+                      <td data-label="Follow-ups" className="acq-muted">{l.followUpsSent || '—'}</td>
+                      <td data-actions style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {l.sentAt && !l.unsubscribedAt && (l.repliedAt ? (
                           <span style={{ display: 'inline-flex', gap: 10, alignItems: 'center', marginRight: 8 }}>
                             {l.outcome !== 'interested' && <button className="acq-link" style={{ color: '#16a34a', fontWeight: 600 }} onClick={() => void leadAction(l, { outcome: 'interested' })}><Check size={13} /> Interested</button>}

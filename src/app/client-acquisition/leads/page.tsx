@@ -74,17 +74,17 @@ function LeadsInner() {
           : data && data.leads.length === 0 ? <EmptyState title={data.counts.all ? 'No leads match' : 'No leads yet'} body={data.counts.all ? 'Try a different filter or search.' : 'Use Import Leads to upload a CSV or pull in your saved prospects.'} />
           : data && (
             <div style={{ overflowX: 'auto', padding: '10px 18px 6px' }}>
-              <table className="acq-table" style={{ minWidth: 760 }}>
+              <table className="acq-table acq-rt" style={{ minWidth: 760 }}>
                 <thead><tr><th>Business</th><th>Email</th><th>Campaign</th><th>Status</th><th>Opens</th><th>Last activity</th></tr></thead>
                 <tbody>
                   {data.leads.map((l) => (
                     <tr key={l.id}>
-                      <td style={{ maxWidth: 220 }}><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><BizLogo name={l.business || l.name || l.email} website={l.website} /><span style={{ fontWeight: 500, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.business || l.name || l.email.split('@')[1]}</span></span></td>
-                      <td className="acq-muted" style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.email}</td>
-                      <td><Link href={`/client-acquisition/campaigns/${l.campaignId}`} className="acq-muted" style={{ textDecoration: 'underline', textDecorationColor: '#cbd5e1' }}>{l.campaignName}</Link></td>
-                      <td><Pill label={LABEL[l.stage] ?? l.stage} tone={l.stage === 'clicked' ? 'acq-pill-blue' : undefined} /></td>
-                      <td>{l.opens || '—'}</td>
-                      <td className="acq-muted" style={{ whiteSpace: 'nowrap' }}>{timeAgoShort(l.lastActivityAt)}</td>
+                      <td data-primary style={{ maxWidth: 220 }}><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><BizLogo name={l.business || l.name || l.email} website={l.website} /><span style={{ fontWeight: 500, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.business || l.name || l.email.split('@')[1]}</span></span></td>
+                      <td data-wide className="acq-muted" style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.email}</td>
+                      <td data-label="Campaign"><Link href={`/client-acquisition/campaigns/${l.campaignId}`} className="acq-muted" style={{ textDecoration: 'underline', textDecorationColor: '#cbd5e1' }}>{l.campaignName}</Link></td>
+                      <td data-label="Status"><Pill label={LABEL[l.stage] ?? l.stage} tone={l.stage === 'clicked' ? 'acq-pill-blue' : undefined} /></td>
+                      <td data-label="Opens">{l.opens || '—'}</td>
+                      <td data-label="Last activity" className="acq-muted" style={{ whiteSpace: 'nowrap' }}>{timeAgoShort(l.lastActivityAt)}</td>
                     </tr>
                   ))}
                 </tbody>
