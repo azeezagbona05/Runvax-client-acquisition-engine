@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Signed in with a mocked session and offline APIs: no account and no database.
 async function signedIn(page: Page) {
-  await page.addInitScript(() => { try { localStorage.setItem('runvax_welcome_seen', '1'); localStorage.setItem('pwa_dismissed_at', String(Date.now())); } catch { /* ignore */ } });
+  await page.addInitScript(() => { try { localStorage.setItem('runvax_welcome_seen', '1'); localStorage.setItem('pwa_dismissed_at', String(Date.now())); localStorage.setItem('acq_rail', '1'); } catch { /* ignore */ } });
   await page.route('**/api/auth/session', (r) => r.fulfill({ json: { user: { name: 'Azeez Oladipo', email: 'azeez@example.com', plan: 'pro' }, expires: '2099-01-01T00:00:00.000Z' } }));
   await page.route('**/api/client-acquisition/**', (r) => r.fulfill({ status: 503, json: { error: 'offline in this test' } }));
   await page.route('**/api/outreach-campaigns**', (r) => r.fulfill({ json: { campaigns: [] } }));

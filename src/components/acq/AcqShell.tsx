@@ -202,7 +202,16 @@ export default function AcqShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { data, gate, guest } = useAcq();
   const { triggerUpgrade } = useUpgrade();
-  const [rail, setRail] = useState(false);
+  const [railPref, setRail] = useState(false);
+  // The collapsed (icons only) sidebar is a desktop choice. On a phone the menu is a drawer and must always show labels.
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const on = () => setWide(mq.matches); on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  const rail = railPref && wide;
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => { try { setRail(localStorage.getItem('acq_rail') === '1'); } catch { /* default open */ } }, []);
