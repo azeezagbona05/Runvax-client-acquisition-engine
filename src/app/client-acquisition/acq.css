@@ -582,3 +582,13 @@
 .acq-fs.open .acq-fs-body { flex: 1; min-height: 0; overflow: auto; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
 .acq-fs.open .acq-fs-inner { max-width: 1500px; margin: 0 auto; }
 .acq-fs, .acq-fs-body, .acq-fs-inner { min-width: 0; max-width: 100%; }
+
+/* Editable workflow: drag emails to reorder, drag the canvas to pan, add an email */
+.acq-flow-node.draggable { cursor: grab; }
+.acq-flow-node.dragging { opacity: .4; }
+.acq-flow-node.drop-here { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-ring); transform: scale(1.02); }
+.acq-flow-grip { flex: none; margin: 2px -4px 0 -6px; color: #a78bfa; }
+.acq-flow-add { justify-self: center; display: inline-flex; align-items: center; gap: 6px; margin: 2px auto; padding: 8px 16px; border-radius: 999px; border: 1.5px dashed var(--brand-edge, #c4b5fd); background: #fff; color: #7e22ce; font-weight: 600; font-size: 13px; min-height: 40px; }
+.acq-flow-add:hover { background: var(--brand-faint, #faf5ff); }
+.acq-fs.open .acq-flow-canvas { max-height: none; height: calc(100vh - 190px); }
+.acq-build-pct { font-size: 28px; font-weight: 800; color: #7e22ce; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }

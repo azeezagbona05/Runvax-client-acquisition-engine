@@ -2,11 +2,13 @@
 
 import { celebrate } from '@/lib/celebrate';
 import FullScreen from '../FullScreen';
+import FlowNodeEditor from './FlowNodeEditor';
+import { addEmailAfter, canAddEmail, emailIndexOfNode, moveEmail } from '@/lib/workflowEdit';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, FlaskConical, GitBranch, Loader2, Mail, MessageSquare, Pencil, Rocket, Search, Send, Sparkles, Upload, Wand2 } from 'lucide-react';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
-import { SEND_IF_LABEL, dayNumbers, sanitizeAutomation, summarize, type Automation } from '@/lib/automation';
+import { SEND_IF_LABEL, dayNumbers, sanitizeAutomation, summarize, validateAutomation, type Automation } from '@/lib/automation';
 import { OBJECTIVES, sanitizeBrief, type CampaignBrief } from '@/lib/campaignBrief';
 import { planFromGoal } from '@/lib/campaignBuilder';
 import { PLAY_LABEL, PLAY_ACTION, ACTION_LABEL } from '@/lib/replyPlaybook';
@@ -84,6 +86,12 @@ export default function AutopilotSetup({ onManual }: { onManual: (a: Automation,
   const [refine, setRefine] = useState('');
   const [refining, setRefining] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'unsaved' | 'error'>('idle');
+  const [saveNote, setSaveNote] = useState('');
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The build percentage counts up on its own: it follows the stages, and creeps forward while a stage waits on the AI, so it never just sits still.
+  const [pctShown, setPctShown] = useState(0);
   const live = useRef(true);
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
 
@@ -101,7 +109,7 @@ export default function AutopilotSetup({ onManual }: { onManual: (a: Automation,
   const build = async (text: string) => {
     const p = text.trim();
     if (!p) return;
-    setPhase('building'); setNotice(''); setCampaignId(null); setAdded(0); setTab('workflow');
+    setPhase('building'); setNotice(''); setCampaignId(null); setAdded(0); setTab('workflow'); setPctShown(0); setEditing(null); setSaveState('idle');
     setSteps(STEP_TITLES.map((t) => ({ title: t, items: [] })));
     setActive(0);
 
@@ -187,7 +195,48 @@ export default function AutopilotSetup({ onManual }: { onManual: (a: Automation,
     finally { setAdding(false); }
   };
 
-  const pct = phase === 'done' ? 100 : Math.max(4, Math.round((Math.max(active, 0) / STEP_TITLES.length) * 100));
+  useEffect(() => {
+    if (phase === 'idle') { setPctShown(0); return; }
+    const total = STEP_TITLES.length;
+    const id = setInterval(() => setPctShown((p) => {
+      const stage = Math.max(active, 0);
+      const floor = Math.round((stage / total) * 100);
+      const ceil = phase === 'done' ? 100 : Math.min(96, Math.round(((stage + 1) / total) * 100) - 2);
+      const base = Math.max(p, floor);
+      if (base >= ceil) return base;
+      const step = phase === 'done' ? Math.max(1, Math.ceil((100 - base) / 4)) : Math.max(0.3, (ceil - base) * 0.09);
+      return Math.min(ceil, base + step);
+    }), 90);
+    return () => clearInterval(id);
+  }, [phase, active]);
+  const pct = Math.min(100, Math.round(pctShown));
+  // Once it reaches 100% the bar stays a moment, so the finish is seen.
+  const [lingering, setLingering] = useState(false);
+  useEffect(() => {
+    if (phase !== 'done' || pct < 100) return;
+    setLingering(true);
+    const t = setTimeout(() => setLingering(false), 900);
+    return () => clearTimeout(t);
+  }, [phase, pct]);
+
+  // Edits made on the chart apply at once and are saved to the campaign a moment later.
+  const applyEdit = (next: Automation, selectNode?: string) => {
+    const merged = { ...next, brief: brief ?? next.brief };
+    setAuto(merged);
+    if (selectNode) setEditing(selectNode);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    const issues = validateAutomation(merged);
+    if (issues.length) { setSaveState('error'); setSaveNote(issues[0]); return; }
+    if (!campaignId) { setSaveState('unsaved'); setSaveNote('Save the campaign to keep these changes.'); return; }
+    setSaveState('saving'); setSaveNote('');
+    saveTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/outreach-campaigns/${campaignId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ automation: merged }) });
+        if (!live.current) return;
+        if (res.ok) { setSaveState('saved'); setSaveNote(''); } else { setSaveState('error'); setSaveNote('Could not save. Your changes are still on screen.'); }
+      } catch { if (live.current) { setSaveState('error'); setSaveNote('Could not save. Check your connection.'); } }
+    }, 700);
+  };
 
   if (phase === 'idle' || phase === 'error') {
     return (
@@ -236,7 +285,15 @@ export default function AutopilotSetup({ onManual }: { onManual: (a: Automation,
             </div>
           )}
         </div>
-        <div className="acq-build-bar" aria-label={`${pct}% done`}><i style={{ width: `${pct}%` }} /></div>
+        {(phase === 'building' || (phase === 'done' && (pct < 100 || lingering))) && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+              <span className="acq-sub" style={{ fontSize: 13.5 }}>{phase === 'done' ? 'Ready' : `Step ${Math.min(Math.max(active, 0) + 1, STEP_TITLES.length)} of ${STEP_TITLES.length}`}</span>
+              <b className="acq-build-pct" aria-hidden="true">{pct}%</b>
+            </div>
+            <div className="acq-build-bar" role="progressbar" aria-label="Building your campaign" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-valuetext={`${pct} percent`}><i style={{ width: `${pct}%` }} /></div>
+          </div>
+        )}
         {phase === 'done' && <button className="acq-link" style={{ justifySelf: 'start' }} onClick={() => setShowSteps((v) => !v)}><Check size={13} /> All {STEP_TITLES.length} build steps complete · {showSteps ? 'Hide' : 'Show'} what was built</button>}
         <ol className="acq-build" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {steps.map((s, i) => {
@@ -264,7 +321,21 @@ export default function AutopilotSetup({ onManual }: { onManual: (a: Automation,
             </div>
           )}
 
-          {(tab === 'workflow' || phase !== 'done') && <FullScreen title="Sequence workflow"><WorkflowCanvas key={phase} auto={auto} onSelect={() => setTab('test')} /></FullScreen>}
+          {(tab === 'workflow' || phase !== 'done') && (
+            <FullScreen title="Sequence workflow">
+              {phase === 'done' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                  <p className="acq-sub" style={{ fontSize: 13.5 }}>Click a step to edit it. Drag an email to change the order. Drag the background to move around.</p>
+                  <span role="status" className="acq-faint" style={{ fontSize: 12.5, color: saveState === 'error' ? '#b91c1c' : undefined }}>
+                    {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved ✓' : saveState === 'unsaved' || saveState === 'error' ? saveNote : ''}
+                  </span>
+                </div>
+              )}
+              <WorkflowCanvas key={phase} auto={auto} editable={phase === 'done'} selected={editing} onSelect={phase === 'done' ? setEditing : undefined}
+                onReorder={(f, t) => applyEdit(moveEmail(auto, f, t))} canAdd={canAddEmail(auto)} onAdd={() => applyEdit(addEmailAfter(auto, auto.emails.length - 1), `e${auto.emails.length}`)} />
+              {phase === 'done' && editing && (emailIndexOfNode(editing) ?? 0) < auto.emails.length && <FlowNodeEditor auto={auto} nodeId={editing} onChange={applyEdit} onClose={() => setEditing(null)} onOpenReplies={() => setTab('replies')} />}
+            </FullScreen>
+          )}
 
           {phase === 'done' && tab === 'emails' && (
             <FullScreen title="Emails"><div style={{ display: 'grid', gap: 10 }}>
