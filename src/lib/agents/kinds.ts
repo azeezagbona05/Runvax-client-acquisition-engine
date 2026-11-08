@@ -35,7 +35,7 @@ export interface VisibilityConfig {
 }
 export interface AssistantConfig {
   business: Business; tone: Tone; goal: 'qualify' | 'book' | 'support' | 'all'; greeting: string; knowledge: string; questions: string[];
-  calendarUrl: string; privacyUrl: string; notifyEmail: string; channels: { web: boolean; telegram: boolean; telegramBot: string }; allowedDomains: string[];
+  calendarUrl: string; privacyUrl: string; knowledgeIds: string[]; notifyEmail: string; channels: { web: boolean; telegram: boolean; telegramBot: string }; allowedDomains: string[];
 }
 export type AgentConfig = VisibilityConfig | AssistantConfig;
 
@@ -66,7 +66,7 @@ export function sanitizeConfig(kind: AgentKind, raw: unknown): AgentConfig {
   return {
     business: b, tone, goal: pick(c.goal, ['qualify', 'book', 'support', 'all'] as const, 'qualify'),
     greeting: str(c.greeting, 300) || `Hi! I am the assistant for ${b.name || 'this business'}. How can I help?`,
-    knowledge: str(c.knowledge, 8000), questions: list(c.questions, 5, 160), calendarUrl: cleanUrl(c.calendarUrl, true), privacyUrl: cleanUrl(c.privacyUrl, true), notifyEmail: email(c.notifyEmail),
+    knowledge: str(c.knowledge, 8000), questions: list(c.questions, 5, 160), calendarUrl: cleanUrl(c.calendarUrl, true), privacyUrl: cleanUrl(c.privacyUrl, true), knowledgeIds: (Array.isArray(c.knowledgeIds) ? c.knowledgeIds : []).filter((x: unknown): x is string => typeof x === 'string' && /^[a-z0-9]{20,40}$/.test(x)).filter((x: string, i: number, a: string[]) => a.indexOf(x) === i).slice(0, 20), notifyEmail: email(c.notifyEmail),
     channels: { web: ch.web !== false, telegram: !!ch.telegram, telegramBot: str(ch.telegramBot, 64).replace(/^@/, '') }, allowedDomains: domains(c.allowedDomains),
   };
 }

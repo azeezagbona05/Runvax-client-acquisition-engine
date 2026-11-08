@@ -32,6 +32,7 @@ model User {
   accounts                 Account[]
   integrationConnections   IntegrationConnection[]
   customAgents             CustomAgent[]
+  knowledgeSources         KnowledgeSource[]
   sessions                 Session[]
   prospects                Prospect[]
   settings                 UserSettings?
@@ -1401,4 +1402,40 @@ model CustomAgentChat {
 
   @@unique([agentId, channel, externalId])
   @@index([agentId, status, updatedAt])
+}
+
+// Something an assistant can answer from: a website, a PDF, a CSV table or Q&A list. The text is split into KnowledgeChunk rows
+// (the original file is not kept). An assistant uses the sources listed in its config.knowledgeIds.
+model KnowledgeSource {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // website | pdf | table | qa | text
+  kind      String   @db.VarChar(16)
+  name      String   @db.VarChar(160)
+  // ready | error
+  status    String   @default("ready")
+  error     String?  @db.VarChar(300)
+  // website: { url, pages }  pdf: { filename, pages }  table/qa: { filename, rows }
+  meta      Json?
+  chars     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  chunks    KnowledgeChunk[]
+
+  @@index([userId, createdAt])
+}
+
+model KnowledgeChunk {
+  id       String          @id @default(cuid())
+  sourceId String
+  source   KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  userId   String
+  idx      Int
+  // Where it came from (a page URL, "page 3", a row number): shown in previews, never invented.
+  label    String?         @db.VarChar(200)
+  text     String          @db.Text
+
+  @@index([sourceId, idx])
+  @@index([userId])
 }

@@ -5,6 +5,7 @@ import { checkAndIncrementAI } from '@/lib/usage';
 import { assistantReply, cleanHistory, MAX_MSG } from '@/lib/agents/chat';
 import { configIssues, isKind, sanitizeConfig, type AssistantConfig, type VisibilityConfig } from '@/lib/agents/kinds';
 import { writePost } from '@/lib/agents/write';
+import { knowledgeExcerpts } from '@/lib/knowledge/context';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -29,8 +30,11 @@ export async function POST(req: NextRequest) {
   if (b.kind === 'assistant') {
     const text = typeof b.message === 'string' ? b.message.trim().slice(0, MAX_MSG) : '';
     if (!text) return NextResponse.json({ error: 'Type a message to the assistant.' }, { status: 400 });
-    const out = await assistantReply(cfg as AssistantConfig, cleanHistory(b.history), text, useAi);
-    return NextResponse.json({ reply: out.reply, visitor: out.visitor, source: out.source, notice: useAi ? undefined : 'Your daily AI allowance is used up, so the built-in replies answered.' });
+    const history = cleanHistory(b.history); const last = [...history].reverse().find((m) => m.r === 'v')?.t ?? '';
+    const excerpts = await knowledgeExcerpts(u.userId, (cfg as AssistantConfig).knowledgeIds, `${text} ${last}`).catch(() => []);
+    const out = await assistantReply(cfg as AssistantConfig, history, text, useAi, excerpts);
+    // `used` tells the page whether the answer drew on the knowledge base.
+    return NextResponse.json({ reply: out.reply, visitor: out.visitor, source: out.source, usedKnowledge: excerpts.length, notice: useAi ? undefined : 'Your daily AI allowance is used up, so the built-in replies answered.' });
   }
   const v = cfg as VisibilityConfig;
   const topic = (typeof b.topic === 'string' ? b.topic.trim().slice(0, 140) : '') || v.topics[0];

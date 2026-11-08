@@ -1,5 +1,6 @@
 'use client';
 
+import KnowledgePanel from './KnowledgePanel';
 import { TONES, CADENCES, LENGTHS, type AgentConfig, type AgentKind, type AssistantConfig, type VisibilityConfig } from '@/lib/agents/kinds';
 
 const lbl = { display: 'block', fontSize: 12.5, fontWeight: 600, color: '#475569', marginBottom: 4 } as const;
@@ -39,6 +40,7 @@ export default function AgentForm({ kind, cfg, onChange }: { kind: AgentKind; cf
       {kind === 'assistant' && <>
         <div><label style={lbl} htmlFor="ag-greet">First message visitors see</label><input id="ag-greet" className="acq-input" maxLength={300} value={a.greeting} onChange={(e) => set<AssistantConfig>({ greeting: e.target.value })} /></div>
         <div><label style={lbl} htmlFor="ag-know">What the assistant knows</label><textarea id="ag-know" className="acq-textarea" rows={7} maxLength={8000} value={a.knowledge} onChange={(e) => set<AssistantConfig>({ knowledge: e.target.value })} /><p style={hint}>Services, who it is for, how it works, what happens next. It answers only from this and says so when it does not know.</p></div>
+        <KnowledgePanel ids={a.knowledgeIds} onChange={(ids) => set<AssistantConfig>({ knowledgeIds: ids })} />
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div><label style={lbl} htmlFor="ag-goal">Its job</label><select id="ag-goal" className="acq-select" value={a.goal} onChange={(e) => set<AssistantConfig>({ goal: e.target.value as AssistantConfig['goal'] })}><option value="qualify">Qualify visitors and collect contacts</option><option value="book">Get visitors to book a call</option><option value="support">Answer questions</option><option value="all">All of these</option></select></div>
           <div><label style={lbl} htmlFor="ag-cal">Booking link (optional)</label><input id="ag-cal" className="acq-input" placeholder="https://calendly.com/you/demo" value={a.calendarUrl} onChange={(e) => set<AssistantConfig>({ calendarUrl: e.target.value })} /></div>
