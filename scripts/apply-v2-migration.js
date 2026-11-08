@@ -5,6 +5,7 @@
 //   9_email_credits        -> new tables EmailWallet, EmailCreditLedger
 //   8_integration_connections -> new table IntegrationConnection
 //   10_whatsapp_campaigns  -> new table LeadWhatsApp
+//   11_custom_agents       -> new tables CustomAgent, CustomAgentPost, CustomAgentChat
 // Additive only. Each migration is skipped if it is already applied, so it is safe to run twice.
 // It never touches migrations 1-4 or any RUNVAX 1.0 table. Pass --yes to skip the confirmation prompt.
 const fs = require('fs');
@@ -20,6 +21,7 @@ const MIGRATIONS = [
   { dir: '8_integration_connections', tables: ['IntegrationConnection'], columns: [] },
   { dir: '10_whatsapp_campaigns', tables: ['LeadWhatsApp'], columns: [] },
   { dir: '9_email_credits', tables: ['EmailWallet', 'EmailCreditLedger'], columns: [] },
+  { dir: '11_custom_agents', tables: ['CustomAgent', 'CustomAgentPost', 'CustomAgentChat'], columns: [] },
 ];
 
 (async () => {
