@@ -117,3 +117,17 @@ describe('built-in planner and writer (no AI key)', () => {
     expect(d.source).toBe('rules'); expect(d.body).not.toMatch(/<script|onerror/i); expect(d.body).toContain('Frequently asked questions'); expect(d.body).not.toMatch(/\d+%|guarantee|award/i);
   });
 });
+
+describe('the AI planner may not invent who the business is', () => {
+  it('drops a company name and website the user never gave', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    vi.resetModules();
+    vi.doMock('@/lib/ai', () => ({ hasProvider: () => true, extractJson: (t: string) => JSON.parse(t), generate: async () => ({ text: JSON.stringify({ name: 'Lagos Logistics Co. Agent', business: { name: 'Lagos Logistics Co.', url: 'https://lagoslogisticsco.com', about: 'We move freight.' }, topics: ['Customs'], tone: 'friendly' }) }) }));
+    const { planAgent: plan } = await import('@/lib/agents/write');
+    const p = await plan('visibility', 'We are a logistics company in Lagos. Write about customs.', { site: null });
+    expect(p.source).toBe('ai'); expect(p.config.business.name).toBe(''); expect(p.config.business.url).toBe('');
+    const q = await plan('visibility', 'Our company is Acme Freight. Write about customs.', { site: null, url: 'acmefreight.com' });
+    expect(q.config.business.url).toBe('https://acmefreight.com');
+    vi.doUnmock('@/lib/ai'); vi.resetModules();
+  });
+});

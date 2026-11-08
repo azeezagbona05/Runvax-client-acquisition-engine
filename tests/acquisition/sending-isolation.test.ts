@@ -192,12 +192,13 @@ describe('tripwire: every server route that messages prospects uses the guard', 
   const all = walk(ROOT).filter((f) => !rel(f).startsWith('src/lib/acquisition/') && !rel(f).startsWith('src/app/api/acquisition/') && !rel(f).startsWith('src/app/acquisition/'));
 
   // Routes that send to the account's OWN user (system mail) or manage the WhatsApp account, never to a prospect.
+  // src/lib/agents/chat.ts: the assistant's new-lead alert goes only to the owner's address (capped per agent per day); visitors are only ever answered in their own chat.
   const NOT_PROSPECT_FACING = new Set([
     'src/app/api/admin/users/resend-verification/route.ts', 'src/app/api/auth/forgot-password/route.ts', 'src/app/api/auth/register/route.ts',
     'src/app/api/auth/resend-verification/route.ts', 'src/app/api/cron/admin-daily-brief/route.ts', 'src/app/api/cron/expire-plans/route.ts',
     'src/app/api/cron/lifecycle-emails/route.ts', 'src/app/api/cron/onboarding-emails/route.ts', 'src/app/api/payments/webhook/route.ts',
     'src/app/api/trial/start/route.ts', 'src/app/api/user/smtp-test/route.ts', 'src/app/api/whatsapp/template-status/route.ts', 'src/app/api/whatsapp/connect/route.ts',
-    'src/app/api/whatsapp/create-template/route.ts', 'src/app/api/whatsapp/test/route.ts', 'src/lib/acqNotify.ts', 'src/lib/integrations/providers.ts', 'src/lib/adminOps.ts', 'src/lib/email.ts', 'src/lib/launchCampaign.ts', 'src/lib/lifecycleRunner.ts', 'src/lib/newUserSetup.ts', 'src/lib/trial.ts', 'src/lib/usage.ts',
+    'src/app/api/whatsapp/create-template/route.ts', 'src/app/api/whatsapp/test/route.ts', 'src/lib/acqNotify.ts', 'src/lib/integrations/providers.ts', 'src/lib/adminOps.ts', 'src/lib/agents/chat.ts', 'src/lib/email.ts', 'src/lib/launchCampaign.ts', 'src/lib/lifecycleRunner.ts', 'src/lib/newUserSetup.ts', 'src/lib/trial.ts', 'src/lib/usage.ts',
   ]);
 
   it('finds the senders, and each prospect-facing one applies checkRecipient before sending', () => {

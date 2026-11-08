@@ -27,11 +27,12 @@ function plannerSystem(kind: AgentKind): string {
   if (kind === 'visibility') return [...common,
     '{ "name": string, "business": { "name": string, "url": string, "about": string, "audience": string }, "tone": "friendly"|"professional"|"expert"|"conversational", "topics": string[], "keywords": string[], "cadence": "daily"|"weekly"|"biweekly"|"monthly", "postsPerRun": 1-3, "length": "short"|"medium"|"long" }',
     '- topics: 8 to 12 specific article ideas a buyer of this business would search for (questions, comparisons, how-tos, costs, mistakes to avoid). No clickbait, no invented facts.',
-    '- keywords: 4 to 8 phrases a buyer would type. about: one or two honest sentences from what the user said. Never invent awards, clients, prices or statistics.'].join('\n');
+    '- keywords: 4 to 8 phrases a buyer would type. about: one or two honest sentences from what the user said. Never invent awards, clients, prices or statistics.',
+    '- business.name: ONLY a name the user or the website facts actually give. If there is none, use an empty string. Never make a company name up. Leave business.url as given, or empty.'].join('\n');
   return [...common,
     '{ "name": string, "business": { "name": string, "url": string, "about": string, "audience": string }, "tone": "friendly"|"professional"|"expert"|"conversational", "goal": "qualify"|"book"|"support"|"all", "greeting": string, "knowledge": string, "questions": string[] }',
     '- knowledge: facts the assistant may state, written from what the user told you (services, who it is for, how it works, what happens next). Only what the user said or the site facts show. Do not invent prices, guarantees or clients.',
-    '- questions: 3 to 5 short qualifying questions a B2B seller would ask (company size, current tool, timeline, budget range, decision-maker). greeting: one friendly sentence.'].join('\n');
+    '- questions: 3 to 5 short qualifying questions a B2B seller would ask (company size, current tool, timeline, budget range, decision-maker). greeting: one friendly sentence. business.name: ONLY a name the user or the website facts give, otherwise an empty string; never make a company name up.'].join('\n');
 }
 
 /** Words that should not become a topic or a business name. */
@@ -69,7 +70,10 @@ export async function planAgent(kind: AgentKind, prompt: string, o: { url?: stri
     const facts = site ? `\n\nFacts read from their website (${url}):\nTitle: ${site.title}\nDescription: ${site.description}\nHeadings: ${site.headings.join(' | ')}` : '';
     const r = await generate({ system: plannerSystem(kind), prompt: `${text}${url ? `\nWebsite: ${url}` : ''}${facts}`, json: true, maxTokens: 1800, temperature: 0.4, feature: 'agents' });
     const parsed = extractJson<Record<string, unknown>>(r.text);
-    const merged = { ...parsed, business: { ...(parsed.business as object ?? {}), url: (parsed.business as { url?: string } | undefined)?.url || url } };
+    // A name or address the user never gave must not be invented: keep the model's name only when it appears in what the user wrote or the site says.
+    const said = `${text} ${site?.title ?? ''} ${site?.description ?? ''}`.toLowerCase();
+    const pb = (parsed.business ?? {}) as { name?: string };
+    const merged = { ...parsed, business: { ...pb, name: pb.name && said.includes(pb.name.toLowerCase().trim()) ? pb.name : (site?.title.split(/[|\-–·]/)[0] ?? '').trim(), url } };
     const config = sanitizeConfig(kind, merged);
     const name = typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name.trim().slice(0, 120) : defaultName(kind, config);
     return { name, config, source: 'ai' };

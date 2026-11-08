@@ -8,7 +8,7 @@ import type { CustomAgent } from '@prisma/client';
 
 export interface Visitor { name?: string; email?: string; phone?: string; company?: string; need?: string }
 export interface Msg { r: 'v' | 'a'; t: string; at: number }
-export const MAX_MSG = 1000, MAX_TURNS = 40;
+export const MAX_MSG = 1000, MAX_TURNS = 40, MAX_ALERTS_PER_DAY = 20;
 
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 const PHONE_RE = /(?:\+?\d[\d\s().-]{8,16}\d)/;
@@ -95,6 +95,12 @@ export async function handleChatMessage(agent: CustomAgent, channel: 'web' | 'te
   const messages: Msg[] = [...history, { r: 'v' as const, t: text, at: Date.now() }, { r: 'a' as const, t: out.reply, at: Date.now() }].slice(-60);
   const isLead = !!(visitor.email || visitor.phone);
   const saved = await prisma.customAgentChat.upsert({ where: key, create: { agentId: agent.id, userId: agent.userId, channel, externalId: externalId.slice(0, 120), visitor: visitor as object, messages: messages as unknown as object, status: isLead ? 'lead' : 'open' }, update: { visitor: visitor as object, messages: messages as unknown as object, status: isLead ? 'lead' : row?.status === 'closed' ? 'closed' : 'open' } });
-  if (isLead && !saved.notifiedAt) { const sent = await notifyOwner(agent, cfg, visitor, channel, messages); await prisma.customAgentChat.update({ where: { id: saved.id }, data: { notifiedAt: new Date() } }); void sent; }
+  if (isLead && !saved.notifiedAt) {
+    // At most 20 lead alerts per agent per day, so the alert address can never be used as a mail cannon.
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+    const sentToday = await prisma.customAgentChat.count({ where: { agentId: agent.id, notifiedAt: { gte: today } } });
+    if (sentToday < MAX_ALERTS_PER_DAY) await notifyOwner(agent, cfg, visitor, channel, messages);
+    await prisma.customAgentChat.update({ where: { id: saved.id }, data: { notifiedAt: new Date() } });
+  }
   return { reply: out.reply, lead: isLead };
 }
