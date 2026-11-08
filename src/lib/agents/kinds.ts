@@ -35,7 +35,7 @@ export interface VisibilityConfig {
 }
 export interface AssistantConfig {
   business: Business; tone: Tone; goal: 'qualify' | 'book' | 'support' | 'all'; greeting: string; knowledge: string; questions: string[];
-  calendarUrl: string; notifyEmail: string; channels: { web: boolean; telegram: boolean; telegramBot: string }; allowedDomains: string[];
+  calendarUrl: string; privacyUrl: string; notifyEmail: string; channels: { web: boolean; telegram: boolean; telegramBot: string }; allowedDomains: string[];
 }
 export type AgentConfig = VisibilityConfig | AssistantConfig;
 
@@ -66,7 +66,7 @@ export function sanitizeConfig(kind: AgentKind, raw: unknown): AgentConfig {
   return {
     business: b, tone, goal: pick(c.goal, ['qualify', 'book', 'support', 'all'] as const, 'qualify'),
     greeting: str(c.greeting, 300) || `Hi! I am the assistant for ${b.name || 'this business'}. How can I help?`,
-    knowledge: str(c.knowledge, 8000), questions: list(c.questions, 5, 160), calendarUrl: cleanUrl(c.calendarUrl, true), notifyEmail: email(c.notifyEmail),
+    knowledge: str(c.knowledge, 8000), questions: list(c.questions, 5, 160), calendarUrl: cleanUrl(c.calendarUrl, true), privacyUrl: cleanUrl(c.privacyUrl, true), notifyEmail: email(c.notifyEmail),
     channels: { web: ch.web !== false, telegram: !!ch.telegram, telegramBot: str(ch.telegramBot, 64).replace(/^@/, '') }, allowedDomains: domains(c.allowedDomains),
   };
 }
@@ -82,3 +82,6 @@ export function configIssues(kind: AgentKind, cfg: AgentConfig): string[] {
 }
 
 export const nextRunFrom = (cfg: AgentConfig, from = new Date()) => 'cadence' in cfg ? new Date(from.getTime() + CADENCES[cfg.cadence] * 86_400_000) : null;
+
+/** What every visitor is told before they type: it is an AI, and what happens to what they say. Same words on the website widget, the hosted page and Telegram. */
+export const disclosureText = (cfg: AssistantConfig) => `You are chatting with an AI assistant. Your messages are saved and shared with ${cfg.business.name || 'this business'} so the team can follow up.`;

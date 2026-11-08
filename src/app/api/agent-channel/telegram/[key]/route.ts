@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { handleChatMessage } from '@/lib/agents/chat';
-import { sanitizeConfig, type AssistantConfig } from '@/lib/agents/kinds';
+import { disclosureText, sanitizeConfig, type AssistantConfig } from '@/lib/agents/kinds';
 import { openSecrets, validKey } from '@/lib/agents/store';
 import { sendMessage } from '@/lib/agents/telegram';
 import { rateLimit } from '@/lib/rateLimiter';
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ key: strin
   const chatId = upd?.message?.chat?.id; const text = upd?.message?.text;
   if (!chatId || typeof text !== 'string' || upd?.message?.chat?.type !== 'private') return NextResponse.json({ ok: true });
   if (!rateLimit(`tg:${a.id}:${chatId}`, { maxRequests: 20, windowMs: 60_000 }).ok) return NextResponse.json({ ok: true });
-  const reply = /^\/start\b/i.test(text) ? cfg.greeting : (await handleChatMessage(a, 'telegram', String(chatId), text)).reply;
+  const reply = /^\/start\b/i.test(text) ? `${cfg.greeting}\n\n${disclosureText(cfg)}${cfg.privacyUrl ? ` Privacy: ${cfg.privacyUrl}` : ''}` : (await handleChatMessage(a, 'telegram', String(chatId), text)).reply;
   await sendMessage(s.telegramToken, chatId, reply);
   return NextResponse.json({ ok: true });
 }

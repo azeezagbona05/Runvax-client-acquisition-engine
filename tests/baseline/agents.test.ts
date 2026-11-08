@@ -167,3 +167,21 @@ describe('what the user asks for decides the agent', () => {
     expect(UNSUPPORTED_MESSAGE).toBe("RUNVAX doesn't have such capability yet. Check back in 24 hours.");
   });
 });
+
+import { aiAllowed, MAX_AI_TURNS } from '@/lib/agents/chat';
+import { disclosureText } from '@/lib/agents/kinds';
+describe('honesty and cost guards on the public chat', () => {
+  it('always says it is an AI and what happens to the messages', () => {
+    const cfg = sanitizeConfig('assistant', { business: { name: 'Pay Co', about: 'x' } }) as AssistantConfig;
+    expect(disclosureText(cfg)).toBe('You are chatting with an AI assistant. Your messages are saved and shared with Pay Co so the team can follow up.');
+    expect(disclosureText(sanitizeConfig('assistant', {}) as AssistantConfig)).toContain('this business');
+  });
+  it('the privacy link must be a real web address', () => {
+    expect((sanitizeConfig('assistant', { privacyUrl: 'acme.com/privacy/' }) as AssistantConfig).privacyUrl).toBe('https://acme.com/privacy');
+    expect((sanitizeConfig('assistant', { privacyUrl: 'javascript:alert(1)' }) as AssistantConfig).privacyUrl).toBe('');
+  });
+  it('the AI answers only the first few turns of a conversation, then the free built-in replies take over', () => {
+    const turns = (n: number) => Array.from({ length: n }, () => [{ r: 'v' as const, t: 'q', at: 0 }, { r: 'a' as const, t: 'a', at: 0 }]).flat();
+    expect(aiAllowed(turns(MAX_AI_TURNS - 1))).toBe(true); expect(aiAllowed(turns(MAX_AI_TURNS))).toBe(false);
+  });
+});

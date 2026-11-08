@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { handleChatMessage } from '@/lib/agents/chat';
-import { sanitizeConfig, type AssistantConfig } from '@/lib/agents/kinds';
+import { disclosureText, sanitizeConfig, type AssistantConfig } from '@/lib/agents/kinds';
 import { corsOrigin } from '@/lib/agents/publicFeed';
 import { validKey } from '@/lib/agents/store';
 import { rateLimit } from '@/lib/rateLimiter';
+import { getAppUrl } from '@/lib/url';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   if (!live) return NextResponse.json({ error: 'Not found' }, { status: 404, headers: cors('*') });
   const origin = corsOrigin(live.cfg.allowedDomains, req.headers.get('origin'));
   if (!origin) return NextResponse.json({ error: 'This assistant is not enabled for this website.' }, { status: 403 });
-  return NextResponse.json({ name: live.cfg.business.name || live.a.name, greeting: live.cfg.greeting, booking: !!live.cfg.calendarUrl }, { headers: { ...cors(origin), 'Cache-Control': 'public, s-maxage=60' } });
+  return NextResponse.json({ name: live.cfg.business.name || live.a.name, greeting: live.cfg.greeting, booking: !!live.cfg.calendarUrl, disclosure: disclosureText(live.cfg), privacyUrl: live.cfg.privacyUrl || `${getAppUrl().replace(/\/$/, '')}/privacy` }, { headers: { ...cors(origin), 'Cache-Control': 'public, s-maxage=60' } });
 }
 
 /** Public: one visitor message → one reply. Rate limited by address and by visitor session. */
