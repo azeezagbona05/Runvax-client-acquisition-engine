@@ -8,6 +8,7 @@ import { AGENT_KINDS, configIssues, type AgentConfig, type AssistantConfig, type
 import type { presentAgent } from '@/lib/agents/present';
 import { Pill } from '../ui';
 import AgentForm from './AgentForm';
+import AgentPreview from './AgentPreview';
 
 type Agent = ReturnType<typeof presentAgent>;
 interface Post { id: string; title: string; summary: string; body: string; status: string; source: string; pushed: Array<{ dest: string; ok: boolean; detail: string }> | null; publishedAt: string | null; createdAt: string }
@@ -31,7 +32,7 @@ function CopyBox({ text, label }: { text: string; label: string }) {
 export default function AgentManage({ id }: { id: string }) {
   const router = useRouter();
   const [agent, setAgent] = useState<Agent | null>(null); const [posts, setPosts] = useState<Post[]>([]); const [chats, setChats] = useState<Chat[]>([]);
-  const [missing, setMissing] = useState(false); const [tab, setTab] = useState<'work' | 'settings' | 'deploy'>('work');
+  const [missing, setMissing] = useState(false); const [tab, setTab] = useState<'work' | 'try' | 'settings' | 'deploy'>('work');
   const [cfg, setCfg] = useState<AgentConfig | null>(null); const [name, setName] = useState(''); const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(''); const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [pw, setPw] = useState(''); const [tg, setTg] = useState(''); const [count, setCount] = useState(1);
@@ -85,7 +86,7 @@ export default function AgentManage({ id }: { id: string }) {
   const v = cfg as VisibilityConfig, a = cfg as AssistantConfig;
   const setDest = (p: Partial<VisibilityConfig['destinations']>) => { setCfg({ ...v, destinations: { ...v.destinations, ...p } }); setDirty(true); };
   const issues = configIssues(agent.kind, cfg);
-  const tabs: Array<['work' | 'settings' | 'deploy', string]> = [['work', vis ? `Articles (${agent.counts.posts ?? 0} live, ${agent.counts.drafts ?? 0} waiting)` : `Conversations (${agent.counts.chats ?? 0}, ${agent.counts.leads ?? 0} leads)`], ['settings', 'Settings'], ['deploy', 'Deploy']];
+  const tabs: Array<['work' | 'try' | 'settings' | 'deploy', string]> = [['work', vis ? `Articles (${agent.counts.posts ?? 0} live, ${agent.counts.drafts ?? 0} waiting)` : `Conversations (${agent.counts.chats ?? 0}, ${agent.counts.leads ?? 0} leads)`], ['try', 'Try it'], ['settings', 'Settings'], ['deploy', 'Deploy']];
 
   return (
     <div className="acq-stack">
@@ -167,6 +168,8 @@ export default function AgentManage({ id }: { id: string }) {
           ))}
         </section>
       )}
+
+      {tab === 'try' && <div style={{ maxWidth: 860 }}><AgentPreview kind={agent.kind} cfg={cfg} />{dirty && <p className="acq-faint" style={{ fontSize: 12.5, marginTop: 8 }}>You have unsaved changes in Settings. This preview uses them.</p>}</div>}
 
       {tab === 'settings' && (
         <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 16, maxWidth: 860 }}>

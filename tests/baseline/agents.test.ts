@@ -185,3 +185,14 @@ describe('honesty and cost guards on the public chat', () => {
     expect(aiAllowed(turns(MAX_AI_TURNS - 1))).toBe(true); expect(aiAllowed(turns(MAX_AI_TURNS))).toBe(false);
   });
 });
+
+import { cleanHistory } from '@/lib/agents/chat';
+describe('preview transcripts from the browser', () => {
+  it('keeps only valid turns, trimmed, capped at 14', () => {
+    expect(cleanHistory('nope')).toEqual([]);
+    const h = cleanHistory([{ r: 'v', t: ' hi <b>there</b> ' }, { r: 'x', t: 'bad role' }, { r: 'a', t: '' }, { r: 'a', t: 'Hello' }, null, 5]);
+    expect(h.map((m) => [m.r, m.t])).toEqual([['v', 'hi there'], ['a', 'Hello']]);
+    expect(cleanHistory(Array.from({ length: 40 }, (_, i) => ({ r: 'v', t: 'm' + i }))).length).toBe(14);
+    expect(cleanHistory([{ r: 'v', t: 'x'.repeat(5000) }])[0].t.length).toBe(1000);
+  });
+});

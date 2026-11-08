@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, Clock, Loader2, MessageCircle, Newspaper, Pencil, Sparkles } from 'lucide-react';
 import { AGENT_KINDS, configIssues, sanitizeConfig, type AgentConfig, type AgentKind } from '@/lib/agents/kinds';
 import AgentForm from './AgentForm';
+import AgentPreview from './AgentPreview';
 
 const STEPS: Record<AgentKind | 'any', string[]> = {
   any: ['Reading your request', 'Working out the right agent', 'Reading your website', 'Setting it up', 'Final checks'],
@@ -79,6 +80,7 @@ export default function AgentBuilder() {
         {note && <p className="acq-notice" style={{ fontSize: 13.5 }}>{note}</p>}
         <div><label className="acq-label" htmlFor="ab-name">Agent name</label><input id="ab-name" className="acq-input" maxLength={120} value={name} placeholder={m.label} onChange={(e) => setName(e.target.value)} /></div>
         {cfg && <AgentForm kind={kind} cfg={cfg} onChange={setCfg} />}
+        {cfg && <AgentPreview kind={kind} cfg={cfg} />}
         {issues.length > 0 && <p className="acq-faint" style={{ fontSize: 13 }}>To switch it on later: {issues[0]}</p>}
         {err && <p role="alert" style={{ color: '#b91c1c', fontSize: 13.5 }}>{err}</p>}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
