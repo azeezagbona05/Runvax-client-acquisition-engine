@@ -5,6 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 const SHOTS = process.env.E2E_SHOTS;
 
 async function signedIn(page: Page) {
+  await page.addInitScript(() => { try { localStorage.setItem('runvax_welcome_seen', '1'); localStorage.setItem('pwa_dismissed_at', String(Date.now())); } catch { /* ignore */ } }); // no first-visit welcome video over the page
   await page.route('**/api/auth/session', (r) => r.fulfill({ json: { user: { name: 'Azeez Oladipo', email: 'azeez@example.com', plan: 'pro' }, expires: '2099-01-01T00:00:00.000Z' } }));
   await page.route('**/api/client-acquisition/**', (r) => r.fulfill({ status: 503, json: { error: 'offline in this test' } }));
   await page.route('**/api/outreach-campaigns', (r) => (r.request().method() === 'POST' ? r.fulfill({ status: 201, json: { id: 'c-test', added: null } }) : r.fulfill({ json: { campaigns: [] } })));

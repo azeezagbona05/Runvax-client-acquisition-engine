@@ -1,6 +1,17 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 // Signed in with a mocked session; the built-in planner builds the campaign in the browser and saving is mocked.
+/** Drags the way a person does: press, a small move to start the drag, then glide to the target and release. (A one-jump dragTo does not start a native drag reliably.) */
+async function dragOnto(page: Page, from: Locator, to: Locator) {
+  await from.scrollIntoViewIfNeeded();
+  const a = (await from.boundingBox())!, b = (await to.boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down(); await page.waitForTimeout(100);
+  await page.mouse.move(a.x + a.width / 2 + 8, a.y + a.height / 2 + 8, { steps: 4 }); await page.waitForTimeout(100);
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 15 }); await page.waitForTimeout(150);
+  await page.mouse.up();
+}
+
 const SHOTS = process.env.E2E_SHOTS;
 async function signedIn(page: Page) {
   await page.addInitScript(() => { try { localStorage.setItem('runvax_welcome_seen', '1'); localStorage.setItem('pwa_dismissed_at', String(Date.now())); } catch { /* ignore */ } });
@@ -106,7 +117,8 @@ test('the build counts up in percent, and the workflow can be edited, reordered 
     const e3 = page.getByRole('dialog', { name: /Edit: Email 3/ });
     await e3.getByLabel('Subject', { exact: true }).fill('BBB third');
     await e3.getByRole('button', { name: 'Done' }).click();
-    await page.getByRole('button', { name: /^Email 2: Follow-up: AAA second/ }).dragTo(page.getByRole('button', { name: /^Email 3: Final follow-up: BBB third/ }));
+    await expect(page.getByText('Your acquisition engine is ready')).toBeHidden({ timeout: 20_000 }); // the celebration banner would catch the drop
+    await dragOnto(page, page.getByRole('button', { name: /^Email 2: Follow-up: AAA second/ }), page.getByRole('button', { name: /^Email 3: Final follow-up: BBB third/ }));
     await expect(page.getByRole('button', { name: /^Email 2: Follow-up: BBB third/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Email 3: Final follow-up: AAA second/ })).toBeVisible();
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/edit-${name}-2.png` });

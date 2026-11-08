@@ -15,8 +15,8 @@ test.describe('Find Prospects (signed in)', () => {
   });
 
   test('signing in lands on Find Prospects, first in the menu', async ({ page, isMobile }) => {
-    await expect(page.getByRole('heading', { name: 'Find Prospects' })).toBeVisible();
-    if (!isMobile) await expect(page.getByRole('link', { name: 'Find Prospects' }).first()).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('heading', { name: 'Find Prospects', level: 1 })).toBeVisible();
+    if (!isMobile) await expect(page.getByRole('link', { name: 'Find Prospects', exact: true })).toHaveAttribute('aria-current', 'page');
   });
 
   test('every country is listed and picking one fills the regions', async ({ page }) => {

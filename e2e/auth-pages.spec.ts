@@ -41,8 +41,13 @@ test.describe('sign in and sign up (signed out)', () => {
     expect(imgs).toEqual([]);
   });
 
-  test('the Find Prospects page asks a signed-out visitor to sign in, with the menu in place', async ({ page }) => {
+  test('signed out: Find Prospects offers a free search with sign-in buttons, and the rest of the app asks to sign in', async ({ page }) => {
+    await page.addInitScript(() => { try { localStorage.setItem('runvax_welcome_seen', '1'); } catch { /* ignore */ } }); // no first-visit welcome video over the page
     await page.goto('/client-acquisition/find');
+    await expect(page.getByRole('heading', { name: 'Find Prospects', level: 1 })).toBeVisible();
+    await expect(page.getByText(/Try a free search below, no account needed/)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in' }).first()).toBeVisible();
+    await page.goto('/client-acquisition/campaigns');
     await expect(page.getByText('Sign in to start winning clients')).toBeVisible();
   });
 });
