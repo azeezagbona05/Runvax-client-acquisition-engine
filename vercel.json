@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/run-outreach-campaigns",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/run-agents",
+      "schedule": "0 6 * * *"
     }
   ]
 }

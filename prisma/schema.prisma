@@ -31,6 +31,7 @@ model User {
   updatedAt                DateTime                 @updatedAt
   accounts                 Account[]
   integrationConnections   IntegrationConnection[]
+  customAgents             CustomAgent[]
   sessions                 Session[]
   prospects                Prospect[]
   settings                 UserSettings?
@@ -1328,4 +1329,76 @@ model EmailCreditLedger {
 
   @@unique([userId, revealKey])
   @@index([userId, kind, source, period])
+}
+
+// An AI agent the user built in Client Acquisition. `kind` picks the template (visibility = writes articles for a website,
+// assistant = a B2B sales assistant on a website chat widget or Telegram). `config` is the sanitised settings; `secret` is
+// AES-GCM sealed JSON (webhook signing secret, WordPress application password, Telegram bot token). `publicKey` is the only
+// name the public feed, embed scripts, chat endpoint and hosted pages know the agent by.
+model CustomAgent {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       String    @default("visibility")
+  name       String    @db.VarChar(120)
+  // draft | active | paused
+  status     String    @default("draft")
+  publicKey  String    @unique
+  config     Json
+  secret     String?   @db.Text
+  lastRunAt  DateTime?
+  nextRunAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  posts      CustomAgentPost[]
+  chats      CustomAgentChat[]
+
+  @@index([userId, createdAt])
+  @@index([status, nextRunAt])
+}
+
+// One article written by a visibility agent. `body` is already sanitised HTML (a small allow-list of tags).
+model CustomAgentPost {
+  id          String      @id @default(cuid())
+  agentId     String
+  agent       CustomAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId      String
+  slug        String      @db.VarChar(160)
+  title       String      @db.VarChar(200)
+  summary     String      @db.VarChar(400)
+  body        String      @db.MediumText
+  keywords    Json?
+  // draft | published | rejected
+  status      String      @default("draft")
+  // ai | rules | manual
+  source      String      @default("ai")
+  // Result of pushing to webhook / WordPress: [{ dest, ok, detail }]
+  pushed      Json?
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([agentId, slug])
+  @@index([agentId, status, publishedAt])
+}
+
+// One visitor conversation with an assistant agent, on the website widget or Telegram. `visitor` is what the assistant
+// learned (name, email, company, phone, need); `messages` is the recent transcript (capped).
+model CustomAgentChat {
+  id         String      @id @default(cuid())
+  agentId    String
+  agent      CustomAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId     String
+  channel    String      @db.VarChar(20)
+  externalId String      @db.VarChar(120)
+  visitor    Json?
+  messages   Json
+  // open | lead | closed
+  status     String      @default("open")
+  notifiedAt DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@unique([agentId, channel, externalId])
+  @@index([agentId, status, updatedAt])
 }
