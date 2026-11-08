@@ -22,20 +22,22 @@ import { useAcq } from './AcqProvider';
 /** One menu for the whole product: Find Prospects first (it is the default page), then the Client Acquisition tools. */
 const NAV_GROUPS: Array<{ heading?: string; items: ReadonlyArray<{ href: string; label: string; icon: typeof Home; exact?: boolean; badge?: boolean }> }> = [
   { items: [
-    { href: DEFAULT_HOME, label: 'Find Prospects', icon: MapPin },
+    { href: '/client-acquisition', label: 'Home', icon: Home, exact: true },
   ] },
-  { heading: 'Client Acquisition', items: [
-    { href: '/client-acquisition', label: 'Overview', icon: Home, exact: true },
+  { heading: 'Prospecting & Campaigns', items: [
+    { href: DEFAULT_HOME, label: 'Find Prospects', icon: MapPin },
     { href: '/client-acquisition/leads', label: 'Lead Lists', icon: Users },
     { href: '/client-acquisition/campaigns', label: 'Campaigns', icon: Send },
     { href: '/client-acquisition/automation', label: 'Automation Builder', icon: Wand2 },
     { href: '/client-acquisition/activity', label: 'Email Activity', icon: Mail },
     { href: '/client-acquisition/inbox', label: 'Inbox & Opportunities', icon: MessageCircle, badge: true },
-    { href: '/client-acquisition/agents', label: 'AI Agents', icon: Bot },
     { href: '/client-acquisition/templates', label: 'Templates', icon: FileText },
-    { href: '/client-acquisition/integrations', label: 'Integrations', icon: Zap },
   ] },
-  { items: [
+  { heading: 'AI Agent Studio', items: [
+    { href: '/client-acquisition/agents', label: 'AI Agents', icon: Bot },
+  ] },
+  { heading: 'Workspace', items: [
+    { href: '/client-acquisition/integrations', label: 'Integrations', icon: Zap },
     { href: SETTINGS_HOME, label: 'Settings', icon: Settings },
   ] },
 ];
@@ -269,9 +271,9 @@ export default function AcqShell({ children }: { children: ReactNode }) {
         </div>
         {rail && <button className="acq-icon-btn acq-only-desktop" onClick={toggleRail} aria-label="Expand sidebar" style={{ alignSelf: 'center', marginBottom: 6 }}><ChevronsRight size={18} /></button>}
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: rail ? '8px 10px' : '8px 12px', flex: 1, overflowY: 'auto' }}>
+        <nav className="acq-nav-compact" style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: rail ? '8px 10px' : '8px 12px', flex: 1, overflowY: 'auto' }}>
           {NAV_GROUPS.map((group, gi) => (
-            <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: gi === 0 ? 0 : 10 }}>
+            <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: gi === 0 ? 0 : 8 }}>
               {group.heading && !rail && <p className="acq-faint" style={{ padding: '4px 14px 2px', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>{group.heading}</p>}
               {group.heading && rail && <span style={{ height: 1, background: 'var(--line)', margin: '2px 8px' }} />}
               {group.items.map((item) => {
