@@ -540,7 +540,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
               </p>
               {pager}
               <div style={{ overflowX: 'auto' }}>
-                <table className="acq-table acq-cards" style={{ minWidth: 980 }}>
+                <table className="acq-table acq-cards acq-prospects" style={{ minWidth: 900 }}>
                   <thead>{table.getHeaderGroups().map((hg) => (
                     <tr key={hg.id}>{hg.headers.map((h) => h.column.id === 'check'
                       ? <th key={h.id} style={{ width: 32 }}><input type="checkbox" aria-label="Select this page" title="Select this page" checked={pageAllOn} onChange={togglePage} style={{ accentColor: '#9333ea' }} /></th>
@@ -555,19 +555,19 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                       const href = b.website ? (/^https?:\/\//i.test(b.website) ? b.website : `https://${b.website}`) : '';
                       const cells: Record<string, ReactNode> = {
                         check: <td key="check" data-cell="check"><input type="checkbox" aria-label={`Select ${b.name}`} checked={picked.has(b.id)} onChange={() => toggle(b.id)} style={{ accentColor: '#9333ea' }} /></td>,
-                        name: <td key="name" data-cell="biz" style={{ maxWidth: 240 }}>
+                        name: <td key="name" data-cell="biz" style={{ maxWidth: 260 }} title={b.foundBy && b.foundBy !== 'First search' ? `Found by: ${b.foundBy}` : undefined}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <BizLogo name={b.name} website={b.website} />
                               <span style={{ minWidth: 0 }}>
                                 <span style={{ display: 'block', fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
-                                <span className="acq-sub" style={{ fontSize: 12 }}>{b.category}{b.foundBy && b.foundBy !== 'First search' ? <span className="acq-pill acq-pill-purple" style={{ marginLeft: 6, fontWeight: 500 }}>{b.foundBy}</span> : null}</span>
+                                <span className="acq-sub" style={{ fontSize: 12 }}>{b.category}</span>
                               </span>
                             </span>
                           </td>,
-                        address: <td key="address" data-cell="addr" className="acq-muted" style={{ maxWidth: 240 }}>{b.address || <span className="acq-faint">—</span>}</td>,
+                        address: <td key="address" data-cell="addr" className="acq-muted" style={{ maxWidth: 260 }}>{b.address ? <span className="acq-addr" title={b.address}>{b.address}</span> : <span className="acq-faint">—</span>}</td>,
                         phone: <td key="phone" data-cell="phone" style={{ whiteSpace: 'nowrap' }}>{b.phone || <span className="acq-faint">No phone</span>}</td>,
-                        website: <td key="website" data-cell="web" style={{ maxWidth: 200 }}>{href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline', overflowWrap: 'anywhere' }}>{host}</a> : <span className="acq-faint">No website</span>}</td>,
-                        rating: <td key="rating" data-cell="rating" style={{ whiteSpace: 'nowrap' }}>{typeof b.rating === 'number' ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Star size={12} />{b.rating}{b.reviewCount ? ` (${b.reviewCount})` : ''}</span> : <span className="acq-faint">—</span>}</td>,
+                        website: <td key="website" data-cell="web" style={{ maxWidth: 200 }}>{href ? <a href={href} target="_blank" rel="noopener noreferrer" className="acq-quiet-link" title={host} style={{ display: 'block', maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{host}</a> : <span className="acq-faint">No website</span>}</td>,
+                        rating: <td key="rating" data-cell="rating" style={{ whiteSpace: 'nowrap' }}>{typeof b.rating === 'number' ? <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Star size={12} style={{ color: '#f59e0b' }} /><b style={{ fontWeight: 600 }}>{b.rating}</b>{b.reviewCount ? <span className="acq-faint" style={{ fontSize: 12 }}>({b.reviewCount})</span> : null}</span> : <span className="acq-faint">—</span>}</td>,
                         contact: <td key="contact" data-cell="email" style={{ minWidth: 220 }}>
                             {(() => {
                               const st = stateOf(b);
@@ -613,11 +613,11 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                   {busyRow
                                     ? <span className="acq-sub" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}><Loader2 size={13} className="animate-spin" /> {verifying.has(b.id) ? 'Verifying…' : pp?.state === 'loading' ? 'Searching…' : 'Looking…'}</span>
                                     : action === 'find_dm'
-                                      ? <select className="acq-select" aria-label={`Find people at ${b.name}`} style={{ height: 32, width: 'auto', minWidth: 150, fontWeight: 600, color: '#7e22ce' }} value="" onChange={(ev) => { const n = Number(ev.target.value); ev.target.value = ''; if (n) askPeople(b, n); }}>
-                                          <option value="">Find people ▾</option><option value="3">Up to 3 people</option><option value="5">Up to 5 people</option><option value="10">Up to 10 people</option>
+                                      ? <select className="acq-select" aria-label={`Find people at ${b.name}`} style={{ height: 30, width: 'auto', minWidth: 124, fontWeight: 600, fontSize: 12.5, color: '#7e22ce', backgroundColor: '#faf5ff', borderColor: '#e9d5ff' }} value="" onChange={(ev) => { const v = ev.target.value; ev.target.value = ''; if (v === 'biz') void findEmail(b); else if (Number(v)) askPeople(b, Number(v)); }}>
+                                          <option value="">Find people ▾</option><option value="3">Up to 3 people</option><option value="5">Up to 5 people</option><option value="10">Up to 10 people</option><option value="biz">Business email only</option>
                                         </select>
                                       : action && <button className={`acq-btn acq-btn-sm ${action === 'retry' ? '' : 'acq-btn-primary'}`} onClick={() => act(b, action)}>{ACTION_LABEL[action]}</button>}
-                                  {!busyRow && (st === 'untouched' || st === 'none') && e?.state !== 'done' && (
+                                  {!busyRow && st === 'none' && e?.state !== 'done' && (
                                     <button type="button" className="acq-btn acq-btn-sm" style={{ border: 0, background: 'transparent', color: '#64748b', padding: 0, height: 'auto' }} onClick={() => void findEmail(b)}>Business email only</button>
                                   )}
                                 </div>
