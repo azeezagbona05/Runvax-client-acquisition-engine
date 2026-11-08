@@ -84,3 +84,23 @@ test('the old campaign overview is still there, one click from Home', async ({ p
   await page.goto('/client-acquisition/overview', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'Client Acquisition' })).toBeVisible({ timeout: 120_000 });
 });
+
+test('the Home effects are there, and switch off for people who prefer reduced motion', async ({ page }) => {
+  test.setTimeout(240_000);
+  await setup(page);
+  await page.goto('/client-acquisition', { waitUntil: 'domcontentloaded' });
+  const module = page.getByRole('region', { name: 'AI Agent Studio' });
+  await expect(module).toBeVisible({ timeout: 120_000 });
+  expect(await module.evaluate((e) => getComputedStyle(e).animationName)).toBe('acqRise');           // sections rise in
+  expect(await page.locator('.acq-wave').evaluate((e) => getComputedStyle(e).animationName)).toBe('acqWave'); // the hand waves
+  await expect(page.locator('.acq-live')).toHaveCount(2);                                            // live dots on the two active tiles
+  await expect(page.locator('.acq-home-kpi').nth(0)).toContainText('300', { timeout: 10_000 });      // and the numbers still land on the real value
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await module.evaluate((e) => getComputedStyle(e).animationName)).toBe('none');
+  expect(await page.locator('.acq-wave').evaluate((e) => getComputedStyle(e).animationName)).toBe('none');
+  expect(await page.locator('.acq-live').first().evaluate((e) => getComputedStyle(e, '::after').animationName)).toBe('none');
+  // Fresh load with reduced motion: numbers are at their final value straight away.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('.acq-home-kpi').nth(2)).toContainText('128', { timeout: 10_000 });
+});
