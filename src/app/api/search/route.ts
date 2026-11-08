@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import { searchPlaces } from '@/lib/google-places';
+import { inCountry, queryWithCountry, searchPlaces } from '@/lib/google-places';
 import { checkAndIncrementSearch, checkLocationRestriction, logGooglePlacesReqs } from '@/lib/usage';
 import { prisma } from '@/lib/prisma';
 import { checkGuestSearch, setGuestCookie, GUEST_PREVIEW_RESULTS } from '@/lib/guestLimit';
@@ -33,7 +33,11 @@ export async function POST(req: NextRequest) {
     const userId = (token?.id ?? token?.sub) as string | undefined;
     const isGuest = !userId;
 
-    const cacheKey = buildCacheKey(query, country ?? 'NG', radius, lat, lng);
+    // The chosen country goes to Google too (it used to only drive plan limits), so a search for Victoria Island in Nigeria
+    // cannot return Victoria in Texas or Canada.
+    const cc = typeof country === 'string' && /^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : '';
+    const q: string = cc ? queryWithCountry(query, cc) : query;
+    const cacheKey = buildCacheKey(q, country ?? 'NG', radius, lat, lng);
     const sevenDaysAgo = new Date(Date.now() - CACHE_TTL_MS);
 
     // ── Cache hit path (authenticated users only, skippable with forceRefresh) ──
@@ -120,12 +124,12 @@ export async function POST(req: NextRequest) {
     }
 
     const maxPages = resultsLimit === Infinity ? 3 : Math.ceil(resultsLimit / 20);
-    const data = await searchPlaces({ query, lat, lng, radius, maxPages });
+    const data = await searchPlaces({ query: q, lat, lng, radius, maxPages });
 
     const pagesUsed = Math.min(maxPages, Math.ceil((data.places?.length ?? 0) / 20) || 1);
     if (userId) void logGooglePlacesReqs(userId, pagesUsed);
 
-    const allBusinesses = (data.places || []).map((place: unknown) => {
+    const allBusinesses = (data.places || []).filter((place: unknown) => !cc || inCountry(place, cc)).map((place: unknown) => {
       const p = place as Record<string, unknown>;
       const displayName = p.displayName as Record<string, string> | undefined;
       const primaryType = p.primaryTypeDisplayName as Record<string, string> | undefined;

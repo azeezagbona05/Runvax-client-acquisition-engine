@@ -4,6 +4,7 @@ const SEARCH_FIELDS = [
   'places.id',
   'places.displayName',
   'places.formattedAddress',
+  'places.addressComponents',
   'places.nationalPhoneNumber',
   'places.internationalPhoneNumber',
   'places.websiteUri',
@@ -32,6 +33,21 @@ const DETAIL_FIELDS = [
   'types',
   'reviews',
 ].join(',');
+
+/** "Spas in Victoria Island" becomes "Spas in Victoria Island, Nigeria": without the country, Google also matches Victoria in Texas and British Columbia. */
+export function queryWithCountry(query: string, countryCode: string): string {
+  let name = '';
+  try { name = new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode.toUpperCase()) ?? ''; } catch { /* unknown code */ }
+  if (!name || name === countryCode.toUpperCase() || /unknown region/i.test(name)) return query;
+  return query.toLowerCase().includes(name.toLowerCase()) ? query : `${query}, ${name}`;
+}
+
+/** True when a Google place is in the given country (ISO code). A place with no country information is kept rather than lost. */
+export function inCountry(place: unknown, countryCode: string): boolean {
+  const comps = (place as { addressComponents?: Array<{ types?: string[]; shortText?: string }> } | null)?.addressComponents;
+  const c = Array.isArray(comps) ? comps.find((x) => Array.isArray(x.types) && x.types.includes('country')) : undefined;
+  return !c?.shortText || c.shortText.toUpperCase() === countryCode.toUpperCase();
+}
 
 export async function searchPlaces(params: {
   query: string;
