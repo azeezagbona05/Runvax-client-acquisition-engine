@@ -6,6 +6,7 @@ import { Check, AlertTriangle, Loader2 } from 'lucide-react';
 import { INTEGRATIONS, PRIORITY_ORDER, type IntegrationDef, type Priority } from '@/lib/acqIntegrations';
 import { Card } from '@/components/acq/ui';
 import WhatsAppSetup from '@/components/acq/integrations/WhatsAppSetup';
+import ClaudeConnect from '@/components/acq/integrations/ClaudeConnect';
 
 const TONE: Record<Priority, { bg: string; ink: string }> = { Critical: { bg: '#fee2e2', ink: '#b91c1c' }, High: { bg: '#f3e8ff', ink: '#7e22ce' }, Medium: { bg: '#f1f5f9', ink: '#475569' } };
 
@@ -118,6 +119,10 @@ export default function IntegrationsPage() {
       </div>
       {banner && <p role="status" style={{ fontSize: 13.5, fontWeight: 600, color: banner.ok ? '#15803d' : '#b91c1c' }}>{banner.text}</p>}
       {error && <p style={{ fontSize: 13.5, color: '#b91c1c' }}>{error}</p>}
+      <section style={{ display: 'grid', gap: 12 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}><span className="acq-pill" style={{ background: '#f3e8ff', color: '#7e22ce' }}>Connect to AI</span></h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2"><ClaudeConnect /></div>
+      </section>
       {PRIORITY_ORDER.map((p) => (
         <section key={p} style={{ display: 'grid', gap: 12 }}>
           <h2 style={{ fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>
