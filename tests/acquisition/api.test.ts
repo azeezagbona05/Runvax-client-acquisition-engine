@@ -10,7 +10,7 @@ vi.mock('next-auth', () => ({ getServerSession: auth.getServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.hoisted(() => { process.env.ADMIN_EMAILS = 'admin@harzotech.test'; });
 
-const ADMIN = { user: { id: 'u1', email: 'admin@harzotech.test' } };
+const ADMIN = { user: { id: 'u1', email: 'admin@harzotech.test', isAdmin: true } }; // an admin session: made by the admin sign-in
 const ROOT = path.resolve(__dirname, '../../src/app/api/acquisition');
 function routeFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {

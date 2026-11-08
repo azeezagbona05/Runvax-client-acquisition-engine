@@ -26,7 +26,7 @@ import { ActivationError } from '@/lib/acquisition/activation';
 import { addSuppression } from '@/lib/acquisition/suppression';
 import { dental } from '@/lib/acquisition/config/industries/dental';
 
-const ADMIN = { user: { id: 'u1', email: 'admin@harzotech.test' } };
+const ADMIN = { user: { id: 'u1', email: 'admin@harzotech.test', isAdmin: true } }; // an admin session: made by the admin sign-in
 const P = (id: string, name: string, over: Record<string, unknown> = {}) => ({ id, displayName: { text: name }, types: ['dentist'], businessStatus: 'OPERATIONAL', ...over });
 const SEARCH = { userId: 'u1', industry: dental, area: 'Lekki', queryIndex: 0 };
 const req = (url: string, method = 'GET', body?: unknown) => new NextRequest(`http://localhost${url}`, { method, headers: { origin: 'http://localhost' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });

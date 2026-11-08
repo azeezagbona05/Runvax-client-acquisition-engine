@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAdminSession } from '@/lib/adminSessionShared';
 import { getServerSession } from 'next-auth';
 import crypto from 'crypto';
 import { authOptions } from '@/lib/auth';
@@ -8,11 +9,10 @@ import { createTransporter, verificationEmailHtml } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase());
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email || !ADMIN_EMAILS.includes(session.user.email.toLowerCase())) {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

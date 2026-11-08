@@ -14,6 +14,7 @@ import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
 import OperationsPanel from './OperationsPanel';
 import EmailCampaignsPanel from './EmailCampaignsPanel';
+import AdminSecurity from './AdminSecurity';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
 import { AREAS, TIER_CONFIG } from '@/lib/areas';
 import { useTheme } from '@/context/ThemeContext';
@@ -1323,6 +1324,8 @@ export default function AdminPage() {
           <h1 className="text-2xl font-black text-white mb-1">{current.label}</h1>
           <p className="text-gray-500 text-sm">{current.desc}</p>
         </div>
+
+        <AdminSecurity />
 
         {tab === 'overview' && (<>
         {/* Argus — admin ops banner */}

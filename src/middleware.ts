@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { V2_COOKIE, homeRedirect } from '@/lib/v2Preference';
+import { adminTokenValid } from '@/lib/adminSessionShared';
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -25,7 +26,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/admin/login', req.url));
     }
 
-    if (!token.isAdmin) {
+    if (!adminTokenValid(token)) {
       return NextResponse.redirect(new URL('/admin/login', req.url));
     }
   }
@@ -34,7 +35,7 @@ export async function middleware(req: NextRequest) {
   if (pathname === '/growth' || pathname.startsWith('/growth/')) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token) return NextResponse.redirect(new URL('/admin/login', req.url));
-    if (!token.isAdmin) return NextResponse.redirect(new URL('/command-centre', req.url));
+    if (!adminTokenValid(token)) return NextResponse.redirect(new URL('/command-centre', req.url));
   }
 
   // Industry Acquisition is admin-only. The page layout and every API route
@@ -42,7 +43,7 @@ export async function middleware(req: NextRequest) {
   if (pathname === '/acquisition' || pathname.startsWith('/acquisition/')) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (!token) return NextResponse.redirect(new URL('/admin/login', req.url));
-    if (!token.isAdmin) return NextResponse.redirect(new URL('/command-centre', req.url));
+    if (!adminTokenValid(token)) return NextResponse.redirect(new URL('/command-centre', req.url));
   }
 
   return NextResponse.next();

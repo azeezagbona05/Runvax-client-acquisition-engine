@@ -6,8 +6,8 @@ import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
 import { rateLimit } from './rateLimiter';
 import { onGoogleUserCreated } from './newUserSetup';
+import { adminTokenValid } from './adminSessionShared';
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase());
 
 // Minimum gap between lastActiveAt writes for a single session (5 minutes)
 const ACTIVITY_TOUCH_MS = 5 * 60 * 1000;
@@ -70,8 +70,8 @@ export const authOptions: NextAuthOptions = {
           })
           .catch(() => {});
 
-        const isAdmin = ADMIN_EMAILS.includes((user.email ?? '').toLowerCase());
-        return { id: user.id, email: user.email, name: user.name, plan: user.plan, emailVerified: user.emailVerified, isAdmin };
+        // A password never opens the admin area: admins sign in at /admin/login with an email code or biometric.
+        return { id: user.id, email: user.email, name: user.name, plan: user.plan, emailVerified: user.emailVerified, isAdmin: false };
       },
     }),
   ],
@@ -106,7 +106,7 @@ export const authOptions: NextAuthOptions = {
         });
         (user as { plan?: string }).plan = row.plan;
         (user as { emailVerified?: Date | null }).emailVerified = row.emailVerified;
-        (user as { isAdmin?: boolean }).isAdmin = ADMIN_EMAILS.includes((row.email ?? '').toLowerCase());
+        (user as { isAdmin?: boolean }).isAdmin = false; // Google sign-in is never an admin sign-in either
       }
       if (user) {
         token.id  = user.id;
@@ -153,6 +153,9 @@ export const authOptions: NextAuthOptions = {
           } catch { /* a failed refresh keeps the plan we already have */ }
         }
       }
+
+      // The admin flag only survives for a session made by the admin sign-in, for 12 hours, for an email still on the admin list.
+      if (token.isAdmin && !adminTokenValid(token as never)) token.isAdmin = false;
 
       return token;
     },

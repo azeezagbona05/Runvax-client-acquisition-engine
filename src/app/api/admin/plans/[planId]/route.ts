@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAdminSession } from '@/lib/adminSessionShared';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -7,18 +8,14 @@ import { FeatureId, resolveFeatures, serializeFeatures } from '@/lib/features';
 
 export const dynamic = 'force-dynamic';
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase());
 
-function isAdmin(email: string | null | undefined) {
-  return !!email && ADMIN_EMAILS.includes(email.toLowerCase());
-}
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { planId: string } }
 ) {
   const session = await getServerSession(authOptions);
-  if (!isAdmin(session?.user?.email)) {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -76,7 +73,7 @@ export async function DELETE(
   { params }: { params: { planId: string } }
 ) {
   const session = await getServerSession(authOptions);
-  if (!isAdmin(session?.user?.email)) {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

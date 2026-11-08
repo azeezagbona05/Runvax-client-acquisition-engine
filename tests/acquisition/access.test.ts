@@ -40,7 +40,7 @@ describe('feature flag', () => {
   it.each([undefined, '', 'false', '1', 'TRUE', 'yes'])('flag=%s → 404 even for an admin', async (value) => {
     if (value === undefined) delete process.env.INDUSTRY_ACQUISITION_ENABLED;
     else process.env.INDUSTRY_ACQUISITION_ENABLED = value;
-    auth.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@harzotech.test' } });
+    auth.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@harzotech.test', isAdmin: true } });
     for (const [, call] of handlers) expect((await call()).status).toBe(404);
   });
 });
@@ -58,20 +58,27 @@ describe('with the flag on', () => {
     expect((await call()).status).toBe(403);
   });
 
-  it('ignores a stale isAdmin flag on the session — the email allowlist decides', async () => {
+  it('a flag alone is not enough: the email must also be on the admin list', async () => {
     auth.getServerSession.mockResolvedValue({ user: { id: 'u1', email: 'customer@example.com', isAdmin: true } });
+    expect((await statusGET()).status).toBe(403);
+  });
+
+  it('an admin address signed in by password or Google (no admin sign-in) is refused', async () => {
+    auth.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@harzotech.test' } });
+    expect((await statusGET()).status).toBe(403);
+    auth.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@harzotech.test', isAdmin: false } });
     expect((await statusGET()).status).toBe(403);
   });
 
   it.each(handlers)('%s → 200 for an admin', async (_n, call) => {
     seed('user', { id: 'a1', isSuspended: false });
-    auth.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'Admin@Harzotech.test' } });
+    auth.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'Admin@Harzotech.test', isAdmin: true } });
     expect((await call()).status).toBe(200);
   });
 
   it('status lists the dental pack with every offer unconfigured', async () => {
     seed('user', { id: 'a1', isSuspended: false });
-    auth.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@harzotech.test' } });
+    auth.getServerSession.mockResolvedValue({ user: { id: 'a1', email: 'admin@harzotech.test', isAdmin: true } });
     const body = await (await statusGET()).json();
     expect(body.industries[0]).toMatchObject({ id: 'dental', liveSendingEnabled: false });
     expect(body.industries[0].offers.every((o: { status: string }) => o.status === 'unconfigured')).toBe(true);
@@ -113,7 +120,7 @@ describe('middleware /acquisition', () => {
     expect((await run('/acquisition/prospects')).headers.get('location')).toBe('http://localhost/command-centre');
   });
   it('lets admins through (the layout still checks the flag)', async () => {
-    auth.getToken.mockResolvedValue({ isAdmin: true });
+    auth.getToken.mockResolvedValue({ isAdmin: true, adminAt: Date.now(), email: 'admin@harzotech.test' });
     expect((await run('/acquisition')).headers.get('location')).toBeNull();
   });
   it('does not match look-alike paths', async () => {

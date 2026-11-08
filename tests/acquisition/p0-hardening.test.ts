@@ -29,7 +29,7 @@ vi.mock('next-auth', () => ({ getServerSession: auth.getServerSession }));
 vi.mock('@/lib/auth', () => ({ authOptions: {} }));
 vi.hoisted(() => { process.env.ADMIN_EMAILS = 'admin@harzotech.test'; });
 
-const ADMIN = { user: { id: 'u1', email: 'admin@harzotech.test' } };
+const ADMIN = { user: { id: 'u1', email: 'admin@harzotech.test', isAdmin: true } }; // an admin session: made by the admin sign-in
 const TEST_KEY = ['p0', 'test', 'fixture', '0123456789abcdef0123456789abcdef'].join('_');
 const ORIGIN = 'http://localhost';
 const post = (u: string, body: unknown, headers: Record<string, string> = { origin: ORIGIN }) =>

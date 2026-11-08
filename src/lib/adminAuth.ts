@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { isAdminSession } from '@/lib/adminSessionShared';
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
 type AdminCheck =
   | { ok: true; userId: string; email: string }
@@ -19,7 +19,8 @@ export async function requireAdmin(): Promise<AdminCheck> {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
   const email = session.user.email?.toLowerCase() ?? '';
-  if (!email || !ADMIN_EMAILS.includes(email)) {
+  // Only a session from the admin sign-in (email code or biometric) counts, not a password or Google sign-in.
+  if (!email || !isAdminSession(session)) {
     return { ok: false, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
   return { ok: true, userId: session.user.id, email };

@@ -12,7 +12,8 @@ import { middleware } from '@/middleware';
 const run = (path: string) => middleware(new NextRequest(`http://localhost${path}`));
 const location = (res: Response) => res.headers.get('location');
 
-beforeEach(() => jwt.getToken.mockReset());
+const ADMIN_TOKEN = () => ({ isAdmin: true, adminAt: Date.now(), email: 'owner@runvax.com' }); // what the admin sign-in puts in the session
+beforeEach(() => { jwt.getToken.mockReset(); vi.stubEnv('ADMIN_EMAILS', 'owner@runvax.com'); });
 
 describe('middleware', () => {
   it('lets /admin/login through', async () => {
@@ -37,8 +38,17 @@ describe('middleware', () => {
   });
 
   it.each(['/admin', '/growth/seo'])('lets an admin through %s', async (p) => {
-    jwt.getToken.mockResolvedValue({ isAdmin: true });
+    jwt.getToken.mockResolvedValue(ADMIN_TOKEN());
     expect(location(await run(p))).toBeNull();
+  });
+
+  it('turns away an admin session older than 12 hours, one with no admin timestamp, and one whose address left the list', async () => {
+    jwt.getToken.mockResolvedValue({ ...ADMIN_TOKEN(), adminAt: Date.now() - 13 * 3600_000 });
+    expect(location(await run('/admin'))).toBe('http://localhost/admin/login');
+    jwt.getToken.mockResolvedValue({ isAdmin: true, email: 'owner@runvax.com' }); // an old-style session
+    expect(location(await run('/admin'))).toBe('http://localhost/admin/login');
+    jwt.getToken.mockResolvedValue({ ...ADMIN_TOKEN(), email: 'someone@else.com' });
+    expect(location(await run('/growth'))).toBe('http://localhost/command-centre');
   });
 
   it('does not touch unrelated routes', async () => {

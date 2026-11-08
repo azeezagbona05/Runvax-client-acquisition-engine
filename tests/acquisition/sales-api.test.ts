@@ -19,7 +19,7 @@ import { GET as listDraftsGET } from '@/app/api/acquisition/drafts/route';
 import { POST as outcome } from '@/app/api/acquisition/prospects/[id]/outcomes/route';
 import { GET as metrics } from '@/app/api/acquisition/metrics/route';
 
-const ADMIN = { user: { id: 'u1', email: 'admin@harzotech.test' } };
+const ADMIN = { user: { id: 'u1', email: 'admin@harzotech.test', isAdmin: true } }; // an admin session: made by the admin sign-in
 const req = (method: string, body?: unknown, origin = 'http://localhost') =>
   new NextRequest('http://localhost/api/acquisition/x', { method, headers: { origin }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
 
