@@ -40,7 +40,7 @@ test('on the classic app the switch is big, animated and always on screen', asyn
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/v1-switch-${isMobile ? 'phone' : 'desktop'}.png` });
 });
 
-test('switching once makes 2.0 the home: the classic home page hands on, and Classic RUNVAX undoes it', async ({ page, isMobile }) => {
+test('switching once makes 2.0 the home: the classic home page hands on, and the 2.0 menu has no way back button', async ({ page, isMobile }) => {
   test.setTimeout(240_000);
   await setup(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -57,14 +57,9 @@ test('switching once makes 2.0 the home: the classic home page hands on, and Cla
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForURL('**/client-acquisition/find', { timeout: 90_000 });
 
-  // The way back: Classic RUNVAX clears the choice and stays on the classic app.
-  if (isMobile) await page.getByRole('button', { name: /More/ }).click(); // on a phone the menu is behind More
-  await page.getByRole('button', { name: 'Classic RUNVAX' }).click();
-  await page.waitForURL((u) => u.pathname === '/', { timeout: 90_000 });
-  await page.waitForTimeout(3000);
-  expect(new URL(page.url()).pathname).toBe('/');
-  expect(await cookie(page)).toBe('');
-  await expect(page.locator('.v2n-pill')).toBeVisible();
+  // The 2.0 menu has no "Classic RUNVAX" button any more: it is not in the sidebar, nor behind More on a phone.
+  if (isMobile) await page.getByRole('button', { name: /More/ }).click();
+  await expect(page.getByRole('button', { name: 'Classic RUNVAX' })).toHaveCount(0);
 });
 
 test('the floating button holds still under the pointer', async ({ page }) => {

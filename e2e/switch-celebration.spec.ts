@@ -63,9 +63,9 @@ test('switching to RUNVAX 2.0 congratulates with flowers and a chime, once, and 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForURL('**/client-acquisition/find', { timeout: 90_000 });
 
-  // Going back to the classic app and switching again within a week is not celebrated again.
-  if (isMobile) await page.getByRole('button', { name: /More/ }).click(); // on a phone the menu is behind More
-  await page.getByRole('button', { name: 'Classic RUNVAX' }).click();
+  // Going back to the classic app (the menu no longer has a button for it, so clear the choice) and switching again within a week is not celebrated again.
+  await page.context().clearCookies({ name: 'rv2' });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForURL((u) => u.pathname === '/', { timeout: 90_000 });
   await page.locator('.v2n-banner').getByRole('link', { name: /Switch to RUNVAX 2.0/ }).click({ timeout: 90_000 });
   await page.waitForURL('**/client-acquisition/find');
