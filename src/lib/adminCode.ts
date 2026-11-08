@@ -32,17 +32,21 @@ function codeEmail(code: string, app: string) {
   return emailShell(app, body, `Your admin sign-in code is ${code}`, 'You are receiving this because an admin sign-in was requested for this address.');
 }
 
+/** "o***@runvax.com": enough to recognise an address in the host's logs without printing it in full. */
+const mask = (e: string) => e.replace(/^(.).*(@.*)$/, '$1***$2');
+const logOutcome = (what: string, email: string) => console.log(`[admin-code] ${what} (${mask(email)})`);
+
 export type RequestResult = { sent: boolean; reason?: 'not_admin' | 'cooldown' | 'locked' | 'mail' };
 
 /** Makes and emails a fresh code. Silent about non-admin addresses: the caller answers the same either way. */
 export async function requestAdminCode(rawEmail: string): Promise<RequestResult> {
   const email = norm(rawEmail);
-  if (!isAdminEmail(email)) return { sent: false, reason: 'not_admin' };
+  if (!isAdminEmail(email)) { logOutcome('no email sent: this address is not in ADMIN_EMAILS on this server', email); return { sent: false, reason: 'not_admin' }; }
   const now = Date.now();
   await prisma.verificationToken.deleteMany({ where: { identifier: { in: [idCode(email), idFail(email)] }, expires: { lt: new Date(now) } } });
-  if ((await failCount(email)) >= MAX_FAILS) return { sent: false, reason: 'locked' };
+  if ((await failCount(email)) >= MAX_FAILS) { logOutcome('no email sent: too many wrong codes, locked for 15 minutes', email); return { sent: false, reason: 'locked' }; }
   const current = await prisma.verificationToken.findFirst({ where: { identifier: idCode(email), expires: { gt: new Date(now + CODE_TTL_MS - COOLDOWN_MS) } } });
-  if (current) return { sent: false, reason: 'cooldown' }; // asked for one in the last minute
+  if (current) { logOutcome('no email sent: a code was already sent in the last minute', email); return { sent: false, reason: 'cooldown' }; } // asked for one in the last minute
   const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
   await prisma.verificationToken.deleteMany({ where: { identifier: idCode(email) } });
   await prisma.verificationToken.create({ data: { identifier: idCode(email), token: hash(email, code), expires: new Date(now + CODE_TTL_MS) } });
@@ -55,6 +59,7 @@ export async function requestAdminCode(rawEmail: string): Promise<RequestResult>
   }
   try {
     await createTransporter().sendMail({ from: `"${app}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER ?? 'no-reply@runvax.com'}>`, to: email, subject: `${app} admin sign-in code`, html: codeEmail(code, app) });
+    logOutcome('code email accepted by the mail server', email);
     return { sent: true };
   } catch (e) { console.error('[admin-code] sending failed', e instanceof Error ? e.message : e); return { sent: false, reason: 'mail' }; }
 }
