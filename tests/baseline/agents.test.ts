@@ -131,3 +131,39 @@ describe('the AI planner may not invent who the business is', () => {
     vi.doUnmock('@/lib/ai'); vi.resetModules();
   });
 });
+
+import { classifyByRules, classifyRequest, UNSUPPORTED_MESSAGE } from '@/lib/agents/classify';
+describe('what the user asks for decides the agent', () => {
+  it('knows the two agents RUNVAX can build', () => {
+    expect(classifyByRules('We are a logistics company. Publish two articles a week about customs for our website.')).toEqual({ kind: 'visibility' });
+    expect(classifyByRules('Write blog posts to improve our SEO and AI search visibility')).toEqual({ kind: 'visibility' });
+    expect(classifyByRules('A chatbot for my website that qualifies visitors and books a demo')).toEqual({ kind: 'assistant' });
+    expect(classifyByRules('Answer questions about our consulting services on Telegram and capture leads')).toEqual({ kind: 'assistant' });
+  });
+  it('is not put off by what the business sells', () => {
+    expect(classifyByRules('We sell payroll and accounting software to SMEs. Chat with visitors and qualify them.')).toEqual({ kind: 'assistant' });
+  });
+  it('points follow-up and outreach requests to campaigns', () => {
+    expect(classifyByRules('Follow up with my leads by email until they reply')).toEqual({ kind: 'campaign' });
+    expect(classifyByRules('Run a cold email sequence to dental clinics')).toEqual({ kind: 'campaign' });
+  });
+  it('says "not yet" for what it cannot build', () => {
+    for (const t of ['A WhatsApp bot that answers customers', 'Post on Instagram and LinkedIn every day', 'Call my leads and book meetings with a voice agent', 'Scrape competitor prices daily', 'An agent that does my bookkeeping', 'Send SMS reminders to clients']) expect(classifyByRules(t), t).toEqual({ kind: 'unsupported' });
+  });
+  it('a hard "not yet" word beats an optimistic AI answer, and the AI can only say one of four things', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'k'); vi.resetModules();
+    vi.doMock('@/lib/ai', () => ({ hasProvider: () => true, extractJson: (t: string) => JSON.parse(t), generate: async () => ({ text: JSON.stringify({ kind: 'assistant' }) }) }));
+    const m = await import('@/lib/agents/classify');
+    expect((await m.classifyRequest('A WhatsApp chatbot for my website visitors')).kind).toBe('unsupported');
+    expect((await m.classifyRequest('A chatbot for my website visitors')).kind).toBe('assistant');
+    vi.doMock('@/lib/ai', () => ({ hasProvider: () => true, extractJson: (t: string) => JSON.parse(t), generate: async () => ({ text: JSON.stringify({ kind: 'drop table' }) }) }));
+    vi.resetModules(); const n = await import('@/lib/agents/classify');
+    expect((await n.classifyRequest('A chatbot for my website visitors')).kind).toBe('unsupported');
+    vi.doUnmock('@/lib/ai'); vi.resetModules();
+  });
+  it('uses the words fallback with no AI key, and the message is the one the owner asked for', async () => {
+    noAi();
+    expect((await classifyRequest('Publish weekly articles for our blog')).kind).toBe('visibility');
+    expect(UNSUPPORTED_MESSAGE).toBe("RUNVAX doesn't have such capability yet. Check back in 24 hours.");
+  });
+});
