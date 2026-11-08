@@ -1,7 +1,7 @@
 // Generates one mp3 per scene with OpenAI TTS, then writes durations.json (seconds). Needs OPENAI_API_KEY.
 import fs from 'node:fs'; import path from 'node:path'; import { execFileSync } from 'node:child_process';
 const out = process.argv[2]; fs.mkdirSync(out, { recursive: true });
-const n = JSON.parse(fs.readFileSync(new URL('./narration.json', import.meta.url)));
+const n = JSON.parse(fs.readFileSync(new URL(process.env.NARRATION ?? './narration.json', import.meta.url)));
 const key = process.env.OPENAI_API_KEY; if (!key) throw new Error('OPENAI_API_KEY missing');
 const durations = {};
 for (const s of n.scenes) {

@@ -1,0 +1,23 @@
+{
+  "voice": "ash",
+  "instructions": "Speak in a warm, confident Nigerian English accent, like a polished Lagos business presenter. Natural Nigerian rhythm and intonation, clear and unhurried so every word is easy to follow. Friendly and energetic, never robotic. Say 'RUNVAX' as 'Run-vax'.",
+  "scenes": [
+    { "id": "intro", "text": "Good day, world! Finding your next customer is the hardest part of running any business. Today, I will show you RUNVAX two point zero, an A.I. powered client acquisition engine. In a few minutes, you will go from an empty screen to a live campaign, with hundreds of real businesses to pitch." },
+    { "id": "login", "text": "I am an existing RUNVAX user. I open the classic app, and I log in with my email and password. You can also use Google, or Face ID and Touch ID." },
+    { "id": "switch", "text": "Look at this big, animated button. Switch to RUNVAX two point zero. One click, and I am in the new experience." },
+    { "id": "tour", "text": "Welcome to the new home. Find prospects, lead lists, campaigns, the automation builder, email activity, your inbox, and your A.I. agents. Everything you need to win clients, in one place." },
+    { "id": "countries", "text": "RUNVAX is built for any country in the world. Ghana, Kenya, the United Kingdom, Canada, and many more. You pick the country, and the engine finds businesses there." },
+    { "id": "search", "text": "Let us start in Nigeria. I choose several areas of Lagos, Victoria Island, Lekki, and Ikoyi. The category is restaurants. And I ask for three hundred leads. One click, and the search begins." },
+    { "id": "searching", "text": "RUNVAX is now searching live across the map, area by area, and the leads are coming in. Three hundred businesses, with their phone numbers, websites, and ratings. This takes only a little time." },
+    { "id": "results", "text": "And here they are. Three hundred real businesses, ready to pitch. I can search inside the results, and filter to the best prospects. Businesses with no website, with good ratings, with many reviews, and with a phone number. These are the businesses that need you most." },
+    { "id": "goal", "text": "Now the magic. I open the automation builder. All I do is type my goal, in plain English. I run a web design agency, and I want to sell online ordering websites and chatbots to restaurants in Victoria Island. Then I click, build my campaign." },
+    { "id": "building", "text": "Watch this. The A.I. agent writes the emails, plans the follow ups, sets the conditions, prepares what to say to every reply, and sets the sending rules. You can see the progress counting, all the way to one hundred percent." },
+    { "id": "wf1", "text": "And this is the workflow sequence diagram. Let me open it in full screen. It starts here, with the first email. Then the engine waits a few days. If the person opened your email, but did not reply, a follow up goes out. If not, a different follow up is sent. Every email, every wait, and every decision, is drawn for you." },
+    { "id": "wf2", "text": "Below, you can see how replies are handled. Interested, not now, wrong person, unsubscribe, and out of office. Each reply has its own path. When someone is out of office, the engine pauses, and tries again later. Nobody is ever emailed twice by mistake, and anyone who unsubscribes is stopped immediately." },
+    { "id": "wf3", "text": "And it is fully editable. Click any step, change the subject or the message, and it is saved. You can change the waiting days, add an email, or drag steps around, just like the workflow tools you already know." },
+    { "id": "emails", "text": "Here are the emails, written for your goal. The reply playbook, with the answer to every kind of reply. And a test and preview, so you can see exactly how the campaign behaves before anything is sent." },
+    { "id": "leads", "text": "Now, here is the simple truth. All you need is leads. Find them with RUNVAX, or import your own. Then type your goal, and your client acquisition engine is ready. It works the same way, whatever your industry. Nothing is sent until you press run." },
+    { "id": "templates", "text": "And if you want a head start, open the templates. Choose your industry, real estate, healthcare, solar, logistics, software, and many more. Each one comes with a ready made campaign, an industry guide, who to contact, what to say, and how to score your leads." },
+    { "id": "outro", "text": "That is RUNVAX two point zero. Find the businesses. Build the engine. Win the clients. Any country, any industry. Start free today, at runvax dot com." }
+  ]
+}
