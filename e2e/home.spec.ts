@@ -29,6 +29,9 @@ test('Home: two modules, the numbers, recent activity and quick actions', async 
   await expect(page.getByRole('region', { name: 'Prospecting & Campaigns' }).getByRole('link', { name: /Open Module/ })).toHaveAttribute('href', '/client-acquisition/find');
   await expect(page.getByRole('region', { name: 'AI Agent Studio' }).getByRole('link', { name: /Open Module/ })).toHaveAttribute('href', '/client-acquisition/agents');
 
+  // The module buttons read white on purple.
+  for (const n of ['Prospecting & Campaigns', 'AI Agent Studio']) await expect(page.getByRole('region', { name: n }).getByRole('link', { name: /Open Module/ })).toHaveCSS('color', 'rgb(255, 255, 255)');
+
   // Real numbers, with the change where there is one.
   const perf = page.getByRole('region', { name: 'Performance overview' });
   await expect(perf.getByText('Leads Generated')).toBeVisible();

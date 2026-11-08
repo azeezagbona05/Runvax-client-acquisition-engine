@@ -640,7 +640,7 @@
 .acq-home-module { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
 .acq-home-module:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(126, 34, 206, .14); border-color: #d8b4fe; }
 .acq-home-module > :not(.acq-home-module-art) { position: relative; }
-.acq-home-module .acq-btn-primary { position: relative; overflow: hidden; }
+.acq-home-module .acq-btn-primary, .acq-home-module .acq-btn-primary:hover, .acq-home-module .acq-btn-primary:visited { position: relative; overflow: hidden; color: #fff; }
 .acq-home-module .acq-btn-primary::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: rgba(255, 255, 255, .28); transform: skewX(-20deg); }
 .acq-home-module .acq-btn-primary svg { transition: transform .2s; }
 .acq-home-module:hover .acq-btn-primary svg { transform: translateX(4px); }
