@@ -250,18 +250,10 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     setRunning(false);
   };
 
-  /** Asked once per visit: may a business with no email on its website be looked up with Snov (1 reveal per email found)? */
-  const snovConsent = useRef<boolean | null>(null);
-  const askSnov = (): boolean => {
-    if (!credits?.on || !(credits.balance ?? 0)) return false;
-    if (snovConsent.current !== null) return snovConsent.current;
-    const ok = window.confirm(`When a business's website shows no email, look it up with Snov too?\n\nThat uses 1 email reveal for each email found, nothing if none is found. You have ${credits.balance} reveals left.\n\nChoose Cancel to use only the free sources.`);
-    snovConsent.current = ok;
-    return ok;
-  };
   const findEmail = async (b: FinderBusiness) => {
     if (needAccount('Finding business emails needs an account.')) return;
-    const useCredits = !!b.website && askSnov();
+    // A business whose site shows no email is looked up with Snov straight away (paid plans with reveals left; the server charges 1 reveal only when an email is found).
+    const useCredits = !!b.website;
     setEmails((m) => ({ ...m, [b.id]: { state: 'loading' } }));
     try {
       const res = await fetch('/api/enrich-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website: b.website, name: b.name, location: b.address, phone: b.phone, useCredits }) });
@@ -299,6 +291,12 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
       if (typeof j.balance === 'number') setCredits((c) => (c ? { ...c, balance: j.balance ?? null } : c));
       const list: Person[] = (j.people ?? []).map((p) => ({ name: p.name, title: p.title, source: 'lookup', ...(p.email ? { email: p.email, emailStatus: p.emailState === 'confirmed' ? 'valid' : 'unconfirmed' } : {}), ...(p.linkedin ? { linkedin: p.linkedin } : {}), ...(p.sourcePage ? { sourcePage: p.sourcePage } : {}), ...(p.match ? { match: p.match } : {}), ...(p.evidence ? { evidence: p.evidence } : {}), ...(p.emailBasis ? { emailBasis: p.emailBasis } : {}), ...(p.emailSource ? { emailSource: p.emailSource } : {}) }));
       setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: list, channels: j.channels ?? [], note: list.length ? undefined : j.note } }));
+      // Once the emails are in, check them all straight away so nobody has to click Verify (paid plans; a failure here stays quiet).
+      const toCheck = Array.from(new Set(list.filter((p) => p.email && !isVerifiedStatus(p.emailStatus)).map((p) => p.email!.toLowerCase())));
+      if (credits?.on && toCheck.length) {
+        setVerifying((x) => new Set(x).add(b.id));
+        void verifyEmailsOf(toCheck, true).catch(() => false).finally(() => setVerifying((x) => { const n = new Set(x); n.delete(b.id); return n; }));
+      }
     } catch { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: 'Lookup failed.' } })); }
   };
   /** One row's dropdown: up to N people. Says what it can cost first when the credit-based lookup is on. */
@@ -329,11 +327,11 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const usablePeople = (b: FinderBusiness) => (peopleOf(b) ?? []).filter((p) => p.email && verdicts[p.email.toLowerCase()] !== 'invalid');
 
   /** Check the addresses of one business's people with Snov.io and remember each answer. */
-  const verifyEmailsOf = async (emailsToCheck: string[]): Promise<boolean> => {
+  const verifyEmailsOf = async (emailsToCheck: string[], quiet = false): Promise<boolean> => {
     for (let i = 0; i < emailsToCheck.length; i += 10) {
       const res = await fetch('/api/decision-maker/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: emailsToCheck.slice(i, i + 10) }) });
       const j = await res.json().catch(() => ({})) as { results?: Record<string, Verdict>; error?: string };
-      if (!res.ok) { setError(j.error ?? 'Could not verify the emails.'); return false; }
+      if (!res.ok) { if (!quiet) setError(j.error ?? 'Could not verify the emails.'); return false; }
       setVerdicts((v) => ({ ...v, ...(j.results ?? {}) }));
     }
     return true;

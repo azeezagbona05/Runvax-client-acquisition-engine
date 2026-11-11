@@ -7,18 +7,13 @@ import { prisma } from '@/lib/prisma';
 import { useUserKeys } from '@/lib/integrations/keys';
 import { domainContacts, snovEnabled } from '@/lib/snov';
 import { chargeReveals, loadCredits } from '@/lib/emailCredits';
-import { findEmails as engineFindJs } from '@/lib/emailEngine/engine.js';
-import { normalizeDomain } from '@/lib/emailEngine/shared/normalize.js';
-import { createVerifier } from '@/lib/emailEngine/email_verification/verify.js';
+import { emailStatusOf, engineDomain as normalizeDomain, runEngine } from '@/lib/emailEngineApp';
 
 type Found = { email: string; source: string; status?: string; statusNote?: string; [k: string]: unknown };
-type VerifyResult = { status: string; reasons: string[] };
-const statusVerifier = createVerifier() as unknown as { verify: (email: string, ctx: { discovered: boolean }) => Promise<VerifyResult> };
 /** Every returned email carries a status badge. Checks are DNS-level only (no mailbox probing, nothing sent). */
 async function withStatus(r: Found): Promise<Found> {
   if (r.status) return r;
-  try { const v = await statusVerifier.verify(r.email, { discovered: true }); return { ...r, status: v.status, statusNote: v.reasons[v.reasons.length - 1] }; }
-  catch { return { ...r, status: 'UNKNOWN' }; }
+  return { ...r, ...(await emailStatusOf(r.email, true)) };
 }
 
 export const dynamic = 'force-dynamic';
@@ -253,25 +248,8 @@ async function tryWebsite(url: string): Promise<{ email: string; source: string 
 
 // ── RUNVAX email engine: reads the business's own site (contact/about/team pages, mailto, hidden and Cloudflare-protected
 // addresses, structured data). Only addresses actually PUBLISHED on the site are returned; it never returns a guess. ──
-type EngineEmail = { email: string; onSiteDomain?: boolean; sources: Array<{ url: string; method: string }>; verification: { status: string; confidence: number; reasons: string[] } };
-const engineFind = engineFindJs as unknown as (o: Record<string, unknown>) => Promise<{ discovered: EngineEmail[] }>;
-const ENGINE_UA = 'RunvaxEmailBot/1.0 (+https://runvax.com; respects robots.txt)';
-
-async function engineFetch(url: string) {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 7000);
-  try {
-    const res = await safeFetch(url, { signal: ctl.signal, headers: { 'user-agent': ENGINE_UA, accept: 'text/html,*/*;q=0.5' } });
-    return { ok: res.ok, status: res.status, text: (await res.text()).slice(0, 1_000_000), contentType: res.headers.get('content-type') || '' };
-  } finally { clearTimeout(t); }
-}
-
 async function tryEngine(website: string): Promise<{ email: string; source: string; sourceUrl?: string; status?: string } | null> {
-  const domain = normalizeDomain(website);
-  if (!domain) return null;
-  const run = engineFind({ domain, name: null, smtp: false, verifyCandidates: false, maxPeopleGuesses: 0, crawlOptions: { fetchImpl: engineFetch, maxPages: 5, delayMs: 300, ua: ENGINE_UA } });
-  const timeout = new Promise<null>((r) => setTimeout(() => r(null), 25_000)); // never let one site hold the request
-  const r = await Promise.race([run.catch(() => null), timeout]);
+  const r = await runEngine(website);
   if (!r) return null;
   const usable = r.discovered.filter((e) => !['INVALID', 'DISPOSABLE'].includes(e.verification.status));
   // The business's own domain first, then the strongest evidence.

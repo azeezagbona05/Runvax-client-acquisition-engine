@@ -89,3 +89,26 @@ describe('findPeople: contact channels from the fallback', () => {
     expect(r.channels?.[0].type).toBe('contact_form');
   });
 });
+
+describe('mergePeople + engine', () => {
+  const eng = [
+    { name: 'Dr. Seun Akinbobola', title: 'MD/CEO', email: 'seun.akinbobola@x.com', emailBasis: 'inferred' as const, status: 'UNVERIFIED' },
+    { name: 'Dr. Uku Nketim', title: 'Aesthetic Dentist', email: 'uku.nketim@x.com', emailBasis: 'guess' as const, status: 'UNVERIFIED' },
+  ];
+  it('keeps the finder\'s email, adds team members only the engine saw', async () => {
+    const { mergePeople } = await import('@/lib/acqPeople');
+    const r = mergePeople([{ name: 'Seun Akinbobola', title: 'CEO', email: 'seun@x.com' }], eng);
+    expect(r).toHaveLength(2);
+    expect(r[0].email).toBe('seun@x.com');
+    expect(r[1].name).toBe('Dr. Uku Nketim');
+  });
+  it('findPeople returns the whole team with statuses when the finder finds nobody', async () => {
+    const r = await findPeople({ name: 'X', website: 'https://brightdental.com', max: 5 }, { primary: null, fallback: async () => ({ candidates: [] }), engine: async () => eng });
+    expect(r.people.map((p) => p.name)).toEqual(['Dr. Seun Akinbobola', 'Dr. Uku Nketim']);
+    expect(r.people[1].status).toBe('UNVERIFIED');
+  });
+  it('survives the engine failing', async () => {
+    const r = await findPeople({ name: 'X', website: 'https://brightdental.com', max: 5 }, { primary: null, fallback: async () => ({ candidates: [{ name: 'A B', title: 'Owner', source: 'x', confidence: 'high' } as never] }), engine: async () => { throw new Error('boom'); } });
+    expect(r.people).toHaveLength(1);
+  });
+});
