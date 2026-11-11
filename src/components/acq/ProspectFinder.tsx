@@ -249,12 +249,23 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     setRunning(false);
   };
 
+  /** Asked once per visit: may a business with no email on its website be looked up with Snov (1 reveal per email found)? */
+  const snovConsent = useRef<boolean | null>(null);
+  const askSnov = (): boolean => {
+    if (!credits?.on || !(credits.balance ?? 0)) return false;
+    if (snovConsent.current !== null) return snovConsent.current;
+    const ok = window.confirm(`When a business's website shows no email, look it up with Snov too?\n\nThat uses 1 email reveal for each email found, nothing if none is found. You have ${credits.balance} reveals left.\n\nChoose Cancel to use only the free sources.`);
+    snovConsent.current = ok;
+    return ok;
+  };
   const findEmail = async (b: FinderBusiness) => {
     if (needAccount('Finding business emails needs an account.')) return;
+    const useCredits = !!b.website && askSnov();
     setEmails((m) => ({ ...m, [b.id]: { state: 'loading' } }));
     try {
-      const res = await fetch('/api/enrich-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website: b.website, name: b.name, location: b.address, phone: b.phone }) });
-      const j = await res.json().catch(() => ({})) as { email?: string | null };
+      const res = await fetch('/api/enrich-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website: b.website, name: b.name, location: b.address, phone: b.phone, useCredits }) });
+      const j = await res.json().catch(() => ({})) as { email?: string | null; balance?: number | null };
+      if (typeof j.balance === 'number') setCredits((c) => (c ? { ...c, balance: j.balance ?? null } : c));
       setEmails((m) => ({ ...m, [b.id]: { state: 'done', email: j.email && EMAIL_OK.test(j.email) ? j.email : null } }));
     } catch { setEmails((m) => ({ ...m, [b.id]: { state: 'done', email: null } })); }
   };

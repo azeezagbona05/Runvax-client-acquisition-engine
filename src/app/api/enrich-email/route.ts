@@ -3,8 +3,15 @@ import { requireUser } from '@/lib/requireUser';
 import { rateLimit } from '@/lib/rateLimiter';
 import { safeFetch } from '@/lib/safeFetch';
 import { pickEmail, pickSiteEmail } from '@/lib/siteEmail';
+import { prisma } from '@/lib/prisma';
+import { useUserKeys } from '@/lib/integrations/keys';
+import { domainContacts, snovEnabled } from '@/lib/snov';
+import { chargeReveals, loadCredits } from '@/lib/emailCredits';
+import { findEmails as engineFindJs } from '@/lib/emailEngine/engine.js';
+import { normalizeDomain } from '@/lib/emailEngine/shared/normalize.js';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 async function fetchText(url: string, ms = 7000): Promise<string> {
   const ctrl = new AbortController();
@@ -233,6 +240,53 @@ async function tryWebsite(url: string): Promise<{ email: string; source: string 
   return null;
 }
 
+// ── RUNVAX email engine: reads the business's own site (contact/about/team pages, mailto, hidden and Cloudflare-protected
+// addresses, structured data). Only addresses actually PUBLISHED on the site are returned; it never returns a guess. ──
+type EngineEmail = { email: string; onSiteDomain?: boolean; sources: Array<{ url: string; method: string }>; verification: { status: string; confidence: number } };
+const engineFind = engineFindJs as unknown as (o: Record<string, unknown>) => Promise<{ discovered: EngineEmail[] }>;
+const ENGINE_UA = 'RunvaxEmailBot/1.0 (+https://runvax.com; respects robots.txt)';
+
+async function engineFetch(url: string) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 7000);
+  try {
+    const res = await safeFetch(url, { signal: ctl.signal, headers: { 'user-agent': ENGINE_UA, accept: 'text/html,*/*;q=0.5' } });
+    return { ok: res.ok, status: res.status, text: (await res.text()).slice(0, 1_000_000), contentType: res.headers.get('content-type') || '' };
+  } finally { clearTimeout(t); }
+}
+
+async function tryEngine(website: string): Promise<{ email: string; source: string; sourceUrl?: string } | null> {
+  const domain = normalizeDomain(website);
+  if (!domain) return null;
+  const run = engineFind({ domain, name: null, smtp: false, verifyCandidates: false, maxPeopleGuesses: 0, crawlOptions: { fetchImpl: engineFetch, maxPages: 5, delayMs: 300, ua: ENGINE_UA } });
+  const timeout = new Promise<null>((r) => setTimeout(() => r(null), 25_000)); // never let one site hold the request
+  const r = await Promise.race([run.catch(() => null), timeout]);
+  if (!r) return null;
+  const usable = r.discovered.filter((e) => !['INVALID', 'DISPOSABLE'].includes(e.verification.status));
+  // The business's own domain first, then the strongest evidence.
+  usable.sort((a, b) => Number(!!b.onSiteDomain) - Number(!!a.onSiteDomain) || b.verification.confidence - a.verification.confidence);
+  const best = usable[0];
+  return best ? { email: best.email, source: 'website', sourceUrl: best.sources[0]?.url } : null;
+}
+
+// ── Snov fallback: only when the site publishes no email, the account is on a paid plan, the user agreed to spend
+// reveals, and a reveal is in hand. Charged 1 reveal only when an email is actually returned. ──
+async function trySnov(userId: string, website: string): Promise<{ email: string; source: string; person?: string; title?: string; balance: number | null } | null> {
+  const domain = normalizeDomain(website);
+  if (!domain || !snovEnabled()) return null;
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
+  if (!u || u.plan === 'free') return null;
+  if ((await loadCredits(userId)).total <= 0) return null;
+  if (!rateLimit(`enrich-email-snov:${userId}`, { maxRequests: 100, windowMs: 3_600_000 }).ok) return null;
+  let contacts;
+  try { contacts = await domainContacts(domain, { max: 1 }); } catch (e) { console.error('[enrich-email] snov', e instanceof Error ? e.message : e); return null; }
+  const c = contacts.find((x) => x.email);
+  if (!c?.email) return null;
+  const charge = await chargeReveals(userId, [c.email]);
+  if (charge.unaffordable.length) return null;
+  return { email: c.email, source: 'snov', person: c.name, title: c.position, balance: charge.summary.total };
+}
+
 // ── Facebook About page ──
 async function tryFacebook(url: string): Promise<{ email: string; source: string } | null> {
   const base = url.replace(/\/$/, '').split('?')[0];
@@ -335,12 +389,17 @@ export async function POST(req: NextRequest) {
   const user = await requireUser(req);
   if (!user.ok) return user.response;
   if (!rateLimit(`enrich-email:${user.userId}`, { maxRequests: 120, windowMs: 60_000 }).ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-  const { website, name, location, phone } = await req.json() as {
+  const { website, name, location, phone, useCredits, skipEngine } = await req.json() as {
     website?: string;
     name?: string;
     location?: string;
     phone?: string;
+    /** The user agreed to spend email reveals on a Snov lookup when nothing free finds an email. */
+    useCredits?: boolean;
+    /** Admin Prospect Lab: run the old sources only, to compare them with the engine. */
+    skipEngine?: boolean;
   };
+  const isSite = !!website && !/facebook\.com|instagram\.com/i.test(website) && /^https?:\/\/|\./.test(website);
 
   if (!website && !name) return NextResponse.json({ email: null, source: null });
 
@@ -356,12 +415,21 @@ export async function POST(req: NextRequest) {
       const r = await tryInstagram(website);
       if (r) return NextResponse.json(r);
     } else if (/^https?:\/\/|\./.test(website)) {
-      const r = await tryWebsite(website);
+      const e = skipEngine === true ? null : await tryEngine(website);
+      if (e) return NextResponse.json(e);
+      const r = await tryWebsite(website); // the original scraper stays as a safety net
       if (r) return NextResponse.json(r);
     }
   }
 
-  if (!name) return NextResponse.json({ email: null, source: null });
+  // Last resort for a business with a website: Snov (paid, only with the user's consent).
+  const snovLast = async () => {
+    if (useCredits !== true || !isSite || skipEngine === true) return null;
+    await useUserKeys(user.userId);
+    return trySnov(user.userId, website!);
+  };
+
+  if (!name) { const sv = await snovLast(); return NextResponse.json(sv ?? { email: null, source: null }); }
 
   // ── 2. Nigerian directories ──
   // Phone number is the key link: the number they registered with Google is the
@@ -406,5 +474,7 @@ export async function POST(req: NextRequest) {
     if (r.status === 'fulfilled' && r.value) return NextResponse.json(r.value);
   }
 
+  const sv = await snovLast();
+  if (sv) return NextResponse.json(sv);
   return NextResponse.json({ email: null, source: null });
 }

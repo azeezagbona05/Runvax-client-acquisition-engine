@@ -64,7 +64,7 @@ export default function ProspectLabPanel() {
       .then(async (res) => { const j = await res.json(); if (!res.ok) throw new Error(j.error || 'Failed'); patch(r.key, { engine: { state: 'done', data: j } }); })
       .catch((e) => patch(r.key, { engine: { state: 'error', error: e instanceof Error ? e.message : 'Failed' } }));
     const cur = alsoCurrent
-      ? fetch('/api/enrich-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website: r.website, name: r.label, location: r.address }) })
+      ? fetch('/api/enrich-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website: r.website, name: r.label, location: r.address, skipEngine: true }) })
           .then(async (res) => { const j = await res.json(); if (!res.ok) throw new Error(j.error || 'Failed'); patch(r.key, { current: { state: 'done', data: j } }); })
           .catch((e) => patch(r.key, { current: { state: 'error', error: e instanceof Error ? e.message : 'Failed' } }))
       : Promise.resolve();
