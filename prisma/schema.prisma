@@ -1448,3 +1448,19 @@ model SiteSetting {
   updatedBy String?  @db.VarChar(191)
   updatedAt DateTime @updatedAt
 }
+
+// Admin-built email campaigns for RUNVAX's own users (announcements, trial nudges, win-backs). The settings
+// (goal, audience filters, the emails) live in `config`; who got which email is recorded in LifecycleEmail
+// under the key "pc:<id>:<step>", the same table the launch emails use, so a send can never double-send.
+model PlatformCampaign {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(120)
+  purpose   String   @db.VarChar(32)
+  status    String   @default("draft") @db.VarChar(16) // draft | active | paused | finished
+  config    Json
+  createdBy String   @db.VarChar(191)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, updatedAt])
+}

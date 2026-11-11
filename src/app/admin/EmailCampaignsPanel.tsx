@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Send, Mail, Eye, Play, Square, AlertTriangle, CheckCircle } from 'lucide-react';
+import PlatformCampaigns from './PlatformCampaigns';
 
 interface AudienceStats { total: number; verified: number; unverified: number; optedOut: number; alreadySent: number; alreadyClaimed: number; joinedRecently?: number; eligible: number }
 interface Status { ok: boolean; emailConfigured: boolean; maxBatch: number; launch: { 1: AudienceStats; 2: AudienceStats; 3: AudienceStats } }
@@ -231,6 +232,10 @@ export default function EmailCampaignsPanel() {
   return (
     <div className="space-y-5 py-4">
       <p className="text-xs text-gray-500">Email campaigns. Real sends are logged in the audit trail. Test emails go to your admin address only.</p>
+
+      <PlatformCampaigns maxBatch={status?.maxBatch ?? 60} />
+
+      <h2 className="text-base font-bold text-white pt-2">Launch emails and the new-user workflow</h2>
 
       {error && <div role="alert" className="rounded-xl border border-orange-500/30 bg-orange-500/[0.06] p-4 text-sm text-orange-300">{error}</div>}
       {status && !status.emailConfigured && <div role="alert" className="rounded-xl border border-orange-500/30 bg-orange-500/[0.06] p-4 text-sm text-orange-300">Email isn&apos;t configured on this server, so nothing can be sent from here.</div>}

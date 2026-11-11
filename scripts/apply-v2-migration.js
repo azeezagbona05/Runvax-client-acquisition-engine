@@ -1,4 +1,5 @@
-// Applies ONLY the Client Acquisition (RUNVAX 2.0) migrations, using the same database driver as the app:
+// Applies ONLY the additive migrations the app needs beyond the base schema, using the same database driver as the app:
+//   4_lifecycle_emails     -> new table LifecycleEmail (which lifecycle email each user has received)
 //   5_outreach_campaigns   -> new tables OutreachCampaign, OutreachLead
 //   6_acquisition_pipeline -> new tables CampaignReply, CampaignLog + 7 new columns on OutreachLead
 //   7_campaign_templates   -> new table CampaignTemplate
@@ -8,8 +9,9 @@
 //   11_custom_agents       -> new tables CustomAgent, CustomAgentPost, CustomAgentChat
 //   12_knowledge_base      -> new tables KnowledgeSource, KnowledgeChunk
 //   13_site_settings       -> new table SiteSetting (admin Site controls)
+//   14_platform_campaigns  -> new table PlatformCampaign (admin campaigns for RUNVAX users)
 // Additive only. Each migration is skipped if it is already applied, so it is safe to run twice.
-// It never touches migrations 1-4 or any RUNVAX 1.0 table. Pass --yes to skip the confirmation prompt.
+// It never touches migrations 0-3 or any existing RUNVAX 1.0 table. Pass --yes to skip the confirmation prompt.
 const fs = require('fs');
 const path = require('path');
 const root = path.resolve(__dirname, '..');
@@ -17,6 +19,7 @@ require(path.join(root, 'node_modules/dotenv')).config({ path: path.join(root, '
 const { PrismaClient } = require(path.join(root, 'node_modules/@prisma/client'));
 
 const MIGRATIONS = [
+  { dir: '4_lifecycle_emails', tables: ['LifecycleEmail'], columns: [] },
   { dir: '5_outreach_campaigns', tables: ['OutreachCampaign', 'OutreachLead'], columns: [] },
   { dir: '6_acquisition_pipeline', tables: ['CampaignReply', 'CampaignLog'], columns: ['replyClass', 'pausedUntil', 'stage', 'demoAt', 'closedAt', 'dealValue', 'ownerNotifiedAt'] },
   { dir: '7_campaign_templates', tables: ['CampaignTemplate'], columns: [] },
@@ -26,6 +29,7 @@ const MIGRATIONS = [
   { dir: '11_custom_agents', tables: ['CustomAgent', 'CustomAgentPost', 'CustomAgentChat'], columns: [] },
   { dir: '12_knowledge_base', tables: ['KnowledgeSource', 'KnowledgeChunk'], columns: [] },
   { dir: '13_site_settings', tables: ['SiteSetting'], columns: [] },
+  { dir: '14_platform_campaigns', tables: ['PlatformCampaign'], columns: [] },
 ];
 
 (async () => {
