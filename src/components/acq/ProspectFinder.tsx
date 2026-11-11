@@ -10,6 +10,7 @@ import { AREAS, STATES } from '@/lib/areas';
 import SearchSelect, { MultiSearchSelect, type SearchOption } from './SearchSelect';
 import { ACTION_LABEL, CONTACT_ACTION, CONTACT_LABEL, contactState, isVerifiedStatus, toCsv, FINDER_COUNTRIES, FINDER_INDUSTRIES, MAX_PAIRS, MAX_RUN_SEARCHES, advanceMulti, finderErrorMulti, finderPairs, finderQuery, multiStep, multiStepsLeft, multiStopReason, startFinder, startMulti, type FinderBusiness, type FinderCtx, type MultiCtx, type ContactAction, type ContactState, type Verdict } from '@/lib/acqFinder';
 import { EMAIL_BASIS_HINT, EMAIL_BASIS_LABEL } from '@/lib/emailIntel';
+import { EMAIL_STATUS_BADGE, effectiveStatus, isEmailStatus, type EmailStatus } from '@/lib/emailStatus';
 import { EMPTY_GROUP, applyGroup, makeRecord, searchRecords, type FilterGroup, type ProspectRecord } from '@/lib/prospectQuery';
 import ProspectToolbar from './ProspectToolbar';
 import { BizLogo, Card, EmptyState } from './ui';
@@ -18,7 +19,7 @@ import SignupPrompt from './SignupPrompt';
 
 const PENDING_KEY = 'rv_pending_find';
 
-type Email = { state: 'loading' } | { state: 'done'; email: string | null };
+type Email = { state: 'loading' } | { state: 'done'; email: string | null; status?: EmailStatus; statusNote?: string };
 type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string }; emailBasis?: 'published' | 'inferred' | 'guess'; emailSource?: string; linkedin?: string };
 type Channel = { type: 'decision_maker_email' | 'general_email' | 'contact_form' | 'business_phone' | 'none'; value?: string; person?: string; sourcePage?: string };
 type People = { state: 'loading' } | { state: 'done'; people: Person[]; channels: Channel[]; note?: string };
@@ -264,9 +265,10 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     setEmails((m) => ({ ...m, [b.id]: { state: 'loading' } }));
     try {
       const res = await fetch('/api/enrich-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website: b.website, name: b.name, location: b.address, phone: b.phone, useCredits }) });
-      const j = await res.json().catch(() => ({})) as { email?: string | null; balance?: number | null };
+      const j = await res.json().catch(() => ({})) as { email?: string | null; balance?: number | null; status?: string; statusNote?: string };
       if (typeof j.balance === 'number') setCredits((c) => (c ? { ...c, balance: j.balance ?? null } : c));
-      setEmails((m) => ({ ...m, [b.id]: { state: 'done', email: j.email && EMAIL_OK.test(j.email) ? j.email : null } }));
+      const found = j.email && EMAIL_OK.test(j.email) ? j.email : null;
+      setEmails((m) => ({ ...m, [b.id]: { state: 'done', email: found, ...(found && isEmailStatus(j.status) ? { status: j.status, statusNote: j.statusNote } : {}) } }));
     } catch { setEmails((m) => ({ ...m, [b.id]: { state: 'done', email: null } })); }
   };
   const findForSelected = async () => {
@@ -614,7 +616,12 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                     const form = ch.find((c) => c.type === 'contact_form');
                                     return (
                                       <>
-                                        {general && <span style={{ fontSize: 12 }}><span className="acq-sub">General business email: </span><b>{general}</b></span>}
+                                        {general && (() => {
+                                          const own = general === biz && e?.state === 'done' ? e : null;
+                                          const st = effectiveStatus(own?.status, verdicts[general.toLowerCase()]);
+                                          const badge = st ? EMAIL_STATUS_BADGE[st] : null;
+                                          return <span style={{ fontSize: 12 }}><span className="acq-sub">General business email: </span><b>{general}</b>{badge && <span className={`acq-pill ${badge.tone}`} style={{ marginLeft: 6 }} title={own?.statusNote ? `${badge.hint} ${own.statusNote}` : badge.hint}>{badge.label}</span>}</span>;
+                                        })()}
                                         {form?.value && <span style={{ fontSize: 12 }}><span className="acq-sub">Contact form: </span><a href={form.value} target="_blank" rel="noopener noreferrer" style={{ color: '#7e22ce', textDecoration: 'underline' }}>open</a></span>}
                                       </>
                                     );

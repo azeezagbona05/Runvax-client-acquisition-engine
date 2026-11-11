@@ -9,6 +9,17 @@ import { domainContacts, snovEnabled } from '@/lib/snov';
 import { chargeReveals, loadCredits } from '@/lib/emailCredits';
 import { findEmails as engineFindJs } from '@/lib/emailEngine/engine.js';
 import { normalizeDomain } from '@/lib/emailEngine/shared/normalize.js';
+import { createVerifier } from '@/lib/emailEngine/email_verification/verify.js';
+
+type Found = { email: string; source: string; status?: string; statusNote?: string; [k: string]: unknown };
+type VerifyResult = { status: string; reasons: string[] };
+const statusVerifier = createVerifier() as unknown as { verify: (email: string, ctx: { discovered: boolean }) => Promise<VerifyResult> };
+/** Every returned email carries a status badge. Checks are DNS-level only (no mailbox probing, nothing sent). */
+async function withStatus(r: Found): Promise<Found> {
+  if (r.status) return r;
+  try { const v = await statusVerifier.verify(r.email, { discovered: true }); return { ...r, status: v.status, statusNote: v.reasons[v.reasons.length - 1] }; }
+  catch { return { ...r, status: 'UNKNOWN' }; }
+}
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -242,7 +253,7 @@ async function tryWebsite(url: string): Promise<{ email: string; source: string 
 
 // ── RUNVAX email engine: reads the business's own site (contact/about/team pages, mailto, hidden and Cloudflare-protected
 // addresses, structured data). Only addresses actually PUBLISHED on the site are returned; it never returns a guess. ──
-type EngineEmail = { email: string; onSiteDomain?: boolean; sources: Array<{ url: string; method: string }>; verification: { status: string; confidence: number } };
+type EngineEmail = { email: string; onSiteDomain?: boolean; sources: Array<{ url: string; method: string }>; verification: { status: string; confidence: number; reasons: string[] } };
 const engineFind = engineFindJs as unknown as (o: Record<string, unknown>) => Promise<{ discovered: EngineEmail[] }>;
 const ENGINE_UA = 'RunvaxEmailBot/1.0 (+https://runvax.com; respects robots.txt)';
 
@@ -255,7 +266,7 @@ async function engineFetch(url: string) {
   } finally { clearTimeout(t); }
 }
 
-async function tryEngine(website: string): Promise<{ email: string; source: string; sourceUrl?: string } | null> {
+async function tryEngine(website: string): Promise<{ email: string; source: string; sourceUrl?: string; status?: string } | null> {
   const domain = normalizeDomain(website);
   if (!domain) return null;
   const run = engineFind({ domain, name: null, smtp: false, verifyCandidates: false, maxPeopleGuesses: 0, crawlOptions: { fetchImpl: engineFetch, maxPages: 5, delayMs: 300, ua: ENGINE_UA } });
@@ -266,12 +277,12 @@ async function tryEngine(website: string): Promise<{ email: string; source: stri
   // The business's own domain first, then the strongest evidence.
   usable.sort((a, b) => Number(!!b.onSiteDomain) - Number(!!a.onSiteDomain) || b.verification.confidence - a.verification.confidence);
   const best = usable[0];
-  return best ? { email: best.email, source: 'website', sourceUrl: best.sources[0]?.url } : null;
+  return best ? { email: best.email, source: 'website', sourceUrl: best.sources[0]?.url, status: best.verification.status } : null;
 }
 
 // ── Snov fallback: only when the site publishes no email, the account is on a paid plan, the user agreed to spend
 // reveals, and a reveal is in hand. Charged 1 reveal only when an email is actually returned. ──
-async function trySnov(userId: string, website: string): Promise<{ email: string; source: string; person?: string; title?: string; balance: number | null } | null> {
+async function trySnov(userId: string, website: string): Promise<{ email: string; source: string; person?: string; title?: string; balance: number | null; status?: string; statusNote?: string } | null> {
   const domain = normalizeDomain(website);
   if (!domain || !snovEnabled()) return null;
   const u = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
@@ -284,7 +295,7 @@ async function trySnov(userId: string, website: string): Promise<{ email: string
   if (!c?.email) return null;
   const charge = await chargeReveals(userId, [c.email]);
   if (charge.unaffordable.length) return null;
-  return { email: c.email, source: 'snov', person: c.name, title: c.position, balance: charge.summary.total };
+  return { email: c.email, source: 'snov', person: c.name, title: c.position, balance: charge.summary.total, ...(c.smtpStatus === 'valid' ? { status: 'VERIFIED', statusNote: 'Snov confirmed the mailbox.' } : {}) };
 }
 
 // ── Facebook About page ──
@@ -410,15 +421,15 @@ export async function POST(req: NextRequest) {
     const lower = website.toLowerCase();
     if (lower.includes('facebook.com')) {
       const r = await tryFacebook(website);
-      if (r) return NextResponse.json(r);
+      if (r) return NextResponse.json(await withStatus(r));
     } else if (lower.includes('instagram.com')) {
       const r = await tryInstagram(website);
-      if (r) return NextResponse.json(r);
+      if (r) return NextResponse.json(await withStatus(r));
     } else if (/^https?:\/\/|\./.test(website)) {
       const e = skipEngine === true ? null : await tryEngine(website);
-      if (e) return NextResponse.json(e);
+      if (e) return NextResponse.json(await withStatus(e));
       const r = await tryWebsite(website); // the original scraper stays as a safety net
-      if (r) return NextResponse.json(r);
+      if (r) return NextResponse.json(await withStatus(r));
     }
   }
 
@@ -429,7 +440,7 @@ export async function POST(req: NextRequest) {
     return trySnov(user.userId, website!);
   };
 
-  if (!name) { const sv = await snovLast(); return NextResponse.json(sv ?? { email: null, source: null }); }
+  if (!name) { const sv = await snovLast(); return NextResponse.json(sv ? await withStatus(sv) : { email: null, source: null }); }
 
   // ── 2. Nigerian directories ──
   // Phone number is the key link: the number they registered with Google is the
@@ -451,7 +462,7 @@ export async function POST(req: NextRequest) {
       : []),
   ];
   for (const r of await Promise.allSettled(directories)) {
-    if (r.status === 'fulfilled' && r.value) return NextResponse.json(r.value);
+    if (r.status === 'fulfilled' && r.value) return NextResponse.json(await withStatus(r.value));
   }
 
   // ── 3. Web search strategies in parallel ──
@@ -471,10 +482,10 @@ export async function POST(req: NextRequest) {
   ]);
 
   for (const r of settled) {
-    if (r.status === 'fulfilled' && r.value) return NextResponse.json(r.value);
+    if (r.status === 'fulfilled' && r.value) return NextResponse.json(await withStatus(r.value));
   }
 
   const sv = await snovLast();
-  if (sv) return NextResponse.json(sv);
+  if (sv) return NextResponse.json(await withStatus(sv));
   return NextResponse.json({ email: null, source: null });
 }
