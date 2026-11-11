@@ -367,15 +367,15 @@ function CampaignDetail({ id, maxBatch, onBack }: { id: string; maxBatch: number
 
 // ───────────────────────── the section ─────────────────────────
 
-export default function PlatformCampaigns({ maxBatch = 60 }: { maxBatch?: number }) {
+export default function PlatformCampaigns({ maxBatch = 60 }: { maxBatch?: number } = {}) {
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [meta, setMeta] = useState<{ purposes: PurposeInfo[]; samples: Array<{ id: string; label: string; hint: string }>; aiAvailable: boolean } | null>(null);
+  const [meta, setMeta] = useState<{ purposes: PurposeInfo[]; samples: Array<{ id: string; label: string; hint: string }>; aiAvailable: boolean; emailConfigured: boolean } | null>(null);
   const [error, setError] = useState('');
   const [view, setView] = useState<'list' | 'new' | string>('list');
   const load = useCallback(async () => {
-    const r = await api<{ campaigns: Row[]; purposes: PurposeInfo[]; samples: Array<{ id: string; label: string; hint: string }>; aiAvailable: boolean }>('/api/admin/platform-campaigns');
+    const r = await api<{ campaigns: Row[]; purposes: PurposeInfo[]; samples: Array<{ id: string; label: string; hint: string }>; aiAvailable: boolean; emailConfigured: boolean }>('/api/admin/platform-campaigns');
     if (!r.ok) { setError(r.data.error ?? 'Could not load campaigns'); return; }
-    setError(''); setRows(r.data.campaigns); setMeta({ purposes: r.data.purposes, samples: r.data.samples ?? [], aiAvailable: r.data.aiAvailable });
+    setError(''); setRows(r.data.campaigns); setMeta({ purposes: r.data.purposes, samples: r.data.samples ?? [], aiAvailable: r.data.aiAvailable, emailConfigured: r.data.emailConfigured });
   }, []);
   useEffect(() => { void load(); }, [load]);
 
@@ -389,6 +389,7 @@ export default function PlatformCampaigns({ maxBatch = 60 }: { maxBatch?: number
       </div>
 
       {error && <div role="alert" className="rounded-xl border border-orange-500/30 bg-orange-500/[0.06] p-4 text-sm text-orange-300">{error}</div>}
+      {meta && !meta.emailConfigured && <div role="alert" className="rounded-xl border border-orange-500/30 bg-orange-500/[0.06] p-4 text-sm text-orange-300">Email isn&apos;t configured on this server, so nothing can be sent from here.</div>}
       {!rows && !error && <div className="py-6 flex justify-center"><Loader2 className="w-5 h-5 text-purple-400 animate-spin" /></div>}
 
       {view === 'new' && meta && <NewCampaign purposes={meta.purposes} samples={meta.samples} aiAvailable={meta.aiAvailable} onCancel={back} onSaved={(id) => setView(id)} />}
