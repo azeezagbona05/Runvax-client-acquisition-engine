@@ -1,38 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/adminAuth';
-import { prisma } from '@/lib/prisma';
 import { emailConfigured } from '@/lib/lifecycleRunner';
-import { aiAvailable, draftWithAi, previewAudience, renderStep, sendCounts } from '@/lib/platformCampaign';
-import { cleanText, configProblems, describeSegment, firstName, isPurpose, planCampaign, sampleById, sanitizeConfig, sanitizeSegment, sanitizeStep, PURPOSES, SAMPLES } from '@/lib/platformCampaignShared';
-import { getAppName } from '@/lib/url';
+import { aiAvailable, createPlatformCampaign, draftWithAi, listPlatformCampaigns, previewAudience, renderPreview } from '@/lib/platformCampaign';
+import { GOALS, LINK_PAGES, PURPOSES, SAMPLES, cleanText, isPurpose, planCampaign, sampleById, sanitizePlan, sanitizeSegment } from '@/lib/platformCampaignShared';
 import { getSiteSettings } from '@/lib/siteSettings';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**
- * Admin-only. GET lists the campaigns for RUNVAX users. POST does one of:
+ * Admin-only. Campaigns for RUNVAX users run on the customer campaign engine (same follow-ups, tracking and replies),
+ * owned by the signed-in admin's own account. GET lists them. POST does one of:
  *   plan     { purpose, detail, useAi }  -> a drafted campaign (nothing saved)
  *   sample   { id }                      -> a ready-made campaign to start from (nothing saved)
  *   audience { segment }                 -> how many people the filters match
- *   preview  { step }                    -> the rendered email, for the preview pane
- *   create   { name, purpose, config }   -> saves a draft (nothing is sent)
- * Nothing here sends email: sending is /[id]/send, behind a typed confirmation.
+ *   preview  { email, linkPath }         -> the email as people will receive it
+ *   create   { plan }                    -> saves it and adds the matching users as leads (nothing is sent)
  */
-
-const UNAVAILABLE = 'Campaigns for users are unavailable. Has migration 14_platform_campaigns been applied? (It also needs 4_lifecycle_emails.)';
-const audit = (actorEmail: string, action: string, title: string, detail?: string) => prisma.adminAuditLog.create({ data: { actorEmail, action, title, detail } }).catch(() => {});
+const UNAVAILABLE = 'Campaigns for users are unavailable. Has migration 14_platform_campaigns been applied? (The campaign engine tables from migrations 4 to 6 are needed too.)';
 
 export async function GET() {
   const admin = await requireAdmin(); if (!admin.ok) return admin.response;
   try {
-    const rows = await prisma.platformCampaign.findMany({ orderBy: { updatedAt: 'desc' }, take: 100 });
-    const campaigns = await Promise.all(rows.map(async (r) => {
-      const cfg = sanitizeConfig(r.config);
-      const { perStep } = await sendCounts(r.id, cfg.steps.length);
-      return { id: r.id, name: r.name, purpose: r.purpose, status: r.status, updatedAt: r.updatedAt, emails: cfg.steps.length, perStep, audience: describeSegment(cfg.segment) };
-    }));
-    return NextResponse.json({ ok: true, campaigns, aiAvailable: aiAvailable(), emailConfigured: emailConfigured(), purposes: PURPOSES, samples: SAMPLES.map(({ id, label, hint }) => ({ id, label, hint })) });
+    return NextResponse.json({
+      ok: true, campaigns: await listPlatformCampaigns(admin.userId), aiAvailable: aiAvailable(), emailConfigured: emailConfigured(),
+      purposes: PURPOSES, goals: GOALS, linkPages: LINK_PAGES, samples: SAMPLES.map(({ id, label, hint }) => ({ id, label, hint })),
+    });
   } catch (e) {
     console.error('[admin/platform-campaigns] list', e);
     return NextResponse.json({ ok: false, error: UNAVAILABLE }, { status: 503 });
@@ -47,32 +40,28 @@ export async function POST(req: NextRequest) {
       if (!isPurpose(body.purpose)) return NextResponse.json({ error: 'Choose what the campaign is for.' }, { status: 400 });
       const detail = cleanText(body.detail, 400);
       const ai = body.useAi === true ? await draftWithAi(body.purpose, detail) : null;
-      const plan = ai ?? planCampaign(body.purpose, detail);
-      return NextResponse.json({ ok: true, ...plan, usedAi: !!ai, aiRequestedButUnavailable: body.useAi === true && !ai });
+      const plan = ai ?? planCampaign(body.purpose, detail, (await getSiteSettings()).trialDays);
+      return NextResponse.json({ ok: true, plan, usedAi: !!ai, aiRequestedButUnavailable: body.useAi === true && !ai });
     }
     if (body.action === 'sample') {
       const x = sampleById(body.id);
       if (!x) return NextResponse.json({ error: 'Unknown sample' }, { status: 400 });
-      return NextResponse.json({ ok: true, name: x.name, purpose: x.purpose, config: x.config, usedAi: false, aiRequestedButUnavailable: false });
+      return NextResponse.json({ ok: true, plan: x.plan, usedAi: false, aiRequestedButUnavailable: false });
     }
-    if (body.action === 'audience') {
-      return NextResponse.json({ ok: true, ...(await previewAudience(sanitizeSegment(body.segment))) });
-    }
+    if (body.action === 'audience') return NextResponse.json({ ok: true, ...(await previewAudience(sanitizeSegment(body.segment))) });
     if (body.action === 'preview') {
-      const step = sanitizeStep(body.step);
-      if (!step.subject || !step.body) return NextResponse.json({ error: 'Write a subject and a message first.' }, { status: 400 });
-      const mail = renderStep(step, { name: firstName('Ada Obi'), plan: 'Free', appName: getAppName(), trialDays: (await getSiteSettings()).trialDays });
-      return NextResponse.json({ ok: true, ...mail });
+      const e = (body.email ?? {}) as { subject?: unknown; body?: unknown; firstSubject?: unknown };
+      const p = sanitizePlan({ name: 'x', automation: { name: 'x', emails: [{ subject: e.subject, body: e.body }] }, linkPath: body.linkPath });
+      if (!p) return NextResponse.json({ error: 'Write a subject and a message first.' }, { status: 400 });
+      const first = typeof e.firstSubject === 'string' && e.firstSubject ? e.firstSubject : p.automation.emails[0].subject;
+      return NextResponse.json({ ok: true, ...(await renderPreview(admin.userId, p.automation.emails[0], p.linkPath, first)) });
     }
     if (body.action === 'create') {
-      const config = sanitizeConfig(body.config);
-      const problems = configProblems(config);
-      if (problems.length) return NextResponse.json({ error: problems[0] }, { status: 400 });
-      const purpose = isPurpose(body.purpose) ? body.purpose : 'custom';
-      const name = cleanText(body.name, 120) || 'Untitled campaign';
-      const row = await prisma.platformCampaign.create({ data: { name, purpose, status: 'draft', config: config as unknown as object, createdBy: admin.email } });
-      await audit(admin.email, 'platform_campaign_created', `Created campaign "${name}"`, `${config.steps.length} emails. Audience: ${describeSegment(config.segment)}`);
-      return NextResponse.json({ ok: true, id: row.id }, { status: 201 });
+      const plan = sanitizePlan(body.plan);
+      if (!plan) return NextResponse.json({ error: 'Add at least one email with a subject and a message.' }, { status: 400 });
+      const r = await createPlatformCampaign({ adminUserId: admin.userId, adminEmail: admin.email, plan });
+      if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
+      return NextResponse.json({ ok: true, ...r }, { status: 201 });
     }
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (e) {

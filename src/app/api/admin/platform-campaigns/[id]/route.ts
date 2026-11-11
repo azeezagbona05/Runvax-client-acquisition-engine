@@ -1,63 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/adminAuth';
 import { prisma } from '@/lib/prisma';
-import { loadCampaign, sendCounts, stepAudience } from '@/lib/platformCampaign';
-import { cleanText, configProblems, describeSegment, sanitizeConfig } from '@/lib/platformCampaignShared';
+import { campaignDetail, deleteCampaign, sendSafetyProblem, setCampaignState, startCampaign, updateCampaign } from '@/lib/platformCampaign';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const audit = (actorEmail: string, action: string, title: string, detail?: string) => prisma.adminAuditLog.create({ data: { actorEmail, action, title, detail } }).catch(() => {});
 type Ctx = { params: Promise<{ id: string }> };
+const audit = (actorEmail: string, action: string, title: string, detail?: string) => prisma.adminAuditLog.create({ data: { actorEmail, action, title, detail } }).catch(() => {});
 
-/** The campaign with, for every email, who can be sent it right now and why everyone else cannot. */
+/** The campaign with its workflow, per-email numbers, every person and how they interacted, and the replies. */
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const admin = await requireAdmin(); if (!admin.ok) return admin.response;
   const { id } = await params;
   try {
-    const c = await loadCampaign(id);
-    if (!c) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
-    const counts = await sendCounts(id, c.cfg.steps.length);
-    const steps = await Promise.all(c.cfg.steps.map(async (_, i) => {
-      const a = await stepAudience(id, c.cfg, i);
-      return { sent: counts.perStep[i], matching: a.matching, eligible: a.eligible.length, waiting: a.waiting, notReached: a.notReached, goalReached: a.goalReached, optedOut: a.optedOut };
-    }));
-    return NextResponse.json({ ok: true, campaign: { id, name: c.row.name, purpose: c.row.purpose, status: c.row.status, config: c.cfg, createdBy: c.row.createdBy, updatedAt: c.row.updatedAt }, steps, last24h: counts.last24h, audience: describeSegment(c.cfg.segment) });
+    const d = await campaignDetail(admin.userId, id);
+    if (!d) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+    return NextResponse.json({ ok: true, ...d });
   } catch (e) {
     console.error('[admin/platform-campaigns/id] get', e);
     return NextResponse.json({ error: 'Could not load the campaign.' }, { status: 503 });
   }
 }
 
-/** Edit the name, the settings, the emails, or pause/resume/finish. Emails that already went out cannot be rewritten. */
+/**
+ * PATCH { name?, plan? }                      edit the name, emails or settings
+ * PATCH { action: 'run', confirm: 'SEND' }    start it: from now on introductions can be sent and follow-ups come due
+ * PATCH { action: 'pause' | 'resume' | 'finish' }
+ */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const admin = await requireAdmin(); if (!admin.ok) return admin.response;
   const { id } = await params;
-  const body = await req.json().catch(() => ({})) as { name?: unknown; config?: unknown; status?: unknown };
+  const body = await req.json().catch(() => ({})) as { name?: unknown; plan?: unknown; action?: unknown; confirm?: unknown };
   try {
-    const c = await loadCampaign(id);
-    if (!c) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
-    const data: { name?: string; status?: string; config?: object } = {};
-    const notes: string[] = [];
-    if (typeof body.name === 'string') { data.name = cleanText(body.name, 120) || c.row.name; if (data.name !== c.row.name) notes.push('renamed'); }
-    if (body.status === 'paused' || body.status === 'active' || body.status === 'finished') {
-      if (c.row.status === 'finished') return NextResponse.json({ error: 'A finished campaign cannot be restarted. Duplicate it instead.' }, { status: 409 });
-      data.status = body.status; notes.push(`status ${body.status}`);
+    if (body.action === 'run' || body.action === 'resume') {
+      if (body.action === 'run' && body.confirm !== 'SEND') return NextResponse.json({ error: 'Type SEND to confirm' }, { status: 400 });
+      const problem = sendSafetyProblem(); if (problem) return NextResponse.json({ error: problem }, { status: 503 });
+      const r = await startCampaign(admin.userId, id);
+      if ('error' in r) return NextResponse.json({ error: r.error, code: r.code }, { status: r.code === 'NO_MAILBOX' ? 503 : 400 });
+      await audit(admin.email, 'platform_campaign_started', body.action === 'run' ? 'Started a campaign for users' : 'Resumed a campaign for users', id);
+      return NextResponse.json({ ok: true });
     }
-    if (body.config !== undefined) {
-      const next = sanitizeConfig(body.config);
-      const { perStep } = await sendCounts(id, c.cfg.steps.length);
-      // An email that has gone out stays exactly as it was sent.
-      const locked = perStep.map((n) => n > 0);
-      const merged = { ...next, steps: next.steps.map((s, i) => (locked[i] && c.cfg.steps[i] ? c.cfg.steps[i] : s)) };
-      for (let i = merged.steps.length; i < c.cfg.steps.length; i++) if (locked[i]) merged.steps.push(c.cfg.steps[i]);
-      const problems = configProblems(merged);
-      if (problems.length) return NextResponse.json({ error: problems[0] }, { status: 400 });
-      data.config = merged as unknown as object; notes.push('settings or emails edited');
+    if (body.action === 'pause' || body.action === 'finish') {
+      const r = await setCampaignState(admin.userId, id, body.action === 'pause' ? 'paused' : 'finished');
+      if ('error' in r) return NextResponse.json({ error: r.error }, { status: 404 });
+      await audit(admin.email, 'platform_campaign_updated', body.action === 'pause' ? 'Paused a campaign for users' : 'Finished a campaign for users', id);
+      return NextResponse.json({ ok: true });
     }
-    if (Object.keys(data).length === 0) return NextResponse.json({ error: 'Nothing to change.' }, { status: 400 });
-    await prisma.platformCampaign.update({ where: { id }, data });
-    await audit(admin.email, 'platform_campaign_updated', `Updated campaign "${data.name ?? c.row.name}"`, notes.join(', '));
+    if (body.action !== undefined) return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+    const r = await updateCampaign(admin.userId, admin.email, id, { name: body.name, plan: body.plan });
+    if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[admin/platform-campaigns/id] patch', e);
@@ -70,12 +62,8 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const admin = await requireAdmin(); if (!admin.ok) return admin.response;
   const { id } = await params;
   try {
-    const c = await loadCampaign(id);
-    if (!c) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
-    const { perStep } = await sendCounts(id, c.cfg.steps.length);
-    if (perStep.some((n) => n > 0)) return NextResponse.json({ error: 'This campaign has already sent email, so it is kept for the record. Mark it finished instead.' }, { status: 409 });
-    await prisma.platformCampaign.delete({ where: { id } });
-    await audit(admin.email, 'platform_campaign_deleted', `Deleted campaign "${c.row.name}"`);
+    const r = await deleteCampaign(admin.userId, admin.email, id);
+    if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.status ?? 400 });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[admin/platform-campaigns/id] delete', e);

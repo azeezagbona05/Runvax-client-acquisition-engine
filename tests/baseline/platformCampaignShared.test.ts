@@ -1,100 +1,99 @@
 import { describe, expect, it } from 'vitest';
-import {
-  PURPOSES, bodyToHtml, cleanPath, cleanText, describeSegment, emptySegment, fillPlaceholders, firstName, planCampaign, sanitizeConfig, sanitizeStep, configProblems, MAX_STEPS, PLACEHOLDERS, SAMPLES, sampleById,
-} from '@/lib/platformCampaignShared';
+import { validateAutomation, SEND_IF_LABEL } from '@/lib/automation';
+import { PURPOSES, SAMPLES, cleanText, describeSegment, emptySegment, firstName, planCampaign, planProblems, sampleById, sanitizePlan, sanitizeSegment } from '@/lib/platformCampaignShared';
 
-describe('cleanText', () => {
-  it('removes links and unknown placeholders but keeps known ones', () => {
-    expect(cleanText('Hi {{name}} see https://evil.example/x and www.bad.com {{secret}} {{ appName }}', 200)).toBe('Hi {{name}} see and {{appName}}');
+const KNOWN = ['name', 'fullName', 'business', 'website', 'subject'];
+const tokens = (t: string) => Array.from(t.matchAll(/\{\{(\w+)\}\}/g)).map((m) => m[1]);
+
+describe('text and audience helpers', () => {
+  it('cleanText removes links and caps length', () => {
+    expect(cleanText('See https://evil.example/x and www.bad.com now', 100)).toBe('See and now');
+    expect(cleanText('a'.repeat(500), 10)).toHaveLength(10); expect(cleanText(42, 10)).toBe('');
   });
-  it('caps length and ignores non-strings', () => { expect(cleanText('a'.repeat(500), 10)).toHaveLength(10); expect(cleanText(42, 10)).toBe(''); });
+  it('audience numbers: negatives and junk mean "any"; plans are de-duplicated and validated', () => {
+    const s = sanitizeSegment({ joinedWithinDays: -3, inactiveForDays: 'abc', activeWithinDays: '14', plans: ['free', 'free', 'vip'], verified: 'maybe' });
+    expect(s.joinedWithinDays).toBeNull(); expect(s.inactiveForDays).toBeNull(); expect(s.activeWithinDays).toBe(14); expect(s.plans).toEqual(['free']); expect(s.verified).toBe('any');
+  });
+  it('describes an audience in words; first names never expose an email', () => {
+    expect(describeSegment(emptySegment())).toBe('all accounts');
+    expect(describeSegment({ ...emptySegment(), plans: ['free'], verified: 'yes', inactiveForDays: 14 })).toBe('free accounts, verified, not active for 14+ days');
+    expect(firstName('Ada Obi')).toBe('Ada'); expect(firstName(null)).toBe('there'); expect(firstName('  ')).toBe('there');
+  });
 });
 
-describe('cleanPath: the button can only point at a page on this app', () => {
-  it('accepts plain app paths', () => { expect(cleanPath('/claim-pro')).toBe('/claim-pro'); expect(cleanPath('/client-acquisition/agents')).toBe('/client-acquisition/agents'); });
-  it('rejects hosts, protocol-relative, queries, schemes and junk', () => {
-    for (const bad of ['https://evil.com', '//evil.com', '/a?b=1', '/a#x', 'javascript:alert(1)', 'claim-pro', '/a//b', '', 5, null]) expect(cleanPath(bad)).toBe('');
+describe('sanitizePlan runs on the engine sanitiser', () => {
+  const base = { name: 'T', purpose: 'announce', goal: 'come_back', automation: { name: 'T', emails: [{ subject: 'Hi {{name}}', body: 'See https://evil.example and {{secret}} {{website}}' }] } };
+  it('removes links and unknown placeholders, keeps {{website}}, and never grants auto-send', () => {
+    const p = sanitizePlan({ ...base, automation: { ...base.automation, sendMode: 'auto' } })!;
+    expect(p.automation.emails[0].body).not.toMatch(/https?:|secret/); expect(p.automation.emails[0].body).toContain('{{website}}'); expect(p.automation.sendMode).toBe('review');
+  });
+  it('junk gives null; an unknown goal, purpose or link page falls back safely', () => {
+    expect(sanitizePlan('nope')).toBeNull(); expect(sanitizePlan({ ...base, automation: { emails: [] } })).toBeNull();
+    const p = sanitizePlan({ ...base, goal: 'rule_the_world', purpose: 'x', linkPath: 'javascript:alert(1)' })!;
+    expect(p.goal).toBe('none'); expect(p.purpose).toBe('custom'); expect(p.linkPath).toBe('/client-acquisition'); expect(p.stopOnGoal).toBe(true);
+  });
+  it('the link can only open a page on this app from the allowed list', () => {
+    expect(sanitizePlan({ ...base, linkPath: '/claim-pro' })!.linkPath).toBe('/claim-pro');
+    for (const bad of ['https://evil.com', '//evil.com', '/admin', '/api/x']) expect(sanitizePlan({ ...base, linkPath: bad })!.linkPath).toBe('/client-acquisition');
   });
 });
 
-describe('sanitizeStep / sanitizeConfig', () => {
-  it('a button needs both a label and a page, else it is dropped', () => {
-    expect(sanitizeStep({ subject: 's', body: 'b', ctaPath: '/claim-pro', ctaLabel: '' })).toMatchObject({ ctaPath: '', ctaLabel: '' });
-    expect(sanitizeStep({ subject: 's', body: 'b', ctaPath: '', ctaLabel: 'Go' })).toMatchObject({ ctaPath: '', ctaLabel: '' });
-    expect(sanitizeStep({ subject: 's', body: 'b', ctaPath: '/claim-pro', ctaLabel: 'Go' })).toMatchObject({ ctaPath: '/claim-pro', ctaLabel: 'Go' });
+describe('the three ready-made campaigns', () => {
+  it('there are exactly the three requested: announcing 2.0, the client acquisition engine, and AI agents', () => {
+    expect(SAMPLES.map((s) => s.id)).toEqual(['v2_announce', 'acquisition_engine', 'ai_agents']);
+    expect(SAMPLES[0].plan.name).toMatch(/RUNVAX 2\.0/); expect(SAMPLES[1].plan.name).toMatch(/client acquisition engine in seconds/i); expect(SAMPLES[2].plan.name).toMatch(/AI agent/i);
+    expect(sampleById('nope')).toBeNull();
   });
-  it('clamps waits, forces email 1 to wait 0, drops empty emails, caps the count', () => {
-    const steps = Array.from({ length: 9 }, (_, i) => ({ subject: `S${i}`, body: 'B', waitDays: 999 }));
-    const c = sanitizeConfig({ steps: [{ subject: '', body: '' }, ...steps], dailyCap: 99999 });
-    expect(c.steps).toHaveLength(MAX_STEPS); expect(c.steps[0].waitDays).toBe(0); expect(c.steps[1].waitDays).toBe(30); expect(c.dailyCap).toBe(500);
+  it.each(SAMPLES.map((s) => [s.id, s]))('%s is a complete workflow: valid, link-free, known placeholders, a link in every email, follow-ups with waits', (_id, s) => {
+    const a = s.plan.automation;
+    expect(validateAutomation(a)).toEqual([]); expect(planProblems(s.plan)).toEqual([]);
+    expect(a.emails).toHaveLength(3); expect(a.emails.map((e) => e.waitDays)).toEqual([0, 3, 4]);
+    expect(a.emails[0].sendIf).toBe('no_reply'); expect(a.stopOnReply).toBe(true); expect(a.sendMode).toBe('review');
+    expect(a.playbook?.length).toBeGreaterThan(0);                       // a reply playbook, like the front-end builder
+    expect(a.emails[1].openedVariant).toBeTruthy();                       // a different follow-up for people who opened
+    for (const e of a.emails) {
+      const text = `${e.subject} ${e.body} ${e.openedVariant?.subject ?? ''} ${e.openedVariant?.body ?? ''}`;
+      expect(text).not.toMatch(/https?:\/\/|www\./i);
+      for (const t of tokens(text)) expect(KNOWN).toContain(t);
+      expect(e.body).toContain('{{website}}');
+    }
+    expect(sanitizePlan(s.plan)!.automation.emails.map((e) => e.body)).toEqual(a.emails.map((e) => e.body)); // sanitising changes nothing
   });
-  it('junk becomes a safe empty config that reports a problem', () => {
-    const c = sanitizeConfig('nope'); expect(c.goal).toBe('none'); expect(c.stopOnGoal).toBe(true); expect(configProblems(c)).toHaveLength(1);
+  it('each opens the right page and targets verified users', () => {
+    expect(sampleById('v2_announce')!.plan.linkPath).toBe('/client-acquisition');
+    expect(sampleById('acquisition_engine')!.plan.linkPath).toBe('/client-acquisition/campaigns');
+    expect(sampleById('ai_agents')!.plan.linkPath).toBe('/client-acquisition/agents');
+    for (const s of SAMPLES) expect(s.plan.segment.verified).toBe('yes');
   });
-  it('audience numbers: negatives and junk mean "any"', () => {
-    const s = sanitizeConfig({ steps: [{ subject: 'a', body: 'b' }], segment: { joinedWithinDays: -3, inactiveForDays: 'abc', activeWithinDays: '14', plans: ['free', 'free', 'vip'] } }).segment;
-    expect(s.joinedWithinDays).toBeNull(); expect(s.inactiveForDays).toBeNull(); expect(s.activeWithinDays).toBe(14); expect(s.plans).toEqual(['free']);
+  it('makes no timing claim it cannot back up: "in seconds", never a stated number of seconds', () => {
+    const all = SAMPLES.map((s) => `${s.plan.name} ${s.plan.automation.emails.map((e) => `${e.subject} ${e.body}`).join(' ')}`).join(' ');
+    expect(all).toMatch(/in seconds/); expect(all).not.toMatch(/\b\d+\s*seconds?\b/i);
   });
 });
 
 describe('the built-in writer', () => {
   it.each(PURPOSES.map((p) => p.id))('%s: writes a valid, link-free, honest sequence', (purpose) => {
-    const { name, config } = planCampaign(purpose, 'We launched AI agents. Visit https://spam.example now');
-    expect(name.length).toBeGreaterThan(0);
-    expect(configProblems(config)).toEqual([]);
-    config.steps.forEach((s, i) => {
-      expect(s.subject).toBeTruthy(); expect(s.body).toContain('{{name}}');
-      expect(`${s.subject} ${s.body}`).not.toMatch(/https?:\/\/|www\./i);
-      const used = Array.from(`${s.subject} ${s.body} ${s.ctaLabel}`.matchAll(/\{\{(\w+)\}\}/g)).map((m) => m[1]);
-      for (const u of used) expect(PLACEHOLDERS as readonly string[]).toContain(u);
-      if (i === 0) expect(s.waitDays).toBe(0);
-    });
-  });
-  it('trial nudge targets unclaimed free accounts and points at the claim page', () => {
-    const { config } = planCampaign('activate_trial', '');
-    expect(config.goal).toBe('claim_trial'); expect(config.segment).toMatchObject({ plans: ['free'], trial: 'unclaimed', verified: 'yes' });
-    expect(config.steps.every((s) => s.ctaPath === '/claim-pro')).toBe(true); expect(config.steps).toHaveLength(3);
-  });
-  it('feedback is one email with no button; verify targets unverified accounts', () => {
-    expect(planCampaign('feedback', '').config.steps).toMatchObject([{ ctaPath: '' }]);
-    expect(planCampaign('verify', '').config.segment.verified).toBe('no');
-  });
-  it('never invents numbers: no digits appear except the trial-length placeholder and the true "$0" of the free trial', () => {
-    for (const p of PURPOSES) for (const s of planCampaign(p.id, '').config.steps) expect(`${s.subject} ${s.body}`.replace(/\{\{trialDays\}\}/g, '').replace(/\$0/g, '')).not.toMatch(/\d/);
-  });
-});
-
-describe('rendering helpers', () => {
-  it('bodyToHtml escapes everything the admin types', () => {
-    const html = bodyToHtml('<script>alert(1)</script>\n\n- one <b>\n- two');
-    expect(html).not.toContain('<script>'); expect(html).toContain('&lt;script&gt;'); expect(html).toContain('<li'); expect(html).not.toContain('<b>');
-  });
-  it('fills placeholders and uses a first name only', () => {
-    const v = { name: firstName('Ada Obi'), plan: 'Free', appName: 'RUNVAX', trialDays: 14 };
-    expect(fillPlaceholders('Hi {{name}}, {{trialDays}} days of {{appName}} ({{plan}}) {{x}}', v)).toBe('Hi Ada, 14 days of RUNVAX (Free) ');
-    expect(firstName(null)).toBe('there'); expect(firstName('  ')).toBe('there');
-  });
-  it('describes an audience in words', () => {
-    expect(describeSegment(emptySegment())).toBe('all accounts');
-    expect(describeSegment({ ...emptySegment(), plans: ['free'], verified: 'yes', inactiveForDays: 14 })).toBe('free accounts, verified, not active for 14+ days');
-  });
-});
-
-describe('ready-made samples', () => {
-  it('the RUNVAX 2.0 + AI agents sample is complete, link-free and uses only known placeholders', () => {
-    const x = sampleById('v2_agents')!;
-    expect(x).toBeTruthy(); expect(x.config.steps).toHaveLength(3); expect(configProblems(x.config)).toEqual([]);
-    expect(x.config.steps.map((s) => s.waitDays)).toEqual([0, 3, 4]);
-    expect(x.config.segment.verified).toBe('yes'); expect(x.config.goal).toBe('come_back');
-    for (const s of x.config.steps) {
-      const text = `${s.subject} ${s.body} ${s.ctaLabel}`;
-      expect(text).not.toMatch(/https?:\/\/|www\./i);
-      for (const m of Array.from(text.matchAll(/\{\{(\w+)\}\}/g))) expect(PLACEHOLDERS as readonly string[]).toContain(m[1]);
-      expect(s.ctaPath).toMatch(/^\/client-acquisition/); expect(s.ctaLabel).toBeTruthy();
+    const p = planCampaign(purpose, 'We launched AI agents. Visit https://spam.example now', 14);
+    expect(p.name.length).toBeGreaterThan(0); expect(planProblems(p)).toEqual([]);
+    for (const e of p.automation.emails) {
+      expect(`${e.subject} ${e.body}`).not.toMatch(/https?:\/\/|www\./i);
+      for (const t of tokens(`${e.subject} ${e.body}`)) expect(KNOWN).toContain(t);
     }
+    expect(p.automation.emails[0].waitDays).toBe(0); expect(SEND_IF_LABEL[p.automation.emails[0].sendIf]).toBeTruthy();
   });
-  it('every sample survives sanitising unchanged, and an unknown id gives nothing', () => {
-    for (const x of SAMPLES) expect(sanitizeConfig(x.config)).toEqual(x.config);
-    expect(sampleById('nope')).toBeNull();
+  it('the trial nudge targets unclaimed free accounts, uses the live trial length, and points at the claim page', () => {
+    const p = planCampaign('activate_trial', '', 14);
+    expect(p.goal).toBe('claim_trial'); expect(p.segment).toMatchObject({ plans: ['free'], trial: 'unclaimed', verified: 'yes' }); expect(p.linkPath).toBe('/claim-pro');
+    expect(p.automation.emails).toHaveLength(3); expect(p.automation.emails[0].subject).toContain('14');
+  });
+  it('verify targets unverified accounts and links to sign-in; feedback is one email asking for a reply', () => {
+    expect(planCampaign('verify', '').segment.verified).toBe('no'); expect(planCampaign('verify', '').linkPath).toBe('/auth/signin');
+    expect(planCampaign('feedback', '').automation.emails).toHaveLength(1);
+  });
+  it('never invents numbers: digits appear only from the trial length and the true "$0" of the free trial', () => {
+    for (const p of PURPOSES) for (const e of planCampaign(p.id, '', 10).automation.emails) {
+      const text = `${e.subject} ${e.body} ${e.openedVariant?.body ?? ''}`.replace(/\$0/g, '');
+      if (p.id === 'activate_trial') expect(text.replace(/\b10\b/g, '')).not.toMatch(/\d/); else expect(text).not.toMatch(/\d/);
+    }
   });
 });

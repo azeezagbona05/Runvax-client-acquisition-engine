@@ -2,6 +2,7 @@ import { getConnection } from '@/lib/integrations/store';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { prisma } from '@/lib/prisma';
+import { isAdminEmail } from '@/lib/adminSessionShared';
 import { ingestReply, logAgent, type IngestDeps } from '@/lib/acqReplies';
 
 const LOOKBACK_DAYS = 14;
@@ -27,6 +28,10 @@ export async function checkInbox(userId: string, deps: IngestDeps = {}): Promise
     imapOpts = { host: 'imap.gmail.com', auth: { user: a.email, accessToken: a.token } };
   } else if (s?.smtpHost && s.smtpUser && s.smtpPass) {
     imapOpts = { host: imapHostFor(s.smtpHost), auth: { user: s.smtpUser, pass: s.smtpPass } };
+  } else if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    // An administrator with no mailbox of their own reads the platform mailbox they send from (the same fallback the sender uses).
+    const me = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (isAdminEmail(me?.email)) imapOpts = { host: imapHostFor(process.env.SMTP_HOST), auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } };
   }
   if (!imapOpts) return { ok: false, error: 'Connect your mailbox in Integrations first. Replies are read with the same login.' };
 

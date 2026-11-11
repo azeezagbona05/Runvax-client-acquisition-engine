@@ -1,136 +1,181 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { sanitizeConfig, emptySegment, type CampaignConfig } from '@/lib/platformCampaignShared';
+import { emptySegment, sampleById } from '@/lib/platformCampaignShared';
 
 const DAY = 86_400_000; const NOW = new Date('2026-11-11T12:00:00Z').getTime();
 type User = { id: string; email: string | null; name: string | null; plan: string; planExpiresAt: Date | null; emailVerified: Date | null; createdAt: Date; lastActiveAt: Date | null; isSuspended?: boolean };
-let users: User[] = []; let payments: Array<{ userId: string; reference: string; amount: number; status: string }> = [];
-let life: Array<{ userId: string; key: string; sentAt: Date }> = []; let mailed: Array<{ to: string; subject: string; html: string; headers?: Record<string, string> }> = []; let failFor = new Set<string>();
+type Lead = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+let users: User[] = []; let payments: Array<{ userId: string; reference: string; amount: number; status: string }> = []; let life: Array<{ userId: string; key: string }> = [];
+let campaigns: Lead[] = []; let leads: Lead[] = []; let registry: Lead[] = []; let settings: Lead[] = []; let audit: Lead[] = []; let seq = 0;
+let sendCalls: Array<{ kind: string; campaignId: string; userId: string }> = []; let mailbox: object | null = { fromAddress: 'hello@runvax.com' };
+
+const eq = (v: any, w: any): boolean => { // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (w === null) return v === null || v === undefined;
+  if (w && typeof w === 'object' && !(w instanceof Date)) {
+    if ('in' in w) return w.in.includes(v); if ('notIn' in w) return !w.notIn.includes(v); if ('not' in w) return w.not === null ? v !== null && v !== undefined : v !== w.not;
+    if ('startsWith' in w) return typeof v === 'string' && v.startsWith(w.startsWith);
+  }
+  return v === w;
+};
+const matchLead = (l: Lead, where: Lead = {}): boolean => Object.entries(where).every(([k, w]) => {
+  if (k === 'OR') return (w as Lead[]).some((c) => matchLead(l, c));
+  if (k === 'AND') return (w as Lead[]).every((c) => matchLead(l, c));
+  return eq(l[k], w);
+});
 
 vi.mock('@/lib/prisma', () => ({ prisma: {
-  user: { findMany: async () => users.filter((u) => !u.isSuspended && u.email !== null) },
+  user: { findMany: async ({ where }: Lead) => users.filter((u) => !u.isSuspended && (where?.email?.not === null ? u.email !== null : where?.email?.in ? u.email !== null && where.email.in.includes(u.email) : true)), findUnique: async ({ where }: Lead) => users.find((u) => u.id === where.id) ?? null },
   payment: { findMany: async () => payments },
-  lifecycleEmail: {
-    findMany: async ({ where }: { where: { key: string | { in: string[] } } }) => life.filter((r) => (typeof where.key === 'string' ? r.key === where.key : where.key.in.includes(r.key))),
-    create: async ({ data }: { data: { userId: string; key: string } }) => { if (life.some((r) => r.userId === data.userId && r.key === data.key)) throw new Error('unique'); life.push({ ...data, sentAt: new Date(NOW) }); },
-    deleteMany: async ({ where }: { where: { userId: string; key: string } }) => { life = life.filter((r) => !(r.userId === where.userId && r.key === where.key)); },
-    groupBy: async ({ where }: { where: { key: { startsWith: string } } }) => { const m = new Map<string, number>(); for (const r of life.filter((x) => x.key.startsWith(where.key.startsWith))) m.set(r.key, (m.get(r.key) ?? 0) + 1); return Array.from(m.entries()).map(([key, n]) => ({ key, _count: { _all: n } })); },
-    count: async ({ where }: { where: { key: { startsWith: string }; sentAt: { gt: Date } } }) => life.filter((r) => r.key.startsWith(where.key.startsWith) && r.sentAt > where.sentAt.gt).length,
+  lifecycleEmail: { findMany: async ({ where }: Lead) => life.filter((r) => r.key === where.key), count: async ({ where }: Lead) => life.filter((r) => r.key.startsWith(where.key.startsWith)).length },
+  userSettings: {
+    findUnique: async ({ where }: Lead) => settings.find((s) => s.userId === where.userId) ?? null,
+    create: async ({ data }: Lead) => { settings.push({ ...data }); return data; },
+    update: async ({ where, data }: Lead) => { Object.assign(settings.find((s) => s.userId === where.userId)!, data); },
   },
+  outreachCampaign: {
+    create: async ({ data }: Lead) => { const c = { id: `c${++seq}`, status: 'draft', startedAt: null, ...data }; campaigns.push(c); return c; },
+    findFirst: async ({ where }: Lead) => campaigns.find((c) => c.id === where.id && c.userId === where.userId) ?? null,
+    findMany: async ({ where }: Lead) => campaigns.filter((c) => where.id.in.includes(c.id) && c.userId === where.userId),
+    update: async ({ where, data }: Lead) => { Object.assign(campaigns.find((c) => c.id === where.id)!, data); },
+    deleteMany: async ({ where }: Lead) => { campaigns = campaigns.filter((c) => !(c.id === where.id && c.userId === where.userId)); leads = leads.filter((l) => l.campaignId !== where.id); },
+  },
+  outreachLead: {
+    findMany: async ({ where }: Lead) => leads.filter((l) => matchLead(l, where)),
+    count: async ({ where }: Lead) => leads.filter((l) => matchLead(l, where)).length,
+    createMany: async ({ data }: Lead) => { for (const d of data) leads.push({ id: `l${++seq}`, status: 'queued', sentAt: null, repliedAt: null, unsubscribedAt: null, stage: null, followUpsSent: 0, ...d }); return { count: data.length }; },
+    updateMany: async ({ where, data }: Lead) => { const m = leads.filter((l) => matchLead(l, where)); m.forEach((l) => Object.assign(l, data)); return { count: m.length }; },
+  },
+  platformCampaign: {
+    count: async () => registry.length,
+    create: async ({ data }: Lead) => { const r = { id: `p${++seq}`, updatedAt: new Date(), ...data }; registry.push(r); return r; },
+    findUnique: async ({ where }: Lead) => registry.find((r) => r.id === where.id) ?? null,
+    findMany: async () => registry,
+    update: async ({ where, data }: Lead) => { Object.assign(registry.find((r) => r.id === where.id)!, data); },
+    delete: async ({ where }: Lead) => { registry = registry.filter((r) => r.id !== where.id); },
+  },
+  adminAuditLog: { create: async ({ data }: Lead) => { audit.push(data); } },
 } }));
-vi.mock('@/lib/email', async (orig) => ({ ...(await orig<typeof import('@/lib/email')>()), createTransporter: () => ({ sendMail: async (m: { to: string; subject: string; html: string; headers?: Record<string, string> }) => { if (failFor.has(m.to)) throw new Error('smtp down'); mailed.push(m); } }) }));
+vi.mock('@/lib/outreachSender', () => ({
+  newLeadToken: () => `tok${++seq}`, loadMailbox: async () => mailbox,
+  sendBatch: async (a: { kind: string; campaignId: string; userId: string }) => { sendCalls.push(a); return { sent: 2, failed: 0, skipped: 0, remainingToday: 10, leftToSend: 0, capReached: false }; },
+}));
+vi.mock('@/lib/acqInboxReader', () => ({ checkInbox: async () => ({ ok: true, scanned: 0, replies: 0, duplicates: 0 }) }));
+vi.mock('@/lib/automationAi', () => ({ planAutomation: async () => ({ source: 'rules', automation: null }) }));
 
-import { matchesSegment, stepAudience, sendBatch, sendCounts, renderStep, previewAudience, kindOf } from '@/lib/platformCampaign';
-const real = Date.now; // the clock is only used through the `now` argument, except sendBatch which uses Date.now for the 24h window
+import { eligiblePeople, createPlatformCampaign, applyGoal, deleteCampaign, parseRegistry, sendNow, sendSafetyProblem, setCampaignState, kindOf, displayStatus } from '@/lib/platformCampaign';
 
 const mk = (id: string, o: Partial<User> = {}): User => ({ id, email: `${id}@example.com`, name: `User ${id}`, plan: 'free', planExpiresAt: null, emailVerified: new Date(NOW - 30 * DAY), createdAt: new Date(NOW - 60 * DAY), lastActiveAt: new Date(NOW - 20 * DAY), ...o });
-const cfg = (o: Partial<CampaignConfig> = {}): CampaignConfig => sanitizeConfig({
-  goal: 'none', stopOnGoal: true, segment: emptySegment(), dailyCap: 200,
-  steps: [{ subject: 'One', body: 'Hi {{name}}' }, { subject: 'Two', body: 'Hi again {{name}}', waitDays: 3 }], ...o,
-});
-beforeEach(() => { users = []; payments = []; life = []; mailed = []; failFor = new Set(); vi.stubEnv('NEXTAUTH_SECRET', 'test'); vi.stubEnv('NEXTAUTH_URL', 'https://runvax.com'); Date.now = real; });
+const ADMIN = { adminUserId: 'admin1', adminEmail: 'admin@runvax.com' };
+beforeEach(() => { users = []; payments = []; life = []; campaigns = []; leads = []; registry = []; settings = []; audit = []; sendCalls = []; mailbox = { fromAddress: 'hello@runvax.com' }; seq = 0; vi.stubEnv('NEXTAUTH_URL', 'https://runvax.com'); });
 
-describe('audience filters', () => {
-  const ctx = { trial: new Set<string>(['t1']), paid: new Set<string>(['p1']) };
+describe('who is eligible', () => {
+  it('skips suspended, unsubscribed, invalid, duplicate and address-less accounts, and applies the filters', async () => {
+    users = [mk('a'), mk('b', { isSuspended: true }), mk('c'), mk('d', { email: 'not-an-email' }), mk('e', { email: 'A@example.com' }), mk('f', { email: null }), mk('g', { emailVerified: null })];
+    life = [{ userId: 'c', key: 'optout' }];
+    const all = await eligiblePeople(emptySegment(), NOW); expect(all.people.map((u) => u.id)).toEqual(['a', 'g']); expect(all.optedOut).toBe(1);
+    const ver = await eligiblePeople({ ...emptySegment(), verified: 'yes' }, NOW); expect(ver.people.map((u) => u.id)).toEqual(['a']);
+  });
   it('plan kinds: free, on a trial, paying', () => {
-    expect(kindOf({ id: 'a', plan: 'free' }, ctx.trial, ctx.paid)).toBe('free');
-    expect(kindOf({ id: 't1', plan: 'pro' }, ctx.trial, ctx.paid)).toBe('trial');
-    expect(kindOf({ id: 'p1', plan: 'pro' }, ctx.trial, ctx.paid)).toBe('paid');
-  });
-  it('verified, joined and activity filters', () => {
-    const u = mk('a');
-    expect(matchesSegment(u as never, { ...emptySegment(), verified: 'no' }, ctx, NOW)).toBe(false);
-    expect(matchesSegment(u as never, { ...emptySegment(), joinedWithinDays: 30 }, ctx, NOW)).toBe(false);
-    expect(matchesSegment(u as never, { ...emptySegment(), joinedOlderThanDays: 30 }, ctx, NOW)).toBe(true);
-    expect(matchesSegment(u as never, { ...emptySegment(), inactiveForDays: 14 }, ctx, NOW)).toBe(true);
-    expect(matchesSegment(u as never, { ...emptySegment(), activeWithinDays: 14 }, ctx, NOW)).toBe(false);
-    expect(matchesSegment(mk('n', { lastActiveAt: null }) as never, { ...emptySegment(), inactiveForDays: 14 }, ctx, NOW)).toBe(true); // never active counts as inactive
+    const t = new Set(['t1']); const p = new Set(['p1']);
+    expect(kindOf({ id: 'a', plan: 'free' }, t, p)).toBe('free'); expect(kindOf({ id: 't1', plan: 'pro' }, t, p)).toBe('trial'); expect(kindOf({ id: 'p1', plan: 'pro' }, t, p)).toBe('paid');
   });
 });
 
-describe('who is due each email', () => {
-  it('email 1 goes to matching people only: not suspended, not unsubscribed, no bad or duplicate addresses', async () => {
-    users = [mk('a'), mk('b', { isSuspended: true }), mk('c'), mk('d', { email: 'not-an-email' }), mk('e', { email: 'A@example.com' }), mk('f', { email: null })];
-    life = [{ userId: 'c', key: 'optout', sentAt: new Date(NOW) }];
-    const a = await stepAudience('X', cfg(), 0, NOW);
-    expect(a.eligible.map((u) => u.id)).toEqual(['a']); // e is a duplicate of a
-    expect(a.optedOut).toBe(1);
+describe('creating a campaign on the engine', () => {
+  const plan = () => sampleById('ai_agents')!.plan;
+  it('saves an ordinary campaign owned by the admin, with the matching users as leads and the page link on every lead', async () => {
+    users = [mk('a'), mk('b'), mk('c', { emailVerified: null })]; life = [{ userId: 'b', key: 'optout' }];
+    const r = await createPlatformCampaign({ ...ADMIN, plan: plan() });
+    expect('error' in r).toBe(false); if ('error' in r) return;
+    expect(r.added).toBe(1);                                                       // a only: b unsubscribed, c unverified
+    expect(campaigns).toHaveLength(1); expect(campaigns[0].userId).toBe('admin1'); expect(campaigns[0].status).toBe('draft');
+    expect(campaigns[0].maxFollowUps).toBe(2); expect(campaigns[0].automation.emails).toHaveLength(3);
+    expect(leads).toHaveLength(1); expect(leads[0]).toMatchObject({ email: 'a@example.com', userId: 'admin1', campaignId: campaigns[0].id, website: 'https://runvax.com/client-acquisition/agents' });
+    expect(leads[0].token).toBeTruthy();                                           // the secret behind the open pixel and unsubscribe link
+    expect(registry[0].config).toMatchObject({ outreachCampaignId: campaigns[0].id, goal: 'come_back', linkPath: '/client-acquisition/agents' });
+    expect(audit.map((a) => a.action)).toContain('platform_campaign_created');
   });
-  it('email 2 waits for the gap, needs email 1 first, and nobody is sent the same email twice', async () => {
-    users = [mk('due'), mk('soon'), mk('never'), mk('done')];
-    life = [
-      { userId: 'due', key: 'pc:X:0', sentAt: new Date(NOW - 4 * DAY) },
-      { userId: 'soon', key: 'pc:X:0', sentAt: new Date(NOW - 1 * DAY) },
-      { userId: 'done', key: 'pc:X:0', sentAt: new Date(NOW - 9 * DAY) }, { userId: 'done', key: 'pc:X:1', sentAt: new Date(NOW - 2 * DAY) },
-    ];
-    const a = await stepAudience('X', cfg(), 1, NOW);
-    expect(a.eligible.map((u) => u.id)).toEqual(['due']);
-    expect(a).toMatchObject({ waiting: 1, notReached: 1, alreadySent: 1 });
-  });
-  it('stops emailing people who reached the goal: claimed the trial / verified', async () => {
-    users = [mk('free'), mk('claimed', { plan: 'pro' })]; payments = [{ userId: 'claimed', reference: 'trial_claimed', amount: 0, status: 'trial' }];
-    const a = await stepAudience('X', cfg({ goal: 'claim_trial' }), 0, NOW);
-    expect(a.eligible.map((u) => u.id)).toEqual(['free']); expect(a.goalReached).toBe(1);
-    const off = await stepAudience('X', cfg({ goal: 'claim_trial', stopOnGoal: false }), 0, NOW);
-    expect(off.eligible).toHaveLength(2);
-  });
-  it('come-back goal: someone active since email 1 is left alone', async () => {
-    users = [mk('back', { lastActiveAt: new Date(NOW - 1 * DAY) }), mk('quiet')];
-    life = [{ userId: 'back', key: 'pc:X:0', sentAt: new Date(NOW - 5 * DAY) }, { userId: 'quiet', key: 'pc:X:0', sentAt: new Date(NOW - 5 * DAY) }];
-    const a = await stepAudience('X', cfg({ goal: 'come_back' }), 1, NOW);
-    expect(a.eligible.map((u) => u.id)).toEqual(['quiet']); expect(a.goalReached).toBe(1);
-  });
-  it('someone already in the sequence stays in it even if they stop matching the filters', async () => {
-    users = [mk('a', { lastActiveAt: new Date(NOW - 1 * DAY) })];
-    life = [{ userId: 'a', key: 'pc:X:0', sentAt: new Date(NOW - 5 * DAY) }];
-    const a = await stepAudience('X', cfg({ segment: { ...emptySegment(), inactiveForDays: 14 } }), 1, NOW);
-    expect(a.eligible.map((u) => u.id)).toEqual(['a']);
-  });
-  it('the live count ignores unsubscribed people', async () => {
-    users = [mk('a'), mk('b')]; life = [{ userId: 'b', key: 'optout', sentAt: new Date(NOW) }];
-    expect(await previewAudience(emptySegment())).toMatchObject({ matching: 1, optedOut: 1 });
-  });
-});
-
-describe('sending', () => {
-  it('claims before sending, adds an unsubscribe link and header, and records one row per person', async () => {
-    users = [mk('a'), mk('b')];
-    const r = await sendBatch('X', cfg(), 0);
-    expect(r).toMatchObject({ sent: 2, failed: 0, remaining: 0 });
-    expect(life.filter((x) => x.key === 'pc:X:0')).toHaveLength(2);
-    expect(mailed[0].headers?.['List-Unsubscribe']).toContain('/api/unsubscribe');
-    expect(mailed[0].html).toContain('Unsubscribe'); expect(mailed[0].html).toContain('Hi User');
-  }, 15000);
-  it('running it again sends nothing more (no double sends)', async () => {
+  it('sets the sender name only where it was blank, and never overwrites the admin\'s own', async () => {
     users = [mk('a')];
-    await sendBatch('X', cfg(), 0); mailed = [];
-    const again = await sendBatch('X', cfg(), 0);
-    expect(again.sent).toBe(0); expect(mailed).toHaveLength(0);
-  }, 15000);
-  it('a failed send releases the claim so it can be retried, and is counted', async () => {
-    users = [mk('a'), mk('b')]; failFor = new Set(['a@example.com']);
-    const r = await sendBatch('X', cfg(), 0);
-    expect(r).toMatchObject({ sent: 1, failed: 1 });
-    expect(life.some((x) => x.userId === 'a' && x.key === 'pc:X:0')).toBe(false);
-    expect(life.some((x) => x.userId === 'b' && x.key === 'pc:X:0')).toBe(true);
-  }, 15000);
-  it('the daily cap stops a send and says so', async () => {
-    users = [mk('a'), mk('b'), mk('c')];
-    const r = await sendBatch('X', cfg({ dailyCap: 2 }), 0);
-    expect(r.sent).toBe(2); expect(r.remaining).toBe(1); expect(r.capped).toBe(true);
-    const next = await sendBatch('X', cfg({ dailyCap: 2 }), 0);   // already at the cap in the last 24h
-    expect(next).toMatchObject({ sent: 0, capped: true });
-  }, 15000);
-  it('counts per email', async () => {
-    life = [{ userId: 'a', key: 'pc:X:0', sentAt: new Date() }, { userId: 'b', key: 'pc:X:0', sentAt: new Date() }, { userId: 'a', key: 'pc:X:1', sentAt: new Date() }];
-    expect(await sendCounts('X', 2)).toEqual({ perStep: [2, 1], last24h: 3 });
+    await createPlatformCampaign({ ...ADMIN, plan: plan() }); expect(settings[0]).toMatchObject({ senderName: 'The RUNVAX team', smtpFrom: 'RUNVAX' });
+    settings[0].senderName = 'Azeez'; await createPlatformCampaign({ ...ADMIN, plan: plan() }); expect(settings[0].senderName).toBe('Azeez');
+  });
+  it('refuses when nobody matches, and when the emails are unusable', async () => {
+    users = [mk('a', { emailVerified: null })];
+    expect(await createPlatformCampaign({ ...ADMIN, plan: plan() })).toMatchObject({ error: expect.stringMatching(/Nobody matches/) });
+    expect(await createPlatformCampaign({ ...ADMIN, plan: { ...plan(), automation: { ...plan().automation, emails: [] } } })).toMatchObject({ error: expect.any(String) });
+    expect(campaigns).toHaveLength(0); expect(registry).toHaveLength(0);
   });
 });
 
-describe('rendering', () => {
-  it('puts the button on the app domain and escapes the label; no button when none is set', () => {
-    const v = { name: 'Ada', plan: 'Free', appName: 'RUNVAX', trialDays: 10 };
-    const withBtn = renderStep({ subject: 'S', body: 'Hi {{name}}', waitDays: 0, ctaLabel: 'Go <b>', ctaPath: '/claim-pro' }, v);
-    expect(withBtn.html).toContain('https://runvax.com/claim-pro'); expect(withBtn.html).not.toContain('Go <b>');
-    expect(renderStep({ subject: 'S', body: 'Hi', waitDays: 0, ctaLabel: '', ctaPath: '' }, v).html).not.toContain('claim-pro');
+describe('the goal stops follow-ups', () => {
+  it('marks people who claimed the trial as converted, so the engine leaves them alone', async () => {
+    users = [mk('claimed', { plan: 'pro' }), mk('free')]; payments = [{ userId: 'claimed', reference: 'trial_claimed', amount: 0, status: 'trial' }];
+    campaigns = [{ id: 'c1', userId: 'admin1' }];
+    leads = [
+      { id: 'l1', campaignId: 'c1', email: 'claimed@example.com', status: 'sent', repliedAt: null, unsubscribedAt: null, stage: null, sentAt: new Date(NOW) },
+      { id: 'l2', campaignId: 'c1', email: 'free@example.com', status: 'sent', repliedAt: null, unsubscribedAt: null, stage: null, sentAt: new Date(NOW) },
+    ];
+    expect(await applyGoal('c1', 'claim_trial')).toBe(1);
+    expect(leads[0].stage).toBe('customer'); expect(leads[1].stage).toBeNull();
+    expect(await applyGoal('c1', 'none')).toBe(0);
+  });
+  it('come-back: only people active since the first email count', async () => {
+    users = [mk('back', { lastActiveAt: new Date(NOW) }), mk('quiet', { lastActiveAt: new Date(NOW - 20 * DAY) })];
+    leads = [
+      { id: 'l1', campaignId: 'c1', email: 'back@example.com', status: 'sent', repliedAt: null, unsubscribedAt: null, stage: null, sentAt: new Date(NOW - 5 * DAY) },
+      { id: 'l2', campaignId: 'c1', email: 'quiet@example.com', status: 'sent', repliedAt: null, unsubscribedAt: null, stage: null, sentAt: new Date(NOW - 5 * DAY) },
+    ];
+    expect(await applyGoal('c1', 'come_back')).toBe(1); expect(leads[0].stage).toBe('customer');
+  });
+});
+
+describe('sending and its safeguards', () => {
+  const setup = (status = 'running', goal = 'claim_trial') => {
+    campaigns = [{ id: 'c1', userId: 'admin1', status, startedAt: new Date(NOW), automation: sampleById('ai_agents')!.plan.automation }];
+    registry = [{ id: 'p1', name: 'X', config: { outreachCampaignId: 'c1', purpose: 'announce', goal, stopOnGoal: true, segment: emptySegment(), linkPath: '/client-acquisition' } }];
+  };
+  it('a follow-up send first leaves people who reached the goal alone, then runs the engine for the admin account', async () => {
+    setup(); users = [mk('claimed', { plan: 'pro' })]; payments = [{ userId: 'claimed', reference: 'trial_claimed', amount: 0, status: 'trial' }];
+    leads = [{ id: 'l1', campaignId: 'c1', email: 'claimed@example.com', status: 'sent', repliedAt: null, unsubscribedAt: null, stage: null, sentAt: new Date(NOW) }];
+    const r = await sendNow('admin1', 'p1', 'followup');
+    expect('error' in r).toBe(false); if ('error' in r) return;
+    expect(r.stoppedByGoal).toBe(1); expect(leads[0].stage).toBe('customer'); expect(sendCalls).toEqual([{ kind: 'followup', campaignId: 'c1', userId: 'admin1' }]);
+  });
+  it('a paused campaign sends nothing, and another account\'s campaign is not reachable', async () => {
+    setup('paused'); expect(await sendNow('admin1', 'p1', 'followup')).toMatchObject({ error: expect.stringMatching(/paused/) });
+    setup(); expect(await sendNow('someone-else', 'p1', 'followup')).toMatchObject({ error: 'Campaign not found' }); expect(sendCalls).toHaveLength(0);
+  });
+  it('"completed" on the engine only means every first email went out: follow-ups still send until the admin marks it finished', async () => {
+    expect(displayStatus('active', 'completed')).toBe('running'); expect(displayStatus('active', 'running')).toBe('running');
+    expect(displayStatus('draft', 'draft')).toBe('draft'); expect(displayStatus('paused', 'paused')).toBe('paused'); expect(displayStatus('finished', 'completed')).toBe('finished');
+    setup('completed'); registry[0].status = 'active'; users = [mk('a')]; leads = [];
+    const r = await sendNow('admin1', 'p1', 'followup'); expect('error' in r).toBe(false); expect(sendCalls).toHaveLength(1);
+    await setCampaignState('admin1', 'p1', 'finished'); sendCalls = [];
+    expect(await sendNow('admin1', 'p1', 'followup')).toMatchObject({ error: expect.stringMatching(/finished/) }); expect(sendCalls).toHaveLength(0);
+  });
+  it('pausing and finishing change the engine campaign and the registry together', async () => {
+    setup(); expect(await setCampaignState('admin1', 'p1', 'paused')).toEqual({ ok: true }); expect(campaigns[0].status).toBe('paused'); expect(registry[0].status).toBe('paused');
+    await setCampaignState('admin1', 'p1', 'finished'); expect(campaigns[0].status).toBe('completed'); expect(registry[0].status).toBe('finished');
+  });
+  it('a campaign that has sent cannot be deleted; one that has not can, with its contacts', async () => {
+    setup(); leads = [{ id: 'l1', campaignId: 'c1', userId: 'admin1', email: 'a@x.com', sentAt: new Date(NOW) }];
+    expect(await deleteCampaign('admin1', 'admin@runvax.com', 'p1')).toMatchObject({ status: 409 }); expect(registry).toHaveLength(1);
+    leads = [{ id: 'l1', campaignId: 'c1', userId: 'admin1', email: 'a@x.com', sentAt: null }];
+    expect(await deleteCampaign('admin1', 'admin@runvax.com', 'p1')).toEqual({ ok: true }); expect(registry).toHaveLength(0); expect(campaigns).toHaveLength(0); expect(leads).toHaveLength(0);
+  });
+  it('refuses to send from a production server whose own address is local or not https', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXTAUTH_URL', 'http://localhost:3000'); expect(sendSafetyProblem()).toMatch(/Refusing to send/);
+    vi.stubEnv('NEXTAUTH_URL', 'http://runvax.com'); expect(sendSafetyProblem()).toMatch(/Refusing/);
+    vi.stubEnv('NEXTAUTH_URL', 'https://runvax.com'); expect(sendSafetyProblem()).toBeNull();
+    vi.stubEnv('NODE_ENV', 'test');
+  });
+});
+
+describe('old-format campaigns', () => {
+  it('a campaign from the first version has no engine campaign behind it, and is handled safely', async () => {
+    expect(parseRegistry({ steps: [{ subject: 'a', body: 'b' }] })).toBeNull(); expect(parseRegistry(null)).toBeNull();
+    registry = [{ id: 'old', name: 'Old', config: { steps: [] } }];
+    expect(await deleteCampaign('admin1', 'admin@runvax.com', 'old')).toEqual({ ok: true }); expect(registry).toHaveLength(0);
   });
 });

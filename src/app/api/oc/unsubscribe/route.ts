@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isAdminEmail } from '@/lib/adminSessionShared';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,14 @@ async function optOut(token: string): Promise<boolean> {
       where: { userId: lead.userId, email: lead.email, unsubscribedAt: null },
       data: { status: 'unsubscribed', unsubscribedAt: new Date() },
     });
+    // A campaign RUNVAX itself runs for its own users: opting out also stops RUNVAX's other automatic emails to that person.
+    try {
+      const owner = await prisma.user.findUnique({ where: { id: lead.userId }, select: { email: true } });
+      if (isAdminEmail(owner?.email)) {
+        const account = await prisma.user.findUnique({ where: { email: lead.email }, select: { id: true } });
+        if (account) await prisma.lifecycleEmail.create({ data: { userId: account.id, key: 'optout' } }).catch(() => {});
+      }
+    } catch (e) { console.error('[oc/unsubscribe] platform opt-out sync', e); }
     return true;
   } catch (e) {
     console.error('[oc/unsubscribe]', e);
