@@ -261,6 +261,56 @@ export function planCampaign(purpose: Purpose, detailRaw: string): { name: strin
   return { name: cleanText(name, 120), config: sanitizeConfig({ ...base, steps }) };
 }
 
+// ───────────────────────── ready-made samples ─────────────────────────
+
+export interface Sample { id: string; label: string; hint: string; purpose: Purpose; name: string; config: CampaignConfig }
+
+/** Hand-written campaigns the admin can start from: real wording about what the product does today, no invented claims. */
+const SAMPLE_SOURCES: Array<Omit<Sample, 'config'> & { config: unknown }> = [
+  {
+    id: 'v2_agents', label: 'RUNVAX 2.0 and building AI agents', hint: 'Three emails to verified users: what 2.0 is, how to build an AI agent, and a quick way to try both', purpose: 'announce',
+    name: 'SAMPLE: RUNVAX 2.0 and building AI agents (test)',
+    config: {
+      goal: 'come_back', stopOnGoal: true, dailyCap: DEFAULT_DAILY_CAP, segment: { ...emptySegment(), verified: 'yes' },
+      brief: 'Tell existing users about the RUNVAX 2.0 experience and how to build an AI agent with RUNVAX.',
+      steps: [
+        {
+          subject: '{{name}}, meet RUNVAX 2.0: your next customers, and an AI team to win them', waitDays: 0, ctaLabel: 'Open RUNVAX 2.0', ctaPath: '/client-acquisition',
+          body: [
+            'Hi {{name}},',
+            'RUNVAX 2.0 is live, and it is built around one idea: find the businesses you want to work with, then let an AI workforce help you approach, engage and win them.',
+            'Here is what you can do in it today:\n- Find Prospects: search by industry and place and see who is worth contacting\n- Campaigns: describe your goal in plain English and RUNVAX writes the whole email sequence, follow-ups included\n- Inbox & Opportunities: replies land in one place, sorted by who is interested\n- You stay in control: you review the emails and start every campaign yourself',
+            'Your account, prospects and settings carry over, and it takes a minute to look around.',
+            SIGN,
+          ].join('\n\n'),
+        },
+        {
+          subject: 'Build an AI agent for your business with RUNVAX', waitDays: 3, ctaLabel: 'Build my first agent', ctaPath: '/client-acquisition/agents',
+          body: [
+            'Hi {{name}},',
+            'Besides campaigns, RUNVAX 2.0 lets you build AI agents for your own business. Describe what you want in plain English and RUNVAX sets it up:\n- Visibility Agent: writes articles for your website, so more of the right people find you\n- Sales Assistant: chats with your website visitors, answers from what you tell it, and collects their details as leads',
+            'Before you save anything, use Try it to chat with your agent or read a sample article. When you are happy with it, deploy it to your website, WordPress or Telegram.',
+            'An agent only runs once you switch it on, and every visitor is told they are talking to an AI.',
+            SIGN,
+          ].join('\n\n'),
+        },
+        {
+          subject: 'A quick way to see RUNVAX 2.0 working for you', waitDays: 4, ctaLabel: 'Open RUNVAX', ctaPath: '/client-acquisition',
+          body: [
+            'Hi {{name}},',
+            'If you have not had a look yet, here is the quickest path:\n- Open AI Agents and describe your business in a sentence or two\n- Use Try it to see how your agent answers a visitor\n- Then open Campaigns and describe who you want to reach',
+            'Something not working the way you expected, or a question? Just reply to this email. A real person reads every reply.',
+            SIGN,
+          ].join('\n\n'),
+        },
+      ],
+    },
+  },
+];
+
+export const SAMPLES: Sample[] = SAMPLE_SOURCES.map((x) => ({ ...x, config: sanitizeConfig(x.config) }));
+export const sampleById = (id: unknown): Sample | null => SAMPLES.find((x) => x.id === id) ?? null;
+
 /** The instruction for the AI drafter. The model's answer is never trusted: it goes through sanitizeConfig. */
 export function aiSystemPrompt(): string {
   return [
@@ -269,6 +319,6 @@ export function aiSystemPrompt(): string {
     'Write 1 to 5 emails. Email 1 has waitDays 0; later emails wait 2 to 7 days. Plain, warm, short paragraphs separated by a blank line; "- " for bullet lines.',
     'Open with "Hi {{name}},". You may use {{name}}, {{appName}}, {{trialDays}} and {{plan}} and nothing else in double braces. End with "The {{appName}} team".',
     'NEVER put links or URLs in the text. NEVER invent numbers, discounts, deadlines, customer results or features that were not given to you.',
-    'ctaPath must be one of: /client-acquisition, /claim-pro, /auth/signin, or empty. Give ctaLabel only when ctaPath is set.',
+    'ctaPath must be one of: /client-acquisition, /client-acquisition/find, /client-acquisition/campaigns, /client-acquisition/agents, /claim-pro, /auth/signin, or empty. Give ctaLabel only when ctaPath is set.',
   ].join('\n');
 }

@@ -13,7 +13,7 @@ const card = 'bg-gray-900 border border-white/10 rounded-2xl p-5';
 const btn = 'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50';
 const input = 'w-full bg-gray-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/60';
 const lbl = 'block text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5';
-const CTA_PAGES = [{ v: '', t: 'No button' }, { v: '/client-acquisition', t: 'Client Acquisition home' }, { v: '/claim-pro', t: 'Claim free Pro page' }, { v: '/auth/signin', t: 'Sign-in page' }];
+const CTA_PAGES = [{ v: '', t: 'No button' }, { v: '/client-acquisition', t: 'Client Acquisition home' }, { v: '/client-acquisition/find', t: 'Find Prospects' }, { v: '/client-acquisition/campaigns', t: 'Campaigns' }, { v: '/client-acquisition/agents', t: 'AI Agents' }, { v: '/claim-pro', t: 'Claim free Pro page' }, { v: '/auth/signin', t: 'Sign-in page' }];
 const STATUS: Record<string, string> = { draft: 'bg-gray-500/20 text-gray-300', active: 'bg-green-500/15 text-green-400', paused: 'bg-orange-500/15 text-orange-300', finished: 'bg-blue-500/15 text-blue-300' };
 
 const api = async <T,>(url: string, method = 'GET', body?: unknown): Promise<{ ok: boolean; status: number; data: T & { error?: string } }> => {
@@ -148,7 +148,7 @@ function Editor({ name, setName, cfg, setCfg, lockedSteps = [] }: { name: string
 
 // ───────────────────────── a new campaign ─────────────────────────
 
-function NewCampaign({ purposes, aiAvailable, onSaved, onCancel }: { purposes: PurposeInfo[]; aiAvailable: boolean; onSaved: (id: string) => void; onCancel: () => void }) {
+function NewCampaign({ purposes, samples, aiAvailable, onSaved, onCancel }: { purposes: PurposeInfo[]; samples: Array<{ id: string; label: string; hint: string }>; aiAvailable: boolean; onSaved: (id: string) => void; onCancel: () => void }) {
   const [purpose, setPurpose] = useState<Purpose>('announce');
   const [detail, setDetail] = useState('');
   const [useAi, setUseAi] = useState(aiAvailable);
@@ -156,6 +156,7 @@ function NewCampaign({ purposes, aiAvailable, onSaved, onCancel }: { purposes: P
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const [draft, setDraft] = useState<{ name: string; config: CampaignConfig } | null>(null);
+  const [pickedPurpose, setPickedPurpose] = useState<Purpose | null>(null);
   const info = purposes.find((p) => p.id === purpose);
 
   const write = async () => {
@@ -166,10 +167,18 @@ function NewCampaign({ purposes, aiAvailable, onSaved, onCancel }: { purposes: P
     setDraft({ name: r.data.name, config: r.data.config });
     setNote(r.data.usedAi ? 'Written by AI. Read every email before you send it.' : r.data.aiRequestedButUnavailable ? 'The AI writer was not available, so the built-in writer drafted this. Edit anything you like.' : 'Drafted for you. Edit anything you like.');
   };
+  const useSample = async (id: string) => {
+    setBusy(true); setError(''); setNote('');
+    const r = await api<{ name: string; purpose: Purpose; config: CampaignConfig }>('/api/admin/platform-campaigns', 'POST', { action: 'sample', id });
+    setBusy(false);
+    if (!r.ok) { setError(r.data.error ?? 'Could not load the sample'); return; }
+    setPickedPurpose(r.data.purpose); setDraft({ name: r.data.name, config: r.data.config });
+    setNote('A ready-made sample. Read it, change anything you like, then save it as a draft and send yourself a test.');
+  };
   const save = async () => {
     if (!draft) return;
     setBusy(true); setError('');
-    const r = await api<{ id: string }>('/api/admin/platform-campaigns', 'POST', { action: 'create', name: draft.name, purpose, config: draft.config });
+    const r = await api<{ id: string }>('/api/admin/platform-campaigns', 'POST', { action: 'create', name: draft.name, purpose: pickedPurpose ?? purpose, config: draft.config });
     setBusy(false);
     if (!r.ok) { setError(r.data.error ?? 'Could not save'); return; }
     onSaved(r.data.id);
@@ -196,6 +205,18 @@ function NewCampaign({ purposes, aiAvailable, onSaved, onCancel }: { purposes: P
             <p className="text-[11px] text-gray-600 mt-1">Only facts you give here are used. The writer never invents numbers, discounts or features.</p></div>
           {aiAvailable && <label className="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} /> <Sparkles className="w-4 h-4 text-purple-400" /> Let AI write the emails (you review them before anything is sent)</label>}
           <button type="button" onClick={() => void write()} disabled={busy} className={`${btn} bg-purple-600 hover:bg-purple-700 text-white`}>{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Write my campaign</button>
+          {samples.length > 0 && (
+            <div className="border-t border-white/8 pt-4">
+              <p className="text-sm font-bold text-white mb-2">Or start from a ready-made sample</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {samples.map((x) => (
+                  <button key={x.id} type="button" disabled={busy} onClick={() => void useSample(x.id)} className="text-left rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/5 p-3 disabled:opacity-50">
+                    <p className="text-sm font-bold text-white">{x.label}</p><p className="text-xs text-gray-500 mt-0.5">{x.hint}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-5">
@@ -348,13 +369,13 @@ function CampaignDetail({ id, maxBatch, onBack }: { id: string; maxBatch: number
 
 export default function PlatformCampaigns({ maxBatch = 60 }: { maxBatch?: number }) {
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [meta, setMeta] = useState<{ purposes: PurposeInfo[]; aiAvailable: boolean } | null>(null);
+  const [meta, setMeta] = useState<{ purposes: PurposeInfo[]; samples: Array<{ id: string; label: string; hint: string }>; aiAvailable: boolean } | null>(null);
   const [error, setError] = useState('');
   const [view, setView] = useState<'list' | 'new' | string>('list');
   const load = useCallback(async () => {
-    const r = await api<{ campaigns: Row[]; purposes: PurposeInfo[]; aiAvailable: boolean }>('/api/admin/platform-campaigns');
+    const r = await api<{ campaigns: Row[]; purposes: PurposeInfo[]; samples: Array<{ id: string; label: string; hint: string }>; aiAvailable: boolean }>('/api/admin/platform-campaigns');
     if (!r.ok) { setError(r.data.error ?? 'Could not load campaigns'); return; }
-    setError(''); setRows(r.data.campaigns); setMeta({ purposes: r.data.purposes, aiAvailable: r.data.aiAvailable });
+    setError(''); setRows(r.data.campaigns); setMeta({ purposes: r.data.purposes, samples: r.data.samples ?? [], aiAvailable: r.data.aiAvailable });
   }, []);
   useEffect(() => { void load(); }, [load]);
 
@@ -370,7 +391,7 @@ export default function PlatformCampaigns({ maxBatch = 60 }: { maxBatch?: number
       {error && <div role="alert" className="rounded-xl border border-orange-500/30 bg-orange-500/[0.06] p-4 text-sm text-orange-300">{error}</div>}
       {!rows && !error && <div className="py-6 flex justify-center"><Loader2 className="w-5 h-5 text-purple-400 animate-spin" /></div>}
 
-      {view === 'new' && meta && <NewCampaign purposes={meta.purposes} aiAvailable={meta.aiAvailable} onCancel={back} onSaved={(id) => setView(id)} />}
+      {view === 'new' && meta && <NewCampaign purposes={meta.purposes} samples={meta.samples} aiAvailable={meta.aiAvailable} onCancel={back} onSaved={(id) => setView(id)} />}
       {view !== 'list' && view !== 'new' && <CampaignDetail id={view} maxBatch={maxBatch} onBack={back} />}
 
       {view === 'list' && rows && (rows.length === 0 ? (

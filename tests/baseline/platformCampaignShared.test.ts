@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PURPOSES, bodyToHtml, cleanPath, cleanText, describeSegment, emptySegment, fillPlaceholders, firstName, planCampaign, sanitizeConfig, sanitizeStep, configProblems, MAX_STEPS, PLACEHOLDERS,
+  PURPOSES, bodyToHtml, cleanPath, cleanText, describeSegment, emptySegment, fillPlaceholders, firstName, planCampaign, sanitizeConfig, sanitizeStep, configProblems, MAX_STEPS, PLACEHOLDERS, SAMPLES, sampleById,
 } from '@/lib/platformCampaignShared';
 
 describe('cleanText', () => {
@@ -77,5 +77,24 @@ describe('rendering helpers', () => {
   it('describes an audience in words', () => {
     expect(describeSegment(emptySegment())).toBe('all accounts');
     expect(describeSegment({ ...emptySegment(), plans: ['free'], verified: 'yes', inactiveForDays: 14 })).toBe('free accounts, verified, not active for 14+ days');
+  });
+});
+
+describe('ready-made samples', () => {
+  it('the RUNVAX 2.0 + AI agents sample is complete, link-free and uses only known placeholders', () => {
+    const x = sampleById('v2_agents')!;
+    expect(x).toBeTruthy(); expect(x.config.steps).toHaveLength(3); expect(configProblems(x.config)).toEqual([]);
+    expect(x.config.steps.map((s) => s.waitDays)).toEqual([0, 3, 4]);
+    expect(x.config.segment.verified).toBe('yes'); expect(x.config.goal).toBe('come_back');
+    for (const s of x.config.steps) {
+      const text = `${s.subject} ${s.body} ${s.ctaLabel}`;
+      expect(text).not.toMatch(/https?:\/\/|www\./i);
+      for (const m of Array.from(text.matchAll(/\{\{(\w+)\}\}/g))) expect(PLACEHOLDERS as readonly string[]).toContain(m[1]);
+      expect(s.ctaPath).toMatch(/^\/client-acquisition/); expect(s.ctaLabel).toBeTruthy();
+    }
+  });
+  it('every sample survives sanitising unchanged, and an unknown id gives nothing', () => {
+    for (const x of SAMPLES) expect(sanitizeConfig(x.config)).toEqual(x.config);
+    expect(sampleById('nope')).toBeNull();
   });
 });
