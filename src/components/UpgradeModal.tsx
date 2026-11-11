@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Zap, X, Lock, Loader2 } from 'lucide-react';
-import { PRICING_ENABLED, TRIAL_DAYS, trialOfferOpen } from '@/lib/promo';
+import { useSiteStatus, useTrialOffer } from '@/context/SiteStatusContext';
 import StartTrialButton from './StartTrialButton';
 
 interface Props {
@@ -31,6 +31,7 @@ const MESSAGES = {
 
 /** Shown instead of the upgrade pitch while pricing is off: no prices, no checkout. */
 function LimitNotice({ featureName, onClose }: { featureName?: string; onClose: () => void }) {
+  const trial = useTrialOffer();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="bg-gray-900 border border-purple-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
@@ -44,7 +45,7 @@ function LimitNotice({ featureName, onClose }: { featureName?: string; onClose: 
         <p className="text-gray-400 text-sm">
           {featureName ? `${featureName} is part of Professional. ` : 'This needs a higher plan. '}
           Upgrading will open here very soon, and everything you have built stays safe until then.
-          {trialOfferOpen() ? ` In the meantime, new accounts can try Professional free for ${TRIAL_DAYS} days, $0, no card.` : ''}
+          {trial.open ? ` In the meantime, new accounts can try Professional free for ${trial.days} days, $0, no card.` : ''}
         </p>
         <div className="mt-5 space-y-2">
           <StartTrialButton />
@@ -56,7 +57,8 @@ function LimitNotice({ featureName, onClose }: { featureName?: string; onClose: 
 }
 
 export default function UpgradeModal({ reason, featureName, onClose }: Props) {
-  if (!PRICING_ENABLED) return <LimitNotice featureName={featureName} onClose={onClose} />;
+  const { pricingVisible } = useSiteStatus();
+  if (!pricingVisible) return <LimitNotice featureName={featureName} onClose={onClose} />;
   const msg = MESSAGES[reason];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

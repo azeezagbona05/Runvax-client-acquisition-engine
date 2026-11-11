@@ -4,7 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { Loader2, MailCheck, MailWarning, PartyPopper, Zap, CheckCircle2, Info } from 'lucide-react';
-import { TRIAL_DAYS, trialOfferOpen, trialOfferLastDayLabel } from '@/lib/promo';
+import { trialOfferLastDayLabel } from '@/lib/promo';
+import { useTrialOffer } from '@/context/SiteStatusContext';
 
 type Phase = 'idle' | 'starting' | 'started';
 
@@ -13,6 +14,7 @@ const primary = 'w-full flex items-center justify-center gap-2 bg-purple-600 hov
 const secondary = 'w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-60 text-gray-200 font-semibold py-3 rounded-xl text-sm transition-colors';
 
 export default function ClaimProPage() {
+  const trial = useTrialOffer();
   const { data: session, update, status } = useSession();
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState('');
@@ -74,7 +76,7 @@ export default function ClaimProPage() {
     content = (
       <div className="text-center">
         <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-green-500/15 border border-green-500/25 flex items-center justify-center"><PartyPopper className="w-7 h-7 text-green-400" /></div>
-        <h1 className="text-2xl font-black text-white">You&apos;re on Pro for {TRIAL_DAYS} days</h1>
+        <h1 className="text-2xl font-black text-white">You&apos;re on Pro for {trial.days} days</h1>
         <p className="text-gray-400 text-sm mt-2">No card, nothing to pay. Find businesses, see who to contact and start conversations.</p>
         <a href="/" className={`${primary} mt-6`}>Start finding clients</a>
       </div>
@@ -85,7 +87,7 @@ export default function ClaimProPage() {
         <div className="w-14 h-14 mb-4 rounded-2xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center"><MailWarning className="w-7 h-7 text-orange-400" /></div>
         <h1 className="text-2xl font-black text-white">Your email isn&apos;t verified yet</h1>
         <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-          Verify <strong className="text-gray-200">{user?.email}</strong> to claim your {TRIAL_DAYS} free days of Pro. It takes a few seconds.
+          Verify <strong className="text-gray-200">{user?.email}</strong> to claim your {trial.days} free days of Pro. It takes a few seconds.
         </p>
 
         {resend === 'sent' ? (
@@ -117,7 +119,7 @@ export default function ClaimProPage() {
         <a href="/" className={`${primary} mt-6`}>Go to Runvax</a>
       </>
     );
-  } else if (!trialOfferOpen()) {
+  } else if (!trial.open) {
     content = (
       <>
         <div className="w-14 h-14 mb-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center"><Info className="w-7 h-7 text-gray-400" /></div>
@@ -131,15 +133,15 @@ export default function ClaimProPage() {
       <>
         <div className="w-14 h-14 mb-4 rounded-2xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center"><Zap className="w-7 h-7 text-purple-400" /></div>
         <p className="text-[11px] font-bold uppercase tracking-widest text-purple-400">Launch offer</p>
-        <h1 className="text-2xl font-black text-white mt-1">{first ? `${first}, claim` : 'Claim'} your {TRIAL_DAYS} days of Pro</h1>
-        <p className="text-gray-400 text-sm mt-2 leading-relaxed">Your email is verified, so you&apos;re ready. Full Pro access for {TRIAL_DAYS} days.</p>
+        <h1 className="text-2xl font-black text-white mt-1">{first ? `${first}, claim` : 'Claim'} your {trial.days} days of Pro</h1>
+        <p className="text-gray-400 text-sm mt-2 leading-relaxed">Your email is verified, so you&apos;re ready. Full Pro access for {trial.days} days.</p>
         <div className="mt-5 rounded-xl border border-purple-500/25 bg-purple-600/10 p-4 text-center">
-          <p className="text-lg font-black text-white">{TRIAL_DAYS} days of RUNVAX Pro</p>
+          <p className="text-lg font-black text-white">{trial.days} days of RUNVAX Pro</p>
           <p className="text-sm font-semibold text-purple-300 mt-0.5">$0 · No credit card required</p>
         </div>
         <button onClick={() => void start()} disabled={phase === 'starting'} className={`${primary} mt-5`}>
           {phase === 'starting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-          {phase === 'starting' ? 'Activating…' : `Activate my ${TRIAL_DAYS} free days`}
+          {phase === 'starting' ? 'Activating…' : `Activate my ${trial.days} free days`}
         </button>
         {error && <p role="alert" className="text-xs text-red-400 mt-2">{error}</p>}
         <p className="text-[11px] text-gray-600 mt-3 text-center">One free trial per account. Claim by {trialOfferLastDayLabel()}.</p>

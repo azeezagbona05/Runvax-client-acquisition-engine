@@ -4,7 +4,8 @@ import { getToken } from 'next-auth/jwt';
 import { inCountry, queryWithCountry, searchPlaces } from '@/lib/google-places';
 import { checkAndIncrementSearch, checkLocationRestriction, logGooglePlacesReqs } from '@/lib/usage';
 import { prisma } from '@/lib/prisma';
-import { checkGuestSearch, setGuestCookie, GUEST_PREVIEW_RESULTS } from '@/lib/guestLimit';
+import { checkGuestSearch, setGuestCookie } from '@/lib/guestLimit';
+import { getSiteSettings } from '@/lib/siteSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     let guestCount = 0;
     if (isGuest) {
-      const g = checkGuestSearch(req);
+      const g = checkGuestSearch(req, (await getSiteSettings()).guestSearchesPerDay);
       if (!g.ok) {
         return NextResponse.json(
           { code: 'GUEST_LIMIT', error: 'You have used your free searches for today. Create a free account to keep going.' },
@@ -248,7 +249,7 @@ export async function POST(req: NextRequest) {
 
     // The new signed-out experience asks for a preview: a few real results, the rest withheld until sign-up.
     const preview = isGuest && guestPreview === true;
-    const out = preview ? businessesWithPsi.slice(0, GUEST_PREVIEW_RESULTS) : businessesWithPsi;
+    const out = preview ? businessesWithPsi.slice(0, (await getSiteSettings()).guestPreviewResults) : businessesWithPsi;
     const res = NextResponse.json({
       businesses: out,
       total: out.length,

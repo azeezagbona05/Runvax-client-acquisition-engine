@@ -15,6 +15,8 @@ export interface RenderCtx {
   name: string;
   appUrl: string;
   appName: string;
+  /** Trial length in days when the admin has changed it from the default. */
+  trialDays?: number;
   /** Fresh verification link (verification steps only). */
   verifyUrl?: string;
   /** Signed unsubscribe link (promotional steps only). */
@@ -81,7 +83,7 @@ export function welcomeEmail(c: RenderCtx & { verifyUrl?: string }): Rendered {
 export function trialStartedEmail(c: RenderCtx & { endsLabel: string }): Rendered {
   const pre = `You're on Pro until ${c.endsLabel}. Here's how to make the most of it.`;
   const body = `
-    ${h1(`You&rsquo;re in. ${TRIAL_DAYS} days of Pro, free 🎉`)}
+    ${h1(`You&rsquo;re in. ${c.trialDays ?? TRIAL_DAYS} days of Pro, free 🎉`)}
     ${p(`Hi ${strong(first(c.name))},`)}
     ${p(`Your ${c.appName} Pro access is live and runs until ${strong(c.endsLabel)}. No card was needed and nothing will be charged.`)}
     ${p(strong('Make the most of it. Start here:'))}
@@ -93,7 +95,7 @@ export function trialStartedEmail(c: RenderCtx & { endsLabel: string }): Rendere
     ${callout(`${strong('When it ends:')} your account moves to the free plan. Your saved prospects and settings stay exactly as they are, and you can keep searching every day.`)}
     ${ctaButton('Start finding clients', c.appUrl)}
     ${sign(c.appName)}`;
-  return { subject: `You're on ${c.appName} Pro for ${TRIAL_DAYS} days 🎉`, preheader: pre, transactional: true,
+  return { subject: `You're on ${c.appName} Pro for ${c.trialDays ?? TRIAL_DAYS} days 🎉`, preheader: pre, transactional: true,
     ...wrap(c, { icon: '🎉', color: '#16a34a', pre, transactional: true, body }) };
 }
 
@@ -228,7 +230,7 @@ const STEPS: Record<StepKey, Builder> = {
     body: `
       ${h1(`Your ${c.appName} Pro trial ends tomorrow`)}
       ${p(`Hi ${strong(first(c.name))},`)}
-      ${p(`Your ${TRIAL_DAYS}-day ${c.appName} Pro experience is almost complete. We hope you&rsquo;ve explored new markets, discovered relevant businesses and seen how a more organised prospecting process could support your business.`)}
+      ${p(`Your ${c.trialDays ?? TRIAL_DAYS}-day ${c.appName} Pro experience is almost complete. We hope you&rsquo;ve explored new markets, discovered relevant businesses and seen how a more organised prospecting process could support your business.`)}
       ${p('Before your trial ends, take a moment to review your prospects and decide which opportunities you want to pursue next.')}
       ${callout(`${strong('What happens next:')} your account moves to the free plan. All your saved prospects and settings stay exactly as they are, and you can keep searching every day. Pro features pause. ${PRICING_ENABLED ? 'No card is on file, so you will not be charged.' : 'Nothing is charged, and nothing needs to be done.'}`)}
       ${PRICING_ENABLED
@@ -239,11 +241,11 @@ const STEPS: Record<StepKey, Builder> = {
   }),
 
   trial_ends_today: (c) => ({
-    subject: `Your ${TRIAL_DAYS} days of ${c.appName} Pro end today`,
+    subject: `Your ${c.trialDays ?? TRIAL_DAYS} days of ${c.appName} Pro end today`,
     preheader: 'Your data is safe. Here is what changes.',
     icon: '⏰', color: '#ea580c',
     body: `
-      ${h1(`Your ${TRIAL_DAYS} days of ${c.appName} Pro end today`)}
+      ${h1(`Your ${c.trialDays ?? TRIAL_DAYS} days of ${c.appName} Pro end today`)}
       ${p(`Hi ${strong(first(c.name))},`)}
       ${p(`Today is the final day of your free ${c.appName} Pro trial. If you&rsquo;ve found value in discovering businesses, researching opportunities or organising your outreach, we&rsquo;re glad you did.`)}
       ${callout(`${strong('After today:')} your account moves to the free plan. Your prospects, pipeline and settings are kept, and you can keep prospecting every day within the free limits. ${PRICING_ENABLED ? 'You will not be charged automatically.' : 'Nothing is charged.'}`)}

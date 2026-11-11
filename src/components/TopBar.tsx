@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
 import { Search, Bell, ChevronRight, Zap } from 'lucide-react';
 import type { SavedProspect } from '@/types';
-import { PRICING_ENABLED } from '@/lib/promo';
+import { useSiteStatus } from '@/context/SiteStatusContext';
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
@@ -27,6 +27,7 @@ interface Usage {
 }
 
 export default function TopBar() {
+  const { pricingVisible } = useSiteStatus();
   const { data: session } = useSession();
   const { prospects } = useProspects();
   const pathname = usePathname();
@@ -108,9 +109,9 @@ export default function TopBar() {
     <header className="hidden lg:flex sticky top-0 z-30 h-16 -mb-16 items-center justify-end gap-3 px-8 pointer-events-none">
       {/* Searches left */}
       <Link
-        href={PRICING_ENABLED ? '/pricing' : '/'}
+        href={pricingVisible ? '/pricing' : '/'}
         className={`pointer-events-auto flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border backdrop-blur-md transition-colors hover:opacity-90 ${pillColor}`}
-        title={PRICING_ENABLED ? 'Daily search quota — upgrade for more' : 'Daily search quota'}
+        title={pricingVisible ? 'Daily search quota — upgrade for more' : 'Daily search quota'}
       >
         <Search className="w-3.5 h-3.5" />
         {unlimited
@@ -155,7 +156,7 @@ export default function TopBar() {
                 {/* Quota warning */}
                 {quotaAlert && (
                   <Link
-                    href={PRICING_ENABLED ? '/pricing' : '/'}
+                    href={pricingVisible ? '/pricing' : '/'}
                     onClick={() => setShowNotif(false)}
                     className="flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5"
                   >

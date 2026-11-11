@@ -12,6 +12,8 @@ import AuthProvider from '@/components/AuthProvider';
 import InstallBanner from '@/components/InstallBanner';
 import WaDailyCounter from '@/components/WaDailyCounter';
 import { ToastProvider } from '@/components/Toast';
+import { SiteStatusProvider } from '@/context/SiteStatusContext';
+import { MaintenanceScreen } from '@/components/SiteNotice';
 import Analytics from '@/components/Analytics';
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from '@/lib/seo';
 
@@ -356,12 +358,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${inter.className} bg-gray-950 text-white antialiased`}>
         <AuthProvider>
+          <SiteStatusProvider>
           <ThemeProvider>
             <ProspectsProvider>
               <SaturationProvider>
               <PlanFeaturesProvider>
                 <UpgradeProvider>
                   <ToastProvider>
+                  <MaintenanceScreen />
                   <ConditionalNav>
                     {children}
                   </ConditionalNav>
@@ -374,6 +378,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </SaturationProvider>
             </ProspectsProvider>
           </ThemeProvider>
+          </SiteStatusProvider>
         </AuthProvider>
       </body>
     </html>

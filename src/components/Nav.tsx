@@ -9,10 +9,11 @@ import {
   Search, Columns3, Sun, Moon, Zap, Settings, MailWarning, LayoutDashboard, LogOut, UserCircle,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-import { PRICING_ENABLED } from '@/lib/promo';
+import { useSiteStatus } from '@/context/SiteStatusContext';
 import StartTrialButton from './StartTrialButton';
 
 export default function Nav() {
+  const { pricingVisible } = useSiteStatus();
   const pathname  = usePathname();
   const { prospects } = useProspects();
   const { theme, toggle } = useTheme();
@@ -89,8 +90,8 @@ export default function Nav() {
           <img src="/logo-icon.png" alt="Runvax" className="object-contain w-8 h-8" />
 
           <div className="flex items-center gap-2">
-            {!PRICING_ENABLED && <StartTrialButton variant="pill" />}
-            {PRICING_ENABLED && session?.user && userPlan === 'free' && (
+            {!pricingVisible && <StartTrialButton variant="pill" />}
+            {pricingVisible && session?.user && userPlan === 'free' && (
               <Link
                 href="/pricing"
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-purple-600/20 text-purple-300 border border-purple-500/30"

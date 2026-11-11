@@ -1439,3 +1439,12 @@ model KnowledgeChunk {
   @@index([sourceId, idx])
   @@index([userId])
 }
+
+// Admin-controlled site settings (feature switches, banner, maintenance, default limits). One JSON row per key
+// (currently just "site"). Missing row or missing table = the built-in defaults, so the app never depends on it.
+model SiteSetting {
+  key       String   @id @db.VarChar(64)
+  value     String   @db.Text
+  updatedBy String?  @db.VarChar(191)
+  updatedAt DateTime @updatedAt
+}

@@ -6,6 +6,7 @@ import { getAppUrl, getAppName } from '@/lib/url';
 import { createTransporter, verificationEmailHtml, newUserRegisteredEmailHtml } from '@/lib/email';
 import { welcomeEmail } from '@/lib/lifecycleEmails';
 import { rateLimit, getIp } from '@/lib/rateLimiter';
+import { getSiteSettings, SIGNUPS_CLOSED_MESSAGE } from '@/lib/siteSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,10 @@ export async function POST(req: NextRequest) {
       { error: 'Too many registration attempts. Please try again later.' },
       { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
     );
+  }
+
+  if (!(await getSiteSettings()).signupsOpen) {
+    return NextResponse.json({ error: SIGNUPS_CLOSED_MESSAGE, code: 'SIGNUPS_CLOSED' }, { status: 403 });
   }
 
   const body = await req.json() as { name: string; email: string; password: string; acceptedTerms?: boolean; company?: string };

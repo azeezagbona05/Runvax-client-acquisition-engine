@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Loader2, Zap } from 'lucide-react';
-import { TRIAL_DAYS, trialOfferOpen } from '@/lib/promo';
+import { useTrialOffer } from '@/context/SiteStatusContext';
 
 type Variant = 'primary' | 'pill' | 'menu';
 
@@ -19,12 +19,13 @@ const STYLE: Record<Variant, string> = {
  * visitors, or once the offer window has closed.
  */
 export default function StartTrialButton({ variant = 'primary', onDone }: { variant?: Variant; onDone?: () => void }) {
+  const trial = useTrialOffer();
   const { data: session, update } = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const plan = (session?.user as { plan?: string } | undefined)?.plan;
-  if (!session?.user || plan !== 'free' || !trialOfferOpen()) return null;
+  if (!session?.user || plan !== 'free' || !trial.open) return null;
 
   const start = async () => {
     setBusy(true);
@@ -42,7 +43,7 @@ export default function StartTrialButton({ variant = 'primary', onDone }: { vari
     }
   };
 
-  const label = variant === 'pill' ? 'Free Pro' : `Try Pro free for ${TRIAL_DAYS} days · $0`;
+  const label = variant === 'pill' ? 'Free Pro' : `Try Pro free for ${trial.days} days · $0`;
   return (
     <>
       <button onClick={() => void start()} disabled={busy} className={STYLE[variant]}>

@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
+import { getSiteSettings, MAINTENANCE_CODE } from '@/lib/siteSettings';
+import { adminTokenValid } from '@/lib/adminSessionShared';
 
 /** Signed-in check for utility routes that cost money or contact third parties. Signed out → 401. */
 export async function requireUser(req: NextRequest): Promise<{ ok: true; userId: string } | { ok: false; response: NextResponse }> {
   const token = await getToken({ req });
   const userId = (token?.id ?? token?.sub) as string | undefined;
   if (!userId) return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  // Maintenance mode (admin Site controls): everyone but a signed-in admin gets a clear 503 instead of the feature.
+  const site = await getSiteSettings();
+  if (site.maintenance.on && !adminTokenValid(token)) {
+    return { ok: false, response: NextResponse.json({ error: site.maintenance.message, code: MAINTENANCE_CODE }, { status: 503, headers: { 'Retry-After': '300' } }) };
+  }
   return { ok: true, userId };
 }
 

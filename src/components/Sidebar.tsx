@@ -7,7 +7,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useProspects } from '@/context/ProspectsContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { useTheme } from '@/context/ThemeContext';
-import { PRICING_ENABLED } from '@/lib/promo';
+import { useSiteStatus } from '@/context/SiteStatusContext';
 import StartTrialButton from './StartTrialButton';
 import {
   Search, Columns3, Settings, PanelLeftClose, PanelLeftOpen,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar() {
+  const { pricingVisible } = useSiteStatus();
   const { collapsed, toggle } = useSidebar();
   const pathname = usePathname();
   const { prospects } = useProspects();
@@ -217,8 +218,8 @@ export default function Sidebar() {
 
             {/* Primary items */}
             <div className="py-1.5">
-              {!PRICING_ENABLED && <StartTrialButton variant="menu" onDone={closeMenu} />}
-              {PRICING_ENABLED && userPlan === 'free' && (
+              {!pricingVisible && <StartTrialButton variant="menu" onDone={closeMenu} />}
+              {pricingVisible && userPlan === 'free' && (
                 <Link href="/pricing" onClick={closeMenu} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-200 hover:bg-white/5 transition-colors">
                   <Zap className="w-4 h-4 text-purple-400 flex-shrink-0" /> Upgrade plan
                 </Link>

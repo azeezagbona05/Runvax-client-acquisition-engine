@@ -12,10 +12,11 @@ import {
   Search, Send, Settings, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
-import { PRICING_ENABLED, trialOfferOpen } from '@/lib/promo';
+import { useSiteStatus, useTrialOffer } from '@/context/SiteStatusContext';
 import StartTrialButton from '@/components/StartTrialButton';
 import Logo from './Logo';
 import TrialBanner from './TrialBanner';
+import { SiteBanner } from '../SiteNotice';
 import { useUpgrade } from '@/context/UpgradeContext';
 import { useAcq } from './AcqProvider';
 
@@ -187,9 +188,10 @@ function UserMenu() {
 }
 
 function GateCard({ gate }: { gate: 'signin' | 'locked' | 'unverified' | 'setup' }) {
+  const trial = useTrialOffer();
   const copy = {
     signin: { title: 'Sign in to start winning clients', body: 'Client Acquisition is where your campaigns, leads and replies live.', action: <Link href="/auth/signin" className="acq-btn acq-btn-primary">Sign in</Link> },
-    locked: { title: 'Sending campaigns is part of Professional', body: 'You can build campaigns and import leads now. Sending needs the Professional plan.', action: trialOfferOpen() ? <StartTrialButton /> : <span className="acq-btn" aria-disabled="true" style={{ cursor: 'default' }}>Paid plans are available soon</span> },
+    locked: { title: 'Sending campaigns is part of Professional', body: 'You can build campaigns and import leads now. Sending needs the Professional plan.', action: trial.open ? <StartTrialButton /> : <span className="acq-btn" aria-disabled="true" style={{ cursor: 'default' }}>Paid plans are available soon</span> },
     setup: { title: 'Client Acquisition needs one database update', body: 'The tables for campaigns and contacts have not been created yet. An administrator needs to apply migration 5_outreach_campaigns once. Nothing else is affected.', action: null },
     unverified: { title: 'Verify your email first', body: 'We sent you a verification link. Campaigns are only for verified accounts, so your emails reach inboxes and not spam folders.', action: null },
   }[gate];
@@ -203,6 +205,7 @@ function GateCard({ gate }: { gate: 'signin' | 'locked' | 'unverified' | 'setup'
 }
 
 export default function AcqShell({ children }: { children: ReactNode }) {
+  const { pricingVisible } = useSiteStatus();
   const pathname = usePathname();
   const { data, gate, guest } = useAcq();
   const { triggerUpgrade } = useUpgrade();
@@ -302,7 +305,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
               <div className="acq-progress"><i style={{ width: `${pctUsed}%` }} /></div>
             </div>
           )}
-          {PRICING_ENABLED ? (
+          {pricingVisible ? (
             <Link href="/pricing" className="acq-nav-item" title={rail ? 'Upgrade plan' : undefined} style={rail ? { justifyContent: 'center', padding: 0 } : undefined}>
               <Crown size={19} />{!rail && <span>Upgrade plan</span>}
             </Link>
@@ -338,6 +341,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="acq-content">
+          <SiteBanner light />
           <TrialBanner />
           {gate && !(gate !== 'signin' && (pathname === DEFAULT_HOME || pathname === SETTINGS_HOME)) ? <GateCard gate={gate} /> : children}
         </main>

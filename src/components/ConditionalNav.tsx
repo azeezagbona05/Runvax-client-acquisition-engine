@@ -10,6 +10,7 @@ import QuestTracker from './QuestTracker';
 import CoachHint from './CoachHint';
 import AssistantWidget from './AssistantWidget';
 import V2SwitchBanner from './V2SwitchBanner';
+import { SiteBanner } from './SiteNotice';
 import { SidebarProvider, useSidebar } from '@/context/SidebarContext';
 
 function AppShell({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
         ].join(' ')}
       >
         {!isAuth && <TopBar />}
+        {!isAuth && <SiteBanner />}
         {!isAuth && <V2SwitchBanner />}
         {!isAuth && <CoachHint />}
         {children}

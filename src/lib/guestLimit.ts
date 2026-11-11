@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import type { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, getIp } from './rateLimiter';
 
-/** Free searches a signed-out visitor gets per day, and how many of the results they see before signing up. */
+/** Built-in defaults for the free searches a signed-out visitor gets per day, and how many results they see before signing up. The admin's Site controls override both. */
 export const GUEST_SEARCHES_PER_DAY = 2;
 export const GUEST_PREVIEW_RESULTS = 5;
 
@@ -26,10 +26,10 @@ function readCount(req: NextRequest): number {
  * Server-side cap on signed-out searches: a signed cookie (stops casual resets) plus a per-IP counter
  * (stops a visitor who just deletes cookies; best-effort on serverless, like the other limiters).
  */
-export function checkGuestSearch(req: NextRequest): { ok: true; next: number } | { ok: false } {
+export function checkGuestSearch(req: NextRequest, perDay: number = GUEST_SEARCHES_PER_DAY): { ok: true; next: number } | { ok: false } {
   const used = readCount(req);
-  if (used >= GUEST_SEARCHES_PER_DAY) return { ok: false };
-  const ip = rateLimit(`guest-search:${getIp(req)}`, { maxRequests: GUEST_SEARCHES_PER_DAY * 3, windowMs: 24 * 60 * 60 * 1000 });
+  if (used >= perDay) return { ok: false };
+  const ip = rateLimit(`guest-search:${getIp(req)}`, { maxRequests: perDay * 3, windowMs: 24 * 60 * 60 * 1000 });
   if (!ip.ok) return { ok: false };
   return { ok: true, next: used + 1 };
 }

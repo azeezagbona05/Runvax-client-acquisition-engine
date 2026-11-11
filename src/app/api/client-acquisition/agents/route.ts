@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSiteSettings, AGENTS_PAUSED_MESSAGE } from '@/lib/siteSettings';
 import { prisma } from '@/lib/prisma';
 import { requireCampaignUser } from '@/lib/campaignAuth';
 import { AGENT_KINDS, isKind, sanitizeConfig } from '@/lib/agents/kinds';
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const u = await requireCampaignUser(req); if (!u.ok) return u.response;
+  if (!(await getSiteSettings()).agentBuilderOpen) return NextResponse.json({ error: AGENTS_PAUSED_MESSAGE, code: 'AGENTS_PAUSED' }, { status: 403 });
   const body = await req.json().catch(() => ({})) as { kind?: unknown; name?: unknown; config?: unknown };
   if (!isKind(body.kind)) return NextResponse.json({ error: 'Choose what kind of agent to build.' }, { status: 400 });
   if ((await prisma.customAgent.count({ where: { userId: u.userId } })) >= MAX_AGENTS) return NextResponse.json({ error: `You can have up to ${MAX_AGENTS} agents. Delete one to add another.` }, { status: 400 });

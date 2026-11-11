@@ -1,4 +1,5 @@
 import { NextAuthOptions } from 'next-auth';
+import { getSiteSettings } from '@/lib/siteSettings';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
@@ -88,6 +89,8 @@ export const authOptions: NextAuthOptions = {
       if (!(profile as { email_verified?: boolean } | undefined)?.email_verified) return false;
       const existing = user.email ? await prisma.user.findUnique({ where: { email: user.email.toLowerCase() }, select: { isSuspended: true } }) : null;
       if (existing?.isSuspended) return false;
+      // New accounts only: someone already registered can always sign in, even while sign-ups are paused.
+      if (!existing && !(await getSiteSettings()).signupsOpen) return false;
       return true;
     },
     async jwt({ token, user, account, trigger }) {

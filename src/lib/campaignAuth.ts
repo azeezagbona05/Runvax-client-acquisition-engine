@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireVerifiedUser } from '@/lib/requireUser';
 import { requireFeature } from '@/lib/usage';
-import { TRIAL_DAYS, trialOfferOpen } from '@/lib/promo';
+import { trialOfferOpen } from '@/lib/promo';
+import { getSiteSettings } from '@/lib/siteSettings';
 
 /**
  * Who may use the Client Acquisition app (build campaigns, import leads, find prospects, read activity):
@@ -21,10 +22,11 @@ export async function requireCampaignSender(req: NextRequest): Promise<{ ok: tru
   if (!user.ok) return user;
   const gate = await requireFeature(req, 'emailBlast');
   if (gate.ok) return user;
+  const site = await getSiteSettings();
   return {
     ok: false,
     response: NextResponse.json({
-      error: `Sending campaigns is part of Professional. Your campaign and leads are saved and ready.${trialOfferOpen() ? ` Start your free ${TRIAL_DAYS}-day Professional trial to send, or paid plans will be available soon.` : ' Paid plans are available soon.'}`,
+      error: `Sending campaigns is part of Professional. Your campaign and leads are saved and ready.${site.trialOpen && trialOfferOpen() ? ` Start your free ${site.trialDays}-day Professional trial to send, or paid plans will be available soon.` : ' Paid plans are available soon.'}`,
       code: 'SENDING_LOCKED',
     }, { status: 403 }),
   };

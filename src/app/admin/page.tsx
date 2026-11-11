@@ -13,6 +13,7 @@ import {
 import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
 import OperationsPanel from './OperationsPanel';
+import SiteControlsPanel from './SiteControlsPanel';
 import EmailCampaignsPanel from './EmailCampaignsPanel';
 import AdminSecurity from './AdminSecurity';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
@@ -870,7 +871,7 @@ function botScore(u: AdminUser): number {
   return score;
 }
 
-type AdminTab = 'overview' | 'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs';
+type AdminTab = 'overview' | 'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs' | 'site';
 
 /** Sidebar structure: every section of the admin panel sits under one category. */
 const ADMIN_NAV: Array<{ heading: string; items: Array<{ id: AdminTab; label: string; desc: string; icon: typeof Users }> }> = [
@@ -893,6 +894,7 @@ const ADMIN_NAV: Array<{ heading: string; items: Array<{ id: AdminTab; label: st
     { id: 'campaigns', label: 'Email campaigns', desc: 'Outbound campaigns to our own audience', icon: Megaphone },
   ] },
   { heading: 'System', items: [
+    { id: 'site', label: 'Site controls', desc: 'Switches, limits, banner and maintenance', icon: SlidersHorizontal },
     { id: 'operations', label: 'Operations', desc: 'Agents, queues and platform health', icon: Cpu },
   ] },
 ];
@@ -1374,6 +1376,7 @@ export default function AdminPage() {
         </div>
         </>)}
 
+        {tab === 'site' && <SiteControlsPanel />}
         {tab === 'operations' && <OperationsPanel />}
         {tab === 'campaigns' && <EmailCampaignsPanel />}
 

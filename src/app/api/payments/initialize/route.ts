@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSiteSettings } from '@/lib/siteSettings';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { PRICING_ENABLED } from '@/lib/promo';
 import {
   initializeTransaction,
   planCodeForPlan,
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   // Pricing is switched off for the launch: never start a charge.
-  if (!PRICING_ENABLED) return NextResponse.json({ error: 'Paid plans are available soon.', code: 'PAYMENTS_SOON' }, { status: 503 });
+  if (!(await getSiteSettings()).pricingVisible) return NextResponse.json({ error: 'Paid plans are available soon.', code: 'PAYMENTS_SOON' }, { status: 503 });
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

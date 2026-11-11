@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { getSiteSettings } from '@/lib/siteSettings';
 import { prisma } from '@/lib/prisma';
 import { createTransporter } from '@/lib/email';
 import { getAppUrl, getAppName } from '@/lib/url';
@@ -114,7 +115,7 @@ export async function runLifecycle(opts: { dryRun?: boolean; now?: Date } = {}):
       const transactional = TRANSACTIONAL.has(step);
       const unsub = unsubscribeUrl(appUrl, u.id);
       const mail = renderStep(step, {
-        name: u.name ?? '', appUrl, appName,
+        name: u.name ?? '', appUrl, appName, trialDays: (await getSiteSettings()).trialDays,
         verifyUrl: transactional ? await issueVerifyUrl(u.id, appUrl) : undefined,
         unsubscribeUrl: transactional ? undefined : unsub,
       });
