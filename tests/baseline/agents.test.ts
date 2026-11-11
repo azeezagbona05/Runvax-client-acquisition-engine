@@ -105,6 +105,26 @@ describe('built-in planner and writer (no AI key)', () => {
     expect(p.source).toBe('rules'); expect(p.config.business.about).toMatch(/logistics/); const v = p.config as VisibilityConfig;
     expect(v.topics.length).toBeGreaterThanOrEqual(6); expect(v.postsPerRun).toBe(2); expect(v.approval).toBe('review');
   });
+  it('uses a business name the user states, but never turns a description into a name', async () => {
+    noAi();
+    const name = async (text: string) => (await planAgent('visibility', text, { site: null })).config.business.name;
+    expect(await name('We are RUNVAX, an AI client-acquisition platform. Publish two articles a week for agency owners.')).toBe('RUNVAX');
+    expect(await name('I run Acme Logistics in Lagos. Write articles about customs for importers.')).toBe('Acme Logistics');
+    expect(await name("We're Bright Dental Care and we want weekly articles for patients.")).toBe('Bright Dental Care');
+    const p = await planAgent('assistant', 'I run RUNVAX, an AI platform that helps agencies find customers. Qualify visitors.', { site: null });
+    expect(p.config.business.about).toMatch(/^RUNVAX, an AI platform/);   // speaks about the business, not as its owner
+    // a description is not a name
+    expect(await name('We are a logistics company in Lagos. Publish two articles a week for importers about customs.')).toBe('');
+    expect(await name('We are looking for more customers. Publish two articles a week about payroll.')).toBe('');
+    expect(await name('I run a small agency and want articles about web design.')).toBe('');
+  });
+  it('the built-in reply answers a real first question from what it knows, but greets a plain hello', async () => {
+    const cfg = sanitizeConfig('assistant', { business: { name: 'RUNVAX', about: 'RUNVAX helps agencies find their next customers.' }, knowledge: 'RUNVAX helps agencies and freelancers find their next customers. It gives them an AI workforce to approach and win them.', greeting: 'Hi! I am the RUNVAX assistant.', questions: ['Are you an agency or a freelancer?'] }) as AssistantConfig;
+    const q = ruleReply(cfg, [{ r: 'v', t: 'What does RUNVAX do for agencies?', at: 0 }], 'What does RUNVAX do for agencies?', {});
+    expect(q).toMatch(/find their next customers/); expect(q).toContain('Are you an agency or a freelancer?');
+    const hi = ruleReply(cfg, [{ r: 'v', t: 'hello there', at: 0 }], 'hello there', {});
+    expect(hi).toContain('Hi! I am the RUNVAX assistant.');
+  });
   it('plans an assistant with qualifying questions', async () => {
     noAi();
     const p = await planAgent('assistant', 'We sell payroll software to SMEs. Qualify visitors and book a demo.', { site: null });

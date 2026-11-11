@@ -64,12 +64,15 @@ export function ruleReply(cfg: AssistantConfig, history: Msg[], text: string, go
     else for (const x of body.split(/(?<=[.!?])\s+|\n/)) cands.push({ s: x.trim(), m: x });
   }
   for (const x of [...cfg.knowledge.split(/(?<=[.!?])\s+|\n/), cfg.business.about]) cands.push({ s: x.trim(), m: x });
-  const words = new Set((text.toLowerCase().match(/[a-z]{4,}/g) ?? []));
+  // Only words that carry meaning count when matching a question to what the assistant knows (not "what", "does", "there"...).
+  const FILLER = new Set('what does this that with your have from they them about tell hello there which would could should where when whom whose much many been were will just like know thank thanks please also into more some than then these those here very'.split(' '));
+  const words = new Set((text.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !FILLER.has(w)));
   const best = cands.filter((c) => c.s.length > 12).map((c) => ({ s: c.s, n: (c.m.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => words.has(w)).length })).sort((a, b) => b.n - a.n)[0];
   const asked = history.filter((m) => m.r === 'a').length; const q = cfg.questions[Math.max(0, asked - 1) % Math.max(1, cfg.questions.length)];
   if (got.email || got.phone) return `Thank you. I have passed your details to the team and someone will be in touch${cfg.calendarUrl ? `, or you can pick a time here: ${cfg.calendarUrl}` : ''}.`;
   const parts: string[] = [];
-  if (!first && best && best.n > 0) parts.push(best.s); else if (first) parts.push(cfg.greeting);
+  // A real question gets its answer even as the first message; a plain "hi" (or a weak match on common words) gets the greeting.
+  if (best && best.n > 0) parts.push(best.s); else if (first) parts.push(cfg.greeting);
   if (q && asked < 6) parts.push(q); else parts.push('What is the best email to reach you on, so the team can follow up?');
   return parts.join(' ').slice(0, 600);
 }

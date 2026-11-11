@@ -42,9 +42,16 @@ function ruleBasedPlan(kind: AgentKind, prompt: string, site: SiteFacts | null, 
   const text = prompt.replace(/\s+/g, ' ').trim();
   const named = text.match(/\b(?:we are|we're|i run|i own|we run|my company is|our company is)\s+(?:a|an|the)?\s*([^.,;]{3,80})/i)?.[1] ?? '';
   const host = hostOf(url).split('.')[0];
-  const name = (site?.title.split(/[|\-–·]/)[0] ?? '').trim() || (host ? host[0].toUpperCase() + host.slice(1) : '') || '';
+  // A name the user states outright ("We are RUNVAX, ...", "I run Acme Logistics in Lagos") is theirs to give. It must start with a capital and
+  // follow the phrase directly, so "We are a logistics company" never becomes a business called "logistics company". They review it on the next screen.
+  const stated = text.match(/\b(?:[Ww]e are|[Ww]e're|I run|I own|[Ww]e run|[Mm]y company is|[Oo]ur company is|[Mm]y business is|[Oo]ur business is)\s+([A-Z][A-Za-z0-9&'.-]*(?:\s+[A-Z][A-Za-z0-9&'.-]*){0,3})/)?.[1]?.replace(/[.'-]+$/, '') ?? '';
+  const name = (site?.title.split(/[|\-–·]/)[0] ?? '').trim() || (host ? host[0].toUpperCase() + host.slice(1) : '') || (stated.length >= 2 && !STOP.has(stated.toLowerCase()) ? stated : '');
   const audience = text.match(/\bfor\s+([a-z][^.,;]{3,80})/i)?.[1]?.replace(/\b(a|an|the)\s+/i, '') ?? '';
-  const about = (site?.description || text).slice(0, 400);
+  // "I run RUNVAX, an AI platform that..." becomes "RUNVAX, an AI platform that...", so the assistant speaks about the business and not as its owner.
+  const aboutText = !site?.description && stated && name === stated
+    ? text.replace(/^(?:[Ww]e are|[Ww]e're|I run|I own|[Ww]e run|[Mm]y company is|[Oo]ur company is|[Mm]y business is|[Oo]ur business is)\s+(?=[A-Z])/, '')
+    : text;
+  const about = (site?.description || aboutText).slice(0, 400);
   const words = (named + ' ' + text + ' ' + (site?.headings ?? []).join(' ')).toLowerCase().match(/[a-z]{4,}/g) ?? [];
   const freq = new Map<string, number>(); for (const w of words) if (!STOP.has(w)) freq.set(w, (freq.get(w) ?? 0) + 1);
   const keys = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).map(([w]) => w).slice(0, 5);
@@ -77,7 +84,11 @@ export async function planAgent(kind: AgentKind, prompt: string, o: { url?: stri
     const config = sanitizeConfig(kind, merged);
     const name = typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name.trim().slice(0, 120) : defaultName(kind, config);
     return { name, config, source: 'ai' };
-  } catch { return fallback('The AI was not available, so the built-in planner answered.'); }
+  } catch (e) {
+    // Say why in the server log (never to the user): a bad key, a quota, a timeout and an unreadable answer all look the same from the page.
+    console.error('[agents] AI planner failed, using the built-in planner:', e instanceof Error ? e.message : e);
+    return fallback('The AI was not available, so the built-in planner answered.');
+  }
 }
 export const defaultName = (kind: AgentKind, c: AgentConfig) => `${c.business.name ? c.business.name + ' ' : ''}${kind === 'visibility' ? 'Visibility Agent' : 'Sales Assistant'}`.slice(0, 120);
 

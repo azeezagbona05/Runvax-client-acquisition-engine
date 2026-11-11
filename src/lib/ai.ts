@@ -186,7 +186,11 @@ export async function generate(o: GenerateOptions): Promise<GenerateResult> {
   let lastErr: unknown;
   for (const p of order) {
     if (!hasProvider(p)) continue;
-    try { return await callProvider(p, o); } catch (err) { lastErr = err; }
+    try { return await callProvider(p, o); } catch (err) {
+      lastErr = err;
+      // Which provider failed and why (message only, never keys), so a bad key or an exhausted quota is visible in the server log.
+      console.warn(`[ai] ${p} failed${o.feature ? ` for ${o.feature}` : ''}: ${err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200)}`);
+    }
   }
   throw lastErr;
 }
