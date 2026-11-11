@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ key: strin
   if (!a || a.kind !== 'assistant' || a.status !== 'active') return NextResponse.json({ ok: true });
   const s = openSecrets(a.secret); const given = req.headers.get('x-telegram-bot-api-secret-token') ?? '';
   if (!s.telegramToken || !s.telegramSecret || !same(given, s.telegramSecret)) return NextResponse.json({ ok: false }, { status: 401 });
-  const cfg = sanitizeConfig('assistant', a.config) as AssistantConfig; if (!cfg.channels.telegram) return NextResponse.json({ ok: true });
+  const cfg = sanitizeConfig('assistant', a.config) as AssistantConfig; if (!cfg.channels.telegram || cfg.accessCode) return NextResponse.json({ ok: true });
   const upd = await req.json().catch(() => null) as { message?: { chat?: { id?: number; type?: string }; text?: string } } | null;
   const chatId = upd?.message?.chat?.id; const text = upd?.message?.text;
   if (!chatId || typeof text !== 'string' || upd?.message?.chat?.type !== 'private') return NextResponse.json({ ok: true });

@@ -1,4 +1,6 @@
 import { cleanUrl, hostOf } from './html';
+import { isUsableChatSkill, type SkillId } from './skills';
+import { TEMPLATES, isChatTemplate, type ChatTemplateId } from './templates';
 
 /** The agent templates. Each kind has its own settings; they share the business description, tone and deployment keys. */
 export type AgentKind = 'visibility' | 'assistant';
@@ -35,6 +37,16 @@ export interface VisibilityConfig {
 }
 export interface AssistantConfig {
   business: Business; tone: Tone; goal: 'qualify' | 'book' | 'support' | 'all'; greeting: string; knowledge: string; questions: string[];
+  /** Which template it started from, and the skills it has. The template only sets defaults; the skills decide what it can do. */
+  template: ChatTemplateId; skills: SkillId[];
+  /** Role and instructions, objectives, conversation behaviour and escalation rules: written by the planner, edited by the owner. */
+  instructions: string; objectives: string[]; behaviour: string[]; escalation: string[];
+  /** What the owner should connect so the agent can do its job (a checklist, not facts). */
+  knowledgeNeeded: string[];
+  /** Product Search: the shop whose product and checkout links the agent may share. CRM Update: where new leads are sent. */
+  shopUrl: string; crmWebhookUrl: string;
+  /** Internal Knowledge Agent: staff must type this code before chatting. */
+  accessCode: string;
   calendarUrl: string; privacyUrl: string; knowledgeIds: string[]; notifyEmail: string; channels: { web: boolean; telegram: boolean; telegramBot: string }; allowedDomains: string[];
 }
 export type AgentConfig = VisibilityConfig | AssistantConfig;
@@ -63,11 +75,22 @@ export function sanitizeConfig(kind: AgentKind, raw: unknown): AgentConfig {
     };
   }
   const ch = (c.channels ?? {}) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const template: ChatTemplateId = isChatTemplate(c.template) ? c.template : 'receptionist';
+  const t = TEMPLATES[template]; const questions = list(c.questions, 5, 160); const calendarUrl = cleanUrl(c.calendarUrl, true);
+  // Agents saved before skills existed get the skills that match what they already did.
+  const legacy: SkillId[] = ['knowledge', 'leadCapture', ...(questions.length ? ['qualify' as const] : []), ...(calendarUrl ? ['booking' as const] : [])];
+  const given = Array.isArray(c.skills) ? (c.skills as unknown[]).filter(isUsableChatSkill) : (c.template ? t.skills ?? [] : legacy).filter(isUsableChatSkill);
+  // Every chat agent answers from its knowledge: it is the rule that stops it inventing things.
+  const skills = Array.from(new Set<SkillId>(['knowledge', ...given]));
+  const internal = template === 'internal';
   return {
+    template, skills, instructions: str(c.instructions, 2000), objectives: list(c.objectives, 6, 200), behaviour: list(c.behaviour, 6, 200), escalation: list(c.escalation, 8, 200),
+    knowledgeNeeded: list(c.knowledgeNeeded, 8, 160), shopUrl: cleanUrl(c.shopUrl, true), crmWebhookUrl: cleanUrl(c.crmWebhookUrl, true),
+    accessCode: internal ? str(c.accessCode, 40).replace(/\s+/g, '') : '',
     business: b, tone, goal: pick(c.goal, ['qualify', 'book', 'support', 'all'] as const, 'qualify'),
     greeting: str(c.greeting, 300) || `Hi! I am the assistant for ${b.name || 'this business'}. How can I help?`,
-    knowledge: str(c.knowledge, 8000), questions: list(c.questions, 5, 160), calendarUrl: cleanUrl(c.calendarUrl, true), privacyUrl: cleanUrl(c.privacyUrl, true), knowledgeIds: (Array.isArray(c.knowledgeIds) ? c.knowledgeIds : []).filter((x: unknown): x is string => typeof x === 'string' && /^[a-z0-9]{20,40}$/.test(x)).filter((x: string, i: number, a: string[]) => a.indexOf(x) === i).slice(0, 20), notifyEmail: email(c.notifyEmail),
-    channels: { web: ch.web !== false, telegram: !!ch.telegram, telegramBot: str(ch.telegramBot, 64).replace(/^@/, '') }, allowedDomains: domains(c.allowedDomains),
+    knowledge: str(c.knowledge, 8000), questions, calendarUrl, privacyUrl: cleanUrl(c.privacyUrl, true), knowledgeIds: (Array.isArray(c.knowledgeIds) ? c.knowledgeIds : []).filter((x: unknown): x is string => typeof x === 'string' && /^[a-z0-9]{20,40}$/.test(x)).filter((x: string, i: number, a: string[]) => a.indexOf(x) === i).slice(0, 20), notifyEmail: email(c.notifyEmail),
+    channels: { web: ch.web !== false, telegram: !internal && !!ch.telegram, telegramBot: str(ch.telegramBot, 64).replace(/^@/, '') }, allowedDomains: domains(c.allowedDomains),
   };
 }
 
@@ -77,11 +100,23 @@ export function configIssues(kind: AgentKind, cfg: AgentConfig): string[] {
   if (!b.name) out.push('Add your business name.');
   if (!b.about) out.push('Say what your business does, in a sentence or two.');
   if (kind === 'visibility') { const v = cfg as VisibilityConfig; if (v.topics.length === 0) out.push('Add at least one topic to write about.'); }
-  else { const a = cfg as AssistantConfig; if (!a.knowledge && !b.about) out.push('Tell the assistant what it should know.'); if (!a.channels.web && !a.channels.telegram) out.push('Choose where the assistant works: website or Telegram.'); }
+  else {
+    const a = cfg as AssistantConfig;
+    if (!a.knowledge && !b.about) out.push('Tell the assistant what it should know.');
+    if (!a.channels.web && !a.channels.telegram) out.push('Choose where the assistant works: website or Telegram.');
+    if (a.template === 'internal' && a.accessCode.length < 4) out.push('Set a staff access code of at least 4 characters, so only your team can use it.');
+    if (a.skills.includes('booking') && !a.calendarUrl) out.push('Appointment Booking needs your booking page link (Calendly, Cal.com, Google or Microsoft booking page).');
+    if (a.skills.includes('crm') && !a.crmWebhookUrl) out.push('CRM Update needs the webhook address to send leads to.');
+  }
   return out;
 }
 
 export const nextRunFrom = (cfg: AgentConfig, from = new Date()) => 'cadence' in cfg ? new Date(from.getTime() + CADENCES[cfg.cadence] * 86_400_000) : null;
 
 /** What every visitor is told before they type: it is an AI, and what happens to what they say. Same words on the website widget, the hosted page and Telegram. */
-export const disclosureText = (cfg: AssistantConfig) => `You are chatting with an AI assistant. Your messages are saved and shared with ${cfg.business.name || 'this business'} so the team can follow up.`;
+export const disclosureText = (cfg: AssistantConfig) => cfg.template === 'internal'
+  ? `You are chatting with an AI assistant for ${cfg.business.name || 'your company'} staff. Your messages are saved and can be read by the account owner.`
+  : `You are chatting with an AI assistant. Your messages are saved and shared with ${cfg.business.name || 'this business'} so the team can follow up.`;
+export const hasSkill = (cfg: AssistantConfig, s: SkillId) => cfg.skills.includes(s);
+/** The label people see for an agent: its template's name (chat agents) or the engine's name. */
+export const agentLabel = (kind: AgentKind, cfg: AgentConfig) => (kind === 'assistant' ? TEMPLATES[(cfg as AssistantConfig).template].label : AGENT_KINDS[kind].label);

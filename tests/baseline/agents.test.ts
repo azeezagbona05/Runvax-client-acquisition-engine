@@ -127,8 +127,9 @@ describe('built-in planner and writer (no AI key)', () => {
   });
   it('plans an assistant with qualifying questions', async () => {
     noAi();
-    const p = await planAgent('assistant', 'We sell payroll software to SMEs. Qualify visitors and book a demo.', { site: null });
-    const a = p.config as AssistantConfig; expect(a.goal).toBe('book'); expect(a.questions.length).toBeGreaterThanOrEqual(3); expect(p.name).toMatch(/Sales Assistant/);
+    const p = await planAgent('assistant', 'We sell payroll software to SMEs. Qualify visitors and book a demo.', { site: null, template: 'qualify' });
+    const a = p.config as AssistantConfig; expect(a.goal).toBe('book'); expect(a.questions.length).toBeGreaterThanOrEqual(3); expect(p.name).toMatch(/Lead Qualification Agent/);
+    expect(a.skills).toEqual(expect.arrayContaining(['knowledge', 'qualify', 'leadCapture', 'booking']));
   });
   it('the template article is clean HTML, labelled "rules", and carries no invented claims', async () => {
     noAi();
@@ -157,11 +158,11 @@ describe('what the user asks for decides the agent', () => {
   it('knows the two agents RUNVAX can build', () => {
     expect(classifyByRules('We are a logistics company. Publish two articles a week about customs for our website.')).toEqual({ kind: 'visibility' });
     expect(classifyByRules('Write blog posts to improve our SEO and AI search visibility')).toEqual({ kind: 'visibility' });
-    expect(classifyByRules('A chatbot for my website that qualifies visitors and books a demo')).toEqual({ kind: 'assistant' });
-    expect(classifyByRules('Answer questions about our consulting services on Telegram and capture leads')).toEqual({ kind: 'assistant' });
+    expect(classifyByRules('A chatbot for my website that qualifies visitors and books a demo')).toEqual({ kind: 'assistant', template: 'qualify' });
+    expect(classifyByRules('Answer questions about our consulting services on Telegram and capture leads')).toMatchObject({ kind: 'assistant' });
   });
   it('is not put off by what the business sells', () => {
-    expect(classifyByRules('We sell payroll and accounting software to SMEs. Chat with visitors and qualify them.')).toEqual({ kind: 'assistant' });
+    expect(classifyByRules('We sell payroll and accounting software to SMEs. Chat with visitors and qualify them.')).toMatchObject({ kind: 'assistant' });
   });
   it('points follow-up and outreach requests to campaigns', () => {
     expect(classifyByRules('Follow up with my leads by email until they reply')).toEqual({ kind: 'campaign' });

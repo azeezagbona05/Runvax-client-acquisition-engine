@@ -13,6 +13,15 @@ async function timed(url: string, init: RequestInit, ms = 10_000) {
 }
 const msg = (e: unknown) => (e instanceof Error ? e.message : 'failed').slice(0, 160);
 
+/** A signed JSON POST to the owner's own endpoint (CRM webhook, test). Same signature scheme as published posts. */
+export async function postSigned(url: string, secret: string | undefined, payload: unknown): Promise<{ ok: boolean; detail: string }> {
+  const body = JSON.stringify(payload);
+  try {
+    const res = await timed(url, { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': 'RUNVAX-Agent/1.0', ...(secret ? { 'x-runvax-signature': sign(secret, body) } : {}) }, body });
+    return { ok: res.ok, detail: res.ok ? `Delivered (${res.status})` : `Your endpoint answered ${res.status}` };
+  } catch (e) { return { ok: false, detail: msg(e) }; }
+}
+
 export async function pushWebhook(url: string, secret: string | undefined, event: string, agent: { id: string; name: string }, post: PostOut | null): Promise<PushResult> {
   const body = JSON.stringify({ event, agent, post });
   try {

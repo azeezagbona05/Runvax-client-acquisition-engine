@@ -12,10 +12,10 @@ export async function GET(req: NextRequest) {
   const [conversations, previous, leads, active, total, chats, agents, posts] = await Promise.all([
     prisma.customAgentChat.count({ where: { userId: u.userId, createdAt: { gte: since } } }),
     prisma.customAgentChat.count({ where: { userId: u.userId, createdAt: { gte: before, lt: since } } }),
-    prisma.customAgentChat.count({ where: { userId: u.userId, status: 'lead', updatedAt: { gte: since } } }),
+    prisma.customAgentChat.count({ where: { userId: u.userId, status: { in: ['lead', 'handoff'] }, updatedAt: { gte: since } } }),
     prisma.customAgent.count({ where: { userId: u.userId, status: 'active' } }),
     prisma.customAgent.count({ where: { userId: u.userId } }),
-    prisma.customAgentChat.findMany({ where: { userId: u.userId, status: 'lead' }, orderBy: { updatedAt: 'desc' }, take: 3, select: { id: true, updatedAt: true, visitor: true, agent: { select: { name: true } } } }),
+    prisma.customAgentChat.findMany({ where: { userId: u.userId, status: { in: ['lead', 'handoff'] } }, orderBy: { updatedAt: 'desc' }, take: 3, select: { id: true, updatedAt: true, visitor: true, agent: { select: { name: true } } } }),
     prisma.customAgent.findMany({ where: { userId: u.userId }, orderBy: { createdAt: 'desc' }, take: 3, select: { id: true, name: true, kind: true, createdAt: true } }),
     prisma.customAgentPost.findMany({ where: { userId: u.userId, status: 'published' }, orderBy: { publishedAt: 'desc' }, take: 3, select: { id: true, title: true, publishedAt: true, createdAt: true, agent: { select: { name: true } } } }),
   ]);

@@ -4,15 +4,16 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Copy, ExternalLink, Loader2, Pause, Play, Trash2 } from 'lucide-react';
-import { AGENT_KINDS, configIssues, type AgentConfig, type AssistantConfig, type VisibilityConfig } from '@/lib/agents/kinds';
+import { configIssues, type AgentConfig, type AssistantConfig, type VisibilityConfig } from '@/lib/agents/kinds';
 import type { presentAgent } from '@/lib/agents/present';
 import { Pill } from '../ui';
 import AgentForm from './AgentForm';
 import AgentPreview from './AgentPreview';
+import { TEMPLATES } from '@/lib/agents/templates';
 
 type Agent = ReturnType<typeof presentAgent>;
 interface Post { id: string; title: string; summary: string; body: string; status: string; source: string; pushed: Array<{ dest: string; ok: boolean; detail: string }> | null; publishedAt: string | null; createdAt: string }
-interface Chat { id: string; channel: string; visitor: { name?: string; email?: string; phone?: string; company?: string; need?: string } | null; status: string; messages: Array<{ r: 'v' | 'a'; t: string }>; updatedAt: string }
+interface Chat { id: string; channel: string; visitor: { name?: string; email?: string; phone?: string; company?: string; need?: string; order?: string } | null; status: string; messages: Array<{ r: 'v' | 'a'; t: string }>; updatedAt: string }
 const STATUS_PILL: Record<string, string> = { active: 'Running', paused: 'Paused', draft: 'Not started' };
 const api = (path: string, method: string, body?: unknown) => fetch(`/api/client-acquisition/agents${path}`, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ ok: r.ok, j: await r.json().catch(() => ({})) as Record<string, any> })); // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -47,7 +48,7 @@ export default function AgentManage({ id }: { id: string }) {
 
   if (missing) return <p className="acq-sub">That agent was not found. <Link className="acq-link" href="/client-acquisition/agents">Back to agents</Link></p>;
   if (!agent || !cfg) return <p className="acq-sub"><Loader2 size={16} className="animate-spin" style={{ display: 'inline' }} /> Loading…</p>;
-  const vis = agent.kind === 'visibility'; const kindInfo = AGENT_KINDS[agent.kind];
+  const vis = agent.kind === 'visibility'; const tplInfo = vis ? TEMPLATES.visibility : TEMPLATES[(agent.config as AssistantConfig).template];
   const flash = (ok: boolean, t: string) => setMsg({ ok, t });
 
   async function save(extra: Record<string, unknown> = {}) {
@@ -73,7 +74,7 @@ export default function AgentManage({ id }: { id: string }) {
     if (action === 'publish') { const bad = (j.pushed ?? []).filter((x: { ok: boolean }) => !x.ok); flash(bad.length === 0, bad.length ? `Published here, but: ${bad.map((x: { dest: string; detail: string }) => `${x.dest}: ${x.detail}`).join('; ')}` : 'Published.'); }
     setEdit(null); await load();
   }
-  async function test(dest: 'wordpress' | 'webhook') {
+  async function test(dest: 'wordpress' | 'webhook' | 'crm') {
     if (dirty && !(await save(pw ? { secrets: { wpPassword: pw } } : {}))) return;
     setBusy('t' + dest); const { j } = await api(`/${id}/test`, 'POST', { dest }); setBusy(''); flash(!!j.ok, j.detail || j.error || 'No answer.');
   }
@@ -86,7 +87,7 @@ export default function AgentManage({ id }: { id: string }) {
   const v = cfg as VisibilityConfig, a = cfg as AssistantConfig;
   const setDest = (p: Partial<VisibilityConfig['destinations']>) => { setCfg({ ...v, destinations: { ...v.destinations, ...p } }); setDirty(true); };
   const issues = configIssues(agent.kind, cfg);
-  const tabs: Array<['work' | 'try' | 'settings' | 'deploy', string]> = [['work', vis ? `Articles (${agent.counts.posts ?? 0} live, ${agent.counts.drafts ?? 0} waiting)` : `Conversations (${agent.counts.chats ?? 0}, ${agent.counts.leads ?? 0} leads)`], ['try', 'Try it'], ['settings', 'Settings'], ['deploy', 'Deploy']];
+  const tabs: Array<['work' | 'try' | 'settings' | 'deploy', string]> = [['work', vis ? `Articles (${agent.counts.posts ?? 0} live, ${agent.counts.drafts ?? 0} waiting)` : `Conversations (${agent.counts.chats ?? 0}, ${agent.counts.leads ?? 0} leads${agent.counts.handoffs ? `, ${agent.counts.handoffs} need a person` : ''})`], ['try', 'Try it'], ['settings', 'Settings'], ['deploy', 'Deploy']];
 
   return (
     <div className="acq-stack">
@@ -94,7 +95,7 @@ export default function AgentManage({ id }: { id: string }) {
         <div style={{ minWidth: 0 }}>
           <Link className="acq-link" href="/client-acquisition/agents">← AI Agents</Link>
           <h1 className="acq-page-title" style={{ marginTop: 4 }}>{agent.name} <Pill label={STATUS_PILL[agent.status] ?? agent.status} /></h1>
-          <p className="acq-sub" style={{ marginTop: 2 }}>{kindInfo.label} · {kindInfo.tagline}</p>
+          <p className="acq-sub" style={{ marginTop: 2 }}>{tplInfo.label} · {tplInfo.tagline}</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {agent.status === 'active'
@@ -158,10 +159,11 @@ export default function AgentManage({ id }: { id: string }) {
             <article key={c.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 14px', display: 'grid', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                 <b>{c.visitor?.name || c.visitor?.email || c.visitor?.phone || 'Anonymous visitor'}{c.visitor?.company ? ` · ${c.visitor.company}` : ''}</b>
-                <span style={{ display: 'flex', gap: 6 }}><Pill label={c.status === 'lead' ? 'Interested' : 'Idle'} /><span className="acq-faint" style={{ fontSize: 12 }}>{c.channel === 'telegram' ? 'Telegram' : 'Website'} · {new Date(c.updatedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</span></span>
+                <span style={{ display: 'flex', gap: 6 }}><Pill label={c.status === 'handoff' ? 'Needs a person' : c.status === 'lead' ? 'Interested' : 'Idle'} tone={c.status === 'handoff' ? 'acq-pill-amber' : undefined} /><span className="acq-faint" style={{ fontSize: 12 }}>{c.channel === 'telegram' ? 'Telegram' : 'Website'} · {new Date(c.updatedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</span></span>
               </div>
               {(c.visitor?.email || c.visitor?.phone) && <p style={{ fontSize: 13.5 }}>{[c.visitor.email, c.visitor.phone].filter(Boolean).join(' · ')}</p>}
               {c.visitor?.need && <p className="acq-sub" style={{ fontSize: 13.5 }}>Looking for: {c.visitor.need}</p>}
+              {c.visitor?.order && <p className="acq-sub" style={{ fontSize: 13.5 }}>Order number: {c.visitor.order}</p>}
               <button className="acq-link" style={{ justifySelf: 'start' }} onClick={() => setOpen(open === c.id ? null : c.id)}>{open === c.id ? 'Hide' : 'Read'} the conversation</button>
               {open === c.id && <div style={{ display: 'grid', gap: 4, fontSize: 13.5 }}>{c.messages.slice(-30).map((m, i) => <p key={i}><b>{m.r === 'v' ? 'Visitor' : 'Assistant'}:</b> {m.t}</p>)}</div>}
             </article>
@@ -224,14 +226,31 @@ export default function AgentManage({ id }: { id: string }) {
 
       {tab === 'deploy' && !vis && (
         <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 20, maxWidth: 860 }}>
-          <p className="acq-notice" style={{ fontSize: 13.5 }}>The assistant only answers once it is switched on. {agent.status !== 'active' && <b>It is not on yet.</b>}</p>
+          <p className="acq-notice" style={{ fontSize: 13.5 }}>The agent only answers once it is switched on. {agent.status !== 'active' && <b>It is not on yet.</b>}</p>
           <div style={{ display: 'grid', gap: 10 }}>
             <h3 className="acq-title">Website chat</h3>
             <CopyBox label="Paste before the closing </body> tag of your site" text={agent.deploy.embed} />
             <CopyBox label="Or share this page" text={agent.deploy.hosted} />
-            <p className="acq-faint" style={{ fontSize: 12.5 }}>Works on WordPress, Wix, Squarespace, Shopify, Webflow and plain HTML (use the custom code or footer-script setting). Change the colour with <code>data-color=&quot;#0ea5e9&quot;</code>.</p>
+            <p className="acq-faint" style={{ fontSize: 12.5 }}>Change the colour with <code>data-color=&quot;#0ea5e9&quot;</code>, or put it on the left with <code>data-position=&quot;left&quot;</code>.</p>
+            {a.accessCode && <p className="acq-notice" style={{ fontSize: 13 }}>Staff only: people must type your access code before they can chat. Put the widget on your intranet or share the page link with your team.</p>}
           </div>
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <h3 className="acq-title">WordPress</h3>
+            <ol className="acq-sub" style={{ fontSize: 13.5, paddingLeft: 18, display: 'grid', gap: 2 }}><li>Install a header/footer code plugin (for example WPCode), or use your theme&apos;s &quot;footer scripts&quot; setting.</li><li>Paste the code above into the footer and save.</li><li>Open your site: the chat bubble appears bottom right.</li></ol>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <h3 className="acq-title">Shopify</h3>
+            <ol className="acq-sub" style={{ fontSize: 13.5, paddingLeft: 18, display: 'grid', gap: 2 }}><li>Online Store → Themes → ⋯ → Edit code.</li><li>Open <code>layout/theme.liquid</code> and paste the code just before <code>&lt;/body&gt;</code>.</li><li>Save, then open your store to see the chat bubble.</li></ol>
+          </div>
+          <p className="acq-faint" style={{ fontSize: 12.5 }}>Wix, Squarespace, Webflow and plain HTML: use the &quot;custom code&quot; or footer-script setting and paste the same code.</p>
+          {a.skills.includes('crm') && (
+            <div style={{ display: 'grid', gap: 10 }}>
+              <h3 className="acq-title">CRM webhook</h3>
+              <p className="acq-sub" style={{ fontSize: 13.5 }}>{a.crmWebhookUrl ? <>New leads go to <code>{a.crmWebhookUrl}</code>, signed with an <code>X-Runvax-Signature: sha256=…</code> header.</> : 'Add the webhook address in Settings → Skills and tools.'}</p>
+              <div><button className="acq-btn" disabled={!!busy || !a.crmWebhookUrl} onClick={() => void test('crm')}>{busy === 'tcrm' ? <Loader2 size={15} className="animate-spin" /> : null} Send a test lead</button></div>
+            </div>
+          )}
+          {!a.accessCode && <div style={{ display: 'grid', gap: 10 }}>
             <h3 className="acq-title">Telegram bot</h3>
             <ol className="acq-sub" style={{ fontSize: 13.5, paddingLeft: 18, display: 'grid', gap: 2 }}><li>In Telegram, open <b>@BotFather</b> and send <code>/newbot</code>.</li><li>Choose a name, then copy the token it gives you.</li><li>Paste it below and press Connect.</li></ol>
             <div><label className="acq-label" htmlFor="tg-token">Bot token {agent.secrets.telegramToken && <span className="acq-faint">(saved; type to replace)</span>}</label><input id="tg-token" className="acq-input" type="password" autoComplete="new-password" placeholder="123456789:ABC..." value={tg} onChange={(e) => { setTg(e.target.value); setDirty(true); }} /></div>
@@ -240,7 +259,7 @@ export default function AgentManage({ id }: { id: string }) {
               <button className="acq-btn acq-btn-primary" disabled={!!busy || (!tg && !agent.secrets.telegramToken)} onClick={() => void telegram('connect')}>{busy === 'tg' ? <Loader2 size={15} className="animate-spin" /> : null} Connect</button>
               {a.channels.telegram && <button className="acq-btn" disabled={!!busy} onClick={() => void telegram('disconnect')}>Disconnect</button>}
             </div>
-          </div>
+          </div>}
         </section>
       )}
     </div>

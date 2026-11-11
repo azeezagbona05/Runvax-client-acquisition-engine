@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     a.kind === 'visibility' ? prisma.customAgentPost.findMany({ where: { agentId: a.id, status: { not: 'rejected' } }, orderBy: { createdAt: 'desc' }, take: 60, select: { id: true, slug: true, title: true, summary: true, body: true, status: true, source: true, pushed: true, publishedAt: true, createdAt: true } }) : [],
     a.kind === 'assistant' ? prisma.customAgentChat.findMany({ where: { agentId: a.id }, orderBy: { updatedAt: 'desc' }, take: 40, select: { id: true, channel: true, visitor: true, status: true, messages: true, updatedAt: true } }) : [],
   ]);
-  return NextResponse.json({ agent: presentAgent(a, { posts: posts.filter((p) => p.status === 'published').length, drafts: posts.filter((p) => p.status === 'draft').length, chats: chats.length, leads: chats.filter((c) => c.status === 'lead').length }), posts, chats });
+  return NextResponse.json({ agent: presentAgent(a, { posts: posts.filter((p) => p.status === 'published').length, drafts: posts.filter((p) => p.status === 'draft').length, chats: chats.length, leads: chats.filter((c) => c.status === 'lead' || c.status === 'handoff').length, handoffs: chats.filter((c) => c.status === 'handoff').length }), posts, chats });
 }
 
 /** PATCH { name?, status?, config?, secrets? }. Switching on needs a complete setup; secrets are write-only. */

@@ -5,6 +5,7 @@ import { rateLimit } from '@/lib/rateLimiter';
 import { checkAndIncrementAI } from '@/lib/usage';
 import { CAMPAIGN_MESSAGE, UNSUPPORTED_MESSAGE, classifyRequest } from '@/lib/agents/classify';
 import { isKind } from '@/lib/agents/kinds';
+import { TEMPLATES, isChatTemplate, isTemplate, type ChatTemplateId } from '@/lib/agents/templates';
 import { MAX_PROMPT, planAgent } from '@/lib/agents/write';
 
 export const dynamic = 'force-dynamic';
@@ -18,13 +19,20 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   const u = await requireCampaignUser(req); if (!u.ok) return u.response;
   if (!rateLimit(`agent-plan:${u.userId}`, { maxRequests: 10, windowMs: 60_000 }).ok) return NextResponse.json({ error: 'Slow down: too many requests. Try again in a minute.' }, { status: 429 });
-  const b = await req.json().catch(() => ({})) as { kind?: unknown; prompt?: unknown; url?: unknown };
+  const b = await req.json().catch(() => ({})) as { kind?: unknown; prompt?: unknown; url?: unknown; template?: unknown };
+  // A template chosen in step 1 decides the agent; campaign templates point to the campaign builder, coming-soon ones say so.
+  if (isTemplate(b.template)) {
+    const t = TEMPLATES[b.template];
+    if (t.status === 'campaign') return NextResponse.json({ supported: false, reason: 'campaign', message: CAMPAIGN_MESSAGE, link: '/client-acquisition/automation' });
+    if (t.status === 'soon') return NextResponse.json({ supported: false, reason: 'not_yet', message: UNSUPPORTED_MESSAGE });
+  }
   const prompt = typeof b.prompt === 'string' ? b.prompt.trim().slice(0, MAX_PROMPT) : '';
   if (prompt.length < 10) return NextResponse.json({ error: 'Tell the agent a little more: what your business does and what you want it to do.' }, { status: 400 });
   let useAi = true;
   if (process.env.OPENAI_API_KEY) { const g = await checkAndIncrementAI(req); if (!g.ok) useAi = false; }
 
-  let kind = isKind(b.kind) ? b.kind : null;
+  let template: ChatTemplateId | undefined = isChatTemplate(b.template) ? b.template : undefined;
+  let kind = template ? 'assistant' as const : b.template === 'visibility' ? 'visibility' as const : isKind(b.kind) ? b.kind : null;
   if (!kind) {
     const seen = await classifyRequest(prompt, { useAi });
     if (seen.kind === 'campaign') return NextResponse.json({ supported: false, reason: 'campaign', message: CAMPAIGN_MESSAGE, link: '/client-acquisition/automation' });
@@ -33,8 +41,8 @@ export async function POST(req: NextRequest) {
       await prisma.adminAuditLog.create({ data: { actorEmail: 'agent-builder', action: 'unsupported_agent_request', title: 'Someone asked for an agent RUNVAX cannot build yet', detail: `user ${u.userId}: ${prompt.slice(0, 400)}` } }).catch(() => {});
       return NextResponse.json({ supported: false, reason: 'not_yet', message: UNSUPPORTED_MESSAGE });
     }
-    kind = seen.kind;
+    kind = seen.kind; template = seen.template;
   }
-  const out = await planAgent(kind, prompt, { url: typeof b.url === 'string' ? b.url : '', useAi });
-  return NextResponse.json({ supported: true, kind, ...out });
+  const out = await planAgent(kind, prompt, { url: typeof b.url === 'string' ? b.url : '', useAi, template });
+  return NextResponse.json({ supported: true, kind, template: kind === 'assistant' ? (out.config as { template: ChatTemplateId }).template : 'visibility', ...out });
 }
