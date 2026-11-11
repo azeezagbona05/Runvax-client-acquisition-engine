@@ -108,9 +108,10 @@ export function extractPeople(html) {
   const lines = stripTags(html).split('\n').map((l) => l.trim()).filter(Boolean);
   const NAME_LINE = /^(?:(?:Dr|Mr|Mrs|Ms|Prof)\.?\s+)?(?:[A-Z][a-zà-ÿ]+|[A-Z](?=['’][A-Z]))(?:['’-][A-Z]?[a-zà-ÿ]+)*(?:\s+[A-Z]\.?)?(?:\s+(?:(?:(?:van|von|der|den|de|del|della|la|le|da|di|do|dos|du|al|bin|ibn|el)\s+)+)?(?:[A-Z][a-zà-ÿ]+|[A-Z](?=['’][A-Z]))(?:['’-][A-Z]?[a-zà-ÿ]+)*){1,2}(?:,\s*[A-Z]{2,5})?$/;
   const NOT_NAME = /^(our|the|about|contact|meet|get|read|learn|view|home|privacy|terms|new york|los angeles|san francisco|united states|customer service)\b/i;
+  const NOT_PERSON_WORD = /\b(questions?|frequently|asked|services?|treatments?|appointments?|reviews?|testimonials?|gallery|blog|news|team|policy|hours|location|clinic|centre|center|care|smile|dental|whitening|implants?|braces|book|online|free|our|your)\b/i;
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    if (l.length > 45 || !NAME_LINE.test(l) || NOT_NAME.test(l) || TITLE_RE.test(l)) continue;
+    if (l.length > 45 || !NAME_LINE.test(l) || NOT_NAME.test(l) || NOT_PERSON_WORD.test(l) || TITLE_RE.test(l)) continue;
     const next = [lines[i + 1], lines[i + 2]].find((x) => x && x.length < 80 && TITLE_RE.test(x));
     if (next && parseName(l)) people.set(l.toLowerCase(), people.get(l.toLowerCase()) || { name: l, title: next, source: 'layout' });
   }

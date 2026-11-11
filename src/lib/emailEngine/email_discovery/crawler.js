@@ -66,7 +66,8 @@ export async function crawlSite(domainInput, { fetchImpl = defaultFetch, maxPage
         const au = new URL(abs); au.hash = '';
         if (sameSite(au.hostname, domain) && (LINK_HINT.test(au.pathname) || LINK_HINT.test(a.text))) enqueue(au.toString());
       }
-      if (!seeded) { seeded = true; for (const p of CONTACT_PATHS) enqueue(base + p); }
+      // Guess common paths only when the homepage links to fewer than 2 contact/team-like pages (saves ~14 wasted requests on most sites).
+      if (!seeded) { seeded = true; if (queue.length < 2) for (const p of CONTACT_PATHS) enqueue(base + p); }
     } catch (e) { errors.push({ url, error: String(e.message || e) }); }
   }
   return { domain, pages, errors };

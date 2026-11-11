@@ -10,7 +10,7 @@ import { normalizeDomain } from './shared/normalize.js';
  * verification, contact matches — each with evidence. Pure library; no RUNVAX imports, no DB, no env access.
  * Options: { pages } to bypass crawling (tests/datasets), { fetchImpl, maxPages, delayMs }, { verifier } or { smtp }.
  */
-export async function findEmails({ domain: domainInput, name = null, pages = null, crawlOptions = {}, verifier = null, smtp = false, probeFrom, verifyCandidates = true } = {}) {
+export async function findEmails({ domain: domainInput, name = null, pages = null, crawlOptions = {}, verifier = null, smtp = false, probeFrom, verifyCandidates = true, maxPeopleGuesses = 6 } = {}) {
   const domain = normalizeDomain(domainInput);
   if (!domain) throw new Error('A valid business domain is required');
   const t0 = Date.now();
@@ -27,15 +27,29 @@ export async function findEmails({ domain: domainInput, name = null, pages = nul
     const match = matching.matches.find((m) => m.email === e.email) || null;
     discovered.push({ ...e, verification, match });
   }
+  // When no person was asked for, guess for the people found on the site, decision makers first. All INFERRED.
+  const known = new Set(disc.emails.map((e) => e.email));
+  const SENIOR = /\b(ceo|md|founder|owner|chief|managing|director|general manager|president|principal|partner|head)\b/i;
+  const matchedNames = new Set(matching.matches.filter((m) => m.level === 'MATCHED').map((m) => m.person.name));
+  const peopleCandidates = [];
+  if (!name) {
+    const targets = disc.people.filter((p) => !matchedNames.has(p.name))
+      .sort((a, b) => Number(SENIOR.test(b.title || '')) - Number(SENIOR.test(a.title || ''))).slice(0, maxPeopleGuesses);
+    for (const p of targets) {
+      const cands = generateCandidates(p.name, domain, patternReport, { maxCandidates: 2 }).filter((c) => !known.has(c.email));
+      if (!cands.length) continue;
+      if (verifyCandidates) for (const c of cands) c.verification = await v.verify(c.email, { discovered: false });
+      peopleCandidates.push({ name: p.name, title: p.title, sourceUrl: p.sourceUrl, decisionMaker: SENIOR.test(p.title || ''), candidates: cands });
+    }
+  }
   let candidates = [];
   if (name) {
     candidates = generateCandidates(name, domain, patternReport);
-    const known = new Set(disc.emails.map((e) => e.email));
     candidates = candidates.filter((c) => !known.has(c.email));
     if (verifyCandidates) for (const c of candidates) c.verification = await v.verify(c.email, { discovered: false });
   }
   return {
-    domain, query: { name }, discovered, patterns: patternReport, people: disc.people, candidates,
+    domain, query: { name }, discovered, patterns: patternReport, people: disc.people, candidates, peopleCandidates,
     unmatchedEmails: matching.unmatched, pagesScanned: disc.pagesScanned, crawlErrors: disc.crawlErrors || [],
     meta: { elapsedMs: Date.now() - t0, generatedAt: new Date().toISOString(), smtpEnabled: !!smtp, notice: 'INFERRED candidates are guesses from naming patterns and are never confirmed emails.' },
   };

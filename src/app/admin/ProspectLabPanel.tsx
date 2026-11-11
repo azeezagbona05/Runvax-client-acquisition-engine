@@ -10,7 +10,8 @@ import { ChevronDown, ChevronRight, Download, Loader2, Play, Search } from 'luci
 interface Biz { id?: string; name?: string; website?: string; address?: string; phone?: string }
 interface Disc { email: string; name?: string; title?: string; sources: Array<{ url: string; method: string; discoveredAt: string }>; verification: { status: string; confidence: number; reasons: string[] }; match: { person: { name: string }; level: string; score: number } | null }
 interface Cand { email: string; rank: number; score: number; basis: string; verification?: { status: string } }
-interface Engine { domain: string; discovered: Disc[]; patterns: { dominant: string | null; basis: string; patterns: Array<{ id: string; example: string; observations: number; confidence: number }> }; candidates: Cand[]; pagesScanned: number; people: Array<{ name: string; title?: string }>; meta: { elapsedMs: number } }
+interface PeopleGuess { name: string; title?: string; sourceUrl?: string; decisionMaker: boolean; candidates: Cand[] }
+interface Engine { domain: string; discovered: Disc[]; peopleCandidates?: PeopleGuess[]; patterns: { dominant: string | null; basis: string; patterns: Array<{ id: string; example: string; observations: number; confidence: number }> }; candidates: Cand[]; pagesScanned: number; people: Array<{ name: string; title?: string }>; meta: { elapsedMs: number } }
 type Run<T> = { state: 'idle' | 'running' | 'done' | 'error'; data?: T; error?: string };
 interface Row { key: string; label: string; website: string; person: string; address?: string; engine: Run<Engine>; current: Run<{ email: string | null; source: string | null }> }
 
@@ -78,13 +79,13 @@ export default function ProspectLabPanel() {
 
   const stats = useMemo(() => {
     const v = rows.map(verdict).filter(Boolean); const c = (k: string) => v.filter((x) => x === k).length;
-    return { done: rows.filter((r) => r.engine.state === 'done').length, engineFound: rows.filter((r) => bestEngine(r.engine.data)).length, currentFound: rows.filter((r) => r.current.data?.email).length, same: c('Same'), different: c('Different'), engineOnly: c('Engine only'), currentOnly: c('Current only'), neither: c('Neither') };
+    return { done: rows.filter((r) => r.engine.state === 'done').length, engineFound: rows.filter((r) => bestEngine(r.engine.data)).length, people: rows.reduce((n, r) => n + (r.engine.data?.people.length ?? 0), 0), deciders: rows.reduce((n, r) => n + (r.engine.data?.peopleCandidates?.filter((p) => p.decisionMaker).length ?? 0), 0), currentFound: rows.filter((r) => r.current.data?.email).length, same: c('Same'), different: c('Different'), engineOnly: c('Engine only'), currentOnly: c('Current only'), neither: c('Neither') };
   }, [rows]);
 
   function exportCsv() {
     const q = (s: unknown) => `"${String(s ?? '').replace(/"/g, '""')}"`;
-    const lines = [['website', 'engine_email', 'engine_status', 'current_email', 'verdict'].join(',')];
-    for (const r of rows) { const e = r.engine.data?.discovered.find((d) => d.email === bestEngine(r.engine.data)); lines.push([r.website, e?.email, e?.verification.status, r.current.data?.email, verdict(r)].map(q).join(',')); }
+    const lines = [['website', 'engine_email', 'engine_status', 'current_email', 'verdict', 'people_found', 'decision_maker', 'decision_maker_title', 'inferred_guess'].join(',')];
+    for (const r of rows) { const e = r.engine.data?.discovered.find((d) => d.email === bestEngine(r.engine.data)); const dm = r.engine.data?.peopleCandidates?.[0]; lines.push([r.website, e?.email, e?.verification.status, r.current.data?.email, verdict(r), r.engine.data?.people.length ?? '', dm?.name, dm?.title, dm?.candidates[0]?.email].map(q).join(',')); }
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' })); a.download = 'prospect-lab.csv'; a.click(); URL.revokeObjectURL(a.href);
   }
 
@@ -123,7 +124,7 @@ export default function ProspectLabPanel() {
             <button onClick={exportCsv} className="ml-auto px-3 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm flex items-center gap-2"><Download className="w-4 h-4" /> CSV</button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-            {[['Run', stats.done], ['Engine found an email', stats.engineFound], ['Current finder found', stats.currentFound], ['Same email', stats.same], ['Different email', stats.different], ['Engine only', stats.engineOnly], ['Current only', stats.currentOnly], ['Neither', stats.neither]].map(([l, v]) => (
+            {[['Run', stats.done], ['Engine found an email', stats.engineFound], ['Current finder found', stats.currentFound], ['Same email', stats.same], ['Different email', stats.different], ['Engine only', stats.engineOnly], ['Current only', stats.currentOnly], ['Neither', stats.neither], ['People found on sites', stats.people], ['Decision makers with guesses', stats.deciders]].map(([l, v]) => (
               <div key={l as string} className="bg-gray-800/60 rounded-xl p-3"><p className="text-xl font-black text-white">{v}</p><p className="text-[11px] text-gray-500 uppercase tracking-wide">{l}</p></div>
             ))}
           </div>
@@ -139,7 +140,7 @@ export default function ProspectLabPanel() {
                     <tr className="border-t border-white/5 align-top">
                       <td className="py-2 pr-2"><button onClick={() => setOpen(isOpen ? null : r.key)} className="text-gray-500" aria-label="Details">{isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</button></td>
                       <td className="py-2 pr-3"><p className="text-white font-semibold">{r.label}</p><p className="text-xs text-gray-500">{r.website}{r.person ? ` · ${r.person}` : ''}</p></td>
-                      <td className="py-2 pr-3">{r.engine.state === 'running' ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : r.engine.state === 'error' ? <span className="text-red-400 text-xs">{r.engine.error}</span> : e ? (best ? <><p className="text-white">{best.email}</p><p className={`text-xs ${tone(best.verification.status)}`}>{best.verification.status.replace('_', ' ')} · {e.discovered.length} found</p></> : <p className="text-gray-500 text-xs">None found ({e.pagesScanned} pages){e.candidates[0] ? ` · guess: ${e.candidates[0].email}` : ''}</p>) : <span className="text-gray-600">—</span>}</td>
+                      <td className="py-2 pr-3">{r.engine.state === 'running' ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : r.engine.state === 'error' ? <span className="text-red-400 text-xs">{r.engine.error}</span> : e ? (best ? <><p className="text-white">{best.email}</p><p className={`text-xs ${tone(best.verification.status)}`}>{best.verification.status.replace('_', ' ')} · {e.discovered.length} found</p></> : <p className="text-gray-500 text-xs">No email published ({e.pagesScanned} pages)</p>) : null}{r.engine.state === 'done' && e && e.people.length > 0 && <p className="text-xs text-indigo-300 mt-0.5">{e.people.length} people found{e.peopleCandidates?.length ? ` · ${e.peopleCandidates.filter((p) => p.decisionMaker).length} decision makers with guesses` : ''}</p>}{r.engine.state === 'idle' && <span className="text-gray-600">—</span>}</td>
                       <td className="py-2 pr-3">{r.current.state === 'running' ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : r.current.state === 'error' ? <span className="text-red-400 text-xs">{r.current.error}</span> : r.current.state === 'done' ? (r.current.data?.email ? <><p className="text-white">{r.current.data.email}</p><p className="text-xs text-gray-500">{r.current.data.source}</p></> : <p className="text-gray-500 text-xs">None found</p>) : <span className="text-gray-600">—</span>}</td>
                       <td className="py-2 text-xs font-semibold text-gray-300">{verdict(r)}</td>
                     </tr>
@@ -151,6 +152,10 @@ export default function ProspectLabPanel() {
                               <p key={d.email} className="text-gray-300"><span className="text-white">{d.email}</span> <span className={tone(d.verification.status)}>{d.verification.status.replace('_', ' ')}</span> · {d.sources[0].method} · <a className="text-indigo-300 underline" href={d.sources[0].url} target="_blank" rel="noopener noreferrer">source</a>{d.match ? ` · ${d.match.person.name} (${d.match.level.toLowerCase()})` : ''}</p>))}</div>
                           <div><p className="text-gray-400 font-semibold mb-1">Naming pattern</p>
                             {e.patterns.dominant ? <p className="text-gray-300">Learned <code>{e.patterns.dominant}</code> from {e.patterns.patterns[0]?.observations} example(s), {Math.round((e.patterns.patterns[0]?.confidence ?? 0) * 100)}% confidence.</p> : <p className="text-gray-500">Not enough named examples; the engine does not guess a pattern.</p>}</div>
+                          {(e.peopleCandidates?.length ?? 0) > 0 && <div><p className="text-gray-400 font-semibold mb-1">People on the site and guessed emails (INFERRED, not confirmed)</p>
+                            <p className="text-gray-500 mb-1">{e.patterns.dominant ? `Guesses follow the learned ${e.patterns.dominant} pattern.` : 'This site publishes no personal email, so guesses use common patterns only. Treat them as low confidence until checked.'}</p>
+                            {e.peopleCandidates!.map((p) => (
+                              <p key={p.name} className="text-gray-300">{p.decisionMaker && <span className="px-1.5 mr-1 rounded bg-indigo-500/30 text-indigo-200 font-bold">Decision maker</span>}<span className="text-white">{p.name}</span>{p.title ? ` · ${p.title}` : ''} → {p.candidates.map((c) => c.email).join('  or  ')} <span className="px-1.5 rounded bg-amber-300 text-amber-900 font-bold">INFERRED</span> <span className="text-gray-500">score {p.candidates[0]?.score}</span></p>))}</div>}
                           {e.candidates.length > 0 && <div><p className="text-gray-400 font-semibold mb-1">Guesses for {r.person} (INFERRED, never confirmed)</p>
                             {e.candidates.map((c) => <p key={c.email} className="text-gray-300">{c.rank}. {c.email} <span className="px-1.5 rounded bg-amber-300 text-amber-900 font-bold">INFERRED</span> score {c.score} · {c.basis.replace(/_/g, ' ').toLowerCase()}{c.verification ? ` · ${c.verification.status.replace('_', ' ')}` : ''}</p>)}</div>}
                           <p className="text-gray-600">{e.pagesScanned} pages read in {e.meta.elapsedMs} ms.</p></>}
