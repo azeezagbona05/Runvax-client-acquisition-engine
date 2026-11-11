@@ -8,12 +8,13 @@ import {
   LogOut, RefreshCw, Search, ChevronDown, SlidersHorizontal, Check,
   Infinity as InfinityIcon, Plus, Trash2, X, AlertTriangle,
   MapPin, Activity, Ban, Save, ShieldOff, Sun, Moon, Mail, Loader2, ShieldAlert,
-  Menu, LayoutDashboard, Wallet, BarChart3, Megaphone, Cpu, Receipt, CalendarDays, SlidersVertical, ExternalLink,
+  Menu, LayoutDashboard, Wallet, BarChart3, Megaphone, Cpu, Receipt, CalendarDays, SlidersVertical, ExternalLink, FlaskConical,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
 import OperationsPanel from './OperationsPanel';
 import SiteControlsPanel from './SiteControlsPanel';
+import ProspectLabPanel from './ProspectLabPanel';
 import EmailCampaignsPanel from './EmailCampaignsPanel';
 import AdminSecurity from './AdminSecurity';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
@@ -871,7 +872,7 @@ function botScore(u: AdminUser): number {
   return score;
 }
 
-type AdminTab = 'overview' | 'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs' | 'site';
+type AdminTab = 'overview' | 'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs' | 'site' | 'prospect-lab';
 
 /** Sidebar structure: every section of the admin panel sits under one category. */
 const ADMIN_NAV: Array<{ heading: string; items: Array<{ id: AdminTab; label: string; desc: string; icon: typeof Users }> }> = [
@@ -892,6 +893,9 @@ const ADMIN_NAV: Array<{ heading: string; items: Array<{ id: AdminTab; label: st
   ] },
   { heading: 'Growth', items: [
     { id: 'campaigns', label: 'Email campaigns', desc: 'Outbound campaigns to our own audience', icon: Megaphone },
+  ] },
+  { heading: 'Lab', items: [
+    { id: 'prospect-lab', label: 'Prospect Lab', desc: 'Try the experimental email engine on real prospects', icon: FlaskConical },
   ] },
   { heading: 'System', items: [
     { id: 'site', label: 'Site controls', desc: 'Switches, limits, banner and maintenance', icon: SlidersHorizontal },
@@ -1377,6 +1381,7 @@ export default function AdminPage() {
         </>)}
 
         {tab === 'site' && <SiteControlsPanel />}
+        {tab === 'prospect-lab' && <ProspectLabPanel />}
         {tab === 'operations' && <OperationsPanel />}
         {tab === 'campaigns' && <EmailCampaignsPanel />}
 
