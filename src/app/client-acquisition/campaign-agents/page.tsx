@@ -2,42 +2,62 @@
 
 import Link from 'next/link';
 import { Send } from 'lucide-react';
-import AgentsPanel, { AGENT_ICON_FALLBACK, AGENT_LOOK, useWorkforce } from '@/components/acq/AgentsPanel';
-import { Card, EmptyState } from '@/components/acq/ui';
+import { AGENT_ICON_FALLBACK, AGENT_LOOK, useWorkforce } from '@/components/acq/AgentsPanel';
+import { Card, EmptyState, Pill, Skeleton } from '@/components/acq/ui';
 import { WORKFORCE } from '@/lib/workforce';
 import { timeAgo } from '@/lib/acqOverview';
 
 /** The AI team behind campaigns: six agents that plan, write, send, follow up and read replies. They belong to Prospecting, not the Agent Studio. */
 export default function CampaignAgentsPage() {
-  const { data } = useWorkforce();
-  const name = (id: string) => WORKFORCE.find((w) => w.id === id)?.name ?? id;
+  const { data, failed } = useWorkforce();
+  const now = Date.now();
+  const names = Object.fromEntries(WORKFORCE.map((a) => [a.id, a.name]));
   return (
     <div className="acq-stack">
       <div style={{ paddingTop: 4, display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div>
           <h1 className="acq-page-title">Campaign AI Agents</h1>
-          <p className="acq-sub" style={{ marginTop: 2, maxWidth: 720 }}>Your AI workforce for campaigns. They plan the sequence, understand your audience, write the emails, send, follow up and read replies, all inside your campaigns.</p>
+          <p className="acq-sub" style={{ marginTop: 2, maxWidth: 720 }}>The six built-in agents that run your campaigns. They plan, write, send and read replies; follow-ups wait for your click and nothing replies to a prospect without your approval.</p>
         </div>
         <Link href="/client-acquisition/automation" className="acq-btn acq-btn-primary"><Send size={15} /> Create a campaign</Link>
       </div>
-      <AgentsPanel />
-      <Card title="What each agent does">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {WORKFORCE.map((a) => { const look = AGENT_LOOK[a.id]; const I = look?.icon ?? AGENT_ICON_FALLBACK; return (
-            <div key={a.id} style={{ display: 'flex', gap: 12, border: '1px solid #e2e8f0', borderRadius: 14, padding: 14 }}>
-              <span className="acq-stat-icon" style={{ background: look?.tint, color: look?.ink, flex: 'none' }}><I size={20} /></span>
-              <div><b style={{ fontSize: 14.5 }}>{a.name}</b><p className="acq-sub" style={{ fontSize: 13, marginTop: 2 }}>{a.does}</p></div>
-            </div>); })}
-        </div>
-      </Card>
-      <Card title="Recent agent activity">
-        {!data ? <p className="acq-sub">Loading…</p> : data.log.length === 0 ? <EmptyState title="No activity yet" body="Run a campaign and every step the agents take is logged here." />
-          : <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 10 }}>{data.log.slice(0, 20).map((l) => (
-              <li key={l.id} style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                <b style={{ fontSize: 13.5 }}>{name(l.agent)}</b><span style={{ fontSize: 13.5, flex: 1, minWidth: 0 }}>{l.action}{l.detail ? <span className="acq-sub"> · {l.detail}</span> : null}</span>
-                {l.campaignId && <Link className="acq-link" style={{ fontSize: 12 }} href={`/client-acquisition/campaigns/${l.campaignId}`}>Campaign</Link>}
-                <span className="acq-faint" style={{ fontSize: 12 }}>{timeAgo(l.at)}</span>
-              </li>))}</ul>}
+      <h2 className="acq-title" style={{ marginTop: 8 }}>Your campaign workforce</h2>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {(data?.agents ?? WORKFORCE.map((w) => ({ ...w, latest: null, week: 0, active: false }))).map((a) => {
+          const look = AGENT_LOOK[a.id]; const Icon = look?.icon ?? AGENT_ICON_FALLBACK;
+          return (
+            <Card key={a.id}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <span className="acq-stat-icon" style={{ background: look?.tint, color: look?.ink }}><Icon size={22} /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 700, fontSize: 16 }}>{a.name}</p>
+                  <p className="acq-sub" style={{ fontSize: 13 }}>{a.role}</p>
+                </div>
+                {data && <Pill label={a.active ? 'Active' : 'Idle'} />}
+              </div>
+              <p className="acq-sub" style={{ marginTop: 12, fontSize: 13.5 }}>{a.does}</p>
+              <p className="acq-faint" style={{ marginTop: 10, fontSize: 12.5 }}>{a.latest ? `Last: ${a.latest.action} (${timeAgo(a.latest.at, now)})` : a.idle}</p>
+              <p style={{ marginTop: 8, fontSize: 13 }}><b style={{ fontSize: 20 }}>{a.week}</b> <span className="acq-sub">actions this week</span></p>
+            </Card>
+          );
+        })}
+      </div>
+      <Card title="Shared campaign log">
+        {failed ? <EmptyState title="Couldn't load agent activity" />
+          : !data ? <div style={{ display: 'grid', gap: 12 }}>{[0, 1, 2, 3].map((i) => <Skeleton key={i} h={22} />)}</div>
+          : data.log.length === 0 ? <EmptyState title="No activity yet" body="Build a campaign and the agents start working. Everything they do is listed here." />
+          : (
+            <table className="acq-table acq-rt"><tbody>
+              {data.log.map((a) => (
+                <tr key={a.id}>
+                  <td data-primary style={{ width: 200, fontWeight: 600, color: '#0f172a' }}>{names[a.agent] ?? a.agent}</td>
+                  <td data-wide>{a.action}{a.detail ? <span className="acq-sub" style={{ display: 'block', fontSize: 12.5 }}>{a.detail}</span> : null}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{a.campaignId ? <Link className="acq-link" style={{ fontSize: 12.5 }} href={`/client-acquisition/campaigns/${a.campaignId}`}>Campaign</Link> : null}</td>
+                  <td className="acq-muted" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{timeAgo(a.at, now)}</td>
+                </tr>
+              ))}
+            </tbody></table>
+          )}
       </Card>
     </div>
   );
