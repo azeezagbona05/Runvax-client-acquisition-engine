@@ -11,6 +11,11 @@
 //   13_site_settings       -> new table SiteSetting (admin Site controls)
 //   14_platform_campaigns  -> new table PlatformCampaign (admin campaigns for RUNVAX users)
 //   15_support_tickets     -> new tables SupportTicket, SupportMessage (Help & support ticketing)
+//   16_career_agent        -> new tables CareerProfile, CareerDocument, CareerPreference, CareerAgentEvent
+//   17_career_jobs         -> new tables JobListing, JobMatch (Career Agent job discovery)
+//   18_career_applications -> new table JobApplication (prepared applications + approvals)
+//   19_career_management   -> new tables CareerResponse, CareerInterview (employer replies, interviews)
+//   20_career_submissions  -> new table ApplicationSubmission (auto-submit queue + evidence)
 // Additive only. Each migration is skipped if it is already applied, so it is safe to run twice.
 // It never touches migrations 0-3 or any existing RUNVAX 1.0 table. Pass --yes to skip the confirmation prompt.
 const fs = require('fs');
@@ -32,6 +37,11 @@ const MIGRATIONS = [
   { dir: '13_site_settings', tables: ['SiteSetting'], columns: [] },
   { dir: '14_platform_campaigns', tables: ['PlatformCampaign'], columns: [] },
   { dir: '15_support_tickets', tables: ['SupportTicket', 'SupportMessage'], columns: [] },
+  { dir: '16_career_agent', tables: ['CareerProfile', 'CareerDocument', 'CareerPreference', 'CareerAgentEvent'], columns: [] },
+  { dir: '17_career_jobs', tables: ['JobListing', 'JobMatch'], columns: [] },
+  { dir: '18_career_applications', tables: ['JobApplication'], columns: [] },
+  { dir: '19_career_management', tables: ['CareerResponse', 'CareerInterview'], columns: [] },
+  { dir: '20_career_submissions', tables: ['ApplicationSubmission'], columns: [] },
 ];
 
 (async () => {

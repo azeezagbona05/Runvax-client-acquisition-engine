@@ -33,6 +33,16 @@ model User {
   integrationConnections   IntegrationConnection[]
   customAgents             CustomAgent[]
   knowledgeSources         KnowledgeSource[]
+  careerProfile            CareerProfile?
+  careerDocuments          CareerDocument[]
+  careerPreference         CareerPreference?
+  careerEvents             CareerAgentEvent[]
+  jobListings              JobListing[]
+  jobMatches               JobMatch[]
+  jobApplications          JobApplication[]
+  careerInterviews         CareerInterview[]
+  careerResponses          CareerResponse[]
+  applicationSubmissions   ApplicationSubmission[]
   sessions                 Session[]
   prospects                Prospect[]
   settings                 UserSettings?
@@ -1496,4 +1506,204 @@ model SupportMessage {
   ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId, createdAt])
+}
+
+
+// ── Career Agent (Phase 1). Its own data boundary: every row belongs to one user and is read only through that user's id. ──
+// The profile is the VERIFIED source of truth: `profile` holds what was read from the CV, `confirmedAt` is set only when the
+// candidate has reviewed it. Nothing the agent writes may go beyond it.
+model CareerProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile     Json
+  // ai | rules | manual
+  source      String    @default("rules") @db.VarChar(12)
+  confirmedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// An uploaded CV. Only the extracted text is kept (the original file is not stored). `kind` = uploaded | generated.
+model CareerDocument {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String   @default("uploaded") @db.VarChar(12)
+  name      String   @db.VarChar(200)
+  mime      String?  @db.VarChar(80)
+  text      String   @db.MediumText
+  chars     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// Job preferences + discovery settings + application permissions + deploy state, one row per user.
+model CareerPreference {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferences Json
+  discovery   Json
+  permissions Json
+  // draft | active | paused
+  status      String    @default("draft") @db.VarChar(10)
+  deployedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Auditable log of what the Career Agent (and the candidate) did.
+model CareerAgentEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent     String   @db.VarChar(24)
+  action    String   @db.VarChar(40)
+  detail    String?  @db.VarChar(400)
+  ok        Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ── Career Agent Phase 2: discovered vacancies and how well they fit. Per user; `dedupeKey` stops the same job (found on two sources) appearing twice. ──
+model JobListing {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // remotive | arbeitnow | greenhouse | lever
+  source      String    @db.VarChar(16)
+  externalId  String    @db.VarChar(120)
+  dedupeKey   String    @db.VarChar(64)
+  title       String    @db.VarChar(200)
+  company     String    @db.VarChar(160)
+  location    String    @default("") @db.VarChar(200)
+  remote      Boolean   @default(false)
+  url         String    @db.VarChar(600)
+  description String    @db.Text
+  postedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  match       JobMatch?
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
+}
+
+model JobMatch {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String     @unique
+  listing   JobListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  score     Int
+  reasons   Json
+  // new | saved | dismissed
+  status    String     @default("new") @db.VarChar(10)
+  createdAt DateTime   @default(now())
+  application JobApplication?
+
+  @@index([userId, status, score])
+}
+
+// ── Career Agent Phase 3: an application the agent PREPARED for one matched job. Nothing here means "sent": `appliedAt` is set only when
+// the candidate says they applied (appliedBy 'user'); an agent submission (Phase 4) would set appliedBy 'agent'. `cv` is a tailored copy built only
+// from the confirmed profile; `approvedAt` is the candidate's approval record.
+model JobApplication {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchId     String    @unique
+  match       JobMatch  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  // prepared | approved | rejected | applied
+  status      String    @default("prepared") @db.VarChar(10)
+  cv          Json
+  coverLetter String    @db.Text
+  answers     Json
+  gaps        Json
+  flags       Json
+  // ai | rules
+  source      String    @default("rules") @db.VarChar(8)
+  edited      Boolean   @default(false)
+  approvedAt  DateTime?
+  appliedAt   DateTime?
+  appliedBy   String?   @db.VarChar(8)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  interviews  CareerInterview[]
+  responses   CareerResponse[]
+  submissions ApplicationSubmission[]
+
+  @@index([userId, status, updatedAt])
+}
+
+// ── Career Agent Phase 5: what happened after applying. ──
+// An employer reply the candidate pasted and confirmed. Only a short summary is kept, never the email body.
+// kind: acknowledged | interview | info_request | rejected | offer | other, plus 'followed_up' = a follow-up the candidate sent (not an employer reply).
+model CareerResponse {
+  id            String          @id @default(cuid())
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId String
+  application   JobApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  kind          String          @db.VarChar(14)
+  subject       String          @default("") @db.VarChar(200)
+  summary       String          @default("") @db.VarChar(600)
+  receivedAt    DateTime
+  createdAt     DateTime        @default(now())
+
+  @@index([userId, receivedAt])
+  @@index([applicationId])
+}
+
+model CareerInterview {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId  String?
+  application    JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  company        String          @db.VarChar(160)
+  title          String          @db.VarChar(200)
+  // phone | video | onsite | other
+  kind           String          @default("video") @db.VarChar(8)
+  startsAt       DateTime
+  location       String          @default("") @db.VarChar(300)
+  notes          String          @db.Text
+  // scheduled | done | cancelled
+  status         String          @default("scheduled") @db.VarChar(10)
+  prep           Json?
+  reminderSentAt DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([userId, startsAt])
+}
+
+// ── Career Agent Phase 4: one attempt to submit a prepared + approved application on the employer's own hosted form (Greenhouse or Lever).
+// `status`: queued | running | submitted | needs_you | unconfirmed | failed | cancelled | checked.
+// 'submitted' is set ONLY after the site's own confirmation page was seen. 'unconfirmed' = the button was pressed but no confirmation appeared: it is never retried automatically (it could have gone through).
+// 'checked' = a dry run (trigger 'check'): the form was read and mapped, nothing was typed or sent. `trigger`: user | rules | check.
+model ApplicationSubmission {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  platform      String         @db.VarChar(12)
+  status        String         @default("queued") @db.VarChar(12)
+  trigger       String         @default("user") @db.VarChar(8)
+  reason        String         @default("") @db.VarChar(600)
+  questions     Json?
+  steps         Json?
+  evidence      String         @default("") @db.VarChar(600)
+  finalUrl      String         @default("") @db.VarChar(600)
+  attempts      Int            @default(0)
+  createdAt     DateTime       @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([applicationId])
 }

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
-  Bell, Bot, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, PlayCircle, LogOut, Mail, Menu, MessageCircle,
+  Bell, Bot, Briefcase, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, PlayCircle, LogOut, Mail, Menu, MessageCircle,
   Search, Send, Settings, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
@@ -36,6 +36,7 @@ const NAV_GROUPS: Array<{ heading?: string; items: ReadonlyArray<{ href: string;
   ] },
   { heading: 'AI Agent Studio', items: [
     { href: '/client-acquisition/agents', label: 'AI Agents', icon: Bot },
+    { href: '/client-acquisition/career', label: 'Career Agent', icon: Briefcase },
   ] },
   { heading: 'Workspace', items: [
     { href: '/client-acquisition/integrations', label: 'Integrations', icon: Zap },

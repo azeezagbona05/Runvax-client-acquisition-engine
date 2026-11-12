@@ -41,6 +41,14 @@
       "schedule": "0 10 * * *"
     },
     {
+      "path": "/api/cron/career-reminders",
+      "schedule": "15 7 * * *"
+    },
+    {
+      "path": "/api/cron/career-discover",
+      "schedule": "30 6 * * *"
+    },
+    {
       "path": "/api/cron/run-agents",
       "schedule": "0 6 * * *"
     }

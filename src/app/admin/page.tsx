@@ -17,6 +17,7 @@ import SiteControlsPanel from './SiteControlsPanel';
 import ProspectLabPanel from './ProspectLabPanel';
 import EmailCampaignsPanel from './EmailCampaignsPanel';
 import SupportPanel from './SupportPanel';
+import CareerPilotPanel from './CareerPilotPanel';
 import AdminSecurity from './AdminSecurity';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
 import { AREAS, TIER_CONFIG } from '@/lib/areas';
@@ -873,7 +874,7 @@ function botScore(u: AdminUser): number {
   return score;
 }
 
-type AdminTab = 'overview' | 'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs' | 'site' | 'support' | 'prospect-lab';
+type AdminTab = 'overview' | 'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs' | 'site' | 'support' | 'prospect-lab' | 'career-pilot';
 
 /** Sidebar structure: every section of the admin panel sits under one category. */
 const ADMIN_NAV: Array<{ heading: string; items: Array<{ id: AdminTab; label: string; desc: string; icon: typeof Users }> }> = [
@@ -891,6 +892,7 @@ const ADMIN_NAV: Array<{ heading: string; items: Array<{ id: AdminTab; label: st
   ] },
   { heading: 'Analytics', items: [
     { id: 'behaviour', label: 'Behaviour', desc: 'How users use the product', icon: BarChart3 },
+    { id: 'career-pilot', label: 'Career pilot', desc: 'Career Agent pilot: jobs, applications, replies', icon: BarChart3 },
   ] },
   { heading: 'Growth', items: [
     { id: 'campaigns', label: 'Email campaigns', desc: 'Outbound campaigns to our own audience', icon: Megaphone },
@@ -1384,6 +1386,7 @@ export default function AdminPage() {
 
         {tab === 'site' && <SiteControlsPanel />}
         {tab === 'support' && <SupportPanel />}
+        {tab === 'career-pilot' && <CareerPilotPanel />}
         {tab === 'prospect-lab' && <ProspectLabPanel />}
         {tab === 'operations' && <OperationsPanel />}
         {tab === 'campaigns' && <EmailCampaignsPanel />}
