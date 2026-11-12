@@ -63,3 +63,23 @@ describe('advanced filter', () => {
     expect(togglePreset(on, 'rated-4').rules).toHaveLength(2);
   });
 });
+
+describe('verified and decision-maker filters', () => {
+  const list = [
+    rec(biz({ id: 'a', name: 'A' }), { emails: ['a@a.com'], verified: true, decisionMaker: true }),
+    rec(biz({ id: 'b', name: 'B' }), { emails: ['b@b.com'], decisionMaker: true }),
+    rec(biz({ id: 'c', name: 'C' }), { emails: ['c@c.com'] }),
+  ];
+  it('"Verified email" keeps only businesses with a checked address', () => {
+    expect(ids(applyGroup(list, togglePreset(EMPTY_GROUP, 'verified')))).toEqual(['a']);
+  });
+  it('"Decision maker" keeps businesses where one was found, and the two combine', () => {
+    expect(ids(applyGroup(list, togglePreset(EMPTY_GROUP, 'decision')))).toEqual(['a', 'b']);
+    expect(ids(applyGroup(list, togglePreset(togglePreset(EMPTY_GROUP, 'decision'), 'verified')))).toEqual(['a']);
+  });
+  it('can be turned off again', () => {
+    const on = togglePreset(EMPTY_GROUP, 'verified');
+    expect(presetOn(on, 'verified')).toBe(true);
+    expect(presetOn(togglePreset(on, 'verified'), 'verified')).toBe(false);
+  });
+});

@@ -14,13 +14,16 @@ import { EMAIL_STATUS_BADGE, effectiveStatus, isEmailStatus, type EmailStatus } 
 import { EMPTY_GROUP, applyGroup, makeRecord, searchRecords, type FilterGroup, type ProspectRecord } from '@/lib/prospectQuery';
 import ProspectToolbar from './ProspectToolbar';
 import { BizLogo, Card, EmptyState } from './ui';
+import ContactEmail from './ContactEmail';
+import { isDecisionTitle } from '@/lib/decisionMaker';
+import { fromFinderPerson } from '@/lib/acqContact';
 import { useAcq } from './AcqProvider';
 import SignupPrompt from './SignupPrompt';
 
 const PENDING_KEY = 'rv_pending_find';
 
 type Email = { state: 'loading' } | { state: 'done'; email: string | null; status?: EmailStatus; statusNote?: string };
-type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string }; emailBasis?: 'published' | 'inferred' | 'guess'; emailSource?: string; linkedin?: string };
+type Person = { name: string; title: string; email?: string; emailStatus?: string; source: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string }; emailBasis?: 'published' | 'inferred' | 'guess'; emailSource?: string; linkedin?: string; status?: EmailStatus; statusNote?: string };
 type Channel = { type: 'decision_maker_email' | 'general_email' | 'contact_form' | 'business_phone' | 'none'; value?: string; person?: string; sourcePage?: string };
 type People = { state: 'loading' } | { state: 'done'; people: Person[]; channels: Channel[]; note?: string };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -62,7 +65,6 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [emails, setEmails] = useState<Record<string, Email>>({});
   const [target, setTarget] = useState('');
   const [adding, setAdding] = useState(false);
-  const [finding, setFinding] = useState(false);
   const [ctx, setCtx] = useState<MultiCtx | null>(null);
   const [running, setRunning] = useState(false);
   const [maxRun, setMaxRun] = useState(MAX_RUN_SEARCHES);
@@ -75,6 +77,13 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
   const [verifying, setVerifying] = useState<Set<string>>(new Set());
   const [verifyingAll, setVerifyingAll] = useState(false);
+  // Whether finding a contact may spend credits on its own (Snov reveals, mailbox checks). On by default; remembered in this browser.
+  const [autoCredits, setAutoCredits] = useState(true);
+  useEffect(() => { try { if (localStorage.getItem('acq-auto-credits') === '0') setAutoCredits(false); } catch { /* storage blocked: keep the default */ } }, []);
+  const toggleAuto = (v: boolean) => { setAutoCredits(v); try { localStorage.setItem('acq-auto-credits', v ? '1' : '0'); } catch { /* ignore */ } };
+  // What each row is doing right now ("Reading the website…"), so a long lookup never looks stuck.
+  const [steps, setSteps] = useState<Record<string, string>>({});
+  const setStep = (id: string, text?: string) => setSteps((m) => { const n = { ...m }; if (text) n[id] = text; else delete n[id]; return n; });
   const [includeUnverified, setIncludeUnverified] = useState(false);
   const [query, setQuery] = useState('');
   const [applied, setApplied] = useState('');
@@ -253,7 +262,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const findEmail = async (b: FinderBusiness) => {
     if (needAccount('Finding business emails needs an account.')) return;
     // A business whose site shows no email is looked up with Snov straight away (paid plans with reveals left; the server charges 1 reveal only when an email is found).
-    const useCredits = !!b.website;
+    const useCredits = !!b.website && autoCredits;
     setEmails((m) => ({ ...m, [b.id]: { state: 'loading' } }));
     try {
       const res = await fetch('/api/enrich-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ website: b.website, name: b.name, location: b.address, phone: b.phone, useCredits }) });
@@ -262,13 +271,6 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
       const found = j.email && EMAIL_OK.test(j.email) ? j.email : null;
       setEmails((m) => ({ ...m, [b.id]: { state: 'done', email: found, ...(found && isEmailStatus(j.status) ? { status: j.status, statusNote: j.statusNote } : {}) } }));
     } catch { setEmails((m) => ({ ...m, [b.id]: { state: 'done', email: null } })); }
-  };
-  const findForSelected = async () => {
-    if (needAccount('Finding business emails needs an account.')) return;
-    setFinding(true);
-    const todo = (results ?? []).filter((b) => picked.has(b.id) && !emails[b.id]);
-    for (let i = 0; i < todo.length; i += 3) await Promise.all(todo.slice(i, i + 3).map(findEmail));
-    setFinding(false);
   };
 
   /**
@@ -285,34 +287,43 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
         setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: j.candidates ?? [], channels: j.channels ?? [], note: res.ok ? undefined : (res.status === 403 ? 'A deeper email search needs a paid plan.' : j.error ?? 'Lookup failed.') } }));
         return;
       }
-      const res = await fetch('/api/client-acquisition/people', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, max: opts.max ?? 5 }) });
-      const j = await res.json().catch(() => ({})) as { people?: Array<{ name: string; title: string; email?: string; emailState?: 'confirmed' | 'unconfirmed'; linkedin?: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string }; emailBasis?: 'published' | 'inferred' | 'guess'; emailSource?: string }>; channels?: Channel[]; note?: string; error?: string; balance?: number | null };
+      const res = await fetch('/api/client-acquisition/people', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: b.name, address: b.address, website: b.website, category: b.category, max: opts.max ?? 5, useCredits: autoCredits }) });
+      const j = await res.json().catch(() => ({})) as { people?: Array<{ name: string; title: string; email?: string; emailState?: 'confirmed' | 'unconfirmed'; linkedin?: string; sourcePage?: string; match?: 'confirmed' | 'likely'; evidence?: { url: string; snippet: string }; emailBasis?: 'published' | 'inferred' | 'guess'; emailSource?: string; status?: string; statusNote?: string }>; channels?: Channel[]; note?: string; error?: string; balance?: number | null };
       if (!res.ok) { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: j.error ?? 'Lookup failed.' } })); return; }
       if (typeof j.balance === 'number') setCredits((c) => (c ? { ...c, balance: j.balance ?? null } : c));
-      const list: Person[] = (j.people ?? []).map((p) => ({ name: p.name, title: p.title, source: 'lookup', ...(p.email ? { email: p.email, emailStatus: p.emailState === 'confirmed' ? 'valid' : 'unconfirmed' } : {}), ...(p.linkedin ? { linkedin: p.linkedin } : {}), ...(p.sourcePage ? { sourcePage: p.sourcePage } : {}), ...(p.match ? { match: p.match } : {}), ...(p.evidence ? { evidence: p.evidence } : {}), ...(p.emailBasis ? { emailBasis: p.emailBasis } : {}), ...(p.emailSource ? { emailSource: p.emailSource } : {}) }));
+      const list: Person[] = (j.people ?? []).map((p) => ({ name: p.name, title: p.title, source: 'lookup', ...(p.email ? { email: p.email, emailStatus: p.emailState === 'confirmed' ? 'valid' : 'unconfirmed' } : {}), ...(p.linkedin ? { linkedin: p.linkedin } : {}), ...(p.sourcePage ? { sourcePage: p.sourcePage } : {}), ...(p.match ? { match: p.match } : {}), ...(p.evidence ? { evidence: p.evidence } : {}), ...(p.emailBasis ? { emailBasis: p.emailBasis } : {}), ...(p.emailSource ? { emailSource: p.emailSource } : {}), ...(p.email && isEmailStatus(p.status) ? { status: p.status, ...(p.statusNote ? { statusNote: p.statusNote } : {}) } : {}) }));
       setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: list, channels: j.channels ?? [], note: list.length ? undefined : j.note } }));
       // Once the emails are in, check them all straight away so nobody has to click Verify (paid plans; a failure here stays quiet).
       const toCheck = Array.from(new Set(list.filter((p) => p.email && !isVerifiedStatus(p.emailStatus)).map((p) => p.email!.toLowerCase())));
-      if (credits?.on && toCheck.length) {
+      if (credits?.on && autoCredits && toCheck.length) {
+        setStep(b.id, 'Checking mailboxes…');
         setVerifying((x) => new Set(x).add(b.id));
-        void verifyEmailsOf(toCheck, true).catch(() => false).finally(() => setVerifying((x) => { const n = new Set(x); n.delete(b.id); return n; }));
+        try { await verifyEmailsOf(toCheck, true); } catch { /* stay quiet */ }
+        finally { setVerifying((x) => { const n = new Set(x); n.delete(b.id); return n; }); }
       }
     } catch { setPeople((m) => ({ ...m, [b.id]: { state: 'done', people: [], channels: [], note: 'Lookup failed.' } })); }
   };
-  /** One row's dropdown: up to N people. Says what it can cost first when the credit-based lookup is on. */
+  /** One action for a whole contact: the business email (our engine, then Snov), then the team, then a check on every address. */
+  const findContact = async (b: FinderBusiness, max = 5) => {
+    if (needAccount('Finding contacts needs an account.')) return;
+    try {
+      if (!emails[b.id]) { setStep(b.id, 'Reading the website…'); await findEmail(b); }
+      setStep(b.id, 'Looking up the team…');
+      await findPeople(b, { max });
+    } finally { setStep(b.id); }
+  };
+  /** One row's dropdown: up to N people. */
   const askPeople = (b: FinderBusiness, n: number) => {
     if (needAccount('Finding decision-makers needs an account.')) return;
-    if (credits?.on && !window.confirm(`Find up to ${n} people at ${b.name}?\n\nYou are charged 1 email reveal for each email found (up to ${n}), nothing for a person with no email or for an address you revealed before. You have ${credits.balance ?? 'an unknown number of'} reveals left. If nobody is found, RUNVAX's own contact search is tried next, which is free.`)) return;
-    void findPeople(b, { max: n });
+    void findContact(b, n);
   };
   const findPeopleForSelected = async () => {
     if (needAccount('Finding decision-makers needs an account.')) return;
     const todo = (results ?? []).filter((b) => picked.has(b.id) && !people[b.id]);
     if (!todo.length) return;
-    if (credits?.on && !window.confirm(`Find up to 5 people at ${todo.length} business${todo.length === 1 ? '' : 'es'}?\n\nThis can use up to ${todo.length * 5} email reveals (1 for each email found, nothing otherwise). You have ${credits.balance ?? 'an unknown number of'} left. Businesses with nobody found fall back to RUNVAX's own contact search, which is free.`)) return;
     setFindingDm(true);
     // Two at a time: each can chain several provider calls.
-    for (let i = 0; i < todo.length; i += 2) await Promise.all(todo.slice(i, i + 2).map((b) => findPeople(b)));
+    for (let i = 0; i < todo.length; i += 2) await Promise.all(todo.slice(i, i + 2).map((b) => findContact(b)));
     setFindingDm(false);
   };
   const peopleOf = (b: FinderBusiness): Person[] | null => { const p = people[b.id]; return p?.state === 'done' ? p.people : null; };
@@ -323,6 +334,8 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
     people: peopleOf(b), businessEmail: emails[b.id]?.state === 'done' ? emailOf(b) : undefined,
     businessChannel: channelsOf(b).some((c) => c.type === 'general_email' || c.type === 'contact_form'), verdicts,
   });
+  /** The engine's own check on a person's address, for the tooltip of its outcome pill. */
+  const statusDetail = (p: Person, v?: Verdict) => { const st = effectiveStatus(p.status, v); if (!p.email || !st) return undefined; const bd = EMAIL_STATUS_BADGE[st]; return `${bd.label}: ${bd.hint}${p.statusNote ? ` ${p.statusNote}` : ''}`; };
   const personOk = (p: Person) => { const v = p.email ? verdicts[p.email.toLowerCase()] : undefined; return v ? v === 'valid' : isVerifiedStatus(p.emailStatus) || p.emailBasis === 'published'; };
   const usablePeople = (b: FinderBusiness) => (peopleOf(b) ?? []).filter((p) => p.email && verdicts[p.email.toLowerCase()] !== 'invalid');
 
@@ -369,11 +382,15 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
   const ready = (results ?? []).filter((b) => picked.has(b.id) && leadsFor(b).length > 0);
   const notReady = (results ?? []).filter((b) => picked.has(b.id) && leadsFor(b).length === 0).length;
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const verifiedOf = (b: FinderBusiness) => (peopleOf(b) ?? []).some((p) => p.email && (verdicts[p.email.toLowerCase()] === 'valid' || isVerifiedStatus(p.emailStatus) || p.status === 'VERIFIED'))
+    || ((): boolean => { const e = emails[b.id]; if (e?.state !== 'done' || !e.email) return false; return verdicts[e.email.toLowerCase()] === 'valid' || e.status === 'VERIFIED'; })();
   // Every business with what we know about it, flattened for the search and the advanced filter.
   const records = useMemo(() => (results ?? []).map((b) => makeRecord(b, {
     contact: stateOf(b),
     emails: [generalEmailOf(b), ...(peopleOf(b) ?? []).map((p) => p.email)].filter((x): x is string => !!x),
     people: peopleOf(b) ?? [],
+    verified: verifiedOf(b),
+    decisionMaker: (peopleOf(b) ?? []).some((p) => isDecisionTitle(p.title)),
   })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [results, emails, people, verdicts]);
@@ -524,8 +541,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
                 <b style={{ fontSize: 14 }}>{shown.length !== results.length ? `${shown.length} of ${results.length}` : results.length} prospects{cached ? ' (first search from a recent search)' : ''}</b>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={allOn} onChange={() => setPicked(allOn ? new Set() : new Set(shown.map((b) => b.id)))} style={{ accentColor: '#9333ea' }} /> Select all {shown.length.toLocaleString('en-US')}</label>
-                <button className="acq-btn acq-btn-sm" disabled={!picked.size || finding} onClick={() => void findForSelected()}>{finding ? <Loader2 size={14} className="animate-spin" /> : null} Find business emails for {picked.size || 'selected'}</button>
-                <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!picked.size || findingDm} onClick={() => void findPeopleForSelected()}>{findingDm ? <Loader2 size={14} className="animate-spin" /> : null} Find decision-makers for {picked.size || 'selected'}</button>
+                <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!picked.size || findingDm} onClick={() => void findPeopleForSelected()}>{findingDm ? <Loader2 size={14} className="animate-spin" /> : null} Find contacts for {picked.size || 'selected'}</button>
                 <button className="acq-btn acq-btn-sm" disabled={!picked.size || verifyingAll} onClick={() => void verifySelected()}>{verifyingAll ? <Loader2 size={14} className="animate-spin" /> : null} Verify emails for {picked.size || 'selected'}</button>
                 <button className="acq-btn acq-btn-sm" onClick={exportCsv} title="Download the rows on screen as a CSV">Export CSV</button>
                 <select className="acq-select" aria-label="Add to campaign" style={{ width: 'auto', minWidth: 200, height: 36, marginLeft: 'auto' }} value={target} onChange={(e) => setTarget(e.target.value)}>
@@ -533,6 +549,12 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                 </select>
                 <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!target || !ready.length || adding} onClick={() => void add()}>{adding ? <Loader2 size={14} className="animate-spin" /> : null} Add {ready.length} ready to campaign</button>
               </div>
+              {credits?.on && (
+                <div className="acq-sub" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', fontSize: 12.5, marginBottom: 8 }}>
+                  <span><b>{credits.balance ?? '—'}</b> email reveals left. Each email found uses 1; nothing is charged when none is found.</span>
+                  <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={autoCredits} onChange={(e) => toggleAuto(e.target.checked)} style={{ accentColor: '#9333ea' }} /> Use credits automatically</label>
+                </div>
+              )}
               <ProspectToolbar query={query} onQuery={setQuery} searching={searching} group={group} onGroup={setGroup} sorting={sorting} onSorting={setSorting}
                 columns={COLUMN_PICKER} visibility={colVis} onVisibility={setColVis} shown={shown.length} total={results.length} />
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 10px', padding: 10, background: '#faf5ff', border: '1px solid #f3e8ff', borderRadius: 12 }}>
@@ -584,7 +606,7 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                               const st = stateOf(b);
                               const action = CONTACT_ACTION[st];
                               const pp = people[b.id];
-                              const busyRow = pp?.state === 'loading' || e?.state === 'loading' || verifying.has(b.id);
+                              const busyRow = pp?.state === 'loading' || e?.state === 'loading' || verifying.has(b.id) || !!steps[b.id];
                               const tone: Record<ContactState, string> = { verified: 'acq-pill-green', unverified: 'acq-pill-amber', person_no_email: 'acq-pill-blue', business_only: 'acq-pill-gray', none: 'acq-pill-gray', untouched: 'acq-pill-gray' };
                               const list = pp?.state === 'done' ? pp.people : [];
                               const biz = emailOf(b);
@@ -600,11 +622,13 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                         {p.linkedin ? <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="acq-faint" style={{ marginLeft: 6, textDecoration: 'underline' }}>LinkedIn</a> : null}
                                         {p.match ? <span className={`acq-pill ${p.match === 'confirmed' ? 'acq-pill-green' : 'acq-pill-amber'}`} style={{ marginLeft: 6 }} title={p.evidence?.snippet ? `Why: ${p.evidence.snippet}` : p.match === 'confirmed' ? 'Their own profile names this business next to this title.' : 'This business is named near them, but not on their own headline.'}>{p.match === 'confirmed' ? 'Confirmed' : 'Likely'}</span> : null}
                                         <br />
-                                        {p.email
-                                          ? v === 'invalid' ? <span className="acq-faint" style={{ textDecoration: 'line-through' }} title="The email check says this address does not exist">{p.email}</span>
-                                            : <><span style={{ color: personOk(p) ? '#15803d' : '#b45309' }} title={p.emailBasis ? EMAIL_BASIS_HINT[p.emailBasis] : personOk(p) ? 'Verified' : 'Not verified yet'}>{personOk(p) && !p.emailBasis ? '✓ ' : ''}{p.email}</span>
-                                              {p.emailBasis ? <span className={`acq-pill ${p.emailBasis === 'published' ? 'acq-pill-green' : p.emailBasis === 'inferred' ? 'acq-pill-blue' : 'acq-pill-amber'}`} style={{ marginLeft: 6 }} title={`${EMAIL_BASIS_HINT[p.emailBasis]}${p.emailSource ? ` Seen at ${p.emailSource}` : ''}`}>{EMAIL_BASIS_LABEL[p.emailBasis]}</span> : null}</>
-                                          : <span className="acq-faint">no email yet</span>}
+                                        <ContactEmail
+                                          rec={fromFinderPerson(p, { company: b.name, domain: b.website ? b.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '') : undefined }, v)}
+                                          verifying={verifying.has(b.id)}
+                                          compact
+                                          detail={statusDetail(p, v)}
+                                          onVerify={() => { setVerifying((x) => new Set(x).add(b.id)); void verifyEmailsOf([p.email!]).finally(() => setVerifying((x) => { const n = new Set(x); n.delete(b.id); return n; })); }}
+                                        />
                                       </span>
                                     );
                                   })}
@@ -627,10 +651,10 @@ export default function ProspectFinder({ onAdded }: { onAdded: (msg: string) => 
                                   {pp?.state === 'done' && st === 'none' && <span className="acq-faint" style={{ fontSize: 11.5 }}>No usable public contact found</span>}
                                   {pp?.state === 'done' && pp.note && <span className="acq-faint" style={{ fontSize: 11.5 }}>{pp.note}</span>}
                                   {busyRow
-                                    ? <span className="acq-sub" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}><Loader2 size={13} className="animate-spin" /> {verifying.has(b.id) ? 'Verifying…' : pp?.state === 'loading' ? 'Searching…' : 'Looking…'}</span>
+                                    ? <span className="acq-sub" style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}><Loader2 size={13} className="animate-spin" /> {steps[b.id] ?? (verifying.has(b.id) ? 'Checking mailboxes…' : pp?.state === 'loading' ? 'Looking up the team…' : 'Reading the website…')}</span>
                                     : action === 'find_dm'
                                       ? <select className="acq-select" aria-label={`Find people at ${b.name}`} style={{ height: 30, width: 'auto', minWidth: 124, fontWeight: 600, fontSize: 12.5, color: '#7e22ce', backgroundColor: '#faf5ff', borderColor: '#e9d5ff' }} value="" onChange={(ev) => { const v = ev.target.value; ev.target.value = ''; if (v === 'biz') void findEmail(b); else if (Number(v)) askPeople(b, Number(v)); }}>
-                                          <option value="">Find people ▾</option><option value="3">Up to 3 people</option><option value="5">Up to 5 people</option><option value="10">Up to 10 people</option><option value="biz">Business email only</option>
+                                          <option value="">Find contact ▾</option><option value="5">Find contact (up to 5 people)</option><option value="3">Up to 3 people</option><option value="10">Up to 10 people</option><option value="biz">Business email only</option>
                                         </select>
                                       : action && <button className={`acq-btn acq-btn-sm ${action === 'retry' ? '' : 'acq-btn-primary'}`} onClick={() => act(b, action)}>{ACTION_LABEL[action]}</button>}
                                   {!busyRow && st === 'none' && e?.state !== 'done' && (

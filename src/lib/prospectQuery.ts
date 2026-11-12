@@ -9,17 +9,21 @@ export interface ProspectRecord {
   contact: ContactState;
   /** A business or decision-maker email has been found. */
   hasEmail: boolean;
+  /** At least one of its emails has been checked and exists. */
+  verified: boolean;
+  /** A person with a decision-maker title was found. */
+  decisionMaker: boolean;
   /** Every email found for it, joined. */
   emailText: string;
   /** Lower-cased text the free-text search looks in: name, category, address, phone, website, area, emails, people and titles. */
   text: string;
 }
 
-export function makeRecord(b: FinderBusiness, extra: { contact: ContactState; emails?: string[]; people?: Array<{ name: string; title?: string }> }): ProspectRecord {
+export function makeRecord(b: FinderBusiness, extra: { contact: ContactState; emails?: string[]; people?: Array<{ name: string; title?: string }>; verified?: boolean; decisionMaker?: boolean }): ProspectRecord {
   const emails = (extra.emails ?? []).filter(Boolean);
   const text = [b.name, b.category, b.address, b.phone, b.website, b.foundBy, ...emails, ...(extra.people ?? []).flatMap((p) => [p.name, p.title])]
     .filter(Boolean).join(' \u0001 ').toLowerCase();
-  return { b, contact: extra.contact, hasEmail: emails.length > 0, emailText: emails.join(' '), text };
+  return { b, contact: extra.contact, hasEmail: emails.length > 0, verified: !!extra.verified, decisionMaker: !!extra.decisionMaker, emailText: emails.join(' '), text };
 }
 
 // ── Free-text search ────────────────────────────────────────────────────────
@@ -31,7 +35,7 @@ export function searchRecords(recs: ProspectRecord[], query: string): ProspectRe
 }
 
 // ── Advanced filter: rules joined by "all" or "any" ─────────────────────────
-export type FieldId = 'name' | 'category' | 'address' | 'phone' | 'website' | 'email' | 'area' | 'rating' | 'reviews' | 'contact';
+export type FieldId = 'name' | 'category' | 'address' | 'phone' | 'website' | 'email' | 'area' | 'rating' | 'reviews' | 'contact' | 'verified' | 'decision';
 export type FieldKind = 'text' | 'number' | 'enum';
 export type Op = 'contains' | 'not_contains' | 'is' | 'is_not' | 'starts' | 'empty' | 'not_empty' | 'eq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between';
 
@@ -46,6 +50,8 @@ export const FIELDS: ReadonlyArray<{ id: FieldId; label: string; kind: FieldKind
   { id: 'rating', label: 'Rating', kind: 'number' },
   { id: 'reviews', label: 'Reviews', kind: 'number' },
   { id: 'contact', label: 'Contact status', kind: 'enum' },
+  { id: 'verified', label: 'Verified email', kind: 'enum' },
+  { id: 'decision', label: 'Decision maker found', kind: 'enum' },
 ];
 export const OP_LABEL: Record<Op, string> = {
   contains: 'contains', not_contains: 'does not contain', is: 'is', is_not: 'is not', starts: 'starts with', empty: 'is empty', not_empty: 'is not empty',
@@ -56,6 +62,8 @@ export const OPS_BY_KIND: Record<FieldKind, Op[]> = {
   number: ['gte', 'gt', 'lte', 'lt', 'eq', 'between', 'empty', 'not_empty'],
   enum: ['is', 'is_not'],
 };
+/** The choices for an enum field's value. */
+export const enumOptionsOf = (f: FieldId): Array<{ value: string; label: string }> => (f === 'contact' ? CONTACT_OPTIONS : [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]);
 export const CONTACT_OPTIONS: Array<{ value: ContactState; label: string }> = (Object.keys(CONTACT_LABEL) as ContactState[]).map((value) => ({ value, label: CONTACT_LABEL[value] }));
 export const kindOf = (f: FieldId): FieldKind => FIELDS.find((x) => x.id === f)!.kind;
 export const needsValue = (op: Op) => op !== 'empty' && op !== 'not_empty';
@@ -82,6 +90,7 @@ function raw(rec: ProspectRecord, f: FieldId): string | number | undefined {
     case 'name': return b.name; case 'category': return b.category; case 'address': return b.address; case 'phone': return b.phone;
     case 'website': return b.website; case 'area': return b.foundBy; case 'email': return rec.emailText;
     case 'rating': return b.rating; case 'reviews': return b.reviewCount ?? 0; case 'contact': return rec.contact;
+    case 'verified': return rec.verified ? 'yes' : 'no'; case 'decision': return rec.decisionMaker ? 'yes' : 'no';
   }
 }
 
@@ -126,6 +135,8 @@ export const PRESETS: ReadonlyArray<{ id: string; label: string; rules: Array<Om
   { id: 'reviews-20', label: '20+ reviews', rules: [{ field: 'reviews', op: 'gte', value: '20' }] },
   { id: 'has-phone', label: 'Has a phone', rules: [{ field: 'phone', op: 'not_empty', value: '' }] },
   { id: 'email-found', label: 'Email found', rules: [{ field: 'email', op: 'not_empty', value: '' }] },
+  { id: 'verified', label: 'Verified email', rules: [{ field: 'verified', op: 'is', value: 'yes' }] },
+  { id: 'decision', label: 'Decision maker', rules: [{ field: 'decision', op: 'is', value: 'yes' }] },
 ];
 export const presetOn = (g: FilterGroup, id: string): boolean => {
   const p = PRESETS.find((x) => x.id === id)!;

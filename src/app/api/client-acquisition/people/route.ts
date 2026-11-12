@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   await useUserKeys(user.userId);
   if (!rateLimit(`acq-people:${user.userId}`, { maxRequests: 40, windowMs: 60_000 }).ok) return NextResponse.json({ error: 'Slow down: try again in a minute.' }, { status: 429 });
 
-  const b = await req.json().catch(() => null) as { name?: unknown; address?: unknown; website?: unknown; category?: unknown; max?: unknown } | null;
+  const b = await req.json().catch(() => null) as { name?: unknown; address?: unknown; website?: unknown; category?: unknown; max?: unknown; useCredits?: unknown } | null;
   const str = (v: unknown, n: number) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
   const name = str(b?.name, 160);
   if (!name) return NextResponse.json({ error: 'Business name required.' }, { status: 400 });
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   // The email lookup needs a paid plan and at least one reveal in hand; with none, the free contact search still runs.
   const before = await loadCredits(user.userId);
-  const creditsOk = snovEnabled() && (await paid(user.userId)) && before.total > 0 && rateLimit(`acq-people-credits:${user.userId}`, { maxRequests: 100, windowMs: 3_600_000 }).ok;
+  const creditsOk = b?.useCredits !== false && snovEnabled() && (await paid(user.userId)) && before.total > 0 && rateLimit(`acq-people-credits:${user.userId}`, { maxRequests: 100, windowMs: 3_600_000 }).ok;
   const result = await findPeople(
     { name, address: str(b?.address, 300), website: str(b?.website, 300), category: str(b?.category, 80), max: creditsOk ? Math.min(max, before.total) : max },
     { primary: creditsOk ? { enabled: () => true, contacts: (domain, n) => domainContacts(domain, { max: n }) } : null, fallback: (ctx) => findDecisionMakers(ctx, { deep: false }), engine: enginePeople },

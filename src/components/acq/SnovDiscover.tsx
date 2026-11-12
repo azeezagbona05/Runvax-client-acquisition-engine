@@ -1,5 +1,8 @@
 'use client';
 
+import ContactEmail from './ContactEmail';
+import { campaignReady, fromDiscover, toLead } from '@/lib/acqContact';
+import type { Verdict } from '@/lib/acqFinder';
 import { NO_AUTOFILL } from '@/lib/noAutofill';
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Search, Sparkles } from 'lucide-react';
@@ -32,6 +35,8 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [revealed, setRevealed] = useState<Record<string, Revealed>>({});
   const [revealing, setRevealing] = useState('');
+  const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
+  const [verifying, setVerifying] = useState<Set<string>>(new Set());
   const [balance, setBalance] = useState<number | null>(null);
   const [target, setTarget] = useState('');
   const [adding, setAdding] = useState(false);
@@ -93,8 +98,22 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
   const leadFor = (p: DbProspect) => {
     const r = revealed[p.revealUrl];
     if (!r?.email) return null;
-    if (r.smtpStatus !== 'valid' && !includeUnconfirmed) return null;
-    return { email: r.email, name: r.name ?? maskedName(p), business: p.company.name, website: p.company.domain || undefined };
+    const rec = fromDiscover(p, r, verdicts[r.email.toLowerCase()]);
+    // Same rule as the business search: verified always, unverified only when included, invalid never.
+    return campaignReady(rec, { includeUnverified: includeUnconfirmed, publishedCounts: false }) ? toLead(rec) : null;
+  };
+
+  /** Checks one revealed address for deliverability and remembers the answer. */
+  const verifyOne = async (email: string) => {
+    const key = email.toLowerCase();
+    setVerifying((x) => new Set(x).add(key));
+    try {
+      const res = await fetch('/api/decision-maker/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: [email] }) });
+      const j = await res.json().catch(() => ({})) as { results?: Record<string, Verdict>; error?: string };
+      if (!res.ok) { setError(j.error ?? 'Could not verify that email.'); return; }
+      setVerdicts((v) => ({ ...v, ...(j.results ?? {}) }));
+    } catch { setError('Could not verify that email.'); }
+    finally { setVerifying((x) => { const n = new Set(x); n.delete(key); return n; }); }
   };
   const readyLeads = (result?.prospects ?? []).filter((p) => picked.has(p.revealUrl)).map(leadFor).filter((x): x is NonNullable<typeof x> => !!x);
 
@@ -174,7 +193,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
                   <colgroup><col style={{ width: 46 }} /><col style={{ width: '17%' }} /><col style={{ width: '20%' }} /><col style={{ width: '23%' }} /><col style={{ width: '17%' }} /><col style={{ width: '23%' }} /></colgroup>
                   <thead><tr><th><span className="sr-only">Select</span></th><th>Person</th><th>Job title</th><th>Company</th><th>Location</th><th>Email</th></tr></thead>
                   <tbody>
-                    {groups.map((g) => <GroupRows key={g.key} g={g} picked={picked} toggle={toggle} revealed={revealed} busy={!!revealing} onReveal={(p) => void reveal([p])} />)}
+                    {groups.map((g) => <GroupRows key={g.key} g={g} picked={picked} toggle={toggle} revealed={revealed} busy={!!revealing} onReveal={(p) => void reveal([p])} verdicts={verdicts} verifying={verifying} onVerify={(e) => void verifyOne(e)} />)}
                   </tbody>
                 </table>
               </div>
@@ -193,7 +212,7 @@ export default function SnovDiscover({ onAdded }: { onAdded: (msg: string) => vo
 
 const clip = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
 
-function GroupRows({ g, picked, toggle, revealed, busy, onReveal }: { g: ReturnType<typeof groupByCompany>[number]; picked: Set<string>; toggle: (url: string) => void; revealed: Record<string, Revealed>; busy: boolean; onReveal: (p: ReturnType<typeof groupByCompany>[number]['people'][number]) => void }) {
+function GroupRows({ g, picked, toggle, revealed, busy, onReveal, verdicts, verifying, onVerify }: { g: ReturnType<typeof groupByCompany>[number]; picked: Set<string>; toggle: (url: string) => void; revealed: Record<string, Revealed>; busy: boolean; verdicts: Record<string, Verdict>; verifying: Set<string>; onVerify: (email: string) => void; onReveal: (p: ReturnType<typeof groupByCompany>[number]['people'][number]) => void }) {
   const site = g.company.domain ? `https://${g.company.domain}` : '';
   const detail = [g.company.size && `${g.company.size} people`, g.company.industry].filter(Boolean).join(' · ');
   return (
@@ -217,7 +236,7 @@ function GroupRows({ g, picked, toggle, revealed, busy, onReveal }: { g: ReturnT
               ) : <span className="acq-faint" style={{ fontSize: 12 }} aria-label={`Same company: ${g.company.name || g.company.domain}`}>↳ same company</span>}
             </td>
             <td data-cell="loc" className="acq-muted" style={clip} title={p.location}>{p.location || '—'}</td>
-            <td data-cell="pemail" style={clip}>{r?.email ? <span style={{ color: r.smtpStatus === 'valid' ? '#15803d' : '#b45309' }} title={r.smtpStatus === 'valid' ? 'Confirmed to exist' : 'This address could not be confirmed'}>{r.smtpStatus === 'valid' ? '✓ ' : ''}{r.email}</span> : r ? <span className="acq-faint">No email found</span> : <button type="button" className="acq-btn acq-btn-sm" disabled={busy} onClick={() => onReveal(p)}>Reveal email</button>}</td>
+            <td data-cell="pemail" style={{ whiteSpace: 'normal' }}>{r?.email ? <ContactEmail rec={fromDiscover(p, r, verdicts[r.email.toLowerCase()])} verifying={verifying.has(r.email.toLowerCase())} onVerify={() => onVerify(r.email!)} /> : r ? <span className="acq-faint">No email found</span> : <button type="button" className="acq-btn acq-btn-sm" disabled={busy} onClick={() => onReveal(p)}>Reveal email</button>}</td>
           </tr>
         );
       })}

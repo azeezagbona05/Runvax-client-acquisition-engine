@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Columns3, ListFilter, Loader2, Plus, Search, X } from 'lucide-react';
 import type { SortingState, VisibilityState } from '@tanstack/react-table';
 import {
-  CONTACT_OPTIONS, FIELDS, OPS_BY_KIND, OP_LABEL, PRESETS, activeRuleCount, defaultOp, kindOf, needsValue, newRule, presetOn, togglePreset,
+  enumOptionsOf, FIELDS, OPS_BY_KIND, OP_LABEL, PRESETS, activeRuleCount, defaultOp, kindOf, needsValue, newRule, presetOn, togglePreset,
   type FieldId, type FilterGroup, type Op, type Rule,
 } from '@/lib/prospectQuery';
 
@@ -36,7 +36,7 @@ function RuleRow({ rule, index, onChange, onRemove }: { rule: Rule; index: numbe
       </select>
       {needsValue(rule.op) && (kind === 'enum'
         ? <select className="acq-select" style={sel} aria-label={`Rule ${n} value`} value={rule.value} onChange={(e) => onChange({ ...rule, value: e.target.value })}>
-            <option value="">Choose…</option>{CONTACT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <option value="">Choose…</option>{enumOptionsOf(rule.field).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         : <>
             <input {...NO_AUTOFILL} name={`pf-rule-${n}`} className="acq-input" style={{ width: 150, height: 38 }} aria-label={`Rule ${n} value`} inputMode={kind === 'number' ? 'decimal' : undefined} placeholder={kind === 'number' ? 'Number' : 'Text'}
