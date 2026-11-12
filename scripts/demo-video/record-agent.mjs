@@ -76,7 +76,7 @@ await scene('intro', 'Build an AI agent for your business with RUNVAX', async ()
 
 await scene('agents', 'AI Agents → Build an agent', async () => {
   await page.evaluate(() => document.getElementById('__title')?.remove()); await sleep(1500);
-  await hover(page.getByText('Your agents').first(), 1800); await hover(page.getByRole('heading', { name: 'Your campaign workforce' }), 2200);
+  await hover(page.getByText('Your agents').first(), 1800);
   await hover(page.getByRole('link', { name: /Build an agent/ }), 1200);
   await click(page.getByRole('link', { name: /Build an agent/ })); await page.waitForURL('**/agents/new');
 });
