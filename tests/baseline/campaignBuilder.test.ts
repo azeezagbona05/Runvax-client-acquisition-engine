@@ -89,3 +89,17 @@ describe('brief helpers', () => {
     expect(Array.isArray(b.features)).toBe(true);
   });
 });
+
+import { describeOffer } from '@/lib/campaignBrief';
+describe('describeOffer', () => {
+  it('turns a noun phrase into a full sentence, never "At X, an …"', () => {
+    expect(describeOffer('Dental AI Hub', 'An AI assistant that answers patient enquiries.')).toBe('Dental AI Hub is an AI assistant that answers patient enquiries.');
+    expect(describeOffer('RESTOVAX', 'Restaurant management software for POS and stock')).toBe('RESTOVAX is restaurant management software for POS and stock.');
+  });
+  it('keeps "we" sentences, verb starts and summaries that already name the offer', () => {
+    expect(describeOffer('Acme', 'We build websites for clinics.')).toBe('At Acme, we build websites for clinics.');
+    expect(describeOffer('Acme', 'Helps clinics win patients')).toBe('Acme helps clinics win patients.');
+    expect(describeOffer('Acme', 'Acme is a booking tool.')).toBe('Acme is a booking tool.');
+    expect(describeOffer('Acme', '')).toBe('');
+  });
+});

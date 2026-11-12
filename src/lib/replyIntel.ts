@@ -6,7 +6,7 @@
  */
 
 import { firstNameOf } from '@/lib/decisionMaker';
-import { shortOffer, type CampaignBrief } from '@/lib/campaignBrief';
+import { describeOffer, shortOffer, type CampaignBrief } from '@/lib/campaignBrief';
 
 export type ReplyClass = 'interested' | 'info_request' | 'meeting_request' | 'objection' | 'not_interested' | 'out_of_office' | 'unsubscribe' | 'other';
 
@@ -92,7 +92,7 @@ export function suggestReplyRules(i: SuggestInput): string {
       return [hi, 'Thank you for coming back to me.',
         asksPrice
           ? `Pricing for ${short} depends on the size of ${biz} and which parts of the system you need, so rather than quote a figure that does not fit, the most useful next step is a short walkthrough. I will show you how it would work for ${biz}, and then send a clear proposal with the pricing.`
-          : `${i.brief?.offerSummary ? `${i.brief.offerSummary.replace(/\.$/, '')}. ` : ''}The quickest way to see how ${short} would work for ${biz} is a short walkthrough, and I can send a written summary afterwards.`,
+          : `${i.brief?.offerSummary ? `${describeOffer(short, i.brief.offerSummary)} ` : ''}The quickest way to see how ${short} would work for ${biz} is a short walkthrough, and I can send a written summary afterwards.`,
         'Would a 15-minute call this week suit you? Tell me a day and time that works and I will send an invite.', sign].join('\n\n');
     case 'meeting_request':
       return [hi, 'Thank you, I would be glad to set that up.', `What day and time this week suits you best? Once we agree, I will send a calendar invite and a short agenda so the session is useful for ${biz}.`, sign].join('\n\n');

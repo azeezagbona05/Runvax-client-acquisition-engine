@@ -8,7 +8,7 @@
 
 import { HARD_DAILY_MAX } from '@/lib/outreachCampaign';
 import { MAX_EMAILS, MAX_WAIT_DAYS, sanitizeAutomation, type Automation, type AutoEmail, type SendIf } from '@/lib/automation';
-import { briefFromText, shortOffer, type CampaignBrief, type Objective } from '@/lib/campaignBrief';
+import { briefFromText, describeOffer, shortOffer, type CampaignBrief, type Objective } from '@/lib/campaignBrief';
 import { defaultPlaybook } from '@/lib/replyPlaybook';
 
 export interface Knobs {
@@ -78,9 +78,8 @@ export function buildFromBrief(brief: CampaignBrief, knobs: Knobs): Automation {
 
   const parts: string[] = [hi];
   parts.push(`I came across {{business}} and wanted to introduce something${brief.audience ? ` we are building specifically for ${aud}` : ' that may be relevant to you'}.`);
-  const startsWithOffer = brief.offerSummary.toLowerCase().startsWith(short.toLowerCase());
   parts.push(brief.offerSummary
-    ? `${startsWithOffer ? brief.offerSummary : `At ${short}, ${/^we\b/i.test(brief.offerSummary) ? brief.offerSummary : brief.offerSummary.charAt(0).toLowerCase() + brief.offerSummary.slice(1)}`}${/[.!?]$/.test(brief.offerSummary) ? '' : '.'}`
+    ? describeOffer(short, brief.offerSummary)
     : `${short} is designed to help ${kind} reach, engage and win more customers.`);
   if (brief.features.length) parts.push(`${brief.features.length > 1 ? 'Our system includes' : 'It includes'}:\n\n${brief.features.map((f) => `- ${f.replace(/^[-•*\d.)\s]+/, '')}`).join('\n')}`);
   if (brief.features.length) parts.push('The idea is to help {{business}} attract, engage and convert more customers without depending entirely on manual processes.');

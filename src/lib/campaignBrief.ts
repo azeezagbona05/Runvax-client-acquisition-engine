@@ -207,3 +207,19 @@ export function goalTarget(goal: string): number | null {
   const m = goal.match(/\b(\d{1,4})\b/);
   return m ? Number(m[1]) : null;
 }
+
+/**
+ * One grammatical sentence about the offer from its name and a summary that may be a noun phrase ("An AI assistant that…"),
+ * a "we" sentence, or already start with the name. Avoids the fragment "At X, an AI assistant that…".
+ */
+export function describeOffer(short: string, summary: string): string {
+  const t = summary.trim();
+  if (!t) return '';
+  const lowerFirst = (x: string) => (x ? x.charAt(0).toLowerCase() + x.slice(1) : x);
+  const esc = short.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const body = /^we\b/i.test(t) ? `At ${short}, ${lowerFirst(t)}`
+    : short && new RegExp(`^${esc}\\b`, 'i').test(t) ? t
+    : /^(helps?|brings?|gives?|lets?|makes?|keeps?|turns?)\b/i.test(t) ? `${short} ${lowerFirst(t)}`
+    : `${short} is ${lowerFirst(t)}`;
+  return /[.!?]$/.test(body) ? body : `${body}.`;
+}

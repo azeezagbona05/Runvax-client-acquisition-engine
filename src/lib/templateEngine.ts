@@ -5,7 +5,7 @@
  */
 
 import { dayNumbers, sanitizeAutomation, type Automation, type AutoEmail } from '@/lib/automation';
-import { CONVERSIONS, emptyBrief, sanitizeBrief, shortOffer, type CampaignBrief, type Conversion } from '@/lib/campaignBrief';
+import { CONVERSIONS, describeOffer, emptyBrief, sanitizeBrief, shortOffer, type CampaignBrief, type Conversion } from '@/lib/campaignBrief';
 import { parseKnobs, type Knobs } from '@/lib/campaignBuilder';
 import type { TemplateConfig, TouchId } from '@/lib/templateLibrary';
 
@@ -52,7 +52,7 @@ function slots(t: TemplateConfig, brief: CampaignBrief): Record<string, string> 
   const feats = brief.features.map((f) => f.replace(/^[-•*\d.)\s]+/, '').trim()).filter(Boolean);
   return {
     short,
-    summary: person ? summary : `At ${short}, ${/^we\b/i.test(summary) ? summary : lower(summary)}${/[.!?]$/.test(summary) ? '' : '.'}`,
+    summary: person ? summary : describeOffer(short, summary),
     forAudience: aud ? `we are building specifically for ${aud}` : 'that may be relevant to you',
     features: feats.length ? `${t.product.featuresHeading}:\n\n${feats.map((f) => `- ${f}`).join('\n')}` : '',
     benefit: firstSentence(summary),
