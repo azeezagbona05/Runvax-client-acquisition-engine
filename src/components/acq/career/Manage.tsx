@@ -6,6 +6,7 @@ import type { Analytics } from '@/lib/career/manage/analytics';
 import { KIND_LABEL, RESPONSE_KINDS, type Analysis, type ResponseKind } from '@/lib/career/manage/classify';
 import type { Prep } from '@/lib/career/manage/coach';
 import { api, box, hint, json } from './shared';
+import { StaleNotice } from './ui';
 
 const fmt = (d: string) => new Date(d).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const localInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
@@ -128,14 +129,16 @@ export function InterviewsPanel({ onChanged, refreshKey }: { onChanged: () => vo
 // ── Analytics ──
 export function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
   const [a, setA] = useState<Analytics | null>(null); const [err, setErr] = useState('');
-  useEffect(() => { void api<Analytics>('/api/career/analytics').then((r) => (r.error ? setErr(r.error) : setA(r))); }, [refreshKey]);
-  if (err) return <div role="alert" style={{ color: '#b91c1c' }}>{err}</div>;
+  const load = useCallback(async () => { const r = await api<Analytics>('/api/career/analytics'); if (r.error) setErr(r.error); else { setErr(''); setA(r); } }, []);
+  useEffect(() => { void load(); }, [load, refreshKey]);
+  if (err && !a) return <div role="alert" style={{ display: 'grid', gap: 8, color: '#b91c1c' }}>{err}<div><button className="acq-btn acq-btn-sm" onClick={() => { setErr(''); void load(); }}>Try again</button></div></div>;
   if (!a) return <div style={{ display: 'flex', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Loading…</div>;
   const F = a.funnel; const max = Math.max(1, ...a.appliedPerWeek.map((w) => w.count));
   const steps: Array<[string, number]> = [['Jobs found', F.discovered], ['Good matches', F.matched], ['Prepared', F.prepared], ['Approved', F.approved], ['Applied (by you)', F.applied], ['Employer replied', F.replies], ['Interviews', F.interviews], ['Offers', F.offers]];
   const top = Math.max(1, ...steps.map((s) => s[1]));
   return (
     <>
+      {err && <StaleNotice onRetry={() => { setErr(''); void load(); }} />}
       <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
         {([['Reply rate', a.rates.replyRate == null ? '—' : `${a.rates.replyRate}%`, 'of applications you sent'], ['Interview rate', a.rates.interviewRate == null ? '—' : `${a.rates.interviewRate}%`, 'of applications you sent'], ['Average time to reply', a.rates.avgDaysToReply == null ? '—' : `${a.rates.avgDaysToReply} days`, 'after you applied']] as const).map(([l, v, s]) => <div key={l} style={box}><div style={{ fontSize: 24, fontWeight: 700 }}>{v}</div><div style={hint}>{l}<br />{s}</div></div>)}
       </div>

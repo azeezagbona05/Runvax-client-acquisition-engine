@@ -21,13 +21,15 @@ export default function CareerAgent() {
   const [jobs, setJobs] = useState<Pick<JobsData, 'discovered' | 'matched'> | null>(null); const [rk, setRk] = useState(0); const [apps, setApps] = useState<AppRow[]>([]);
   const [editing, setEditing] = useState(false); const [tab, setTab] = useState<Tab>('Career profile'); const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => { const r = await api('/api/career'); if (r.error) setErr(r.error); else setState(r); }, []);
+  const load = useCallback(async () => { const r = await api('/api/career'); if (r.error) setErr(r.error); else { setErr(''); setState(r); } }, []);
   const loadJobs = useCallback(async () => { const r = await api<JobsData>('/api/career/jobs?view=saved'); if (!r.error) setJobs({ discovered: r.discovered, matched: r.matched }); }, []);
   const loadApps = useCallback(async () => { const r = await api<{ applications: AppRow[] }>('/api/career/applications'); if (!r.error) setApps(r.applications); }, []);
-  useEffect(() => { void load(); void loadJobs(); void loadApps(); }, [load, loadJobs, loadApps]);
-  const changed = () => { void load(); void loadJobs(); void loadApps(); setRk((k) => k + 1); };
+  // One request at a time: several at once each open their own database connections, which a shared database can refuse.
+  const refresh = useCallback(async () => { await load(); await loadJobs(); await loadApps(); }, [load, loadJobs, loadApps]);
+  useEffect(() => { void refresh(); }, [refresh]);
+  const changed = () => { void refresh().then(() => setRk((k) => k + 1)); };
 
-  if (err) return <div role="alert" className="acq-card acq-card-pad" style={{ color: '#b91c1c' }}>{err}</div>;
+  if (!state && err) return <div role="alert" className="acq-card acq-card-pad" style={{ display: 'grid', gap: 8, color: '#b91c1c' }}>{err}<div><button className="acq-btn acq-btn-sm" onClick={() => { setErr(''); void refresh(); }}>Try again</button></div></div>;
   if (!state) return <div className="acq-card acq-card-pad" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Loader2 size={16} className="animate-spin" /> Loading…</div>;
   if (state.status === 'draft' || editing) return <Wizard state={state} onState={setState} onDone={() => { setEditing(false); setTab('Career profile'); }} />;
 

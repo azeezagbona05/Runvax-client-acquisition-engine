@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, FilePen, Loader2, Search, Star, X } from 'lucide-react';
 import type { DiscoveryResult } from '@/lib/career/jobs/discover';
 import { api, box, hint, json, type CareerState } from './shared';
+import { StaleNotice } from './ui';
 
 export interface JobRow { id: string; applicationStatus: string | null; score: number; reasons: string[]; status: string; title: string; company: string; location: string; remote: boolean; url: string; source: string; postedAt: string | null; foundAt: string }
 export interface JobsData { discovered: number; matched: number; minScore: number; jobs: JobRow[] }
@@ -41,7 +42,7 @@ export function DiscoveryPanel({ state, onChanged }: { state: CareerState; onCha
 export function MatchesPanel({ onChanged, refreshKey, onOpenApplications, canPrepare }: { onChanged: () => void; refreshKey: number; onOpenApplications: () => void; canPrepare: boolean }) {
   const [prep, setPrep] = useState<string[]>([]); const [perr, setPerr] = useState('');
   const [view, setView] = useState<'matches' | 'saved' | 'all'>('matches'); const [data, setData] = useState<JobsData | null>(null); const [err, setErr] = useState('');
-  const load = useCallback(async () => { const r = await api<JobsData>(`/api/career/jobs?view=${view}`); if (r.error) setErr(r.error); else setData(r); }, [view]);
+  const load = useCallback(async () => { const r = await api<JobsData>(`/api/career/jobs?view=${view}`); if (r.error) setErr(r.error); else { setErr(''); setData(r); } }, [view]);
   useEffect(() => { void load(); }, [load, refreshKey]);
   const prepare = async (ids: string[]) => {
     setPerr(''); setPrep((p) => [...p, ...ids]);
@@ -50,10 +51,11 @@ export function MatchesPanel({ onChanged, refreshKey, onOpenApplications, canPre
     if (r.error) setPerr(r.error); else { const bad = r.results.find((x) => !x.ok); if (bad) setPerr(bad.error ?? ''); await load(); onChanged(); }
   };
   const mark = async (id: string, status: string) => { await api(`/api/career/jobs/${id}`, json('PATCH', { status })); await load(); onChanged(); };
-  if (err) return <div role="alert" style={{ color: '#b91c1c' }}>{err}</div>;
+  if (err && !data) return <div role="alert" style={{ display: 'grid', gap: 8, color: '#b91c1c' }}>{err}<div><button className="acq-btn acq-btn-sm" onClick={() => { setErr(''); void load(); }}>Try again</button></div></div>;
   if (!data) return <div style={{ display: 'flex', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Loading…</div>;
   return (
     <>
+      {err && <StaleNotice onRetry={() => { setErr(''); void load(); }} />}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {([['matches', `Matches (${data.minScore}%+)`], ['saved', 'Saved'], ['all', 'All found']] as const).map(([v, l]) => <button key={v} className="acq-btn acq-btn-sm" aria-pressed={view === v} onClick={() => setView(v)} style={view === v ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}>{l}</button>)}
         <span style={hint}>{data.discovered} found · {data.matched} match</span>

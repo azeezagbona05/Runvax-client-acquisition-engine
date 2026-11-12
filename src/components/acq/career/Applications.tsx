@@ -5,6 +5,7 @@ import { Bot, Check, CheckCheck, Download, ExternalLink, Loader2, RotateCcw, Sea
 import type { CareerProfileData } from '@/lib/career/types';
 import { downloadCvPdf } from './cvPdf';
 import { api, box, hint, json } from './shared';
+import { StaleNotice } from './ui';
 
 export interface AppRow {
   id: string; status: 'prepared' | 'approved' | 'rejected' | 'applied'; cv: CareerProfileData; coverLetter: string; answers: Array<{ question: string; answer: string }>; gaps: string[]; flags: string[];
@@ -86,16 +87,18 @@ function Card({ a, open, onToggle, onChanged, selected, onSelect, sub }: { a: Ap
 export default function ApplicationsPanel({ mode, onChanged, refreshKey, permMode }: { mode: 'queue' | 'all'; onChanged: () => void; refreshKey: number; permMode: string }) {
   const [sub, setSub] = useState<SubInfo>({ enabled: false, message: '', supported: [], permMode });
   useEffect(() => { void api<{ enabled: boolean; message: string; supported: string[] }>('/api/career/submissions').then((r) => { if (!r.error) setSub({ enabled: r.enabled, message: r.message, supported: r.supported, permMode }); }); }, [refreshKey, permMode]);
-  const [rows, setRows] = useState<AppRow[] | null>(null); const [err, setErr] = useState(''); const [open, setOpen] = useState<string | null>(null); const [sel, setSel] = useState<string[]>([]); const [busy, setBusy] = useState(false);
-  const load = useCallback(async () => { const r = await api<{ applications: AppRow[] }>('/api/career/applications'); if (r.error) setErr(r.error); else setRows(r.applications); }, []);
+  const [rows, setRows] = useState<AppRow[] | null>(null); const [err, setErr] = useState(''); const [bErr, setBErr] = useState(''); const [open, setOpen] = useState<string | null>(null); const [sel, setSel] = useState<string[]>([]); const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => { const r = await api<{ applications: AppRow[] }>('/api/career/applications'); if (r.error) setErr(r.error); else { setErr(''); setRows(r.applications); } }, []);
   useEffect(() => { void load(); }, [load, refreshKey]);
-  if (err) return <div role="alert" style={{ color: '#b91c1c' }}>{err}</div>;
+  if (err && !rows) return <div role="alert" style={{ display: 'grid', gap: 8, color: '#b91c1c' }}>{err}<div><button className="acq-btn acq-btn-sm" onClick={() => { setErr(''); void load(); }}>Try again</button></div></div>;
   if (!rows) return <div style={{ display: 'flex', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Loading…</div>;
   const list = mode === 'queue' ? rows.filter((r) => r.status === 'prepared') : rows;
   const done = () => { void load(); onChanged(); };
-  const batch = async (andSubmit = false) => { setBusy(true); const ids: string[] = []; for (const id of sel) { const r = await api(`/api/career/applications/${id}`, json('PATCH', { action: 'approve' })); if (!r.error) ids.push(id); } if (andSubmit && ids.length) { const r = await api('/api/career/submissions', json('POST', { applicationIds: ids })); if (r.error) setErr(r.error); } setBusy(false); setSel([]); done(); };
+  const batch = async (andSubmit = false) => { setBusy(true); const ids: string[] = []; for (const id of sel) { const r = await api(`/api/career/applications/${id}`, json('PATCH', { action: 'approve' })); if (!r.error) ids.push(id); } setBErr(''); if (andSubmit && ids.length) { const r = await api('/api/career/submissions', json('POST', { applicationIds: ids })); if (r.error) setBErr(r.error); } setBusy(false); setSel([]); done(); };
   return (
     <>
+      {err && <StaleNotice onRetry={() => { setErr(''); void load(); }} />}
+      {bErr && <div role="alert" style={{ color: '#b91c1c', fontSize: 13.5 }}>{bErr}</div>}
       {mode === 'queue' && <p style={{ fontSize: 13.5, color: '#475569' }}>Prepared applications wait here until you decide. Open one to read it, edit it, and approve or reject it. Approving does not send anything by itself. If you allow it, the agent can then submit approved applications on Greenhouse and Lever forms; it hands back anything it cannot answer honestly.</p>}
       {mode === 'queue' && list.length > 0 && <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="acq-btn acq-btn-sm" onClick={() => setSel(sel.length === list.length ? [] : list.map((r) => r.id))}>{sel.length === list.length ? 'Clear selection' : 'Select all'}</button>

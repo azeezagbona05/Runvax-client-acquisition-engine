@@ -88,3 +88,8 @@ export function Progress({ step, steps, onGo }: { step: number; steps: string[];
 export function Mini({ children, onClick, disabled, tone = '#475569' }: { children: ReactNode; onClick: () => void; disabled?: boolean; tone?: string }) {
   return <button type="button" disabled={disabled} onClick={onClick} style={{ border: 0, background: 'transparent', cursor: disabled ? 'default' : 'pointer', fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 4px', color: tone, opacity: disabled ? 0.5 : 1 }}>{children}</button>;
 }
+
+/** Shown when a refresh failed but the page still has data: it keeps what is on screen instead of replacing it with an error. */
+export function StaleNotice({ onRetry }: { onRetry: () => void }) {
+  return <div role="status" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '8px 12px', fontSize: 13 }}>Could not refresh just now, so what you see may be a moment old. <button type="button" onClick={onRetry} style={{ border: 0, background: 'transparent', color: '#6b21a8', fontWeight: 700, cursor: 'pointer', padding: 0 }}>Try again</button></div>;
+}

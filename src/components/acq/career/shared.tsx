@@ -12,11 +12,21 @@ export interface CareerState {
   events: Array<{ id: string; agent: string; action: string; detail: string | null; ok: boolean; createdAt: string }>;
 }
 
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** A read (GET) that hits a server error or a dropped connection is tried once more after a short pause: it is safe to repeat. Writes are never repeated. */
 export async function api<T = CareerState>(url: string, init?: RequestInit): Promise<T & { error?: string }> {
-  try {
-    const r = await fetch(url, init); const j = await r.json().catch(() => ({}));
-    return (r.ok ? j : { error: j.error || 'Something went wrong. Please try again.' }) as T & { error?: string };
-  } catch { return { error: 'Could not reach the server. Check your connection.' } as T & { error?: string }; }
+  const read = !init || !init.method || init.method.toUpperCase() === 'GET';
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const r = await fetch(url, init);
+      if (read && attempt === 0 && r.status >= 500) { await wait(700); continue; }
+      const j = await r.json().catch(() => ({}));
+      return (r.ok ? j : { error: j.error || 'Something went wrong. Please try again.' }) as T & { error?: string };
+    } catch {
+      if (read && attempt === 0) { await wait(700); continue; }
+      return { error: 'Could not reach the server. Check your connection.' } as T & { error?: string };
+    }
+  }
 }
 export const json = (method: string, body: unknown): RequestInit => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
