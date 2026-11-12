@@ -16,7 +16,7 @@ const STEPS: Record<AgentKind | 'any', string[]> = {
   visibility: ['Reading your website', 'Understanding your business', 'Choosing what to write about', 'Setting the schedule', 'Final checks'],
   assistant: ['Reading your website', 'Understanding the job', 'Writing its role and instructions', 'Listing the knowledge it needs', 'Choosing its skills and escalation rules', 'Final checks'],
 };
-const ICON: Record<TemplateId, typeof Newspaper> = {
+export const ICON: Record<TemplateId, typeof Newspaper> = {
   receptionist: Headset, sales: Briefcase, qualify: Filter, support: LifeBuoy, appointment: CalendarCheck, shopping: ShoppingBag, orders: Package, internal: BookOpen,
   custom: WandSparkles, visibility: Newspaper, followup: Repeat, reactivation: UserPlus, emailMarketing: Mail, social: Share2, invoice: Receipt, reporting: ChartColumn, reviews: Star,
 };
@@ -64,6 +64,9 @@ export default function AgentBuilder() {
     if (t.status === 'soon' || !t.engine) return;
     setTpl(id); setKind(t.engine); setTasks(TASKS_FOR[id] ?? []); setMode('auto');
   };
+  // Arriving from Agent Templates (?template=receptionist) starts with that template already chosen.
+  useEffect(() => { try { const t = new URLSearchParams(window.location.search).get('template'); if (t && t in TEMPLATES) pick(t as TemplateId); } catch { /* start at the first step */ } // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const reset = () => { setTpl(null); setKind(null); setBlocked(null); setTasks([]); };
   const manual = () => { if (!kind) return; setCfg(sanitizeConfig(kind, kind === 'assistant' ? { ...presetFor(tpl) } : {})); setName(''); setPhase('review'); };
   async function build() {

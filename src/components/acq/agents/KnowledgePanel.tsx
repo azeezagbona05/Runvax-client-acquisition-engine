@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BookOpen, Check, FileText, Globe, Loader2, RefreshCw, Table2, Trash2, X, HelpCircle, ClipboardPaste } from 'lucide-react';
 
-interface Source { id: string; kind: 'website' | 'pdf' | 'table' | 'qa' | 'text'; name: string; status: string; meta: Record<string, unknown>; chunks: number }
+export interface Source { id: string; kind: 'website' | 'pdf' | 'table' | 'qa' | 'text'; name: string; status: string; meta: Record<string, unknown>; chunks: number }
 type Kind = Source['kind'];
 const KIND: Record<Kind, { label: string; icon: typeof Globe }> = { website: { label: 'Website', icon: Globe }, pdf: { label: 'Document', icon: FileText }, table: { label: 'Table', icon: Table2 }, qa: { label: 'Q&A', icon: HelpCircle }, text: { label: 'Notes', icon: ClipboardPaste } };
 const CARDS: Array<{ kind: Exclude<Kind, 'text'>; title: string; body: string }> = [
@@ -39,7 +39,7 @@ export default function KnowledgePanel({ ids, onChange }: { ids: string[]; onCha
   );
 }
 
-function Manager({ sources, ids, onChange, reload, close }: { sources: Source[]; ids: string[]; onChange: (ids: string[]) => void; reload: () => void; close: () => void }) {
+export function Manager({ sources, ids, onChange, reload, close, standalone = false }: { sources: Source[]; ids: string[]; onChange: (ids: string[]) => void; reload: () => void; close: () => void; standalone?: boolean }) {
   const [view, setView] = useState<'list' | 'add'>(sources.length ? 'list' : 'add'); const [kind, setKind] = useState<Kind | null>(null);
   const [busy, setBusy] = useState(''); const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [url, setUrl] = useState(''); const [name, setName] = useState(''); const [text, setText] = useState(''); const file = useRef<HTMLInputElement>(null);
@@ -56,7 +56,7 @@ function Manager({ sources, ids, onChange, reload, close }: { sources: Source[];
       const j = await res.json().catch(() => ({})); setBusy('');
       if (!res.ok) { setMsg({ ok: false, t: j.error || 'Could not add that.' }); return; }
       onChange([...ids, j.source.id]); reload(); setKind(null); setUrl(''); setName(''); setText(''); setView('list');
-      setMsg({ ok: true, t: `Added “${j.source.name}” and switched it on for this assistant.${j.note ? ` ${j.note}` : ''}` });
+      setMsg({ ok: true, t: `Added “${j.source.name}”${standalone ? '. Switch it on for an agent from that agent\'s settings.' : ' and switched it on for this assistant.'}${j.note ? ` ${j.note}` : ''}` });
     } catch { setBusy(''); setMsg({ ok: false, t: 'Could not reach RUNVAX. Check your connection.' }); }
   }
   async function refresh(s: Source) { setBusy('r' + s.id); setMsg(null); const r = await fetch(`/api/client-acquisition/knowledge/${s.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'refresh' }) }); const j = await r.json().catch(() => ({})); setBusy(''); setMsg(r.ok ? { ok: true, t: `Read “${s.name}” again (${j.pages} pages).` } : { ok: false, t: j.error || 'Could not read it again.' }); reload(); }
@@ -72,12 +72,12 @@ function Manager({ sources, ids, onChange, reload, close }: { sources: Source[];
         {msg && <p role="status" className="acq-notice" style={{ fontSize: 13, color: msg.ok ? '#166534' : '#b91c1c' }}>{msg.t}</p>}
 
         {view === 'list' && <>
-          <p className="acq-sub" style={{ fontSize: 13 }}>Tick what this assistant should answer from.</p>
+          {!standalone && <p className="acq-sub" style={{ fontSize: 13 }}>Tick what this assistant should answer from.</p>}
           <div style={{ display: 'grid', gap: 8 }}>
             {sources.length === 0 && <p className="acq-sub">Nothing added yet.</p>}
             {sources.map((s) => { const I = KIND[s.kind]?.icon ?? FileText; return (
               <div key={s.id} style={{ display: 'flex', gap: 10, alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 12px' }}>
-                <input type="checkbox" aria-label={`Use ${s.name} in this assistant`} checked={ids.includes(s.id)} onChange={() => toggle(s.id)} style={{ accentColor: '#9333ea', width: 18, height: 18 }} />
+                {!standalone && <input type="checkbox" aria-label={`Use ${s.name} in this assistant`} checked={ids.includes(s.id)} onChange={() => toggle(s.id)} style={{ accentColor: '#9333ea', width: 18, height: 18 }} />}
                 <I size={18} style={{ color: '#7e22ce', flex: 'none' }} />
                 <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div><div className="acq-faint" style={{ fontSize: 12 }}>{KIND[s.kind]?.label} · {detail(s)}{s.kind === 'website' && s.meta.readAt ? ` · read ${new Date(String(s.meta.readAt)).toLocaleDateString('en-GB', { dateStyle: 'medium' })}` : ''}</div></div>
                 {s.kind === 'website' && <button type="button" className="acq-btn acq-btn-sm" aria-label={`Read ${s.name} again`} disabled={!!busy} onClick={() => void refresh(s)}>{busy === 'r' + s.id ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}</button>}

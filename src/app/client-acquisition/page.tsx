@@ -10,6 +10,7 @@ import { ACTIVITY_ICON } from '@/components/acq/RecentActivity';
 import { EmptyState, Skeleton, fmtNum } from '@/components/acq/ui';
 import { timeAgo } from '@/lib/acqOverview';
 import { DEFAULT_HOME } from '@/lib/home';
+import { STUDIO_HOME } from '@/lib/workspace';
 
 interface AgentSummary { conversations: number; changePct: number | null; leads: number; activeAgents: number; agents: number; events: Array<{ id: string; kind: 'lead' | 'agent' | 'article'; title: string; detail: string; at: string }> }
 const RANGES = [{ d: 7, label: 'Last 7 days' }, { d: 30, label: 'Last 30 days' }, { d: 90, label: 'Last 90 days' }];
@@ -21,7 +22,7 @@ function Delta({ pct }: { pct: number | null | undefined }) {
 
 const MODULES = [
   { href: DEFAULT_HOME, title: 'Prospecting & Campaigns', body: 'Find business leads, create AI campaigns, automate follow-ups and generate opportunities.', icon: Target, bg: '#faf5ff' },
-  { href: '/client-acquisition/agents', title: 'AI Agent Studio', body: 'Build, customise and deploy AI receptionists, visibility agents and more for your business.', icon: Bot, bg: '#f5f3ff' },
+  { href: STUDIO_HOME, title: 'AI Agent Studio', body: 'Build, customise and deploy AI receptionists, visibility agents and more for your business.', icon: Bot, bg: '#f5f3ff' },
 ];
 const ACTIONS = [
   { href: DEFAULT_HOME, title: 'Find Leads', body: 'Generate business prospects', icon: Target },

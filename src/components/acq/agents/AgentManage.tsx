@@ -45,6 +45,8 @@ export default function AgentManage({ id }: { id: string }) {
     setCfg((c) => c ?? j.agent.config); setName((n) => n || j.agent.name);
   }, [id]);
   useEffect(() => { void load(); }, [load]);
+  // Deep links from the Studio (Deployments, Conversations) open the right tab: ?tab=deploy | try | settings | work.
+  useEffect(() => { try { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'work' || t === 'try' || t === 'settings' || t === 'deploy') setTab(t); } catch { /* default tab */ } }, []);
 
   if (missing) return <p className="acq-sub">That agent was not found. <Link className="acq-link" href="/client-acquisition/agents">Back to agents</Link></p>;
   if (!agent || !cfg) return <p className="acq-sub"><Loader2 size={16} className="animate-spin" style={{ display: 'inline' }} /> Loading…</p>;

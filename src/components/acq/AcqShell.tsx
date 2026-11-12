@@ -8,10 +8,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
-  Bell, Bot, Briefcase, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LifeBuoy, PlayCircle, LogOut, Mail, Menu, MessageCircle,
-  Search, Send, Settings, Users, Wand2, Zap, MapPin,
+  BarChart3, Bell, BookOpen, Bot, Briefcase, Check, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LayoutDashboard, LayoutTemplate, LifeBuoy, PlayCircle, LogOut, Mail, Menu, MessageCircle,
+  MessagesSquare, Network, Rocket, Search, Send, Settings, Sparkles, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
+import { STUDIO_BUILD, STUDIO_HOME, WORKSPACE_LABEL, workspaceOf, type Workspace } from '@/lib/workspace';
 import { useSiteStatus, useTrialOffer } from '@/context/SiteStatusContext';
 import StartTrialButton from '@/components/StartTrialButton';
 import Logo from './Logo';
@@ -20,29 +21,108 @@ import { SiteBanner } from '../SiteNotice';
 import { useUpgrade } from '@/context/UpgradeContext';
 import { useAcq } from './AcqProvider';
 
-/** One menu for the whole product: Find Prospects first (it is the default page), then the Client Acquisition tools. */
-const NAV_GROUPS: Array<{ heading?: string; items: ReadonlyArray<{ href: string; label: string; icon: typeof Home; exact?: boolean; badge?: boolean }> }> = [
-  { items: [
-    { href: '/client-acquisition', label: 'Home', icon: Home, exact: true },
-  ] },
+type NavItem = { href: string; label: string; icon: typeof Home; exact?: boolean; badge?: boolean; not?: string[] };
+type NavGroup = { heading?: string; items: ReadonlyArray<NavItem> };
+
+/** Prospecting: finding leads and winning clients, including the AI team that runs campaigns (not the agents built in the Studio). */
+const PROSPECTING_NAV: NavGroup[] = [
+  { items: [{ href: '/client-acquisition', label: 'Home', icon: Home, exact: true }] },
   { heading: 'Prospecting & Campaigns', items: [
     { href: DEFAULT_HOME, label: 'Find Prospects', icon: MapPin },
     { href: '/client-acquisition/leads', label: 'Lead Lists', icon: Users },
     { href: '/client-acquisition/campaigns', label: 'Campaigns', icon: Send },
     { href: '/client-acquisition/automation', label: 'Automation Builder', icon: Wand2 },
+    { href: '/client-acquisition/campaign-agents', label: 'Campaign AI Agents', icon: Network },
     { href: '/client-acquisition/activity', label: 'Email Activity', icon: Mail },
     { href: '/client-acquisition/inbox', label: 'Inbox & Opportunities', icon: MessageCircle, badge: true },
     { href: '/client-acquisition/templates', label: 'Templates', icon: FileText },
-  ] },
-  { heading: 'AI Agent Studio', items: [
-    { href: '/client-acquisition/agents', label: 'AI Agents', icon: Bot },
-    { href: '/client-acquisition/career', label: 'Career Agent', icon: Briefcase },
   ] },
   { heading: 'Workspace', items: [
     { href: '/client-acquisition/integrations', label: 'Integrations', icon: Zap },
     { href: SETTINGS_HOME, label: 'Settings', icon: Settings },
   ] },
 ];
+
+/** AI Agent Studio: everything about building, deploying and watching AI agents. */
+const STUDIO_NAV: NavGroup[] = [
+  { items: [{ href: STUDIO_HOME, label: 'Overview', icon: LayoutDashboard, exact: true }] },
+  { heading: 'Agents', items: [
+    { href: STUDIO_BUILD, label: 'Build an Agent', icon: Sparkles },
+    { href: '/client-acquisition/agents', label: 'My AI Agents', icon: Bot, not: [STUDIO_BUILD] },
+    { href: '/client-acquisition/career', label: 'Career Agent', icon: Briefcase },
+    { href: '/client-acquisition/studio/templates', label: 'Agent Templates', icon: LayoutTemplate },
+  ] },
+  { heading: 'Run & improve', items: [
+    { href: '/client-acquisition/studio/knowledge', label: 'Knowledge Base', icon: BookOpen },
+    { href: '/client-acquisition/studio/deployments', label: 'Deployments', icon: Rocket },
+    { href: '/client-acquisition/studio/conversations', label: 'Conversations', icon: MessagesSquare },
+    { href: '/client-acquisition/studio/analytics', label: 'Analytics', icon: BarChart3 },
+  ] },
+  { heading: 'Workspace', items: [
+    { href: '/client-acquisition/integrations', label: 'Integrations', icon: Zap },
+    { href: SETTINGS_HOME, label: 'Settings', icon: Settings },
+  ] },
+];
+
+const MENUS: Record<Workspace, NavGroup[]> = { prospecting: PROSPECTING_NAV, studio: STUDIO_NAV };
+const HOME_OF: Record<Workspace, string> = { prospecting: DEFAULT_HOME, studio: STUDIO_HOME };
+const WS_ICON: Record<Workspace, typeof Home> = { prospecting: MapPin, studio: Bot };
+const WS_KEY = 'acq_workspace';
+
+/** The workspace the page is in. Shared pages (Settings, Integrations, Help) keep the last one chosen. */
+function useWorkspace(pathname: string): Workspace {
+  const own = workspaceOf(pathname);
+  const [remembered, setRemembered] = useState<Workspace>('prospecting');
+  useEffect(() => { try { if (localStorage.getItem(WS_KEY) === 'studio') setRemembered('studio'); } catch { /* default */ } }, []);
+  useEffect(() => { if (!own) return; setRemembered(own); try { localStorage.setItem(WS_KEY, own); } catch { /* not saved */ } }, [own]);
+  return own ?? remembered;
+}
+
+/** The workspace switcher: shows where you are and moves you between Prospecting and AI Agent Studio. */
+function WorkspaceSwitcher({ current, rail, onNavigate }: { current: Workspace; rail: boolean; onNavigate: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('mousedown', onClick); window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('mousedown', onClick); window.removeEventListener('keydown', onKey); };
+  }, []);
+  const Icon = WS_ICON[current];
+  const choose = () => { setOpen(false); onNavigate(); };
+  return (
+    <div ref={ref} style={{ position: 'relative', padding: rail ? '0 10px 6px' : '0 12px 6px' }}>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="listbox" aria-expanded={open} aria-label={`Workspace: ${WORKSPACE_LABEL[current].name}. Switch workspace`} title={rail ? `Workspace: ${WORKSPACE_LABEL[current].name}` : undefined}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: rail ? 'center' : 'flex-start', gap: 10, padding: rail ? '8px 0' : '8px 10px', border: '1px solid var(--line)', borderRadius: 12, background: '#faf5ff', textAlign: 'left' }}>
+        <span style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, background: '#9333ea', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={17} /></span>
+        {!rail && <>
+          <span style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+            <span className="acq-faint" style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>Workspace</span>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{WORKSPACE_LABEL[current].name}</span>
+          </span>
+          <ChevronDown size={16} style={{ color: '#64748b', flex: 'none', transform: open ? 'rotate(180deg)' : undefined }} />
+        </>}
+      </button>
+      {open && (
+        <div className="acq-dropdown" role="listbox" aria-label="Workspaces" style={{ top: 'calc(100% + 2px)', left: rail ? 10 : 12, right: rail ? undefined : 12, width: rail ? 250 : undefined, padding: 6, zIndex: 60 }}>
+          {(Object.keys(WORKSPACE_LABEL) as Workspace[]).map((w) => {
+            const I = WS_ICON[w]; const on = w === current;
+            return (
+              <Link key={w} href={HOME_OF[w]} role="option" aria-selected={on} onClick={choose} className={`acq-nav-item${on ? ' active' : ''}`} style={{ height: 'auto', padding: '10px 12px', alignItems: 'flex-start' }}>
+                <I size={19} style={{ marginTop: 2 }} />
+                <span style={{ flex: 1, minWidth: 0, whiteSpace: 'normal', lineHeight: 1.3 }}>
+                  <span style={{ display: 'block', fontWeight: 700 }}>{WORKSPACE_LABEL[w].name}</span>
+                  <span className="acq-faint" style={{ display: 'block', fontSize: 12, fontWeight: 400 }}>{WORKSPACE_LABEL[w].hint}</span>
+                </span>
+                {on && <Check size={16} style={{ marginTop: 2 }} />}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface SearchResults {
   campaigns: Array<{ id: string; name: string; status: string }>;
@@ -51,8 +131,13 @@ interface SearchResults {
 
 
 /** Bottom tab bar for phones: the five places people use most, with the full menu behind "More". Hidden on desktop by CSS. */
-function MobileTabBar({ active, inbox, onMore }: { active: (href: string, exact?: boolean) => boolean; inbox: number; onMore: () => void }) {
-  const tabs = [
+function MobileTabBar({ workspace, active, inbox, onMore }: { workspace: Workspace; active: (href: string, exact?: boolean) => boolean; inbox: number; onMore: () => void }) {
+  const tabs: Array<{ href: string; label: string; icon: typeof Home; badge?: number }> = workspace === 'studio' ? [
+    { href: STUDIO_HOME, label: 'Overview', icon: LayoutDashboard },
+    { href: '/client-acquisition/agents', label: 'Agents', icon: Bot },
+    { href: '/client-acquisition/studio/conversations', label: 'Chats', icon: MessagesSquare },
+    { href: '/client-acquisition/studio/analytics', label: 'Analytics', icon: BarChart3 },
+  ] : [
     { href: DEFAULT_HOME, label: 'Find', icon: MapPin },
     { href: '/client-acquisition/leads', label: 'Leads', icon: Users },
     { href: '/client-acquisition/campaigns', label: 'Campaigns', icon: Send },
@@ -61,7 +146,7 @@ function MobileTabBar({ active, inbox, onMore }: { active: (href: string, exact?
   return (
     <nav className="acq-tabbar" data-mobile-tabs aria-label="Main">
       {tabs.map((t) => {
-        const Icon = t.icon; const on = active(t.href);
+        const Icon = t.icon; const on = active(t.href, t.href === STUDIO_HOME);
         return (
           <Link key={t.href} href={t.href} className={`acq-tab-item${on ? ' active' : ''}`} aria-current={on ? 'page' : undefined}>
             <span style={{ position: 'relative', display: 'inline-flex' }}>
@@ -238,6 +323,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
   useEffect(() => { if (guest) return; document.documentElement.classList.add('has-tabbar'); return () => document.documentElement.classList.remove('has-tabbar'); }, [guest]);
   const toggleRail = () => setRail((v) => { try { localStorage.setItem('acq_rail', v ? '0' : '1'); } catch { /* not saved */ } return !v; });
 
+  const workspace = useWorkspace(pathname);
   const active = (href: string, exact?: boolean) => (exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));
   const inbox = data?.inboxCount ?? 0;
   const running = (data?.runningCampaigns ?? 0) > 0;
@@ -266,23 +352,24 @@ export default function AcqShell({ children }: { children: ReactNode }) {
     <div className="acq-root">
       {mobileOpen && <div className="acq-scrim" onClick={() => setMobileOpen(false)} />}
 
-      <aside className={`acq-sidebar${rail ? ' rail' : ''}${mobileOpen ? ' open' : ''}`} aria-label="Client Acquisition navigation">
+      <aside className={`acq-sidebar${rail ? ' rail' : ''}${mobileOpen ? ' open' : ''}`} aria-label={`${WORKSPACE_LABEL[workspace].name} navigation`}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: rail ? 'center' : 'space-between', height: 64, padding: rail ? 0 : '0 16px 0 20px' }}>
-          <Link href={DEFAULT_HOME} aria-label="RUNVAX Find Prospects"><Logo compact={rail} /></Link>
+          <Link href={HOME_OF[workspace]} aria-label={`RUNVAX ${WORKSPACE_LABEL[workspace].name}`}><Logo compact={rail} /></Link>
           {!rail && (
             <button className="acq-icon-btn acq-only-desktop" onClick={toggleRail} aria-label="Collapse sidebar"><ChevronsLeft size={18} /></button>
           )}
         </div>
         {rail && <button className="acq-icon-btn acq-only-desktop" onClick={toggleRail} aria-label="Expand sidebar" style={{ alignSelf: 'center', marginBottom: 6 }}><ChevronsRight size={18} /></button>}
+        <WorkspaceSwitcher current={workspace} rail={rail} onNavigate={() => setMobileOpen(false)} />
 
         <nav className="acq-nav-compact" style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: rail ? '8px 10px' : '8px 12px', flex: 1, overflowY: 'auto' }}>
-          {NAV_GROUPS.map((group, gi) => (
+          {MENUS[workspace].map((group, gi) => (
             <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: gi === 0 ? 0 : 8 }}>
               {group.heading && !rail && <p className="acq-faint" style={{ padding: '4px 14px 2px', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>{group.heading}</p>}
               {group.heading && rail && <span style={{ height: 1, background: 'var(--line)', margin: '2px 8px' }} />}
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const on = active(item.href, item.exact);
+                const on = active(item.href, item.exact) && !(item.not ?? []).some((n) => active(n));
                 return (
                   <Link key={item.href} href={item.href} className={`acq-nav-item${on ? ' active' : ''}`} title={rail ? item.label : undefined} style={rail ? { justifyContent: 'center', padding: 0, position: 'relative' } : undefined} aria-current={on ? 'page' : undefined}>
                     <Icon size={19} />
@@ -330,7 +417,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
       <div className="acq-main" style={{ paddingLeft: undefined }}>
         <style>{`@media (min-width:1024px){.acq-main{padding-left:${rail ? 76 : 250}px}}`}</style>
         <header className="acq-topbar">
-          <Link href={DEFAULT_HOME} className="acq-only-mobile" aria-label="RUNVAX Find Prospects" style={{ display: 'inline-flex' }}><Logo compact /></Link>
+          <Link href={HOME_OF[workspace]} className="acq-only-mobile" aria-label={`RUNVAX ${WORKSPACE_LABEL[workspace].name}`} style={{ display: 'inline-flex' }}><Logo compact /></Link>
           <GlobalSearch />
           <div className="acq-spacer" style={{ flex: 1 }} />
           <span className={`acq-status acq-only-desktop${running ? '' : ' idle'}`}><span className="acq-dot" />{running ? 'Campaigns Running' : 'Nothing Running'}</span>
@@ -348,7 +435,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
         </main>
       </div>
       <CelebrationHost />
-      <MobileTabBar active={active} inbox={inbox} onMore={() => setMobileOpen(true)} />
+      <MobileTabBar workspace={workspace} active={active} inbox={inbox} onMore={() => setMobileOpen(true)} />
     </div>
   );
 }

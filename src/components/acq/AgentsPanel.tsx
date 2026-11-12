@@ -39,7 +39,7 @@ export default function AgentsPanel() {
   const now = Date.now();
 
   return (
-    <Card title="Your AI Workforce" right={<Link href="/client-acquisition/agents" className="acq-link">View all agents <ArrowRight size={13} /></Link>}>
+    <Card title="Your AI Workforce" right={<Link href="/client-acquisition/campaign-agents" className="acq-link">View all agents <ArrowRight size={13} /></Link>}>
       {failed && <EmptyState title="Couldn't load agent activity" body="Try refreshing the page." />}
       {!failed && !data && <div style={{ display: 'grid', gap: 18 }}>{WORKFORCE.map((a) => <Skeleton key={a.id} h={44} />)}</div>}
       {data && (
