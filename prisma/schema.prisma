@@ -1464,3 +1464,36 @@ model PlatformCampaign {
 
   @@index([status, updatedAt])
 }
+
+// Help & support tickets. A customer opens a ticket from Help & support; admins reply in the admin "Support" tab.
+// `ref` is the short reference shown to people (RX-ABC123). Staff replies are emailed to the customer.
+model SupportTicket {
+  id          String           @id @default(cuid())
+  ref         String           @unique @db.VarChar(16)
+  userId      String           @db.VarChar(191)
+  email       String           @db.VarChar(191)
+  name        String?          @db.VarChar(191)
+  subject     String           @db.VarChar(160)
+  category    String           @default("question") @db.VarChar(24)
+  status      String           @default("open") @db.VarChar(16) // open | pending (waiting on customer) | resolved | closed
+  lastBy      String           @default("user") @db.VarChar(8) // user | staff
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  lastReplyAt DateTime         @default(now())
+  messages    SupportMessage[]
+
+  @@index([userId, updatedAt])
+  @@index([status, lastReplyAt])
+}
+
+model SupportMessage {
+  id         String        @id @default(cuid())
+  ticketId   String        @db.VarChar(191)
+  author     String        @db.VarChar(8) // user | staff
+  authorName String?       @db.VarChar(191)
+  body       String        @db.Text
+  createdAt  DateTime      @default(now())
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}

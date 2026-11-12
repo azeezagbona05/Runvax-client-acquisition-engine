@@ -317,9 +317,9 @@ export default function AcqShell({ children }: { children: ReactNode }) {
           <button type="button" onClick={openWelcomeVideo} className="acq-nav-item" title={rail ? 'Watch intro video' : undefined} style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left', ...(rail ? { justifyContent: 'center', padding: 0 } : {}) }}>
             <PlayCircle size={19} />{!rail && <span>Watch intro video</span>}
           </button>
-          <a href="mailto:info@runvax.com?subject=Runvax%20Support" className="acq-nav-item" title={rail ? 'Help & support' : undefined} style={rail ? { justifyContent: 'center', padding: 0 } : undefined}>
+          <Link href="/client-acquisition/help" className="acq-nav-item" title={rail ? 'Help & support' : undefined} style={rail ? { justifyContent: 'center', padding: 0 } : undefined}>
             <LifeBuoy size={19} />{!rail && <span>Help &amp; support</span>}
-          </a>
+          </Link>
           <button onClick={() => void signOut({ callbackUrl: '/' })} className="acq-nav-item" title={rail ? 'Sign out' : undefined} style={{ width: '100%', border: 0, background: 'transparent', color: '#b91c1c', textAlign: 'left', ...(rail ? { justifyContent: 'center', padding: 0 } : {}) }}>
             <LogOut size={19} />{!rail && <span>Sign out</span>}
           </button>

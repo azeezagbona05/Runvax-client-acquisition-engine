@@ -193,6 +193,7 @@ describe('tripwire: every server route that messages prospects uses the guard', 
 
   // Routes that send to the account's OWN user (system mail) or manage the WhatsApp account, never to a prospect.
   // src/lib/platformCampaign.ts: the admin's campaigns go only to RUNVAX's own account holders (never prospects), each with an unsubscribe link.
+  // src/lib/support.ts: support-ticket mail goes only to the customer who opened the ticket and to the admin addresses on ADMIN_EMAILS, never to a prospect.
   // src/lib/adminCode.ts: the admin sign-in code goes only to an address on ADMIN_EMAILS (the admin's own), never to a prospect.
   // src/lib/agents/chat.ts: the assistant's new-lead alert goes only to the owner's address (capped per agent per day); visitors are only ever answered in their own chat.
   const NOT_PROSPECT_FACING = new Set([
@@ -200,7 +201,7 @@ describe('tripwire: every server route that messages prospects uses the guard', 
     'src/app/api/auth/resend-verification/route.ts', 'src/app/api/cron/admin-daily-brief/route.ts', 'src/app/api/cron/expire-plans/route.ts',
     'src/app/api/cron/lifecycle-emails/route.ts', 'src/app/api/cron/onboarding-emails/route.ts', 'src/app/api/payments/webhook/route.ts',
     'src/app/api/trial/start/route.ts', 'src/app/api/user/smtp-test/route.ts', 'src/app/api/whatsapp/template-status/route.ts', 'src/app/api/whatsapp/connect/route.ts',
-    'src/app/api/whatsapp/create-template/route.ts', 'src/app/api/whatsapp/test/route.ts', 'src/lib/acqNotify.ts', 'src/lib/integrations/providers.ts', 'src/lib/adminOps.ts', 'src/lib/agents/chat.ts', 'src/lib/adminCode.ts', 'src/lib/email.ts', 'src/lib/launchCampaign.ts', 'src/lib/platformCampaign.ts', 'src/lib/lifecycleRunner.ts', 'src/lib/newUserSetup.ts', 'src/lib/trial.ts', 'src/lib/usage.ts',
+    'src/app/api/whatsapp/create-template/route.ts', 'src/app/api/whatsapp/test/route.ts', 'src/lib/acqNotify.ts', 'src/lib/integrations/providers.ts', 'src/lib/adminOps.ts', 'src/lib/agents/chat.ts', 'src/lib/adminCode.ts', 'src/lib/email.ts', 'src/lib/launchCampaign.ts', 'src/lib/platformCampaign.ts', 'src/lib/support.ts', 'src/lib/lifecycleRunner.ts', 'src/lib/newUserSetup.ts', 'src/lib/trial.ts', 'src/lib/usage.ts',
   ]);
 
   it('finds the senders, and each prospect-facing one applies checkRecipient before sending', () => {

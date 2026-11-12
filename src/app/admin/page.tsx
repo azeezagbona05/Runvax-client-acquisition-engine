@@ -8,7 +8,7 @@ import {
   LogOut, RefreshCw, Search, ChevronDown, SlidersHorizontal, Check,
   Infinity as InfinityIcon, Plus, Trash2, X, AlertTriangle,
   MapPin, Activity, Ban, Save, ShieldOff, Sun, Moon, Mail, Loader2, ShieldAlert,
-  Menu, LayoutDashboard, Wallet, BarChart3, Megaphone, Cpu, Receipt, CalendarDays, SlidersVertical, ExternalLink, FlaskConical,
+  Menu, LayoutDashboard, Wallet, BarChart3, Megaphone, Cpu, Receipt, CalendarDays, SlidersVertical, ExternalLink, FlaskConical, LifeBuoy,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/scoring';
 import BehaviorPanel from './BehaviorPanel';
@@ -16,6 +16,7 @@ import OperationsPanel from './OperationsPanel';
 import SiteControlsPanel from './SiteControlsPanel';
 import ProspectLabPanel from './ProspectLabPanel';
 import EmailCampaignsPanel from './EmailCampaignsPanel';
+import SupportPanel from './SupportPanel';
 import AdminSecurity from './AdminSecurity';
 import { ALL_FEATURES, FEATURE_LABELS, FeatureId } from '@/lib/features';
 import { AREAS, TIER_CONFIG } from '@/lib/areas';
@@ -872,7 +873,7 @@ function botScore(u: AdminUser): number {
   return score;
 }
 
-type AdminTab = 'overview' | 'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs' | 'site' | 'prospect-lab';
+type AdminTab = 'overview' | 'users' | 'operations' | 'campaigns' | 'behaviour' | 'payments' | 'revenue' | 'plans' | 'costs' | 'site' | 'support' | 'prospect-lab';
 
 /** Sidebar structure: every section of the admin panel sits under one category. */
 const ADMIN_NAV: Array<{ heading: string; items: Array<{ id: AdminTab; label: string; desc: string; icon: typeof Users }> }> = [
@@ -898,6 +899,7 @@ const ADMIN_NAV: Array<{ heading: string; items: Array<{ id: AdminTab; label: st
     { id: 'prospect-lab', label: 'Prospect Lab', desc: 'Try the experimental email engine on real prospects', icon: FlaskConical },
   ] },
   { heading: 'System', items: [
+    { id: 'support', label: 'Support tickets', desc: 'Customer questions and replies', icon: LifeBuoy },
     { id: 'site', label: 'Site controls', desc: 'Switches, limits, banner and maintenance', icon: SlidersHorizontal },
     { id: 'operations', label: 'Operations', desc: 'Agents, queues and platform health', icon: Cpu },
   ] },
@@ -1381,6 +1383,7 @@ export default function AdminPage() {
         </>)}
 
         {tab === 'site' && <SiteControlsPanel />}
+        {tab === 'support' && <SupportPanel />}
         {tab === 'prospect-lab' && <ProspectLabPanel />}
         {tab === 'operations' && <OperationsPanel />}
         {tab === 'campaigns' && <EmailCampaignsPanel />}

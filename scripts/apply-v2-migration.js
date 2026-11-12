@@ -10,6 +10,7 @@
 //   12_knowledge_base      -> new tables KnowledgeSource, KnowledgeChunk
 //   13_site_settings       -> new table SiteSetting (admin Site controls)
 //   14_platform_campaigns  -> new table PlatformCampaign (admin campaigns for RUNVAX users)
+//   15_support_tickets     -> new tables SupportTicket, SupportMessage (Help & support ticketing)
 // Additive only. Each migration is skipped if it is already applied, so it is safe to run twice.
 // It never touches migrations 0-3 or any existing RUNVAX 1.0 table. Pass --yes to skip the confirmation prompt.
 const fs = require('fs');
@@ -30,6 +31,7 @@ const MIGRATIONS = [
   { dir: '12_knowledge_base', tables: ['KnowledgeSource', 'KnowledgeChunk'], columns: [] },
   { dir: '13_site_settings', tables: ['SiteSetting'], columns: [] },
   { dir: '14_platform_campaigns', tables: ['PlatformCampaign'], columns: [] },
+  { dir: '15_support_tickets', tables: ['SupportTicket', 'SupportMessage'], columns: [] },
 ];
 
 (async () => {
