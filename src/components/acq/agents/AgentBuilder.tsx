@@ -8,6 +8,8 @@ import { configIssues, sanitizeConfig, type AgentConfig, type AgentKind, type As
 import { CATEGORIES, TEMPLATES, type Category, type TemplateId } from '@/lib/agents/templates';
 import AgentForm from './AgentForm';
 import AgentPreview from './AgentPreview';
+import { MultiChips } from './Chips';
+import { AGENT_TASKS, BUSINESS_TYPES, TASKS_FOR, describeJob, templateForTasks } from '@/lib/agents/options';
 
 const STEPS: Record<AgentKind | 'any', string[]> = {
   any: ['Reading your request', 'Working out the right agent', 'Reading your website', 'Writing its role and instructions', 'Choosing its skills', 'Final checks'],
@@ -18,11 +20,6 @@ const ICON: Record<TemplateId, typeof Newspaper> = {
   receptionist: Headset, sales: Briefcase, qualify: Filter, support: LifeBuoy, appointment: CalendarCheck, shopping: ShoppingBag, orders: Package, internal: BookOpen,
   custom: WandSparkles, visibility: Newspaper, followup: Repeat, reactivation: UserPlus, emailMarketing: Mail, social: Share2, invoice: Receipt, reporting: ChartColumn, reviews: Star,
 };
-const EXAMPLES = [
-  TEMPLATES.receptionist.example,
-  'We sell payroll software to SMEs. Greet website visitors, ask company size and current tool, and book a demo with warm leads.',
-  TEMPLATES.visibility.example,
-];
 const ALL = Object.keys(TEMPLATES) as TemplateId[];
 const FEATURED = ALL.filter((t) => TEMPLATES[t].featured);
 const BADGE: Record<string, [string, string, string]> = { campaign: ['Uses a campaign', '#f3e8ff', '#6b21a8'], soon: ['Coming soon', '#f1f5f9', '#475569'] };
@@ -46,7 +43,7 @@ export default function AgentBuilder() {
   const [tpl, setTpl] = useState<TemplateId | null>(null);
   const [kind, setKind] = useState<AgentKind | null>(null);
   const [mode, setMode] = useState<'auto' | 'manual'>('auto');
-  const [prompt, setPrompt] = useState(''); const [url, setUrl] = useState('');
+  const [biz, setBiz] = useState(''); const [tasks, setTasks] = useState<string[]>([]); const [extra, setExtra] = useState(''); const [url, setUrl] = useState('');
   const [phase, setPhase] = useState<'ask' | 'building' | 'review'>('ask');
   const [cfg, setCfg] = useState<AgentConfig | null>(null); const [name, setName] = useState('');
   const [note, setNote] = useState(''); const [err, setErr] = useState(''); const [saving, setSaving] = useState(false);
@@ -65,14 +62,14 @@ export default function AgentBuilder() {
     const t = TEMPLATES[id]; setErr(''); setBlocked(null);
     if (t.status === 'campaign') { setBlocked({ reason: 'campaign', message: `${t.label}: ${t.tagline.toLowerCase()}. RUNVAX campaigns already do this: they write the emails, follow up on a schedule and handle replies.`, link: '/client-acquisition/automation' }); return; }
     if (t.status === 'soon' || !t.engine) return;
-    setTpl(id); setKind(t.engine); setPrompt(''); setMode('auto');
+    setTpl(id); setKind(t.engine); setTasks(TASKS_FOR[id] ?? []); setMode('auto');
   };
-  const reset = () => { setTpl(null); setKind(null); setBlocked(null); };
+  const reset = () => { setTpl(null); setKind(null); setBlocked(null); setTasks([]); };
   const manual = () => { if (!kind) return; setCfg(sanitizeConfig(kind, kind === 'assistant' ? { ...presetFor(tpl) } : {})); setName(''); setPhase('review'); };
   async function build() {
     setErr(''); setNote(''); setBlocked(null); done.current = false; detected.current = null; setPct(0); setPhase('building');
     try {
-      const r = await fetch('/api/client-acquisition/agents/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, template: tpl ?? undefined, prompt, url }) });
+      const r = await fetch('/api/client-acquisition/agents/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, template: tpl ?? (extra.trim() ? undefined : templateForTasks(tasks) ?? undefined), prompt, url }) });
       const j = await r.json();
       if (!r.ok) { setErr(j.error || 'Could not build the agent. Try again.'); setPhase('ask'); return; }
       if (j.supported === false) { setBlocked({ reason: j.reason, message: j.message, link: j.link }); setPhase('ask'); return; }
@@ -104,7 +101,7 @@ export default function AgentBuilder() {
   if (phase === 'review' && kind && cfg) {
     const label = kind === 'assistant' ? TEMPLATES[(cfg as AssistantConfig).template].label : TEMPLATES.visibility.label; const issues = configIssues(kind, cfg);
     return (
-      <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 16, maxWidth: 860 }} aria-label="Review your agent">
+      <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 16, maxWidth: 860, gridTemplateColumns: 'minmax(0, 1fr)' }} aria-label="Review your agent">
         <div><button className="acq-link" onClick={() => { setPhase('ask'); }}>← Back</button><h2 className="acq-title" style={{ marginTop: 4 }}>Review your {label}</h2></div>
         {note && <p className="acq-notice" style={{ fontSize: 13.5 }}>{note}</p>}
         <div><label className="acq-label" htmlFor="ab-name">Agent name</label><input id="ab-name" className="acq-input" maxLength={120} value={name} placeholder={label} onChange={(e) => setName(e.target.value)} /></div>
@@ -121,9 +118,20 @@ export default function AgentBuilder() {
   }
 
   const t = tpl ? TEMPLATES[tpl] : null;
+  const isVis = tpl === 'visibility';
+  const prompt = describeJob(biz, isVis ? ['articles'] : tasks, extra);
+  const taskOptions = AGENT_TASKS.filter((x) => tpl ? x.id !== 'articles' : true);
+  const setTaskLabels = (labels: string[]) => {
+    let ids = AGENT_TASKS.filter((x) => labels.includes(x.label)).map((x) => x.id);
+    // Articles are a different agent: ticking it clears the chat jobs, and the other way round.
+    if (ids.includes('articles') && !tasks.includes('articles')) ids = ['articles']; else if (ids.length > 1) ids = ids.filter((x) => x !== 'articles');
+    setTasks(ids); setBlocked(null);
+  };
+  const ready = prompt.length >= 10 && (!!tpl || tasks.length > 0 || extra.trim().length >= 10);
+  const custom = biz && !BUSINESS_TYPES.includes(biz) ? biz : '';
   const others = (Object.keys(CATEGORIES) as Category[]).map((c) => [c, ALL.filter((id) => !TEMPLATES[id].featured && TEMPLATES[id].category === c)] as const).filter(([, l]) => l.length);
   return (
-    <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 14, maxWidth: 900 }} aria-label="Agent setup">
+    <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 14, maxWidth: 900, gridTemplateColumns: 'minmax(0, 1fr)' }} aria-label="Agent setup">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           {tpl && <button className="acq-link" onClick={reset}>← All agents</button>}
@@ -162,15 +170,21 @@ export default function AgentBuilder() {
       )}
       {(!tpl || mode === 'auto') ? <>
         {!tpl && <div style={{ borderTop: '1px solid #e2e8f0' }} />}
-        <div><label className="acq-label" htmlFor="ab-prompt">{tpl ? '2. Describe your business and the job' : 'Or describe the job in plain English, and RUNVAX picks the right agent'}</label>
-          <textarea id="ab-prompt" className="acq-textarea" rows={5} maxLength={1500} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t ? t.example : EXAMPLES[0]} />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-            {(t ? [t.example] : EXAMPLES).map((ex, i) => <button key={i} type="button" className="acq-chip" style={{ fontSize: 12, textAlign: 'left' }} onClick={() => { setPrompt(ex); setBlocked(null); }}>Example {i + 1}</button>)}
+        <div style={{ display: 'grid', gap: 6 }} role="group" aria-labelledby="ab-biz-l">
+          <span id="ab-biz-l" className="acq-label">{tpl ? '2. Your business' : 'Or tell RUNVAX about your business, and it picks the right agent'}</span>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {BUSINESS_TYPES.map((b) => <button key={b} type="button" aria-pressed={biz === b} className={`acq-chip${biz === b ? ' on' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={() => setBiz(biz === b ? '' : b)}>{biz === b && <Check size={13} aria-hidden="true" />}{b}</button>)}
           </div>
+          <input id="ab-biz" className="acq-input" aria-label="Or type your type of business" placeholder="Not listed? Type it, e.g. wedding photographer" maxLength={80} value={custom} onChange={(e) => setBiz(e.target.value)} />
+        </div>
+        {!isVis && <MultiChips id="ab-tasks" label={tpl ? '3. What should it do? (tick all that apply)' : 'What should it do? (tick all that apply)'} options={taskOptions.map((x) => x.label)} value={AGENT_TASKS.filter((x) => tasks.includes(x.id)).map((x) => x.label)} onChange={setTaskLabels} custom={false} />}
+        <div><label className="acq-label" htmlFor="ab-prompt">Anything else it should know? (optional)</label>
+          <textarea id="ab-prompt" className="acq-textarea" rows={2} maxLength={1200} value={extra} onChange={(e) => { setExtra(e.target.value); setBlocked(null); }} placeholder={t ? t.example : 'e.g. We are open Monday to Saturday and most patients ask about whitening and braces.'} />
+          {prompt && <p className="acq-faint" style={{ fontSize: 12.5, marginTop: 6 }}><b>RUNVAX will build:</b> {prompt}</p>}
           <p className="acq-faint" style={{ fontSize: 12.5, marginTop: 6 }}>RUNVAX writes its name, role and instructions, objectives, behaviour, the knowledge it needs, its skills and its escalation rules. You review all of it.</p></div>
         <div><label className="acq-label" htmlFor="ab-url">Your website (optional, RUNVAX reads its front page to understand you better)</label><input id="ab-url" className="acq-input" placeholder="yourcompany.com" value={url} onChange={(e) => setUrl(e.target.value)} /></div>
         {err && <p role="alert" style={{ color: '#b91c1c', fontSize: 13.5 }}>{err}</p>}
-        <div><button className="acq-btn acq-btn-primary" style={{ height: 44 }} disabled={prompt.trim().length < 10} onClick={() => void build()}><Sparkles size={16} /> Build my agent</button></div>
+        <div><button className="acq-btn acq-btn-primary" style={{ height: 44 }} disabled={!ready} onClick={() => void build()}><Sparkles size={16} /> Build my agent</button></div>
       </> : <div><p className="acq-sub" style={{ marginBottom: 12 }}>Start from the {t?.label} preset and set everything yourself.</p><button className="acq-btn acq-btn-primary" onClick={manual}>Continue <ArrowRight size={15} /></button></div>}
 
     </section>

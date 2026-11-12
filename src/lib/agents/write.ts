@@ -45,7 +45,7 @@ function plannerSystem(kind: AgentKind, template: ChatTemplateId = 'receptionist
 }
 
 /** Words that should not become a topic or a business name. */
-const STOP = new Set('the a an and or of for to in on at we our us is are with that this from your you it as by be will can who what how into about more most very make get help sell selling publish write build'.split(' '));
+const STOP = new Set('the a an and or of for to in on at we our us is are with that this from your you it as by be will can who what how into about more most very make get help sell selling publish write build want wants need needs would like agent agents writes write articles article blog posts google search found answers enquiries captures books qualifies hands team when needed customers business'.split(' '));
 
 function ruleBasedPlan(kind: AgentKind, prompt: string, site: SiteFacts | null, url: string, template: ChatTemplateId = 'receptionist'): AgentConfig {
   const text = prompt.replace(/\s+/g, ' ').trim();
@@ -62,15 +62,18 @@ function ruleBasedPlan(kind: AgentKind, prompt: string, site: SiteFacts | null, 
   const aboutText = !site?.description && stated && name === stated
     ? text.replace(/^(?:[Ww]e are|[Ww]e're|I run|I own|[Ww]e run|[Mm]y company is|[Oo]ur company is|[Mm]y business is|[Oo]ur business is)\s+(?=[A-Z])/, '')
     : text;
-  const about = (site?.description || aboutText).slice(0, 400);
+  // What the business is, not what the owner wants the agent to do: "I want an AI agent that…" sentences are the job, not the business.
+  const facts = aboutText.split(/(?<=[.!?])\s+/).filter((x) => !/^(?:i|we)\s+(?:want|need|would like|'d like)\b/i.test(x)).join(' ').trim()
+    .replace(/^(?:I run|I own|We run|We are|We're)\s+(an?)\s+/i, (_m, a: string) => `${a[0].toUpperCase()}${a.slice(1)} `);
+  const about = (site?.description || facts || aboutText).slice(0, 400);
   const words = (named + ' ' + text + ' ' + (site?.headings ?? []).join(' ')).toLowerCase().match(/[a-z]{4,}/g) ?? [];
   const freq = new Map<string, number>(); for (const w of words) if (!STOP.has(w)) freq.set(w, (freq.get(w) ?? 0) + 1);
-  const keys = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).map(([w]) => w).slice(0, 5);
+  const keys = Array.from(new Set([...(named && named.length <= 40 ? [named.toLowerCase().trim()] : []), ...Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).map(([w]) => w)])).slice(0, 5);
   const subject = named || keys.slice(0, 2).join(' ') || 'your service';
   const base = { business: { name, url, about, audience }, tone: 'professional' as const };
   if (kind === 'visibility') {
     return sanitizeConfig('visibility', { ...base, keywords: keys, cadence: /daily|every day/i.test(text) ? 'daily' : /twice a week|two (?:articles|posts) a week/i.test(text) ? 'weekly' : 'weekly', postsPerRun: /twice|two |2 /i.test(text) ? 2 : 1, length: 'medium',
-      topics: [`How to choose a ${subject} provider: what to check first`, `${subject}: what it really costs and what changes the price`, `5 mistakes businesses make when buying ${subject}`, `Questions to ask before you hire for ${subject}`, `${subject}: in-house or outsourced?`, `A buyer's checklist for ${subject}`, `How long does ${subject} take, and what slows it down?`, `${subject}: what to expect in the first 30 days`] });
+      topics: [`How to choose a ${subject} provider: what to check first`, `${subject}: what it really costs and what changes the price`, `5 mistakes businesses make when buying ${subject}`, `Questions to ask before you hire for ${subject}`, `${subject}: in-house or outsourced?`, `A buyer's checklist for ${subject}`, `How long does ${subject} take, and what slows it down?`, `${subject}: what to expect in the first 30 days`].map((x) => x[0].toUpperCase() + x.slice(1)) });
   }
   const t = TEMPLATES[template];
   return sanitizeConfig('assistant', { ...base, template, skills: skillsFor(template, text), instructions: t.instructions, objectives: t.objectives, behaviour: t.behaviour, escalation: t.escalation, knowledgeNeeded: t.knowledgeNeeded,

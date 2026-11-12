@@ -12,7 +12,7 @@ const post = (cfg: AgentConfig, kind: AgentKind, extra: Record<string, unknown>)
 /** Try an agent before it goes live. Uses the settings on screen (even unsaved ones). Nothing is saved, published or sent. */
 export default function AgentPreview({ kind, cfg, step }: { kind: AgentKind; cfg: AgentConfig; step?: number }) {
   return (
-    <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 12 }} aria-label="Try your agent">
+    <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0, 1fr)' }} aria-label="Try your agent">
       <div>
         <h3 className="acq-title">{step ? `${step}. Test it` : 'Try it'}</h3>
         <p className="acq-sub" style={{ fontSize: 13, marginTop: 2 }}>{kind === 'assistant' ? 'Chat with your assistant the way a visitor would.' : 'See the kind of article your agent writes.'} It uses the settings on this page, even ones you have not saved. <b>Preview only: nothing is saved, published or sent, and no one is emailed.</b></p>
@@ -96,9 +96,9 @@ function ArticleTry({ cfg }: { cfg: VisibilityConfig }) {
     setArt(j as unknown as Article);
   }
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
+    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0, 1fr)' }}>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select className="acq-select" aria-label="Topic for the preview" style={{ width: 'auto', maxWidth: '100%', height: 40 }} value={topic} onChange={(e) => setTopic(e.target.value)}>
+        <select className="acq-select" aria-label="Topic for the preview" style={{ width: '100%', maxWidth: 520, minWidth: 0, height: 40, textOverflow: 'ellipsis' }} value={topic} onChange={(e) => setTopic(e.target.value)}>
           <option value="">{topics.length ? 'First topic' : 'Add a topic first'}</option>{topics.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
         <button className="acq-btn acq-btn-primary" style={{ height: 40 }} disabled={busy || topics.length === 0} onClick={() => void go()}>{busy ? <Loader2 size={15} className="animate-spin" /> : null} Write a preview article</button>
