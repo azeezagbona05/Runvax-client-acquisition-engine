@@ -19,6 +19,10 @@ process.env.IA_SUPPRESSION_KEY ??= 'test-only-suppression-key-not-a-secret-0000'
 process.env.IA_SUPPRESSION_KEY_ID ??= 'kt';
 for (const key of ['OPENAI_API_KEY', 'GEMINI_API_KEY', 'GROQ_API_KEY', 'APOLLO_API_KEY', 'RESEND_API_KEY', 'SMTP_PASS']) delete process.env[key];
 
+// The guard above deletes the AI keys, but Prisma re-reads .env when it loads and puts them back. So AI is switched off here by name:
+// no integration test can reach a real model provider, whatever the environment holds.
+vi.mock('@/lib/ai', async (orig) => ({ ...(await orig<typeof import('@/lib/ai')>()), hasProvider: () => false }));
+
 vi.mock('nodemailer', () => {
   const createTransport = vi.fn(() => { throw new Error('nodemailer used in an integration test'); });
   return { default: { createTransport }, createTransport };

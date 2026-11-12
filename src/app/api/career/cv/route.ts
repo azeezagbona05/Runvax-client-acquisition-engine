@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
     const { text, mime } = await cvToText(file.name, new Uint8Array(await file.arrayBuffer()));
     const r = await parseCv(text);
     await prisma.careerDocument.create({ data: { userId: u.userId, kind: 'uploaded', name: file.name.slice(0, 200), mime, text, chars: text.length } });
+    // What was read from the CV is kept untouched, so edits, rewrites and suggestions can always be reverted to it.
+    await prisma.careerDocument.deleteMany({ where: { userId: u.userId, kind: 'baseline' } });
+    await prisma.careerDocument.create({ data: { userId: u.userId, kind: 'baseline', name: 'Read from CV', mime: 'application/json', text: JSON.stringify(r.profile), chars: 0 } });
     await prisma.careerProfile.upsert({ where: { userId: u.userId }, create: { userId: u.userId, profile: r.profile as object, source: r.source }, update: { profile: r.profile as object, source: r.source, confirmedAt: null } });
     await logEvent(u.userId, 'cv_intelligence', 'cv_parsed', `${file.name}: ${r.profile.experience.length} roles, ${r.profile.skills.length} skills (${r.source === 'ai' ? 'AI reader' : 'basic reader'})${r.removed.length ? `; ${r.removed.length} unsupported item(s) dropped` : ''}`);
     return NextResponse.json({ ...(await loadCareer(u.userId)), note: r.note, removed: r.removed });

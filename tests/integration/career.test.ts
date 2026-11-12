@@ -12,6 +12,8 @@ import * as cv from '@/app/api/career/cv/route';
 import * as prof from '@/app/api/career/profile/route';
 import * as test from '@/app/api/career/test/route';
 import * as deploy from '@/app/api/career/deploy/route';
+import * as suggest from '@/app/api/career/suggest/route';
+import * as rewrite from '@/app/api/career/rewrite/route';
 
 const P = (t: string) => `<w:p><w:r><w:t>${t}</w:t></w:r></w:p>`;
 const CV = ['Ada Obi', 'ada.obi@example.com | Lagos, Nigeria', 'Experience', '', 'Frontend Developer | Bright Labs', 'Jan 2021 - Present', '- Built a React dashboard used by 300 customers', '', 'Education', 'BSc Computer Science', 'University of Lagos, 2018', '', 'Skills', 'React, TypeScript'];
@@ -31,6 +33,7 @@ describe('career routes', () => {
     let s = await (await root.GET(req('/api/career'))).json();
     expect(s.status).toBe('draft'); expect(s.issues[0]).toMatch(/Upload/);
 
+    expect((await suggest.POST(req('/api/career/suggest', { method: 'POST' }))).status).toBe(400);      // nothing to suggest from yet
     const bad = new FormData(); bad.append('file', new File(['hello'], 'cv.txt'));
     expect((await cv.POST(req('/api/career/cv', { method: 'POST', body: bad }))).status).toBe(400);
 
@@ -38,6 +41,22 @@ describe('career routes', () => {
     const up = await cv.POST(req('/api/career/cv', { method: 'POST', body: fd })); s = await up.json();
     expect(up.status).toBe(200); expect(s.profile.name).toBe('Ada Obi'); expect(s.profile.experience[0].company).toBe('Bright Labs');
     expect(s.profileConfirmed).toBe(false); expect(s.documents).toHaveLength(1);
+
+    // What was read from the CV is kept untouched (a baseline); edits never change it, and it can always be restored
+    expect(s.baseline).toEqual(s.profile); expect(s.documents.every((d: { kind: string }) => d.kind === 'uploaded')).toBe(true);
+    const original = s.profile;
+    let e = await (await prof.PUT(req('/api/career/profile', j({ profile: { ...original, headline: 'Rockstar Ninja' } })))).json();
+    expect(e.profile.headline).toBe('Rockstar Ninja'); expect(e.baseline).toEqual(original);                  // the CV version is unchanged by the edit
+    expect((await rewrite.POST(req('/api/career/rewrite', j({ kind: 'summary', text: 'Frontend developer with five years.' }, 'POST')))).status).toBe(503);   // no AI here: said plainly
+    expect((await rewrite.POST(req('/api/career/rewrite', j({ kind: 'nonsense', text: 'x' }, 'POST')))).status).toBe(400);
+    e = await (await prof.PUT(req('/api/career/profile', j({ revert: true })))).json();
+    expect(e.profile).toEqual(original); expect(e.profileConfirmed).toBe(false);
+
+    // "set it up for me": suggestions come from the CV, nothing is saved, and nothing the candidate alone can state is proposed
+    const sg = (await (await suggest.POST(req('/api/career/suggest', { method: 'POST' }))).json()).suggestion;
+    expect(sg.preferences.titles).toContain('Frontend Developer'); expect(sg.preferences.country).toBe('Nigeria'); expect(sg.preferences.level).toBe('mid');
+    expect(Object.keys(sg.standing).sort()).toEqual(['github', 'linkedin', 'residenceCountry', 'website']);
+    expect((await prisma.careerPreference.count({ where: { userId: 'career_userA' } }))).toBe(0);
 
     expect((await deploy.POST(req('/api/career/deploy', j({ action: 'deploy' }, 'POST')))).status).toBe(400);
 

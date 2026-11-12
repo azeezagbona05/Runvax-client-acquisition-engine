@@ -1,5 +1,6 @@
 import { generate, extractJson, hasProvider } from '@/lib/ai';
 import { emptyProfile, sanitizeProfile, type CareerProfileData } from './types';
+import { locationFromText } from './suggest';
 
 /**
  * CV -> structured profile. The profile is the candidate's verified source of truth, so NOTHING may be in it that the CV does not say.
@@ -8,6 +9,9 @@ import { emptyProfile, sanitizeProfile, type CareerProfileData } from './types';
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9+#.\s]/g, ' ').replace(/\.+(?=\s|$)/g, '').replace(/\s+/g, ' ').trim();
 const digits = (s: string) => s.match(/\d+/g) ?? [];
+
+const NUMBER_WORD: Record<string, string> = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12', fifteen: '15', twenty: '20', thirty: '30', forty: '40', fifty: '50', hundred: '100', thousand: '1000', million: '1000000', dozen: '12' };
+const DIGIT_WORD: Record<string, string> = Object.fromEntries(Object.entries(NUMBER_WORD).map(([w, d]) => [d, w]));
 
 export interface Grounder { has: (phrase: string) => boolean; supported: (sentence: string, minShare?: number) => boolean }
 export function grounder(cv: string): Grounder {
@@ -19,7 +23,9 @@ export function grounder(cv: string): Grounder {
     // A sentence may be tightened, but every number must be in the CV and most of its words must be.
     supported: (sentence, minShare = 0.7) => {
       const n = norm(sentence); if (!n) return false;
-      if (digits(n).some((d) => !text.includes(d))) return false;
+      if (digits(n).some((d) => !text.includes(d) && !(DIGIT_WORD[d] && words.has(DIGIT_WORD[d])))) return false;     // "5" is backed by "five" in the CV, and the reverse
+      // A spelled-out number ("ten years") is a claim too, and is only allowed if the CV says that number (as a word or digits).
+      if (n.split(' ').some((w) => NUMBER_WORD[w] !== undefined && !words.has(w) && !text.includes(` ${NUMBER_WORD[w]} `))) return false;
       const w = n.split(' ').filter((x) => x.length > 3); if (!w.length) return true;
       return w.filter((x) => words.has(x) || Array.from(words).some((c) => c.length > 4 && x.length > 4 && (c.startsWith(x.slice(0, -1)) || x.startsWith(c.slice(0, -1))))).length / w.length >= minShare;
     },
@@ -74,6 +80,7 @@ export function parseByRules(cv: string): CareerProfileData {
   p.phone = cv.match(/(?:\+?\d[\d\s().-]{7,}\d)/)?.[0]?.trim() ?? '';
   const first = lines.find((l) => l.trim() && !/@|\d{4}|http/i.test(l) && l.trim().split(/\s+/).length <= 5 && /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]+$/.test(l.trim()));
   p.name = first?.trim() ?? '';
+  p.location = locationFromText(cv);
 
   const sections: Record<string, string[]> = {}; let cur = 'top';
   for (const l of lines) { const h = headingOf(l); if (h) { cur = h; sections[cur] = sections[cur] ?? []; continue; } (sections[cur] = sections[cur] ?? []).push(l); }

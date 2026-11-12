@@ -60,7 +60,7 @@ export function ResponsesPanel({ onChanged, refreshKey }: { onChanged: () => voi
           <label><b style={{ fontSize: 13 }}>Received</b><input className="acq-input" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} /></label>
           {kind === 'interview' && <div style={{ display: 'grid', gap: 8 }}>
             <label><b style={{ fontSize: 13 }}>Interview date and time</b><input className="acq-input" type="datetime-local" value={ivAt} onChange={(e) => setIvAt(e.target.value)} /><span style={hint}>{inbox.analysis.interviewDates.length ? 'Suggested from the email. Check the time and your time zone.' : 'No date found in the email. Add it to put it in your tracker.'}</span></label>
-            <label><b style={{ fontSize: 13 }}>Link or place</b><input className="acq-input" value={ivLoc} onChange={(e) => setIvLoc(e.target.value)} /></label></div>}
+            <label><b style={{ fontSize: 13 }}>Link or place</b><input className="acq-input" placeholder="Meeting link or address, e.g. https://zoom.us/j/123" value={ivLoc} onChange={(e) => setIvLoc(e.target.value)} /></label></div>}
           {err && <div role="alert" style={{ color: '#b91c1c', fontSize: 13 }}>{err}</div>}
           <div style={{ display: 'flex', gap: 8 }}><button className="acq-btn acq-btn-primary" disabled={busy || !appId} onClick={save}><Check size={14} /> Confirm and save</button><button className="acq-btn" onClick={() => setInbox(null)}>Back</button></div>
         </div>

@@ -3,6 +3,8 @@
 import type { CareerProfileData, Discovery, Permissions, Preferences } from '@/lib/career/types';
 
 export interface CareerState {
+  /** What was read from the CV, untouched. Edits and rewrites never change it, so any field can go back to it. */
+  baseline: CareerProfileData | null;
   profile: CareerProfileData | null; profileSource: string | null; profileConfirmed: boolean;
   documents: Array<{ id: string; kind: string; name: string; chars: number; createdAt: string }>;
   preferences: Preferences; discovery: Discovery; permissions: Permissions;
