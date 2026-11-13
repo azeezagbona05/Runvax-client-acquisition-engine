@@ -283,6 +283,13 @@
 .acq-btn-primary:hover:not(:disabled), .acq-btn-indigo:hover:not(:disabled), .acq-btn-gen:hover:not(:disabled), .acq-btn-start:hover:not(:disabled) { background: var(--brand-hover); border-color: var(--brand-hover); color: #fff; filter: none; }
 .acq-btn-primary:disabled, .acq-btn-gen:disabled, .acq-btn-start:disabled { background: #581c87; border-color: #581c87; opacity: .55; }
 .acq-btn-ai { background: #fff; border: 1px solid var(--brand); color: var(--brand); box-shadow: none; }
+/* A link styled as a filled button must keep white text. ".acq-root a { color: inherit }" is more specific than the button classes, so without this
+   every purple/green <a class="acq-btn ..."> showed dark text until it was hovered. */
+.acq-root a.acq-btn-primary, .acq-root a.acq-btn-primary:visited, .acq-root a.acq-btn-primary:hover,
+.acq-root a.acq-btn-indigo, .acq-root a.acq-btn-indigo:visited, .acq-root a.acq-btn-indigo:hover,
+.acq-root a.acq-btn-gen, .acq-root a.acq-btn-gen:visited, .acq-root a.acq-btn-gen:hover,
+.acq-root a.acq-btn-start, .acq-root a.acq-btn-start:visited, .acq-root a.acq-btn-start:hover,
+.acq-root a.acq-btn-green, .acq-root a.acq-btn-green:visited, .acq-root a.acq-btn-green:hover { color: #fff; }
 .acq-btn-ai:hover:not(:disabled) { background: var(--brand-faint); border-color: var(--brand-hover); color: var(--brand-ink); }
 .acq-btn-green:hover:not(:disabled) { background: #22c55e; border-color: #22c55e; color: #fff; }
 .acq-btn-danger:hover:not(:disabled) { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
