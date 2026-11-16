@@ -56,7 +56,7 @@ export default function CareerAgent() {
 
       <TodayCard refreshKey={rk} goto={setTab} />
 
-      <div role="tablist" aria-label="Career Agent sections" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div role="tablist" aria-label="Career Agent sections" className="career-tabs">
         {TABS.map((t) => <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="acq-btn acq-btn-sm" style={tab === t ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}>{t}</button>)}
       </div>
 

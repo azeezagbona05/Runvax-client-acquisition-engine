@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Bot, Check, CheckCheck, Download, ExternalLink, Loader2, RotateCcw, Search, Send, X } from 'lucide-react';
+import { Bot, Check, CheckCheck, Download, ExternalLink, Layers, LayoutList, Loader2, RotateCcw, Search, Send, X } from 'lucide-react';
 import type { CareerProfileData } from '@/lib/career/types';
 import { downloadCvPdf } from './cvPdf';
 import { api, box, hint, json } from './shared';
 import { StaleNotice } from './ui';
+import SwipeDeck from './SwipeDeck';
 
 export interface AppRow {
   id: string; status: 'prepared' | 'approved' | 'rejected' | 'applied'; cv: CareerProfileData; coverLetter: string; answers: Array<{ question: string; answer: string }>; gaps: string[]; flags: string[];
@@ -85,6 +86,7 @@ function Card({ a, open, onToggle, onChanged, selected, onSelect, sub }: { a: Ap
 
 /** mode 'queue' = Approvals tab (what waits for a decision, with batch approve); 'all' = Applications tab (everything, with status). */
 export default function ApplicationsPanel({ mode, onChanged, refreshKey, permMode }: { mode: 'queue' | 'all'; onChanged: () => void; refreshKey: number; permMode: string }) {
+  const [layout, setLayout] = useState<'swipe' | 'list'>(() => (mode === 'queue' && typeof window !== 'undefined' && window.innerWidth < 760 ? 'swipe' : 'list'));   // phones start on the swipe cards
   const [sub, setSub] = useState<SubInfo>({ enabled: false, message: '', supported: [], permMode });
   useEffect(() => { void api<{ enabled: boolean; message: string; supported: string[] }>('/api/career/submissions').then((r) => { if (!r.error) setSub({ enabled: r.enabled, message: r.message, supported: r.supported, permMode }); }); }, [refreshKey, permMode]);
   const [rows, setRows] = useState<AppRow[] | null>(null); const [err, setErr] = useState(''); const [bErr, setBErr] = useState(''); const [open, setOpen] = useState<string | null>(null); const [sel, setSel] = useState<string[]>([]); const [busy, setBusy] = useState(false);
@@ -94,19 +96,37 @@ export default function ApplicationsPanel({ mode, onChanged, refreshKey, permMod
   if (!rows) return <div style={{ display: 'flex', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Loading…</div>;
   const list = mode === 'queue' ? rows.filter((r) => r.status === 'prepared') : rows;
   const done = () => { void load(); onChanged(); };
+  /** Swipe right = approve (ready to send; nothing is sent by approving). Swipe left = reject. Undo puts it back to waiting. */
+  const swipeAct = async (id: string, action: 'approve' | 'reject' | 'reopen') => { const r = await api(`/api/career/applications/${id}`, json('PATCH', { action })); if (r.error) return { ok: false, error: r.error }; done(); return { ok: true }; };
   const batch = async (andSubmit = false) => { setBusy(true); const ids: string[] = []; for (const id of sel) { const r = await api(`/api/career/applications/${id}`, json('PATCH', { action: 'approve' })); if (!r.error) ids.push(id); } setBErr(''); if (andSubmit && ids.length) { const r = await api('/api/career/submissions', json('POST', { applicationIds: ids })); if (r.error) setBErr(r.error); } setBusy(false); setSel([]); done(); };
   return (
     <>
       {err && <StaleNotice onRetry={() => { setErr(''); void load(); }} />}
       {bErr && <div role="alert" style={{ color: '#b91c1c', fontSize: 13.5 }}>{bErr}</div>}
       {mode === 'queue' && <p style={{ fontSize: 13.5, color: '#475569' }}>Prepared applications wait here until you decide. Open one to read it, edit it, and approve or reject it. Approving does not send anything by itself. If you allow it, the agent can then submit approved applications on Greenhouse and Lever forms; it hands back anything it cannot answer honestly.</p>}
-      {mode === 'queue' && list.length > 0 && <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      {mode === 'queue' && list.length > 0 && <div role="group" aria-label="Layout" style={{ display: 'inline-flex', gap: 4 }}>
+        <button className="acq-btn acq-btn-sm" aria-pressed={layout === 'swipe'} onClick={() => setLayout('swipe')} style={layout === 'swipe' ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}><Layers size={13} /> Swipe</button>
+        <button className="acq-btn acq-btn-sm" aria-pressed={layout === 'list'} onClick={() => setLayout('list')} style={layout === 'list' ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}><LayoutList size={13} /> List</button></div>}
+      {mode === 'queue' && layout === 'swipe' && list.length > 0 && (
+        <SwipeDeck items={list} keyOf={(a) => a.id} labels={{ right: 'Approve', left: 'Reject' }}
+          onDecide={(a, dir) => swipeAct(a.id, dir === 'right' ? 'approve' : 'reject')} onUndo={(a) => swipeAct(a.id, 'reopen')}
+          empty={<div style={{ ...box, background: '#f8fafc' }}><b>Nothing left to approve.</b></div>}
+          render={(a) => (
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}><div><b style={{ fontSize: 17 }}>{a.job.title}</b><div style={hint}>{a.job.company} · via {a.job.source}</div></div><span className="acq-pill acq-pill-blue">{a.score}% match</span></div>
+              {a.cv.summary && <div><b style={{ fontSize: 13 }}>Your tailored summary</b><p style={{ fontSize: 13.5, margin: '2px 0 0' }}>{a.cv.summary}</p></div>}
+              <div><b style={{ fontSize: 13 }}>Cover letter</b><p style={{ fontSize: 13, margin: '2px 0 0', whiteSpace: 'pre-wrap', maxHeight: 150, overflow: 'auto' }}>{a.coverLetter || 'No cover letter was written for this one.'}</p></div>
+              {a.gaps.length > 0 && <div style={{ background: '#fffbeb', borderRadius: 8, padding: 8, fontSize: 12.5 }}><b>Asked for, not in your profile:</b> {a.gaps.join('; ')}</div>}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="acq-btn acq-btn-sm" onClick={() => { setLayout('list'); setOpen(a.id); }}>Open full review to edit</button><a className="acq-btn acq-btn-sm" href={a.job.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={13} /> Posting</a></div>
+            </div>)} />
+      )}
+      {mode === 'queue' && list.length > 0 && layout === 'list' && <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="acq-btn acq-btn-sm" onClick={() => setSel(sel.length === list.length ? [] : list.map((r) => r.id))}>{sel.length === list.length ? 'Clear selection' : 'Select all'}</button>
         <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!sel.length || busy} onClick={() => batch(false)}>{busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCheck size={13} />} Approve {sel.length || ''} selected</button>
         {sub.enabled && permMode !== 'prepare' && <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!sel.length || busy} onClick={() => batch(true)}><Bot size={13} /> Approve and let the agent submit {sel.length || ''}</button>}
         <span style={hint}>Batch approval is for applications you have reviewed.</span></div>}
       {list.length === 0 && <p style={hint}>{mode === 'queue' ? 'Nothing is waiting for approval.' : 'No applications yet. Open Matched opportunities and press "Prepare application" on a job.'}</p>}
-      {list.map((a) => <Card key={a.id} sub={sub} a={a} open={open === a.id} onToggle={() => setOpen(open === a.id ? null : a.id)} onChanged={done} selected={sel.includes(a.id)} onSelect={mode === 'queue' ? (v) => setSel(v ? [...sel, a.id] : sel.filter((x) => x !== a.id)) : undefined} />)}
+      {(mode !== 'queue' || layout === 'list') && list.map((a) => <Card key={a.id} sub={sub} a={a} open={open === a.id} onToggle={() => setOpen(open === a.id ? null : a.id)} onChanged={done} selected={sel.includes(a.id)} onSelect={mode === 'queue' ? (v) => setSel(v ? [...sel, a.id] : sel.filter((x) => x !== a.id)) : undefined} />)}
     </>
   );
 }

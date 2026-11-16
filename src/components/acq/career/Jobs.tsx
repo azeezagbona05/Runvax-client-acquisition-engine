@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ExternalLink, FilePen, Loader2, Search, Star, X } from 'lucide-react';
+import { ExternalLink, FilePen, LayoutList, Layers, Loader2, Search, Star, X } from 'lucide-react';
 import type { DiscoveryResult } from '@/lib/career/jobs/discover';
 import { api, box, hint, json, type CareerState } from './shared';
 import { StaleNotice } from './ui';
+import SwipeDeck from './SwipeDeck';
 
 export interface JobRow { id: string; applicationStatus: string | null; score: number; reasons: string[]; status: string; title: string; company: string; location: string; remote: boolean; url: string; source: string; postedAt: string | null; foundAt: string }
 export interface JobsData { discovered: number; matched: number; minScore: number; jobs: JobRow[] }
@@ -41,6 +42,7 @@ export function DiscoveryPanel({ state, onChanged }: { state: CareerState; onCha
 /** Matched opportunities tab: best first, with the reasons for each score. */
 export function MatchesPanel({ onChanged, refreshKey, onOpenApplications, canPrepare }: { onChanged: () => void; refreshKey: number; onOpenApplications: () => void; canPrepare: boolean }) {
   const [prep, setPrep] = useState<string[]>([]); const [perr, setPerr] = useState('');
+  const [layout, setLayout] = useState<'swipe' | 'list'>(() => (typeof window !== 'undefined' && window.innerWidth < 760 ? 'swipe' : 'list'));   // phones start on the swipe cards
   const [view, setView] = useState<'matches' | 'saved' | 'all'>('matches'); const [data, setData] = useState<JobsData | null>(null); const [err, setErr] = useState('');
   const load = useCallback(async () => { const r = await api<JobsData>(`/api/career/jobs?view=${view}`); if (r.error) setErr(r.error); else { setErr(''); setData(r); } }, [view]);
   useEffect(() => { void load(); }, [load, refreshKey]);
@@ -51,6 +53,13 @@ export function MatchesPanel({ onChanged, refreshKey, onOpenApplications, canPre
     if (r.error) setPerr(r.error); else { const bad = r.results.find((x) => !x.ok); if (bad) setPerr(bad.error ?? ''); await load(); onChanged(); }
   };
   const mark = async (id: string, status: string) => { await api(`/api/career/jobs/${id}`, json('PATCH', { status })); await load(); onChanged(); };
+  /** Swipe right = prepare an application (a draft; nothing is sent). Swipe left = not interested. */
+  const swipePrepare = async (id: string) => {
+    const r = await api<{ results: Array<{ ok: boolean; error?: string }> }>('/api/career/applications', json('POST', { matchIds: [id] }));
+    if (r.error) return { ok: false, error: r.error }; const bad = r.results.find((x) => !x.ok); if (bad) return { ok: false, error: bad.error };
+    void load(); onChanged(); return { ok: true };
+  };
+  const swipeMark = async (id: string, status: string) => { const r = await api(`/api/career/jobs/${id}`, json('PATCH', { status })); if (r.error) return { ok: false, error: r.error }; void load(); onChanged(); return { ok: true }; };
   if (err && !data) return <div role="alert" style={{ display: 'grid', gap: 8, color: '#b91c1c' }}>{err}<div><button className="acq-btn acq-btn-sm" onClick={() => { setErr(''); void load(); }}>Try again</button></div></div>;
   if (!data) return <div style={{ display: 'flex', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Loading…</div>;
   return (
@@ -58,12 +67,31 @@ export function MatchesPanel({ onChanged, refreshKey, onOpenApplications, canPre
       {err && <StaleNotice onRetry={() => { setErr(''); void load(); }} />}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {([['matches', `Matches (${data.minScore}%+)`], ['saved', 'Saved'], ['all', 'All found']] as const).map(([v, l]) => <button key={v} className="acq-btn acq-btn-sm" aria-pressed={view === v} onClick={() => setView(v)} style={view === v ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}>{l}</button>)}
+        <span role="group" aria-label="Layout" style={{ display: 'inline-flex', gap: 4 }}>
+          <button className="acq-btn acq-btn-sm" aria-pressed={layout === 'swipe'} onClick={() => setLayout('swipe')} style={layout === 'swipe' ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}><Layers size={13} /> Swipe</button>
+          <button className="acq-btn acq-btn-sm" aria-pressed={layout === 'list'} onClick={() => setLayout('list')} style={layout === 'list' ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}><LayoutList size={13} /> List</button>
+        </span>
         <span style={hint}>{data.discovered} found · {data.matched} match</span>
         {canPrepare && data.jobs.some((j) => !j.applicationStatus) && <button className="acq-btn acq-btn-sm" disabled={prep.length > 0} onClick={() => prepare(data.jobs.filter((j) => !j.applicationStatus).slice(0, 5).map((j) => j.id))}><FilePen size={13} /> Prepare the top {Math.min(5, data.jobs.filter((j) => !j.applicationStatus).length)}</button>}
       </div>
       {perr && <div role="alert" style={{ color: '#b91c1c', fontSize: 13.5 }}>{perr}</div>}
+      {layout === 'swipe' && view === 'matches' && data.jobs.length > 0 && (
+        <SwipeDeck items={data.jobs.filter((j) => !j.applicationStatus || j.applicationStatus === 'rejected')} keyOf={(j) => j.id}
+          labels={{ right: 'Prepare application', left: 'Not interested' }} rightBlocked={canPrepare ? undefined : 'Deploy your agent and confirm your profile to prepare applications.'}
+          onDecide={(j, dir) => (dir === 'right' ? swipePrepare(j.id) : swipeMark(j.id, 'dismissed'))}
+          onUndo={(j) => swipeMark(j.id, 'new')} undoable={(dir) => dir === 'left'}
+          empty={<div style={{ ...box, background: '#f8fafc' }}><b>All caught up.</b><p style={{ ...hint, marginTop: 4 }}>You have gone through every match. Open Applications to review what was prepared.</p></div>}
+          render={(j) => (
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}><div><b style={{ fontSize: 17 }}>{j.title}</b><div style={hint}>{j.company}</div></div><span className={`acq-pill ${tone(j.score)}`}>{j.score}% match</span></div>
+              <div style={hint}>{j.remote ? 'Remote' : ''}{j.remote && j.location ? ' · ' : ''}{j.location} · via {j.source}{j.postedAt ? ` · posted ${ago(j.postedAt)}` : ''}</div>
+              {j.reasons.length > 0 && <ul style={{ margin: '0 0 0 18px', fontSize: 14 }}>{j.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
+              <a className="acq-btn acq-btn-sm" style={{ justifySelf: 'start' }} href={j.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={13} /> View posting</a>
+            </div>)} />
+      )}
+      {layout === 'swipe' && view === 'matches' && data.jobs.length > 0 && <p style={{ ...hint, maxWidth: 440 }}>Applications you prepare wait in the Approvals tab. Nothing is sent until you approve.</p>}
       {data.jobs.length === 0 && <p style={hint}>{data.discovered === 0 ? 'Nothing found yet. Open Job discovery and press Search now.' : view === 'matches' ? `No jobs at ${data.minScore}% or above yet. Look at "All found" or lower the minimum in your setup.` : 'Nothing here.'}</p>}
-      {data.jobs.map((j) => (
+      {(layout === 'list' || view !== 'matches') && data.jobs.map((j) => (
         <div key={j.id} style={{ ...box, display: 'grid', gap: 6 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <div><b style={{ fontSize: 14.5 }}>{j.title}</b><div style={hint}>{j.company} · {j.remote ? 'Remote' : ''}{j.remote && j.location ? ' · ' : ''}{j.location} · via {j.source}{j.postedAt ? ` · posted ${ago(j.postedAt)}` : ''}</div></div>
