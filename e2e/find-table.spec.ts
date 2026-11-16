@@ -23,7 +23,8 @@ async function findEight(page: Page) {
   await page.getByLabel('Email address').fill(email!);
   await page.getByLabel('Password', { exact: true }).fill(password!);
   await page.getByRole('button', { name: 'Log in' }).click();
-  await page.waitForURL('**/client-acquisition/find', { timeout: 120_000, waitUntil: 'commit' });
+  await page.waitForURL('**/client-acquisition', { timeout: 120_000, waitUntil: 'commit' });          // signing in lands on Home
+  await page.goto('/client-acquisition/find');
   await page.locator('#pf-loc').click(); await page.locator('#pf-loc').fill('victoria'); await page.getByRole('option').first().click(); await page.keyboard.press('Escape');
   await page.locator('#pf-ind').click(); await page.locator('#pf-ind').fill('restaur'); await page.getByRole('option').first().click(); await page.keyboard.press('Escape');
   await page.getByLabel('How many businesses').fill('8');

@@ -6,15 +6,20 @@ const password = process.env.E2E_PASSWORD;
 test.describe('Find Prospects (signed in)', () => {
   test.skip(!email || !password, 'set E2E_EMAIL and E2E_PASSWORD (a test account) to run these');
 
+  let landedOn = '';
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/auth/signin');
     await page.getByLabel('Email address').fill(email!);
     await page.getByLabel('Password', { exact: true }).fill(password!);
     await page.getByRole('button', { name: 'Log in' }).click();
-    await page.waitForURL('**/client-acquisition/find', { timeout: 30_000 });
+    await page.waitForURL('**/client-acquisition', { timeout: 30_000 });     // signing in lands on Home
+    landedOn = new URL(page.url()).pathname;
+    await page.goto('/client-acquisition/find');                              // the rest of these tests are about the Find Prospects page
   });
 
-  test('signing in lands on Find Prospects, first in the menu', async ({ page, isMobile }) => {
+  test('signing in lands on Home; Find Prospects is one click away and opens its own page', async ({ page, isMobile }) => {
+    expect(landedOn).toBe('/client-acquisition');
     await expect(page.getByRole('heading', { name: 'Find Prospects', level: 1 })).toBeVisible();
     if (!isMobile) await expect(page.getByRole('link', { name: 'Find Prospects', exact: true })).toHaveAttribute('aria-current', 'page');
   });

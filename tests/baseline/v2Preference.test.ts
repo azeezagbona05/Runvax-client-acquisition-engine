@@ -43,7 +43,7 @@ describe('remembering that someone chose RUNVAX 2.0', () => {
 
 describe('where the classic home page sends someone', () => {
   it('a signed-in person who chose 2.0 goes to Find Prospects', () => {
-    expect(homeRedirect({ pathname: '/', cookie: '1', signedIn: true })).toBe('/client-acquisition/find');
+    expect(homeRedirect({ pathname: '/', cookie: '1', signedIn: true })).toBe('/client-acquisition');
   });
   it('nobody else is moved: not signed out, not without the choice, not on other pages', () => {
     expect(homeRedirect({ pathname: '/', cookie: '1', signedIn: false })).toBeNull();

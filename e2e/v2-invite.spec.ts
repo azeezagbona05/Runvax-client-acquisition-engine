@@ -45,7 +45,7 @@ test('the RUNVAX 2.0 invite: animated banner, then a popup that can be snoozed',
   await expect(popup).toBeHidden();
 
   await page.locator('.v2n-banner').getByRole('link', { name: /Switch to RUNVAX 2.0/ }).click();
-  await page.waitForURL('**/client-acquisition/find');
+  await page.waitForURL('**/client-acquisition');
 });
 
 test('motion stops for people who prefer reduced motion', async ({ page }) => {

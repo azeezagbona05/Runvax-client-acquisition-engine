@@ -3,7 +3,7 @@
  * signed-in person from the classic home page straight to the new experience, before the classic page is even drawn.
  * It is per browser. Going back to the classic app clears it.
  */
-import { DEFAULT_HOME } from './home';
+import { LANDING_HOME } from './home';
 
 export const V2_COOKIE = 'rv2';
 const YEAR = 365 * 24 * 60 * 60;
@@ -21,5 +21,5 @@ export function setPrefersV2(on: boolean): void {
 
 /** Where the classic home page should send a visitor, or null to show it. Only a signed-in person who chose 2.0 is sent. */
 export function homeRedirect(o: { pathname: string; cookie?: string | null; signedIn: boolean }): string | null {
-  return o.pathname === '/' && o.cookie === '1' && o.signedIn ? DEFAULT_HOME : null;
+  return o.pathname === '/' && o.cookie === '1' && o.signedIn ? LANDING_HOME : null;
 }

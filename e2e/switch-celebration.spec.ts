@@ -27,7 +27,7 @@ async function switchOver(page: Page) {
   await expect(cta).toBeVisible({ timeout: 90_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
   await cta.click();
-  await page.waitForURL('**/client-acquisition/find', { timeout: 90_000 });
+  await page.waitForURL('**/client-acquisition', { timeout: 90_000 });
 }
 
 test('switching to RUNVAX 2.0 congratulates with flowers and a chime, once, and the sound can be muted', async ({ page, isMobile }) => {
@@ -59,16 +59,16 @@ test('switching to RUNVAX 2.0 congratulates with flowers and a chime, once, and 
   await page.getByRole('status').filter({ hasText: 'Again' }).click({ position: { x: 20, y: 20 } });
   await expect(page.getByRole('status').filter({ hasText: 'Again' })).toBeHidden();
 
-  // With 2.0 as the home, the classic home page hands straight on.
+  // With 2.0 as the home, the classic home page hands straight on (to Home).
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await page.waitForURL('**/client-acquisition/find', { timeout: 90_000 });
+  await page.waitForURL('**/client-acquisition', { timeout: 90_000 });
 
   // Going back to the classic app (the menu no longer has a button for it, so clear the choice) and switching again within a week is not celebrated again.
   await page.context().clearCookies({ name: 'rv2' });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForURL((u) => u.pathname === '/', { timeout: 90_000 });
   await page.locator('.v2n-banner').getByRole('link', { name: /Switch to RUNVAX 2.0/ }).click({ timeout: 90_000 });
-  await page.waitForURL('**/client-acquisition/find');
+  await page.waitForURL('**/client-acquisition');
   await page.waitForTimeout(2500);
   await expect(page.getByText('Welcome to the new Experience Centre')).toHaveCount(0);
 });
@@ -107,7 +107,7 @@ test('the popup\'s own button celebrates too', async ({ page }) => {
   const popup = page.getByRole('dialog', { name: /Meet RUNVAX 2.0/ });
   await expect(popup).toBeVisible({ timeout: 120_000 });
   await popup.getByRole('link', { name: /Switch to RUNVAX 2.0/ }).click();
-  await page.waitForURL('**/client-acquisition/find', { timeout: 90_000 });
+  await page.waitForURL('**/client-acquisition', { timeout: 90_000 });
   await expect(page.getByRole('status').filter({ hasText: 'Welcome to the new Experience Centre' })).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => notes(page)).toBeGreaterThanOrEqual(8);
 });

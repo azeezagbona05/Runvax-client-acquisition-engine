@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import GoogleButton from '@/components/GoogleButton';
-import { DEFAULT_HOME } from '@/lib/home';
+import { LANDING_HOME } from '@/lib/home';
 import AuthShell, { Notice, authInput, authLabel, authPrimary } from '@/components/auth/AuthShell';
 
 export default function SignUpPage() {
@@ -57,7 +57,7 @@ export default function SignUpPage() {
       router.push('/auth/signin?registered=1');
       return;
     }
-    router.push(DEFAULT_HOME);
+    router.push(LANDING_HOME);
     router.refresh();
   }
 
@@ -69,7 +69,7 @@ export default function SignUpPage() {
     >
       {error && <Notice tone="error">{error}</Notice>}
 
-      <GoogleButton callbackUrl={DEFAULT_HOME} dividerLabel="or sign up with email" showTerms />
+      <GoogleButton callbackUrl={LANDING_HOME} dividerLabel="or sign up with email" showTerms />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Honeypot — hidden from real users, only bots fill it */}

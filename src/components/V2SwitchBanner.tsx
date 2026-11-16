@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowRight, Globe2, Sparkles, Target, Users, X } from 'lucide-react';
-import { DEFAULT_HOME } from '@/lib/home';
+import { LANDING_HOME } from '@/lib/home';
 import { markSwitched } from '@/lib/celebrate';
 import { prefersV2 } from '@/lib/v2Preference';
 
@@ -31,7 +31,7 @@ export default function V2SwitchBanner() {
 
   // Already switched once: the classic home page hands them on (the server does this too; this covers signing in on the page itself).
   useEffect(() => {
-    if (status === 'authenticated' && pathname === '/' && prefersV2()) router.replace(DEFAULT_HOME);
+    if (status === 'authenticated' && pathname === '/' && prefersV2()) router.replace(LANDING_HOME);
   }, [status, pathname, router]);
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function V2SwitchBanner() {
             </p>
             <p className="mt-0.5 text-sm leading-snug text-white sm:text-base">Find businesses in any country, reach the decision-maker, and let your AI team win clients.</p>
           </div>
-          <Link href={DEFAULT_HOME} onClick={markSwitched} className="v2n-cta flex-shrink-0 rounded-xl bg-white px-6 py-3.5 text-base font-extrabold text-purple-700 whitespace-nowrap shadow-lg sm:px-8 sm:text-lg">
+          <Link href={LANDING_HOME} onClick={markSwitched} className="v2n-cta flex-shrink-0 rounded-xl bg-white px-6 py-3.5 text-base font-extrabold text-purple-700 whitespace-nowrap shadow-lg sm:px-8 sm:text-lg">
             <span className="relative z-10 inline-flex items-center gap-2">Switch to RUNVAX 2.0 <ArrowRight className="v2n-arrow h-5 w-5" /></span>
           </Link>
           <button onClick={() => { stamp(BANNER_KEY); setBanner(false); }} aria-label="Not now" className="flex-shrink-0 rounded p-1.5 text-white hover:bg-purple-500"><X className="h-5 w-5" /></button>
@@ -98,7 +98,7 @@ export default function V2SwitchBanner() {
       )}
 
       {status === 'authenticated' && !popup && (
-        <Link href={DEFAULT_HOME} onClick={markSwitched} className="v2n-pill inline-flex items-center gap-2.5 rounded-full bg-purple-600 px-6 py-3.5 text-base font-extrabold text-white shadow-2xl">
+        <Link href={LANDING_HOME} onClick={markSwitched} className="v2n-pill inline-flex items-center gap-2.5 rounded-full bg-purple-600 px-6 py-3.5 text-base font-extrabold text-white shadow-2xl">
           <span className="relative z-10 inline-flex items-center gap-2.5"><Sparkles className="v2n-spark h-5 w-5" /> Switch to RUNVAX 2.0 <ArrowRight className="v2n-arrow h-5 w-5" /></span>
         </Link>
       )}
@@ -127,7 +127,7 @@ export default function V2SwitchBanner() {
               ))}
             </ul>
             <div className="flex flex-col gap-2 px-6 pb-6">
-              <Link href={DEFAULT_HOME} onClick={() => { stamp(POPUP_KEY); markSwitched(); }} className="v2n-cta flex items-center justify-center rounded-xl bg-purple-600 px-4 py-3 text-base font-extrabold text-white">
+              <Link href={LANDING_HOME} onClick={() => { stamp(POPUP_KEY); markSwitched(); }} className="v2n-cta flex items-center justify-center rounded-xl bg-purple-600 px-4 py-3 text-base font-extrabold text-white">
                 <span className="relative z-10 inline-flex items-center gap-2">Switch to RUNVAX 2.0 <ArrowRight className="v2n-arrow h-5 w-5" /></span>
               </Link>
               <button onClick={closePopup} className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800">Maybe later</button>

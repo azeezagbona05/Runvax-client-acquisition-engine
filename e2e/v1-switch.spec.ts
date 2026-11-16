@@ -50,12 +50,12 @@ test('switching once makes 2.0 the home: the classic home page hands on, and the
 
   // The button bobs, so a script cannot wait for it to be still; a person simply clicks it (it also holds still under the pointer).
   await page.locator('.v2n-pill').click({ force: true });
-  await page.waitForURL('**/client-acquisition/find', { timeout: 90_000 });
+  await page.waitForURL('**/client-acquisition', { timeout: 90_000 });
   expect(await cookie(page)).toBe('rv2=1');
 
   // Back on the classic home page: straight on to 2.0 again.
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await page.waitForURL('**/client-acquisition/find', { timeout: 90_000 });
+  await page.waitForURL('**/client-acquisition', { timeout: 90_000 });
 
   // The 2.0 menu has no "Classic RUNVAX" button any more: it is not in the sidebar, nor behind More on a phone.
   if (isMobile) await page.getByRole('button', { name: /More/ }).click();

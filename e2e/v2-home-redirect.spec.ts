@@ -23,17 +23,17 @@ test.describe('the classic home page and the RUNVAX 2.0 choice (server side)', (
     await page.getByLabel('Email address').fill(email!);
     await page.getByLabel('Password', { exact: true }).fill(password!);
     await page.getByRole('button', { name: 'Log in' }).click();
-    await page.waitForURL('**/client-acquisition/find', { timeout: 120_000 });
+    await page.waitForURL('**/client-acquisition', { timeout: 120_000 });          // signing in lands on Home
     await page.addInitScript(() => { try { localStorage.setItem('runvax_welcome_seen', '1'); localStorage.setItem('runvax_v2_popup_seen_at', String(Date.now())); } catch { /* ignore */ } });
     const plain = await page.goto('/', { waitUntil: 'domcontentloaded' });
     expect(plain!.request().redirectedFrom()).toBeNull();
     expect(new URL(page.url()).pathname).toBe('/');
 
-    // With the choice made: the server answers the request for "/" with a redirect to Find Prospects.
+    // With the choice made: the server answers the request for "/" with a redirect to Home.
     await context.addCookies([{ name: 'rv2', value: '1', domain: host, path: '/' }]);
     const sent = await page.goto('/', { waitUntil: 'domcontentloaded' });
     expect(sent!.request().redirectedFrom()?.url()).toMatch(/\/$/);
-    expect(new URL(page.url()).pathname).toBe('/client-acquisition/find');
+    expect(new URL(page.url()).pathname).toBe('/client-acquisition');
 
     // Other classic pages are left alone.
     await page.goto('/terms', { waitUntil: 'domcontentloaded' });

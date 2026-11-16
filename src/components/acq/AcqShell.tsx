@@ -11,7 +11,7 @@ import {
   BarChart3, Bell, BookOpen, Bot, Briefcase, Check, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LayoutDashboard, LayoutTemplate, LifeBuoy, PlayCircle, LogOut, Mail, Menu, MessageCircle,
   MessagesSquare, Network, Rocket, Search, Send, Settings, Sparkles, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
-import { DEFAULT_HOME, SETTINGS_HOME } from '@/lib/home';
+import { DEFAULT_HOME, LANDING_HOME, SETTINGS_HOME } from '@/lib/home';
 import { STUDIO_BUILD, STUDIO_HOME, WORKSPACE_LABEL, workspaceOf, type Workspace } from '@/lib/workspace';
 import { useSiteStatus, useTrialOffer } from '@/context/SiteStatusContext';
 import StartTrialButton from '@/components/StartTrialButton';
@@ -354,7 +354,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
 
       <aside className={`acq-sidebar${rail ? ' rail' : ''}${mobileOpen ? ' open' : ''}`} aria-label={`${WORKSPACE_LABEL[workspace].name} navigation`}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: rail ? 'center' : 'space-between', height: 64, padding: rail ? 0 : '0 16px 0 20px' }}>
-          <Link href={HOME_OF[workspace]} aria-label={`RUNVAX ${WORKSPACE_LABEL[workspace].name}`}><Logo compact={rail} /></Link>
+          <Link href={LANDING_HOME} aria-label="RUNVAX home"><Logo compact={rail} /></Link>
           {!rail && (
             <button className="acq-icon-btn acq-only-desktop" onClick={toggleRail} aria-label="Collapse sidebar"><ChevronsLeft size={18} /></button>
           )}
@@ -417,7 +417,7 @@ export default function AcqShell({ children }: { children: ReactNode }) {
       <div className="acq-main" style={{ paddingLeft: undefined }}>
         <style>{`@media (min-width:1024px){.acq-main{padding-left:${rail ? 76 : 250}px}}`}</style>
         <header className="acq-topbar">
-          <Link href={HOME_OF[workspace]} className="acq-only-mobile" aria-label={`RUNVAX ${WORKSPACE_LABEL[workspace].name}`} style={{ display: 'inline-flex' }}><Logo compact /></Link>
+          <Link href={LANDING_HOME} className="acq-only-mobile" aria-label="RUNVAX home" style={{ display: 'inline-flex' }}><Logo compact /></Link>
           <GlobalSearch />
           <div className="acq-spacer" style={{ flex: 1 }} />
           <span className={`acq-status acq-only-desktop${running ? '' : ' idle'}`}><span className="acq-dot" />{running ? 'Campaigns Running' : 'Nothing Running'}</span>

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { DEFAULT_HOME } from '@/lib/home';
+import { LANDING_HOME } from '@/lib/home';
 import { CheckCircle, Mail } from 'lucide-react';
 
 // New Google accounts land here (NextAuth `pages.newUser`) so they see that sign-up worked,
@@ -17,7 +17,7 @@ export default function WelcomePage() {
           <Mail className="w-3.5 h-3.5" /> A welcome email is on its way. Check spam if you don&apos;t see it.
         </p>
         <Link
-          href={DEFAULT_HOME}
+          href={LANDING_HOME}
           className="block w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
         >
           Start finding clients

@@ -8,12 +8,12 @@ import { CheckCircle, MailCheck, Fingerprint, Loader2, Eye, EyeOff } from 'lucid
 import { startAuthentication } from '@simplewebauthn/browser';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/types';
 import GoogleButton from '@/components/GoogleButton';
-import { DEFAULT_HOME } from '@/lib/home';
+import { LANDING_HOME } from '@/lib/home';
 import AuthShell, { Notice, authInput, authLabel, authPrimary, authSecondary } from '@/components/auth/AuthShell';
 
-/** Only same-site paths: '/claim-pro' is fine, 'https://evil.com' and '//evil.com' are not. Without one, signing in lands on Find Prospects. */
+/** Only same-site paths: '/claim-pro' is fine, 'https://evil.com' and '//evil.com' are not. Without one, signing in lands on Home. */
 function safeNext(raw: string | null): string {
-  return raw && /^\/[A-Za-z0-9_\-/]*(\?[A-Za-z0-9_\-=&%.]*)?$/.test(raw) && !raw.startsWith('//') ? raw : DEFAULT_HOME;
+  return raw && /^\/[A-Za-z0-9_\-/]*(\?[A-Za-z0-9_\-=&%.]*)?$/.test(raw) && !raw.startsWith('//') ? raw : LANDING_HOME;
 }
 
 function LoginForm() {
