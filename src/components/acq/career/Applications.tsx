@@ -86,7 +86,8 @@ function Card({ a, open, onToggle, onChanged, selected, onSelect, sub }: { a: Ap
 
 /** mode 'queue' = Approvals tab (what waits for a decision, with batch approve); 'all' = Applications tab (everything, with status). */
 export default function ApplicationsPanel({ mode, onChanged, refreshKey, permMode }: { mode: 'queue' | 'all'; onChanged: () => void; refreshKey: number; permMode: string }) {
-  const [layout, setLayout] = useState<'swipe' | 'list'>(() => (mode === 'queue' && typeof window !== 'undefined' && window.innerWidth < 760 ? 'swipe' : 'list'));   // phones start on the swipe cards
+  const [layout, setLayout] = useState<'swipe' | 'list'>(() => (typeof window !== 'undefined' && window.innerWidth < 760 ? 'swipe' : 'list'));   // phones start on the swipe cards
+  const [pick, setPick] = useState<'waiting' | 'approved' | 'applied' | 'all' | null>(null);
   const [sub, setSub] = useState<SubInfo>({ enabled: false, message: '', supported: [], permMode });
   useEffect(() => { void api<{ enabled: boolean; message: string; supported: string[] }>('/api/career/submissions').then((r) => { if (!r.error) setSub({ enabled: r.enabled, message: r.message, supported: r.supported, permMode }); }); }, [refreshKey, permMode]);
   const [rows, setRows] = useState<AppRow[] | null>(null); const [err, setErr] = useState(''); const [bErr, setBErr] = useState(''); const [open, setOpen] = useState<string | null>(null); const [sel, setSel] = useState<string[]>([]); const [busy, setBusy] = useState(false);
@@ -94,7 +95,11 @@ export default function ApplicationsPanel({ mode, onChanged, refreshKey, permMod
   useEffect(() => { void load(); }, [load, refreshKey]);
   if (err && !rows) return <div role="alert" style={{ display: 'grid', gap: 8, color: '#b91c1c' }}>{err}<div><button className="acq-btn acq-btn-sm" onClick={() => { setErr(''); void load(); }}>Try again</button></div></div>;
   if (!rows) return <div style={{ display: 'flex', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Loading…</div>;
-  const list = mode === 'queue' ? rows.filter((r) => r.status === 'prepared') : rows;
+  const counts = { waiting: rows.filter((r) => r.status === 'prepared').length, approved: rows.filter((r) => r.status === 'approved').length, applied: rows.filter((r) => r.status === 'applied').length, all: rows.length };
+  // Opens on what needs you: applications waiting for a decision, or everything when nothing waits.
+  const filter: 'waiting' | 'approved' | 'applied' | 'all' = mode === 'queue' ? 'waiting' : pick ?? (counts.waiting > 0 ? 'waiting' : 'all');
+  const queue = filter === 'waiting';
+  const list = filter === 'waiting' ? rows.filter((r) => r.status === 'prepared') : filter === 'approved' ? rows.filter((r) => r.status === 'approved') : filter === 'applied' ? rows.filter((r) => r.status === 'applied') : rows;
   const done = () => { void load(); onChanged(); };
   /** Swipe right = approve (ready to send; nothing is sent by approving). Swipe left = reject. Undo puts it back to waiting. */
   const swipeAct = async (id: string, action: 'approve' | 'reject' | 'reopen') => { const r = await api(`/api/career/applications/${id}`, json('PATCH', { action })); if (r.error) return { ok: false, error: r.error }; done(); return { ok: true }; };
@@ -102,12 +107,15 @@ export default function ApplicationsPanel({ mode, onChanged, refreshKey, permMod
   return (
     <>
       {err && <StaleNotice onRetry={() => { setErr(''); void load(); }} />}
+      {mode === 'all' && <div role="group" aria-label="Show applications" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {([['waiting', 'Waiting for me'], ['approved', 'Approved'], ['applied', 'Applied'], ['all', 'Everything']] as const).map(([k, l]) => <button key={k} className="acq-btn acq-btn-sm" aria-pressed={filter === k} onClick={() => setPick(k)} style={filter === k ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}>{l} ({counts[k]})</button>)}
+      </div>}
       {bErr && <div role="alert" style={{ color: '#b91c1c', fontSize: 13.5 }}>{bErr}</div>}
-      {mode === 'queue' && <p style={{ fontSize: 13.5, color: '#475569' }}>Prepared applications wait here until you decide. Open one to read it, edit it, and approve or reject it. Approving does not send anything by itself. If you allow it, the agent can then submit approved applications on Greenhouse and Lever forms; it hands back anything it cannot answer honestly.</p>}
-      {mode === 'queue' && list.length > 0 && <div role="group" aria-label="Layout" style={{ display: 'inline-flex', gap: 4 }}>
+      {queue && <p style={{ fontSize: 13.5, color: '#475569' }}>Prepared applications wait here until you decide. Open one to read it, edit it, and approve or reject it. Approving does not send anything by itself. If you allow it, the agent can then submit approved applications on Greenhouse and Lever forms; it hands back anything it cannot answer honestly.</p>}
+      {queue && list.length > 0 && <div role="group" aria-label="Layout" style={{ display: 'inline-flex', gap: 4 }}>
         <button className="acq-btn acq-btn-sm" aria-pressed={layout === 'swipe'} onClick={() => setLayout('swipe')} style={layout === 'swipe' ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}><Layers size={13} /> Swipe</button>
         <button className="acq-btn acq-btn-sm" aria-pressed={layout === 'list'} onClick={() => setLayout('list')} style={layout === 'list' ? { background: '#f3e8ff', borderColor: '#7e22ce', color: '#6b21a8' } : undefined}><LayoutList size={13} /> List</button></div>}
-      {mode === 'queue' && layout === 'swipe' && list.length > 0 && (
+      {queue && layout === 'swipe' && list.length > 0 && (
         <SwipeDeck items={list} keyOf={(a) => a.id} labels={{ right: 'Approve', left: 'Reject' }}
           onDecide={(a, dir) => swipeAct(a.id, dir === 'right' ? 'approve' : 'reject')} onUndo={(a) => swipeAct(a.id, 'reopen')}
           empty={<div style={{ ...box, background: '#f8fafc' }}><b>Nothing left to approve.</b></div>}
@@ -120,13 +128,13 @@ export default function ApplicationsPanel({ mode, onChanged, refreshKey, permMod
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="acq-btn acq-btn-sm" onClick={() => { setLayout('list'); setOpen(a.id); }}>Open full review to edit</button><a className="acq-btn acq-btn-sm" href={a.job.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={13} /> Posting</a></div>
             </div>)} />
       )}
-      {mode === 'queue' && list.length > 0 && layout === 'list' && <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      {queue && list.length > 0 && layout === 'list' && <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="acq-btn acq-btn-sm" onClick={() => setSel(sel.length === list.length ? [] : list.map((r) => r.id))}>{sel.length === list.length ? 'Clear selection' : 'Select all'}</button>
         <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!sel.length || busy} onClick={() => batch(false)}>{busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCheck size={13} />} Approve {sel.length || ''} selected</button>
         {sub.enabled && permMode !== 'prepare' && <button className="acq-btn acq-btn-primary acq-btn-sm" disabled={!sel.length || busy} onClick={() => batch(true)}><Bot size={13} /> Approve and let the agent submit {sel.length || ''}</button>}
         <span style={hint}>Batch approval is for applications you have reviewed.</span></div>}
-      {list.length === 0 && <p style={hint}>{mode === 'queue' ? 'Nothing is waiting for approval.' : 'No applications yet. Open Matched opportunities and press "Prepare application" on a job.'}</p>}
-      {(mode !== 'queue' || layout === 'list') && list.map((a) => <Card key={a.id} sub={sub} a={a} open={open === a.id} onToggle={() => setOpen(open === a.id ? null : a.id)} onChanged={done} selected={sel.includes(a.id)} onSelect={mode === 'queue' ? (v) => setSel(v ? [...sel, a.id] : sel.filter((x) => x !== a.id)) : undefined} />)}
+      {list.length === 0 && <p style={hint}>{rows.length === 0 ? 'No applications yet. Open Jobs and press "Prepare application" on a job you like.' : queue ? 'Nothing is waiting for your approval.' : 'Nothing here yet.'}</p>}
+      {(!queue || layout === 'list') && list.map((a) => <Card key={a.id} sub={sub} a={a} open={open === a.id} onToggle={() => setOpen(open === a.id ? null : a.id)} onChanged={done} selected={sel.includes(a.id)} onSelect={queue ? (v) => setSel(v ? [...sel, a.id] : sel.filter((x) => x !== a.id)) : undefined} />)}
     </>
   );
 }

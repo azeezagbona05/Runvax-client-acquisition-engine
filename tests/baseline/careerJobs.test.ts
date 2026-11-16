@@ -33,7 +33,7 @@ describe('scoreJob', () => {
   it('a strong fit scores high with readable reasons', () => {
     const f = scoreJob(job({ description: 'Fintech startup. Build UIs with React, TypeScript and CSS.' }), profile, prefs);
     expect(f.score).toBeGreaterThanOrEqual(90);
-    expect(f.reasons.join(' ')).toMatch(/title matches/i); expect(f.reasons.join(' ')).toMatch(/3 of your skills/); expect(f.reasons.join(' ')).toMatch(/Remote/); expect(f.reasons.join(' ')).toMatch(/Fintech/);
+    expect(f.reasons.join(' ')).toMatch(/title matches/i); expect(f.reasons.join(' ')).toMatch(/3 of your skills/); expect(f.reasons.join(' ')).toMatch(/Open worldwide/); expect(f.reasons.join(' ')).toMatch(/Fintech/);
   });
   it('an unrelated job scores low', () => {
     expect(scoreJob(job({ title: 'Warehouse Operative', description: 'Lift boxes.', location: 'Berlin', remote: false }), profile, prefs).score).toBeLessThan(35);
@@ -61,5 +61,50 @@ describe('title understanding', () => {
     const fit = (title: string) => scoreJob(job({ title, description: '' }), profile, prefs).score;
     expect(fit('Senior Back-end Developer')).toBeLessThan(fit('Frontend Developer') - 20);
     expect(fit('Full-Stack Developer')).toBeGreaterThan(fit('Back-end Developer'));
+  });
+});
+
+import { accessFor, ownPlaces } from '@/lib/career/jobs/match';
+describe('can the person actually take the job? (found in the browser audit)', () => {
+  const ng = sanitizePreferences({ titles: ['Frontend Developer'], workModes: ['remote'], level: 'mid', country: 'Nigeria', locations: ['Lagos'] });
+  it('remote but restricted to other places: no points for place, never above 40', () => {
+    const f = scoreJob(job({ location: 'LATAM, Europe, USA, Canada, APAC', description: 'React and TypeScript, CSS, Fintech' }), profile, { ...ng, industries: ['Fintech'] });
+    expect(f.access).toBe('restricted'); expect(f.score).toBeLessThanOrEqual(40); expect(f.reasons.join(' ')).toMatch(/Only open to: LATAM, Europe/);
+  });
+  it('open to the person: worldwide, Africa, EMEA, their country or their city', () => {
+    for (const where of ['Worldwide', 'Anywhere in the world', 'Africa', 'EMEA', 'Nigeria', 'Lagos, Nigeria', 'West Africa']) expect(accessFor({ location: where, remote: true }, 'Nigeria', ['Lagos']).access).toBe('open');
+  });
+  it('a job that does not say where it is open stays "unknown", not rejected', () => { for (const where of ['', 'Remote', 'Homeoffice']) expect(accessFor({ location: where, remote: true }, 'Nigeria', []).access).toBe('unknown'); });
+  it('Europe means open to a person in Germany and closed to a person in Ghana', () => {
+    expect(accessFor({ location: 'Europe', remote: true }, 'Germany', []).access).toBe('open'); expect(accessFor({ location: 'Europe', remote: true }, 'Ghana', []).access).toBe('restricted');
+  });
+  it('onsite abroad needs relocation: restricted; onsite near the person: open', () => {
+    expect(accessFor({ location: 'Lucerne', remote: false }, 'Nigeria', ['Lagos']).access).toBe('restricted'); expect(accessFor({ location: 'Victoria Island, Lagos', remote: false }, 'Nigeria', ['Lagos']).access).toBe('open');
+    const f = scoreJob(job({ remote: false, location: 'Lucerne', description: 'React TypeScript CSS' }), profile, ng); expect(f.score).toBeLessThanOrEqual(40); expect(f.reasons.join(' ')).toMatch(/Based in Lucerne/);
+  });
+  it('without knowing where the person is, nothing is rejected', () => { expect(accessFor({ location: 'USA only', remote: true }, '', []).access).toBe('unknown'); expect(ownPlaces('', [])).toEqual([]); });
+  it('"Senior" is not a match: a Senior Back-end Developer is not close to a Senior Accountant', () => {
+    const acct = sanitizePreferences({ titles: ['Senior Accountant'], workModes: ['remote'], level: 'senior', country: 'Kenya' }); const accountant = sanitizeProfile({ skills: ['IFRS', 'Audit'], experience: [{ title: 'Senior Accountant', company: 'X' }] });
+    const dev = scoreJob(job({ title: 'Senior Back-end Developer', description: 'Node and SQL', location: 'Worldwide' }), accountant, acct);
+    const right = scoreJob(job({ title: 'Senior Accountant', description: 'IFRS reporting and audit', location: 'Worldwide' }), accountant, acct);
+    expect(dev.score).toBeLessThan(35); expect(right.score).toBeGreaterThanOrEqual(85);
+  });
+  it('"Staff Nurse" is not read as a lead-level job', () => { expect(levelOf('Staff Nurse - ICU')).toBeNull(); expect(levelOf('Staff Software Engineer')).toBe('lead'); });
+});
+
+describe('a place that is named and is not yours rules a job out (found in the browser audit, round 2)', () => {
+  const open = (where: string, country: string, cities: string[] = []) => accessFor({ location: where, remote: true }, country, cities).access;
+  it('"South Africa" is not "Africa": a South Africa-only job is closed to Kenya, open to South Africa', () => {
+    expect(open('South Africa', 'Kenya')).toBe('restricted'); expect(open('South Africa', 'South Africa')).toBe('open'); expect(open('Africa', 'Kenya')).toBe('open'); expect(open('East Africa', 'Kenya')).toBe('open');
+  });
+  it('any named country that is not yours is closed, even one on no list (Indonesia, Serbia, Egypt for a Nigerian)', () => {
+    for (const where of ['Indonesia', 'Serbia', 'Cyprus', 'Malaysia', 'Egypt', 'Ukraine', 'Remote - US', 'Ghana']) expect(open(where, 'Nigeria')).toBe('restricted');
+  });
+  it('a list that includes yours is open; nothing named is unknown, not closed', () => {
+    expect(open('Ghana, Nigeria', 'Nigeria')).toBe('open'); expect(open('Worldwide', 'Nigeria')).toBe('open'); expect(open('EMEA', 'Nigeria')).toBe('open'); expect(open('Remote', 'Nigeria')).toBe('unknown'); expect(open('', 'Nigeria')).toBe('unknown');
+  });
+  it('and the score follows: a job for Indonesia is not a 75% match for someone in Lagos', () => {
+    const ng = sanitizePreferences({ titles: ['Frontend Developer'], workModes: ['remote'], level: 'mid', country: 'Nigeria' });
+    const f = scoreJob(job({ title: 'Frontend Developer', location: 'Indonesia', description: 'React TypeScript CSS' }), profile, ng); expect(f.access).toBe('restricted'); expect(f.score).toBeLessThanOrEqual(40);
   });
 });

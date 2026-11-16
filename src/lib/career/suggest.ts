@@ -31,13 +31,15 @@ export function placeFromLocation(loc: string): { country: string; city: string 
   return known ? { country: last, city: parts.length > 1 ? parts[0] : '' } : { country: '', city: parts[0] };
 }
 
-/** The "City, Country" line near the top of a CV ("Lagos, Nigeria"). Only returns text that is really there and ends in a known country. */
+/** The "City, Country" near the top of a CV ("Lagos, Nigeria"), wherever it sits on its line. Only returns text that is really there and ends in a known country. */
 export function locationFromText(text: string): string {
-  for (const line of text.split('\n').slice(0, 12)) {
-    for (const seg of line.split(/[|•·;]/).map((x) => x.trim())) {
-      const m = seg.match(/^([A-Za-z][A-Za-z .'-]{1,40}),\s*([A-Za-z][A-Za-z .'-]{1,40})$/);
-      if (m && COUNTRIES.includes(m[2].trim().toLowerCase())) return `${m[1].trim()}, ${m[2].trim()}`;
-    }
+  const head = text.split('\n').slice(0, 12).join('\n');
+  for (const c of COUNTRIES) {
+    const m = new RegExp(`,\\s*(${c.replace(/ /g, '\\s+')})\\b`, 'i').exec(head); if (!m) continue;
+    const city = head.slice(0, m.index).match(/([A-Z][A-Za-z.'-]+(?:[ \t][A-Z][A-Za-z.'-]+){0,2})[ \t]*$/);        // the capitalised place name right before ", Country"
+    if (!city) continue;
+    const country = m[1].replace(/\s+/g, ' ').replace(/\b\w/g, (x) => x.toUpperCase()).replace(/\bUk\b/, 'UK').replace(/\bUsa\b/, 'USA').replace(/\bUae\b/, 'UAE');
+    return `${city[1].trim()}, ${country}`;
   }
   return '';
 }
@@ -54,7 +56,7 @@ export function linksFromText(text: string): { linkedin: string; github: string;
 
 export function suggestByRules(p: CareerProfileData, cvText: string, now = new Date()): Suggestion {
   const titles: string[] = []; const add = (t: string) => { const s = t.trim(); if (s && !titles.some((x) => x.toLowerCase() === s.toLowerCase())) titles.push(s); };
-  add(p.headline); p.experience.slice(0, 3).forEach((r) => add(r.title));
+  add(p.headline); p.experience.slice(0, 3).forEach((r) => add(r.title.split(/\s+[-–—|]\s+/)[0]));          // "Staff Nurse - Intensive Care Unit" -> "Staff Nurse"
   const place = placeFromLocation(p.location || locationFromText(cvText)); const links = linksFromText(cvText); const y = yearsOfExperience(p, now);
   const notes = [y != null ? `About ${y} year${y === 1 ? '' : 's'} of experience on your CV, so the level is set to ${levelFromYears(y)}.` : 'No dates found, so the level was left at mid.', 'Work style is set to remote and hybrid. Change it if you want onsite.', 'Salary, work authorization and sponsorship are left for you: only you can state them.'];
   return { preferences: { titles: titles.slice(0, 4), industries: [], country: place.country, locations: place.city ? [place.city] : [], workModes: ['remote', 'hybrid'], level: levelFromYears(y) }, standing: { ...links, residenceCountry: place.country }, source: 'rules', notes };

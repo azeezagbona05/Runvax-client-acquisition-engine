@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
 
 /** Vacancy sources. Only public, documented endpoints that are offered for others to read: no scraping, no logins. */
-export interface Job { source: 'remotive' | 'arbeitnow' | 'greenhouse' | 'lever'; externalId: string; title: string; company: string; location: string; remote: boolean; url: string; description: string; postedAt: Date | null }
-export const SOURCE_LABEL: Record<string, string> = { remotive: 'Remotive', arbeitnow: 'Arbeitnow', greenhouse: 'Greenhouse', lever: 'Lever' };
+/** `rank` (0-10) is an extra, source-specific nudge for ordering equally good matches (Google Maps employers: the right kind of employer, better reviewed). */
+export interface Job { rank?: number; source: 'remotive' | 'arbeitnow' | 'greenhouse' | 'lever' | 'himalayas' | 'places'; externalId: string; title: string; company: string; location: string; remote: boolean; url: string; description: string; postedAt: Date | null }
+export const SOURCE_LABEL: Record<string, string> = { remotive: 'Remotive', arbeitnow: 'Arbeitnow', greenhouse: 'Greenhouse', lever: 'Lever', himalayas: 'Himalayas', places: 'Google Maps' };
 
 export const stripHtml = (h: string) => h.replace(/<(?:br|\/p|\/li|\/h\d)\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n) : s);
@@ -36,6 +37,16 @@ export function fromLever(body: unknown, company: string): Job[] {
   return (body as R[]).flatMap((x) => { const url = safeUrl(x.hostedUrl); if (!url || !x.text) return []; const cat = (x.categories ?? {}) as R; const loc = String(cat.location ?? ''); return [{ source: 'lever' as const, externalId: String(x.id ?? url).slice(0, 120), title: cut(String(x.text), 200), company: cut(company, 160), location: cut(loc, 200), remote: x.workplaceType === 'remote' || /remote/i.test(loc), url, description: cut(String(x.descriptionPlain ?? stripHtml(String(x.description ?? ''))), 6000), postedAt: date(x.createdAt) }]; });
 }
 
+/** Himalayas: a job states the countries it is open to (locationRestrictions); none listed means open worldwide. Each job links back to its Himalayas page. */
+export function fromHimalayas(body: unknown): Job[] {
+  const jobs = (body as { jobs?: R[] } | null)?.jobs; if (!Array.isArray(jobs)) return [];
+  return jobs.flatMap((x) => {
+    const url = safeUrl(x.applicationLink); if (!url || !x.title) return [];
+    const where = Array.isArray(x.locationRestrictions) ? (x.locationRestrictions as unknown[]).map(String).filter(Boolean) : [];
+    return [{ source: 'himalayas' as const, externalId: String(x.guid ?? url).slice(0, 120), title: cut(String(x.title), 200), company: cut(String(x.companyName ?? ''), 160), location: cut(where.length ? where.join(', ') : 'Worldwide', 200), remote: true, url, description: cut(stripHtml(String(x.description ?? x.excerpt ?? '')), 6000), postedAt: date(x.pubDate) }];
+  });
+}
+
 // ── fetching ──
 const TTL = 6 * 60 * 60 * 1000; const cache = new Map<string, { at: number; jobs: Job[] }>();
 async function getJson(url: string): Promise<unknown> {
@@ -51,6 +62,15 @@ async function cached(key: string, load: () => Promise<Job[]>): Promise<Job[]> {
 export const clearJobCache = () => cache.clear();
 
 export const searchRemotive = (q: string) => cached(`rem:${q.toLowerCase()}`, async () => fromRemotive(await getJson(`https://remotive.com/api/remote-jobs?limit=40&search=${encodeURIComponent(q)}`)));
+/** Himalayas search by job title (a few pages, cached). This one really searches: nurse and accountant return nurse and accountant jobs. */
+export const searchHimalayas = (q: string, pages = 3) => cached(`him:${q.toLowerCase()}:${pages}`, async () => {
+  const out: Job[] = [];
+  for (let i = 0; i < pages; i++) {
+    const body = await getJson(`https://himalayas.app/jobs/api/search?q=${encodeURIComponent(q)}&limit=20&offset=${i * 20}`);
+    const got = fromHimalayas(body); out.push(...got); if (got.length < 20) break;
+  }
+  return out;
+});
 export const fetchArbeitnow = () => cached('arb', async () => fromArbeitnow(await getJson('https://www.arbeitnow.com/api/job-board-api')));
 
 /** A company's own public board, if it has one on Greenhouse or Lever. Returns null when neither exists. */

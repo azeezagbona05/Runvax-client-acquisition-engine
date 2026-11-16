@@ -129,3 +129,13 @@ describe('tailored CV (Phase 3)', () => {
     expect(dropped.length).toBeGreaterThan(0);
   });
 });
+
+describe('the tailored CV keeps the candidate\'s own contact details (found in the browser audit)', () => {
+  const profile = sanitizeProfile({ name: 'Wanjiru Kamau', email: 'wanjiru.kamau@example.com', phone: '+254 712 345 678', location: 'Nairobi, Kenya', headline: 'Senior Accountant', skills: ['IFRS', 'Audit'],
+    experience: [{ title: 'Senior Accountant', company: 'Savannah Foods Ltd', start: 'April 2020', end: 'Present', bullets: ['Led the annual external audit with zero material findings'] }] });
+  it('email, phone, name, location and headline survive, and nothing is reported as removed', () => {
+    const { cv, dropped } = buildTailoredCv(profile, { summary: '', matchedSkills: ['IFRS'] }, 'We need an accountant with IFRS');
+    expect(cv).toMatchObject({ name: 'Wanjiru Kamau', email: 'wanjiru.kamau@example.com', phone: '+254 712 345 678', location: 'Nairobi, Kenya', headline: 'Senior Accountant' });
+    expect(dropped).toEqual([]);
+  });
+});

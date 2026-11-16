@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { ArrowRight, Bot, Code2, FileText, MessageCircle, Send, Target, UserPlus, Users } from 'lucide-react';
+import { ArrowRight, Bot, Briefcase, Code2, FileText, MessageCircle, Send, Target, UserPlus, Users } from 'lucide-react';
 import { useAcq } from '@/components/acq/AcqProvider';
 import CountUp from '@/components/acq/CountUp';
 import { ACTIVITY_ICON } from '@/components/acq/RecentActivity';
@@ -11,6 +11,8 @@ import { EmptyState, Skeleton, fmtNum } from '@/components/acq/ui';
 import { timeAgo } from '@/lib/acqOverview';
 import { DEFAULT_HOME } from '@/lib/home';
 import { STUDIO_HOME } from '@/lib/workspace';
+
+const CAREER_HOME = '/client-acquisition/career';
 
 interface AgentSummary { conversations: number; changePct: number | null; leads: number; activeAgents: number; agents: number; events: Array<{ id: string; kind: 'lead' | 'agent' | 'article'; title: string; detail: string; at: string }> }
 const RANGES = [{ d: 7, label: 'Last 7 days' }, { d: 30, label: 'Last 30 days' }, { d: 90, label: 'Last 90 days' }];
@@ -23,10 +25,12 @@ function Delta({ pct }: { pct: number | null | undefined }) {
 const MODULES = [
   { href: DEFAULT_HOME, title: 'Prospecting & Campaigns', body: 'Find business leads, create AI campaigns, automate follow-ups and generate opportunities.', icon: Target, bg: '#faf5ff' },
   { href: STUDIO_HOME, title: 'AI Agent Studio', body: 'Build, customise and deploy AI receptionists, visibility agents and more for your business.', icon: Bot, bg: '#f5f3ff' },
+  { href: CAREER_HOME, title: 'Career Agent', body: 'Looking for a job? Upload your CV and the agent finds jobs and employers that fit, and writes your applications.', icon: Briefcase, bg: '#fdf4ff' },
 ];
 const ACTIONS = [
   { href: DEFAULT_HOME, title: 'Find Leads', body: 'Generate business prospects', icon: Target },
   { href: '/client-acquisition/automation', title: 'Create Campaign', body: 'Build a full campaign with AI', icon: Send },
+  { href: CAREER_HOME, title: 'Find Me a Job', body: 'Upload your CV and let the agent search', icon: Briefcase },
   { href: '/client-acquisition/agents/new', title: 'Build an AI Agent', body: 'Create a receptionist or other agent', icon: Bot },
   { href: '/client-acquisition/agents', title: 'Deploy on Website', body: 'Get the script and go live', icon: Code2 },
 ];
@@ -65,7 +69,7 @@ export default function ClientAcquisitionHome() {
         <p className="acq-sub" style={{ marginTop: 2 }}>Choose a module to continue or view your overall performance.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {MODULES.map((m, i) => (
           <section key={m.title} className="acq-home-module acq-home-rise" style={{ background: m.bg, ['--i' as string]: 1 + i }} aria-label={m.title} onMouseMove={spot}>
             <m.icon className="acq-home-module-art" size={132} strokeWidth={1.2} aria-hidden="true" />

@@ -73,13 +73,87 @@ function headingOf(line: string): keyof CareerProfileData | 'skip' | null {
   return null;
 }
 
+
+// ── Experience and education: read by their DATES and DEGREES, not by blank lines (a PDF has none between jobs) ──
+const isBullet = (l: string) => BULLET.test(l);
+const hasRange = (l: string) => !isBullet(l) && RANGE.test(l);
+const strip = (t: string) => t.replace(RANGE, ' ').replace(/[()[\]]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s|,–—-]+|[\s|,–—-]+$/g, '').trim();
+const PLACE = /,|\b(?:remote|hybrid|on-?site|nigeria|ghana|kenya|south africa|uganda|tanzania|egypt|uk|usa|canada|germany|india)\b/i;
+
+/** A new role starts one line above its date line (title/company line) or on the date line itself. */
+export function segmentRoles(lines: string[]): string[][] {
+  const L = lines.map((l) => l.trim()).filter(Boolean); const starts: number[] = [];
+  for (let i = 0; i < L.length; i++) {
+    if (!hasRange(L[i])) continue;
+    const prevFree = i > 0 && !isBullet(L[i - 1]) && !hasRange(L[i - 1]);
+    const head = prevFree ? i - 1 : i;
+    if (starts.length && head <= starts[starts.length - 1]) continue;      // a second date line inside the same header
+    starts.push(head);
+  }
+  return starts.map((s, k) => L.slice(s, starts[k + 1] ?? L.length));
+}
+
+export function parseExperience(section: string[]): CareerProfileData['experience'] {
+  const out: CareerProfileData['experience'] = [];
+  for (const b of segmentRoles(section)) {
+    const d = hasRange(b[0]) ? 0 : 1; const m = b[d].match(RANGE); if (!m) continue;
+    const top = d === 1 ? strip(b[0]) : ''; const dateLine = strip(b[d]);
+    let title = '', company = '', location = '';
+    if (d === 1) {
+      // "Title | Company" / "Title, Company" / "Title at Company" on the first line, place or nothing on the date line.
+      const explicit = top.split(/\s+(?:at|@)\s+|\s*[|]\s*|,\s+/);
+      if (explicit.length > 1) { title = explicit[0]; company = explicit.slice(1).join(', '); location = PLACE.test(dateLine) ? dateLine : ''; }
+      else if (dateLine && !PLACE.test(dateLine)) { title = top; company = dateLine; }               // "Staff Nurse - ICU" / "Korle Bu Teaching Hospital (2021 to date)"
+      else { const parts = top.split(/\s+[-–—]\s+/); title = parts[0]; company = parts.slice(1).join(' - '); location = dateLine; }
+    } else {
+      const parts = strip(b[0]).split(/\s+(?:at|@)\s+|\s*[|]\s*|,\s+|\s+[-–—]\s+/); title = parts[0] ?? ''; company = parts.slice(1).join(', ');
+    }
+    const rest: string[] = [];
+    for (const raw of b.slice(d + 1)) {
+      const t = raw.replace(BULLET, '').trim(); if (t.length < 3) continue;
+      const wrapped = !isBullet(raw) && rest.length && !/[.;:!?]$/.test(rest[rest.length - 1]) && /^[a-z(]/.test(t);   // a long bullet continued on the next line
+      if (wrapped) rest[rest.length - 1] += ' ' + t; else rest.push(t);
+    }
+    out.push({ title: title.trim(), company: company.trim(), start: m[1], end: /present|current|now|date/i.test(m[2]) ? 'Present' : m[2], location, bullets: rest.filter((x) => x.length > 8) });
+  }
+  return out;
+}
+
+const DEGREE = /\b(?:b\.?sc|m\.?sc|b\.?a|m\.?a|mba|ph\.?d|bcom|b\.?com|b\.?eng|m\.?eng|bachelor|master|diploma|certificate|hnd|ond|acca|cpa|cima|aca|degree|a-levels?|gcse|licen[cs]e|ssce|waec)\b/i;
+const INSTITUTION = /\b(?:university|college|school|institute|academy|polytechnic|council|association|board|faculty)\b/i;
+const YEAR_AT_END = /[\s,(–-]*((?:19|20)\d{2})\)?\s*$/;
+
+export function parseEducation(section: string[]): CareerProfileData['education'] {
+  const out: CareerProfileData['education'] = [];
+  for (const raw of section.map((l) => l.trim()).filter(Boolean)) {
+    const ym = raw.match(YEAR_AT_END); const year = ym?.[1] ?? ''; const line = raw.replace(YEAR_AT_END, '').replace(/[()\s|,–—-]+$/g, '').trim();
+    if (DEGREE.test(line)) {
+      const parts = line.split(/\s+[-–—]\s+|,\s+|\s*\|\s*/); const inst = parts.slice(1).find((x) => INSTITUTION.test(x)) ?? parts.slice(1).join(', ');
+      out.push({ qualification: parts[0].trim(), institution: inst.trim(), start: '', end: year });
+    } else if (out.length && !out[out.length - 1].institution && (INSTITUTION.test(line) || line.length > 3)) {
+      out[out.length - 1].institution = line; if (year && !out[out.length - 1].end) out[out.length - 1].end = year;
+    } else if (!out.length && line.length > 3) out.push({ qualification: '', institution: line, start: '', end: year });
+  }
+  return out;
+}
+
+/** The line right under the name that says what the person is ("Frontend Developer"). Short, no contact details, not a heading. */
+export function headlineOf(lines: string[], name: string): string {
+  const i = name ? lines.findIndex((l) => l.trim().toLowerCase() === name.toLowerCase()) : -1;
+  for (const l of lines.slice(i + 1, i + 5).map((x) => x.trim())) {
+    if (!l || headingOf(l) || /@|https?:|www\./i.test(l) || /\d{3}/.test(l) || l.length > 70 || l.split(/\s+/).length > 9 || /[|•]/.test(l)) continue;
+    return l;
+  }
+  return '';
+}
+
 export function parseByRules(cv: string): CareerProfileData {
   const lines = cv.split('\n').map((l) => l.trimEnd());
   const p = emptyProfile();
   p.email = cv.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? '';
   p.phone = cv.match(/(?:\+?\d[\d\s().-]{7,}\d)/)?.[0]?.trim() ?? '';
   const first = lines.find((l) => l.trim() && !/@|\d{4}|http/i.test(l) && l.trim().split(/\s+/).length <= 5 && /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]+$/.test(l.trim()));
-  p.name = first?.trim() ?? '';
+  p.name = (first?.trim() ?? '').replace(/^[A-Z .'-]+$/, (n) => n.toLowerCase().replace(/\b[a-zà-ÿ]/g, (c) => c.toUpperCase()));      // KWAME MENSAH -> Kwame Mensah
   p.location = locationFromText(cv);
 
   const sections: Record<string, string[]> = {}; let cur = 'top';
@@ -91,23 +165,9 @@ export function parseByRules(cv: string): CareerProfileData {
   p.certifications = (sections.certifications ?? []).map((l) => l.replace(BULLET, '').trim()).filter((l) => l.length > 3);
   p.achievements = (sections.achievements ?? []).map((l) => l.replace(BULLET, '').trim()).filter((l) => l.length > 8);
 
-  const blocks = (arr: string[]) => arr.join('\n').split(/\n\s*\n/).map((b) => b.split('\n').map((l) => l.trim()).filter(Boolean)).filter((b) => b.length);
-  for (const b of blocks(sections.experience ?? [])) {
-    const head = b.slice(0, 2).join(' | '); const m = head.match(RANGE);
-    if (!m) { if (p.experience.length) p.experience[p.experience.length - 1].bullets.push(...b.map((l) => l.replace(BULLET, ''))); continue; }
-    const first = b[0].replace(RANGE, '').replace(/[|,–—-]+\s*$/, '').trim();
-    const [a, c] = first.split(/\s+(?:at|@)\s+|\s*[|–—]\s*|,\s+|\s+-\s+/);
-    const second = b[1] && !RANGE.test(b[1]) && !BULLET.test(b[1]) && b[1].length < 80 ? b[1].replace(RANGE, '').replace(/[|,–—-]+\s*$/, '').trim() : '';
-    const rest = b.slice(second ? 2 : 1).filter((l) => !(RANGE.test(l) && l.length < 60)).map((l) => l.replace(BULLET, '').trim()).filter((l) => l.length > 8);
-    p.experience.push({ title: (a ?? '').trim(), company: (c ?? second).trim(), start: m[1], end: /present|current|now|date/i.test(m[2]) ? 'Present' : m[2], location: '', bullets: rest });
-  }
-  for (const b of blocks(sections.education ?? [])) {
-    const m = b.join(' ').match(RANGE) ?? b.join(' ').match(/((?:19|20)\d{2})/);
-    const body = b.map((l) => l.replace(RANGE, '').trim()).filter(Boolean);
-    const q = body.find((l) => /bsc|msc|ba\b|ma\b|mba|phd|degree|diploma|bachelor|master|certificate|hnd|ond|a-levels?|gcse|b\.|m\./i.test(l)) ?? body[0] ?? '';
-    const inst = body.find((l) => l !== q) ?? '';
-    p.education.push({ institution: inst.replace(/[|,–—-]+\s*$/, '').trim(), qualification: q.replace(/[|,–—-]+\s*$/, '').trim(), start: '', end: m ? (m[2] ?? m[1]) : '' });
-  }
+  p.experience = parseExperience(sections.experience ?? []);
+  p.education = parseEducation(sections.education ?? []);
+  p.headline = headlineOf(lines, p.name);
   return sanitizeProfile(p);
 }
 

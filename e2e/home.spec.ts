@@ -28,6 +28,7 @@ test('Home: two modules, the numbers, recent activity and quick actions', async 
   // The two modules open their own area.
   await expect(page.getByRole('region', { name: 'Prospecting & Campaigns' }).getByRole('link', { name: /Open Module/ })).toHaveAttribute('href', '/client-acquisition/find');
   await expect(page.getByRole('region', { name: 'AI Agent Studio' }).getByRole('link', { name: /Open Module/ })).toHaveAttribute('href', '/client-acquisition/agents');
+  await expect(page.getByRole('region', { name: 'Career Agent' }).getByRole('link', { name: /Open Module/ })).toHaveAttribute('href', '/client-acquisition/career');   // a job seeker can find it from Home
 
   // The module buttons read white on purple.
   for (const n of ['Prospecting & Campaigns', 'AI Agent Studio']) await expect(page.getByRole('region', { name: n }).getByRole('link', { name: /Open Module/ })).toHaveCSS('color', 'rgb(255, 255, 255)');

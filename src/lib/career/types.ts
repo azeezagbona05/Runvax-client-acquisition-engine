@@ -12,7 +12,8 @@ export const LEVELS = ['entry', 'junior', 'mid', 'senior', 'lead', 'executive'] 
 export const FREQUENCIES = ['daily', 'weekly'] as const;
 export const SOURCES = [
   { id: 'company_careers', label: 'Company career pages', note: 'Public vacancies on employers\' own sites' },
-  { id: 'job_feeds', label: 'Job board APIs and feeds', note: 'Sources that allow automated access' },
+  { id: 'job_feeds', label: 'Remote job boards', note: 'Searches Himalayas for your job title and shows which countries each job is open to. Europe-based candidates also get Arbeitnow.' },
+  { id: 'employers', label: 'Employers near you', note: 'Hospitals, firms and companies in your city found on Google Maps, for open applications. They may have no vacancy listed.' },
 ] as const;
 export const PERMISSION_MODES = [
   { id: 'prepare', label: 'Prepare applications only', note: 'The agent prepares the CV, cover letter and answers. You apply yourself.' },
@@ -67,14 +68,14 @@ export function sanitizePreferences(v: unknown): Preferences {
 export function sanitizeDiscovery(v: unknown): Discovery {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
   const ids = SOURCES.map((s) => s.id) as string[];
-  return { sources: list(o.sources, 5, 30).filter((s) => ids.includes(s)), frequency: pick(o.frequency, FREQUENCIES, 'daily'), employers: list(o.employers, 30, 80), minScore: num(o.minScore, 50, 95, 75) };
+  return { sources: list(o.sources, 5, 30).filter((s) => ids.includes(s)), frequency: pick(o.frequency, FREQUENCIES, 'daily'), employers: list(o.employers, 30, 80), minScore: num(o.minScore, 50, 95, 60) };
 }
 export function sanitizePermissions(v: unknown): Permissions {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
   return { mode: pick(o.mode, PERMISSION_MODES.map((m) => m.id) as readonly PermissionMode[], 'prepare'), autoMinScore: num(o.autoMinScore, 70, 99, 90), autoMaxPerDay: num(o.autoMaxPerDay, 1, 20, 5), autoBlockedEmployers: list(o.autoBlockedEmployers, 30, 80), remindByEmail: o.remindByEmail !== false };
 }
 export const defaultPreferences = () => sanitizePreferences({});
-export const defaultDiscovery = () => sanitizeDiscovery({ sources: ['company_careers', 'job_feeds'] });
+export const defaultDiscovery = () => sanitizeDiscovery({ sources: ['company_careers', 'job_feeds', 'employers'] });
 export const defaultPermissions = () => sanitizePermissions({});
 
 /** What must be true before the agent can be deployed. Returns plain sentences, empty when ready. */
