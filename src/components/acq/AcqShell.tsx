@@ -9,7 +9,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
   BarChart3, Bell, BookOpen, Bot, Briefcase, Check, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LayoutDashboard, LayoutTemplate, LifeBuoy, PlayCircle, LogOut, Mail, Menu, MessageCircle,
-  MessagesSquare, Network, Rocket, Search, Send, Settings, Sparkles, Users, Wand2, Zap, MapPin,
+  CalendarCheck, MessagesSquare, Network, Rocket, Search, Send, Settings, Sparkles, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME, LANDING_HOME, SETTINGS_HOME } from '@/lib/home';
 import { STUDIO_BUILD, STUDIO_HOME, WORKSPACE_LABEL, workspaceOf, type Workspace } from '@/lib/workspace';
@@ -31,6 +31,7 @@ const PROSPECTING_NAV: NavGroup[] = [
     { href: DEFAULT_HOME, label: 'Find Prospects', icon: MapPin },
     { href: '/client-acquisition/leads', label: 'Lead Lists', icon: Users },
     { href: '/client-acquisition/campaigns', label: 'Campaigns', icon: Send },
+    { href: '/client-acquisition/appointments', label: 'Appointments', icon: CalendarCheck },
     { href: '/client-acquisition/automation', label: 'Automation Builder', icon: Wand2 },
     { href: '/client-acquisition/campaign-agents', label: 'Campaign AI Agents', icon: Network },
     { href: '/client-acquisition/activity', label: 'Email Activity', icon: Mail },

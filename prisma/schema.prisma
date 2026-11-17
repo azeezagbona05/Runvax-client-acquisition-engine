@@ -1211,6 +1211,7 @@ model OutreachLead {
   ownerNotifiedAt DateTime?
   replies       CampaignReply[]
   whatsapp      LeadWhatsApp?
+  appointment   LeadAppointment?
   unsubscribedAt DateTime?
   error         String?          @db.Text
   createdAt     DateTime         @default(now())
@@ -1219,6 +1220,23 @@ model OutreachLead {
   @@index([campaignId, status])
   @@index([userId, email])
   @@index([userId, createdAt])
+}
+
+// What happened at a booked meeting and the next step for the team. `outcome`: held | missed | rescheduled (null = not recorded yet).
+// The meeting time itself stays on OutreachLead.demoAt.
+model LeadAppointment {
+  id               String       @id @default(cuid())
+  userId           String
+  leadId           String       @unique
+  lead             OutreachLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  outcome          String?      @db.VarChar(12)
+  nextAction       String?      @db.VarChar(300)
+  nextActionDue    DateTime?
+  nextActionDoneAt DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([userId, outcome])
 }
 
 // The WhatsApp side of a campaign contact: their phone number and whether the approved template has been sent.

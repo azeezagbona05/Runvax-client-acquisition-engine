@@ -487,10 +487,51 @@ const CLINIC_2027: TemplateConfig = (() => {
   };
 })();
 
+/**
+ * Used by "Reschedule missed appointments": a short, kind sequence to people who did not make a booked meeting. Generic on purpose, so it
+ * works for any business. It names no reason and puts no blame on the contact.
+ */
+export const RESCHEDULE_TEMPLATE_ID = 'missed-appointment-reschedule';
+const RESCHEDULE: TemplateConfig = (() => {
+  const base = industryTemplate({
+    id: RESCHEDULE_TEMPLATE_ID, ind: 'healthcare', name: 'Reschedule a Missed Appointment', category: 'Follow-up',
+    description: 'A short, kind sequence that invites people who missed a booked meeting to choose a new time.',
+    product: { name: 'a new time to talk', summary: 'A short conversation at a time that suits you.', features: [] },
+    ideal: 'A contact who booked a meeting and did not make it.', audience: ['Contacts with a missed appointment', 'Contacts who booked a demo or call', 'Contacts who have not opted out'],
+    angle: '', educate: '', strategy: [], tint: ['#fef3c7', '#fde68a'],
+  });
+  return {
+    ...base, industry: 'Follow-up', industryId: undefined,
+    objectives: ['Rebook missed appointments', 'Keep the conversation warm', 'Learn whether the need is still there'], primaryObjective: 'reactivate', conversion: 'general_enquiry', channels: ['email', 'whatsapp'],
+    messagingStrategy: ['Kind and short', 'No blame and no pressure', 'Make rebooking one reply or one tap away', 'Stop at the first reply, booking or opt-out'],
+    copy: {
+      intro: [
+        'We had a time set aside to talk, and it looks like we missed each other. That happens, and it is no problem at all.',
+        'If a conversation is still useful for {{business}}, I would be glad to find a time that suits you better.',
+        'Reply with a day and time that works, or tap the WhatsApp button below and we can fix it there in a minute.',
+      ],
+      review: [
+        'A quick note in case my last message got buried.',
+        'I am happy to work around your diary, so any day this week or next is fine. Reply with a time, or message us on WhatsApp.',
+      ],
+      educate: ['I wanted to check in once more about finding a new time for {{business}}.', 'Just reply with a time that suits you.'],
+      demo: ['If a different format is easier, such as a quick call or a chat on WhatsApp, just say so.'],
+      final: [
+        'I will keep this short, since this is my last note.',
+        'If a conversation is still useful, reply with a time or message us on WhatsApp. If not, reply "no thanks" and I will not contact you again. Either answer is completely fine.',
+      ],
+    },
+    subjects: { intro: 'Let us find a better time, {{business}}', review: 'Re: {{subject}}', educate: 'A new time for {{business}}?', demo: 'A new time for {{business}}?', final: 'Last note about {{business}}' },
+    cta: { recommended: 'Reply with a new time', alternatives: ['Message us on WhatsApp'] },
+    whatsappActions: [{ label: 'Pick a new time on WhatsApp', message: 'Hello, we missed our appointment. I would like to book a new time for {{business}}.' }],
+  };
+})();
+
 export const OFFICIAL_TEMPLATES: TemplateConfig[] = [
   ...BASE_TEMPLATES.map((t) => ({ ...t, industryId: t.industryId ?? EXISTING_INDUSTRY[t.id] })),
   ...INDUSTRY_TEMPLATES,
   CLINIC_2027,
+  RESCHEDULE,
 ];
 
 /** How many campaign templates each industry has, for the "What do you sell?" picker. */
