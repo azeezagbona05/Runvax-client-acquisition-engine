@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { loadCareer, logEvent } from '@/lib/career/store';
 import { ground } from '@/lib/career/parse';
 import { profileText, tailor, type Tailored } from '@/lib/career/tailor';
+import { checkQualifications, shortfalls, REQ_PREFIX } from '@/lib/career/apply/qualify';
 import { sanitizeProfile, type CareerProfileData } from '@/lib/career/types';
 
 /**
@@ -41,6 +42,9 @@ export async function prepareApplication(userId: string, matchId: string): Promi
   const role = speculative ? m.listing.title.replace(/^Open application:\s*/i, '') : m.listing.title;
   const t = await tailor(c.profile, jobText, role, p.salaryMin ? `${p.currency} ${p.salaryMin}${p.salaryMax ? `-${p.salaryMax}` : '+'}` : 'no figure given', { speculative, company: m.listing.company });
   const { cv, dropped } = buildTailoredCv(c.profile, t, jobText);
+  // Hard requirements the job states and the profile does not show. Kept in gaps, and the candidate must acknowledge them to approve.
+  const missing = speculative ? [] : shortfalls(checkQualifications(c.profile, jobText)).map((x) => `${REQ_PREFIX}${x}`);
+  t.gaps = [...missing, ...t.gaps.filter((g) => !missing.includes(g))].slice(0, 10);
   const flags = [...t.flags, ...dropped.map((d) => `Left out of the tailored CV (not in your profile): ${d}`)];
   const data = { status: 'prepared', cv: cv as object, coverLetter: t.coverLetter, answers: t.answers as object, gaps: t.gaps as object, flags: flags as object, source: t.source, edited: false, approvedAt: null, appliedAt: null, appliedBy: null };
   const app = m.application ? await prisma.jobApplication.update({ where: { id: m.application.id }, data }) : await prisma.jobApplication.create({ data: { ...data, userId, matchId } });

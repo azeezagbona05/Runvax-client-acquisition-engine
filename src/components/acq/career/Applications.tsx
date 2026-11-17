@@ -14,6 +14,17 @@ export interface AppRow {
   source: string; edited: boolean; approvedAt: string | null; appliedAt: string | null; appliedBy: string | null; updatedAt: string; score: number;
   job: { title: string; company: string; location: string; remote: boolean; url: string; source: string };
 }
+/** Approve, and when the job asks for something the profile does not show, ask the candidate first. Never approves past that silently. */
+type Gate = { ok?: boolean; needsConfirm?: boolean; gaps?: string[] };
+export async function patchApplication(id: string, body: Record<string, unknown>, confirm: (gaps: string[]) => boolean = (g) => typeof window !== 'undefined' && window.confirm(`This job asks for something your profile does not show:\n\n- ${g.join('\n- ')}\n\nApply anyway?`)) {
+  let r = await api<Gate>(`/api/career/applications/${id}`, json('PATCH', body));
+  if (r.needsConfirm && body.action === 'approve') {
+    if (!confirm(r.gaps ?? [])) return { ...r, error: 'Not approved: the job asks for something your profile does not show.' };
+    r = await api<Gate>(`/api/career/applications/${id}`, json('PATCH', { ...body, confirmGaps: true }));
+  }
+  return r;
+}
+
 export const STATUS: Record<AppRow['status'], [string, string]> = { prepared: ['Waiting for your approval', 'acq-pill-amber'], approved: ['Approved, not sent', 'acq-pill-blue'], rejected: ['Rejected', 'acq-pill-gray'], applied: ['Applied by you', 'acq-pill-green'] };
 export const statusOf = (a: Pick<AppRow, 'status' | 'appliedBy' | 'submission'>): [string, string] => a.status === 'applied' && a.appliedBy === 'agent' ? ['Submitted by the agent', 'acq-pill-green'] : a.status === 'approved' && a.submission && ['queued', 'running'].includes(a.submission.status) ? ['Waiting to be submitted', 'acq-pill-blue'] : a.status === 'approved' && a.submission?.status === 'needs_you' ? ['Needs you', 'acq-pill-amber'] : a.status === 'approved' && a.submission?.status === 'unconfirmed' ? ['Sent? Not confirmed', 'acq-pill-red'] : STATUS[a.status];
 export interface SubInfo { enabled: boolean; message: string; supported: string[]; permMode: string }
@@ -25,7 +36,7 @@ function Card({ a, open, onToggle, onChanged, selected, onSelect, sub }: { a: Ap
   const editable = a.status === 'prepared'; const dirty = letter !== a.coverLetter || JSON.stringify(answers) !== JSON.stringify(a.answers);
   const act = async (action?: string) => {
     setBusy(true); setErr('');
-    const r = await api<{ ok: boolean }>(`/api/career/applications/${a.id}`, json('PATCH', { ...(action ? { action } : {}), ...(dirty ? { coverLetter: letter, answers } : {}) }));
+    const r = await patchApplication(a.id, { ...(action ? { action } : {}), ...(dirty ? { coverLetter: letter, answers } : {}) });
     setBusy(false); if (r.error) setErr(r.error); else onChanged();
   };
   const draftFu = async () => { setFuBusy(true); setErr(''); const r = await api<{ draft: string }>('/api/career/followup', json('POST', { applicationId: a.id })); setFuBusy(false); if (r.error) setErr(r.error); else setFu(r.draft); };
@@ -102,8 +113,8 @@ export default function ApplicationsPanel({ mode, onChanged, refreshKey, permMod
   const list = filter === 'waiting' ? rows.filter((r) => r.status === 'prepared') : filter === 'approved' ? rows.filter((r) => r.status === 'approved') : filter === 'applied' ? rows.filter((r) => r.status === 'applied') : rows;
   const done = () => { void load(); onChanged(); };
   /** Swipe right = approve (ready to send; nothing is sent by approving). Swipe left = reject. Undo puts it back to waiting. */
-  const swipeAct = async (id: string, action: 'approve' | 'reject' | 'reopen') => { const r = await api(`/api/career/applications/${id}`, json('PATCH', { action })); if (r.error) return { ok: false, error: r.error }; done(); return { ok: true }; };
-  const batch = async (andSubmit = false) => { setBusy(true); const ids: string[] = []; for (const id of sel) { const r = await api(`/api/career/applications/${id}`, json('PATCH', { action: 'approve' })); if (!r.error) ids.push(id); } setBErr(''); if (andSubmit && ids.length) { const r = await api('/api/career/submissions', json('POST', { applicationIds: ids })); if (r.error) setBErr(r.error); } setBusy(false); setSel([]); done(); };
+  const swipeAct = async (id: string, action: 'approve' | 'reject' | 'reopen') => { const r = await patchApplication(id, { action }); if (r.error) return { ok: false, error: r.error }; done(); return { ok: true }; };
+  const batch = async (andSubmit = false) => { setBusy(true); const ids: string[] = []; for (const id of sel) { const r = await patchApplication(id, { action: 'approve' }, () => false); if (!r.error) ids.push(id); } setBErr(''); if (andSubmit && ids.length) { const r = await api('/api/career/submissions', json('POST', { applicationIds: ids })); if (r.error) setBErr(r.error); } setBusy(false); setSel([]); done(); };
   return (
     <>
       {err && <StaleNotice onRetry={() => { setErr(''); void load(); }} />}

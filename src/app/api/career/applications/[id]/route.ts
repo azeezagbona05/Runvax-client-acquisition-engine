@@ -4,6 +4,8 @@ import { requireCampaignUser } from '@/lib/campaignAuth';
 import { loadCareer, logEvent } from '@/lib/career/store';
 import { cancelQueuedFor } from '@/lib/career/submit/queue';
 
+import { REQ_PREFIX } from '@/lib/career/apply/qualify';
+
 export const dynamic = 'force-dynamic';
 
 /**
@@ -14,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const u = await requireCampaignUser(req); if (!u.ok) return u.response;
   const { id } = await ctx.params;
-  const b = await req.json().catch(() => ({})) as { action?: unknown; coverLetter?: unknown; answers?: unknown };
+  const b = await req.json().catch(() => ({})) as { action?: unknown; confirmGaps?: unknown; coverLetter?: unknown; answers?: unknown };
   const a = await prisma.jobApplication.findFirst({ where: { id, userId: u.userId }, include: { match: { include: { listing: { select: { title: true, company: true } } } } } });
   if (!a) return NextResponse.json({ error: 'Application not found.' }, { status: 404 });
   const label = `${a.match.listing.title} at ${a.match.listing.company}`;
@@ -30,6 +32,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (act === 'approve') {
     if (a.status !== 'prepared') return NextResponse.json({ error: 'Only an application waiting for a decision can be approved.' }, { status: 400 });
     if (!(await loadCareer(u.userId)).profileConfirmed) return NextResponse.json({ error: 'Your profile has changed since this was written. Confirm it again, then prepare the application again.' }, { status: 400 });
+    const hard = (Array.isArray(a.gaps) ? a.gaps as unknown[] : []).map(String).filter((g) => g.startsWith(REQ_PREFIX));
+    if (hard.length && b.confirmGaps !== true) return NextResponse.json({ error: 'This job asks for something your profile does not show. Confirm you want to apply anyway.', needsConfirm: true, gaps: hard.map((g) => g.slice(REQ_PREFIX.length)) }, { status: 409 });
     Object.assign(data, { status: 'approved', approvedAt: new Date() });
   } else if (act === 'reject') {
     if (a.status === 'applied') return NextResponse.json({ error: 'You already marked this as applied.' }, { status: 400 });

@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 type Row = { email: string | null; status: string; deployedAt: string | null; jobsFound: number; matched: number; prepared: number; applied: number; replies: number; interviews: number; aiWrites: number; actions: number; lastActive: string | null };
-type Report = { totals: Record<string, number>; users: Row[] };
+type Ratio = { value: number | null; of: number; basis: string };
+type Pilot = { cvAccuracy: Ratio; relevance: Ratio; usefulEmployers: { useful: number; found: number; basis: string }; applicationsSent: number; responseRate: Ratio; interviews: number };
+type Report = { pilot: Pilot; totals: Record<string, number>; users: Row[] };
 const card = 'bg-gray-900 border border-white/8 rounded-2xl';
 
 export default function CareerPilotPanel() {
@@ -14,8 +16,15 @@ export default function CareerPilotPanel() {
   if (!r) return <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={14} className="animate-spin" /> Loading…</div>;
   const T = r.totals; const rate = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '—');
   const tiles: Array<[string, string]> = [['Users', `${T.users} (${T.active} active)`], ['Jobs found', String(T.jobsFound)], ['Good matches', String(T.matched)], ['Prepared', String(T.prepared)], ['Applied', String(T.applied)], ['Reply rate', rate(T.replies, T.applied)], ['Interviews', String(T.interviews)], ['AI writes / user', T.users ? (T.aiWrites / T.users).toFixed(1) : '—']];
+  const P = r.pilot; const pct = (x: Ratio) => (x.value === null ? '—' : `${x.value}%`);
+  const six: Array<[string, string, string]> = [
+    ['CV extraction accuracy', pct(P.cvAccuracy), P.cvAccuracy.basis], ['Relevant job matches', pct(P.relevance), P.relevance.basis],
+    ['Useful employers', `${P.usefulEmployers.useful} of ${P.usefulEmployers.found}`, P.usefulEmployers.basis], ['Applications sent', String(P.applicationsSent), 'Applications marked applied (by the candidate or the agent after the site confirmed).'],
+    ['Employer response rate', pct(P.responseRate), P.responseRate.basis], ['Interviews secured', String(P.interviews), 'Interviews the candidate logged.'],
+  ];
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">{six.map(([l, v, b]) => <div key={l} className={`${card} p-4`} title={b}><div className="text-2xl font-bold text-white">{v}</div><div className="text-sm text-gray-300">{l}</div><div className="text-[11px] text-gray-500 mt-1">{b}</div></div>)}</div>
       <p className="text-sm text-gray-400">Counts only. No CV text, job content or employer emails are shown. Use it to judge the 10 to 20 person pilot.</p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{tiles.map(([l, v]) => <div key={l} className={`${card} p-4`}><div className="text-xl font-bold text-white">{v}</div><div className="text-xs text-gray-500">{l}</div></div>)}</div>
       <div className={`${card} overflow-x-auto`}>

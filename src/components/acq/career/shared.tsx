@@ -21,7 +21,7 @@ export async function api<T = CareerState>(url: string, init?: RequestInit): Pro
       const r = await fetch(url, init);
       if (read && attempt === 0 && r.status >= 500) { await wait(700); continue; }
       const j = await r.json().catch(() => ({}));
-      return (r.ok ? j : { error: j.error || 'Something went wrong. Please try again.' }) as T & { error?: string };
+      return (r.ok ? j : { ...j, error: j.error || 'Something went wrong. Please try again.' }) as T & { error?: string };
     } catch {
       if (read && attempt === 0) { await wait(700); continue; }
       return { error: 'Could not reach the server. Check your connection.' } as T & { error?: string };

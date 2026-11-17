@@ -127,6 +127,20 @@ export function InterviewsPanel({ onChanged, refreshKey }: { onChanged: () => vo
 }
 
 // ── Analytics ──
+/** This week's suggestions. Read-only: nothing here changes a setting. */
+function Recommendations({ refreshKey }: { refreshKey: number }) {
+  const [list, setList] = useState<Array<{ id: string; title: string; detail: string }> | null>(null);
+  useEffect(() => { void api<{ recommendations: Array<{ id: string; title: string; detail: string }> }>('/api/career/recommendations').then((r) => setList(r.error ? [] : r.recommendations)); }, [refreshKey]);
+  if (!list || !list.length) return null;
+  return (
+    <div style={{ ...box, display: 'grid', gap: 10 }}>
+      <div style={{ fontWeight: 650, fontSize: 15 }}>This week's suggestions</div>
+      {list.map((r) => <div key={r.id}><div style={{ fontWeight: 600, fontSize: 14 }}>{r.title}</div><div style={{ fontSize: 13.5, color: '#475569' }}>{r.detail}</div></div>)}
+      <div style={hint}>Based on your own jobs and applications. Nothing changes unless you change it.</div>
+    </div>
+  );
+}
+
 export function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
   const [a, setA] = useState<Analytics | null>(null); const [err, setErr] = useState('');
   const load = useCallback(async () => { const r = await api<Analytics>('/api/career/analytics'); if (r.error) setErr(r.error); else { setErr(''); setA(r); } }, []);
@@ -139,6 +153,7 @@ export function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
   return (
     <>
       {err && <StaleNotice onRetry={() => { setErr(''); void load(); }} />}
+      <Recommendations refreshKey={refreshKey} />
       <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
         {([['Reply rate', a.rates.replyRate == null ? '—' : `${a.rates.replyRate}%`, 'of applications you sent'], ['Interview rate', a.rates.interviewRate == null ? '—' : `${a.rates.interviewRate}%`, 'of applications you sent'], ['Average time to reply', a.rates.avgDaysToReply == null ? '—' : `${a.rates.avgDaysToReply} days`, 'after you applied']] as const).map(([l, v, s]) => <div key={l} style={box}><div style={{ fontSize: 24, fontWeight: 700 }}>{v}</div><div style={hint}>{l}<br />{s}</div></div>)}
       </div>
