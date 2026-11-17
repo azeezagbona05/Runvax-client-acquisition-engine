@@ -30,6 +30,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const step = seq && index > 0 ? seq.emails[index] : undefined;
   if (index > 0 && !step) return NextResponse.json({ error: 'That email is not in this campaign.' }, { status: 400 });
   const copy = step ? stepCopy(step, body.opened === true) : { subject: campaign.subject, body: campaign.body };
-  const res = await sendTestEmail(user.userId, { campaign: { subject: copy.subject, body: copy.body }, to: account.email, ...(step ? { originalSubject: campaign.subject } : {}) });
+  const res = await sendTestEmail(user.userId, { campaign: { subject: copy.subject, body: copy.body }, to: account.email, whatsappActions: seq?.whatsappActions, ...(step ? { originalSubject: campaign.subject } : {}) });
   return res.ok ? NextResponse.json({ ok: true, to: account.email }) : NextResponse.json({ error: res.message }, { status: 502 });
 }

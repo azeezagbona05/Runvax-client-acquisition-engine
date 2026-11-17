@@ -290,6 +290,7 @@ export async function sendBatch(
       unsubscribeUrl: `${appUrl}/api/oc/unsubscribe?t=${lead.token}`,
       pixelUrl: `${appUrl}/api/oc/open/${lead.token}`,
       trackLink: (url) => trackedLink(appUrl, lead.token, url),
+      whatsappActions: seq?.whatsappActions,
       originalSubject: renderTemplate(campaign.subject, input),
     });
     try {
@@ -348,7 +349,7 @@ export async function sendBatch(
 /** One real-looking email to the user themselves, so they can check the wording and that their mailbox works. */
 export async function sendTestEmail(
   userId: string,
-  args: { campaign: { subject: string; body: string }; to: string; originalSubject?: string },
+  args: { campaign: { subject: string; body: string }; to: string; originalSubject?: string; whatsappActions?: Array<{ label: string; message: string }> },
   deps: Deps = {},
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const mailbox = deps.mailbox === undefined ? await loadMailbox(userId) : deps.mailbox;
@@ -358,6 +359,7 @@ export async function sendTestEmail(
     subject: args.campaign.subject, body: args.campaign.body, sender: mailbox.sender,
     lead: { email: args.to, name: 'Alex Sample', business: 'Sample Business' },
     unsubscribeUrl: `${appUrl}/api/oc/unsubscribe?t=preview`,
+    whatsappActions: args.whatsappActions,
     ...(args.originalSubject ? { originalSubject: renderTemplate(args.originalSubject, { email: args.to, name: 'Alex Sample', business: 'Sample Business' }) } : {}),
   });
   try {

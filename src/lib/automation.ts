@@ -49,6 +49,12 @@ export interface ReplyRules {
   outOfOfficePauseDays: number;
 }
 
+/** A WhatsApp button under every email of the campaign. `message` is what the chat opens with; {{business}} and {{name}} are filled per contact. */
+export interface WhatsappAction { label: string; message: string }
+export const MAX_WHATSAPP_ACTIONS = 4;
+/** The button every newly built campaign gets unless its template defines its own. Existing campaigns are never given it. */
+export const DEFAULT_WHATSAPP_ACTIONS: WhatsappAction[] = [{ label: 'Chat with us on WhatsApp', message: 'Hello, I received your email about {{business}} and would like to talk.' }];
+
 export interface Automation {
   name: string;
   emails: AutoEmail[];
@@ -63,6 +69,8 @@ export interface Automation {
   brief?: CampaignBrief;
   /** What to say back for each kind of reply. */
   playbook?: ReplyPlay[];
+  /** WhatsApp buttons added to every email. They show only when the sender has a WhatsApp number saved. */
+  whatsappActions?: WhatsappAction[];
 }
 
 export const DEFAULT_REPLY_RULES: ReplyRules = { notifyInterested: true, outOfOfficePauseDays: 3 };
@@ -134,7 +142,18 @@ export function sanitizeAutomation(raw: unknown): Automation | null {
     weekdaysOnly: r.weekdaysOnly === false ? false : true,
     ...(r.brief ? { brief: sanitizeBrief(r.brief) } : {}),
     ...(r.playbook ? { playbook: sanitizePlaybook(r.playbook) } : {}),
+    ...(Array.isArray(r.whatsappActions) ? { whatsappActions: sanitizeWhatsappActions(r.whatsappActions) } : {}),
   };
+}
+
+export function sanitizeWhatsappActions(raw: unknown[]): WhatsappAction[] {
+  const out: WhatsappAction[] = [];
+  for (const x of raw.slice(0, MAX_WHATSAPP_ACTIONS)) {
+    if (!x || typeof x !== 'object') continue; const o = x as Record<string, unknown>;
+    const label = cleanCopy(text(o.label, 40).replace(/\s+/g, ' ')); const message = cleanCopy(text(o.message, 300).replace(/\s+/g, ' '));
+    if (label && message) out.push({ label, message });
+  }
+  return out;
 }
 
 /** The wording one follow-up uses for this contact: the "opened" variant when they opened and it has one. */

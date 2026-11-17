@@ -4,7 +4,7 @@
  * already runs: always review-mode, links and unknown placeholders removed, no invented results.
  */
 
-import { dayNumbers, sanitizeAutomation, type Automation, type AutoEmail } from '@/lib/automation';
+import { DEFAULT_WHATSAPP_ACTIONS, dayNumbers, sanitizeAutomation, type Automation, type AutoEmail } from '@/lib/automation';
 import { CONVERSIONS, describeOffer, emptyBrief, sanitizeBrief, shortOffer, type CampaignBrief, type Conversion } from '@/lib/campaignBrief';
 import { parseKnobs, type Knobs } from '@/lib/campaignBuilder';
 import type { TemplateConfig, TouchId } from '@/lib/templateLibrary';
@@ -84,6 +84,7 @@ export function buildFromTemplate(t: TemplateConfig, briefIn: CampaignBrief, kno
   return sanitizeAutomation({
     name: brief.name || t.name, emails, stopOnReply: knobs.stopOnReply, replyRules: { notifyInterested: true, outOfOfficePauseDays: 3 },
     sendMode: 'review', dailyCap: knobs.dailyCap, windowStart: 9, windowEnd: 17, weekdaysOnly: true, brief,
+    whatsappActions: t.whatsappActions?.length ? t.whatsappActions : DEFAULT_WHATSAPP_ACTIONS,
   }) as Automation;
 }
 

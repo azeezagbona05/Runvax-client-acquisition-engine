@@ -7,7 +7,7 @@
  */
 
 import { HARD_DAILY_MAX } from '@/lib/outreachCampaign';
-import { MAX_EMAILS, MAX_WAIT_DAYS, sanitizeAutomation, type Automation, type AutoEmail, type SendIf } from '@/lib/automation';
+import { DEFAULT_WHATSAPP_ACTIONS, MAX_EMAILS, MAX_WAIT_DAYS, sanitizeAutomation, type Automation, type AutoEmail, type SendIf } from '@/lib/automation';
 import { briefFromText, describeOffer, shortOffer, type CampaignBrief, type Objective } from '@/lib/campaignBrief';
 import { defaultPlaybook } from '@/lib/replyPlaybook';
 
@@ -130,7 +130,7 @@ export function buildFromBrief(brief: CampaignBrief, knobs: Knobs): Automation {
     name: brief.name || [short, brief.audience].filter(Boolean).join(': ') || 'Customer outreach campaign',
     emails, stopOnReply: knobs.stopOnReply, replyRules: { notifyInterested: true, outOfOfficePauseDays: 3 },
     sendMode: 'review', dailyCap: knobs.dailyCap, windowStart: 9, windowEnd: 17, weekdaysOnly: true,
-    brief, playbook: defaultPlaybook(brief, bye),
+    brief, playbook: defaultPlaybook(brief, bye), whatsappActions: DEFAULT_WHATSAPP_ACTIONS,
   }) as Automation;
 }
 

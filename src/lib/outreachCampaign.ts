@@ -248,6 +248,14 @@ export function linkify(text: string, track?: (url: string) => string): string {
   return out.replace(/\n/g, '<br>');
 }
 
+export interface WhatsappButton { label: string; message: string }
+
+/** The wa.me link for one button, or null when the sender has no usable WhatsApp number. The chat opens with the message already typed. */
+export function whatsappLink(number: string | null | undefined, message: string): string | null {
+  const n = cleanPhone(number ?? ''); if (!n) return null;
+  return `https://wa.me/${n}?text=${encodeURIComponent(message)}`;
+}
+
 export function signatureOf(s: SenderIdentity): string {
   const who = s.name && s.business ? `${s.name} | ${s.business}` : s.name || s.business || '';
   return [who, s.whatsapp ? `WhatsApp: ${s.whatsapp}` : '', s.tagline ?? ''].filter(Boolean).join('\n');
@@ -268,6 +276,8 @@ export function buildEmail(args: {
   originalSubject?: string;
   /** Wraps a link so clicks are counted. Applied to links in the body only, never to the unsubscribe link. */
   trackLink?: (url: string) => string;
+  /** WhatsApp buttons shown under the message. Only used when the sender has a WhatsApp number. */
+  whatsappActions?: WhatsappButton[];
 }): BuiltEmail {
   const extra: Record<string, string> = args.originalSubject ? { subject: args.originalSubject } : {};
   const subject = renderTemplate(args.subject, args.lead, extra).replace(/\s+/g, ' ').trim();
@@ -275,11 +285,15 @@ export function buildEmail(args: {
   const signature = signatureOf(args.sender);
 
   const footer = `You're getting this because ${args.sender.business || args.sender.name || 'the sender'} thought it might be relevant to ${args.lead.business || 'your business'}. Don't want these? Unsubscribe: ${args.unsubscribeUrl}`;
-  const text = `${body}${signature ? `\n\n${signature}` : ''}\n\n--\n${footer}`;
+  const wa = (args.whatsappActions ?? []).map((a) => ({ label: a.label, url: whatsappLink(args.sender.whatsapp, renderTemplate(a.message, args.lead, extra)) })).filter((a): a is { label: string; url: string } => !!a.url);
+  const waText = wa.length ? `\n\nChat with us on WhatsApp:\n${wa.map((a) => `${a.label}: ${a.url}`).join('\n')}` : '';
+  const text = `${body}${waText}${signature ? `\n\n${signature}` : ''}\n\n--\n${footer}`;
 
   const htmlBody = linkify(body, args.trackLink);
+  const btn = (label: string, href: string) => `<a href="${escapeHtml(href)}" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 16px;border-radius:8px;margin:0 8px 8px 0;font-family:Arial,sans-serif;">${escapeHtml(label)}</a>`;
+  const htmlWa = wa.length ? `<div style="margin-top:18px;"><div style="font-size:13px;color:#374151;margin-bottom:8px;font-family:Arial,sans-serif;">Chat with us on WhatsApp</div>${wa.map((a) => btn(a.label, args.trackLink ? args.trackLink(a.url) : a.url)).join('')}</div>` : '';
   const htmlSig = signature ? `<br><br>${escapeHtml(signature).replace(/\n/g, '<br>')}` : '';
-  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#111827;">${htmlBody}${htmlSig}</div>`
+  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#111827;">${htmlBody}${htmlWa}${htmlSig}</div>`
     + `<div style="margin-top:28px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;font-family:Arial,sans-serif;">`
     + `${escapeHtml(`You're getting this because ${args.sender.business || args.sender.name || 'the sender'} thought it might be relevant to ${args.lead.business || 'your business'}.`)} `
     + `<a href="${escapeHtml(args.unsubscribeUrl)}" style="color:#6b7280;">Unsubscribe</a></div>`

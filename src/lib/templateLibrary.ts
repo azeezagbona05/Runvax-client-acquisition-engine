@@ -55,6 +55,8 @@ export interface TemplateConfig {
   /** What to tell people about contacting this audience. */
   contactNote: string;
   art: { icon: 'dental' | 'restaurant' | 'hotel' | 'property' | 'custom' | Industry['icon']; from: string; to: string };
+  /** WhatsApp buttons added under every email of a campaign built from this template. */
+  whatsappActions?: Array<{ label: string; message: string }>;
   /** Saved templates only: the exact sequence the user saved, which loads as it is. */
   savedAutomation?: Automation;
 }
@@ -420,9 +422,75 @@ const INDUSTRY_TEMPLATES: TemplateConfig[] = ([
 /** The templates that existed before the industry set, tagged with the industry they belong to. */
 const EXISTING_INDUSTRY: Record<string, IndustryId> = { 'dental-clinics': 'healthcare', restaurants: 'hospitality', hotels: 'hospitality', 'real-estate': 'real-estate' };
 
+
+/**
+ * A seasonal win-back campaign for clinics: invite the people who missed an appointment, or never got a reply, to book again, and
+ * start 2027 well. Warm and plain. It offers three things (enquiry handling, a website, an AI agent), each with a WhatsApp button.
+ * No clinical claims, no statistics and no invented urgency.
+ */
+const CLINIC_2027: TemplateConfig = (() => {
+  const base = industryTemplate({
+    id: 'clinic-2027-welcome-back', ind: 'healthcare', name: 'Welcome Patients Back: Prepare for 2027', category: 'Healthcare services',
+    description: 'Help clinics invite patients who missed an appointment to book again, with a website and an AI agent that answers enquiries on WhatsApp.',
+    product: {
+      name: 'the 2027 Welcome-Back Pack',
+      summary: 'A way for your clinic to warmly invite patients who missed an appointment, or never got a reply, to book again, and to answer new enquiries quickly from the first message.',
+      features: ['A friendly "welcome back" message plan for patients who missed an appointment, using only your own patient list', 'An AI agent that answers enquiries and passes booking requests to your team, on your website and WhatsApp', 'A clear, professional website for your clinic that makes it easy to ask for an appointment', 'Enquiries that go straight to your WhatsApp'],
+    },
+    ideal: 'A clinic with patients who missed or postponed appointments and a diary that is not always full.',
+    audience: ['Clinic owners', 'Practice managers', 'Operations managers', 'Multi-branch practices'],
+    angle: 'The idea is simple: no patient who wanted to see {{business}} should be left waiting for a reply.',
+    educate: 'A missed appointment is not always a decision to stop coming. It can be a busy week, a forgotten reminder or a message that was never answered.',
+    strategy: ['Lead with welcoming patients back, not technology', 'Speak to the owner or practice manager about patient experience and a fuller diary', 'Three simple next steps, each one tap away on WhatsApp'],
+    tint: ['#dcfce7', '#bbf7d0'],
+    note: 'Do not collect or process identifiable patient health information as part of prospecting.',
+  });
+  return {
+    ...base,
+    objectives: ['Start conversations with clinic owners', 'Generate enquiries on WhatsApp', 'Book short calls', 'Win clinic website and AI agent projects'],
+    primaryObjective: 'generate_leads', conversion: 'general_enquiry', channels: ['email', 'whatsapp'],
+    copy: {
+      intro: [
+        'Every clinic has patients who meant to come back and simply did not: a missed appointment, a busy week, a message that was never answered.',
+        'As 2027 approaches, {{business}} has a natural reason to reach out warmly and invite them to book again. We build the tools that make that easy.',
+        '%features%',
+        'The aim is not more noise. It is that every patient who wanted to see {{business}} feels welcomed back, and gets a quick answer when they ask.',
+        'If you would like to talk it through, tap a WhatsApp button below, or just reply to this email.',
+      ],
+      review: [
+        'I wanted to follow up on my note about welcoming patients back to {{business}} in 2027.',
+        'A short, friendly message is a kind way to invite someone back after a missed visit. If it helps, we can set that up for you, and the replies come straight to your WhatsApp.',
+        'Tap a button below, or reply here, whichever is easier.',
+      ],
+      educate: [
+        'A missed appointment is not always a decision to stop coming. It can be a busy week, a forgotten reminder or a message that was never answered.',
+        'A quick, kind reply and an easy way to book can make coming back simple. That is what the AI agent and the website are for: they answer at any hour and pass booking requests to your team.',
+        'If you would like to see how that could look for {{business}}, message us on WhatsApp.',
+      ],
+      demo: [
+        'If a fresh start for 2027 is on your mind, there are two things we can build for {{business}}: a clear website that makes it easy to ask for an appointment, and an AI agent that answers enquiries for you.',
+        'We can show you either one, built around {{business}}, in a short chat. No obligation.',
+        'Which would you like to see first? Tap the matching button below.',
+      ],
+      final: [
+        'I will keep this short, since this is my last note.',
+        'If welcoming patients back, a new website or an AI agent is something {{business}} would like to explore for 2027, message us on WhatsApp or reply "interested". If not, reply "no thanks" and I will not contact you again. Either answer is completely fine.',
+      ],
+    },
+    subjects: { intro: 'Welcoming patients back to {{business}} in 2027', review: 'Re: {{subject}}', educate: 'A small way to start 2027 well at {{business}}', demo: 'A website and an AI agent for {{business}}', final: 'Last note about {{business}}' },
+    cta: { recommended: 'Message us on WhatsApp', alternatives: ['Reply "interested" for more information', 'Ask for a written overview'] },
+    whatsappActions: [
+      { label: 'Ask us a question', message: 'Hello, I received your email about welcoming patients back to {{business}} in 2027. I have a question.' },
+      { label: 'Get a clinic website', message: 'Hello, I would like to know more about a new website for {{business}}.' },
+      { label: 'Deploy an AI agent', message: 'Hello, I would like to know more about an AI agent for {{business}}.' },
+    ],
+  };
+})();
+
 export const OFFICIAL_TEMPLATES: TemplateConfig[] = [
   ...BASE_TEMPLATES.map((t) => ({ ...t, industryId: t.industryId ?? EXISTING_INDUSTRY[t.id] })),
   ...INDUSTRY_TEMPLATES,
+  CLINIC_2027,
 ];
 
 /** How many campaign templates each industry has, for the "What do you sell?" picker. */
