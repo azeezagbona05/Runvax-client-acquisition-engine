@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import IntroVideo, { WatchDemo } from '@/components/acq/IntroVideo';
 import Link from 'next/link';
 import { useAcq } from '@/components/acq/AcqProvider';
 import ProspectFinder from '@/components/acq/ProspectFinder';
@@ -27,7 +28,9 @@ export default function FindProspectsPage() {
       <div style={{ paddingTop: 4 }}>
         <h1 className="acq-page-title">Find Prospects</h1>
         <p className="acq-sub" style={{ marginTop: 2 }}>Find businesses, identify who runs them, verify their email, then add them to a campaign. {guest ? 'Try a free search below, no account needed.' : <><Link href="/client-acquisition/leads" style={{ textDecoration: 'underline' }}>See your lead lists</Link>.</>}</p>
+        <div style={{ marginTop: 6 }}><WatchDemo id="prospecting" /></div>
       </div>
+      <IntroVideo id="prospecting" title="Find prospects and run campaigns" blurb="A short tour: find businesses, reach the decision-maker, and launch a campaign." src="/welcome/runvax-demo.mp4" poster="/welcome/demo-poster.jpg" />
       {prompt && <SignupPrompt reason="Discovering people by industry and seniority needs an account." onClose={() => setPrompt(false)} />}
       {gateNote && <div className="acq-notice" role="status">{gateNote}</div>}
       {notice && <div className="acq-notice" role="status">{notice}</div>}

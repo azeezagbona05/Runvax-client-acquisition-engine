@@ -58,12 +58,12 @@ export default function WelcomeVideo() {
         <div className="flex items-start justify-between gap-4 px-5 pb-3 pt-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Welcome to RUNVAX</h2>
-            <p className="text-sm text-slate-500">The AI-powered B2B client acquisition engine. A 7 minute tour: find businesses in any country, reach the decision-maker, launch a campaign.</p>
+            <p className="text-sm text-slate-500">The AI-powered B2B client acquisition engine. A 90 second look at what it does and how it helps you.</p>
           </div>
           <button type="button" onClick={close} aria-label="Close welcome video" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-5 w-5" /></button>
         </div>
         <div className="relative bg-black">
-          <video ref={video} src="/welcome/runvax-welcome.mp4" poster="/welcome/poster.jpg" controls={playing} playsInline preload="none" className="aspect-video w-full" onPlay={() => setPlaying(true)} onEnded={() => setPlaying(false)} />
+          <video ref={video} src="/welcome/runvax-promo-v2.mp4" poster="/welcome/poster-v2.jpg" controls={playing} playsInline preload="none" className="aspect-video w-full" onPlay={() => setPlaying(true)} onEnded={() => setPlaying(false)} />
           {!playing && (
             <button type="button" onClick={() => { setPlaying(true); void video.current?.play(); }} aria-label="Play the welcome video" className="absolute inset-0 flex items-center justify-center bg-slate-950/20 hover:bg-slate-950/10">
               <span className="flex h-20 w-20 items-center justify-center rounded-full bg-purple-600 text-white shadow-xl"><Play className="ml-1 h-9 w-9" fill="currentColor" /></span>

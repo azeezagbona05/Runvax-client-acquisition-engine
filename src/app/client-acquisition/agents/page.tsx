@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { MessageCircle, Newspaper, Plus } from 'lucide-react';
+import IntroVideo, { WatchDemo } from '@/components/acq/IntroVideo';
 import { Card, EmptyState, Pill, Skeleton } from '@/components/acq/ui';
 
 interface MyAgent { id: string; kind: 'visibility' | 'assistant'; label?: string; name: string; status: string; counts: { posts?: number; drafts?: number; chats?: number; leads?: number }; config: { business: { name: string } } }
@@ -35,7 +36,9 @@ export default function AgentsPage() {
       <div style={{ paddingTop: 4 }}>
         <h1 className="acq-page-title">AI Agents</h1>
         <p className="acq-sub" style={{ marginTop: 2, maxWidth: 720 }}>Build your own AI agents for your website, Telegram and more: a receptionist, a sales or support agent, an appointment or shopping assistant, or a Visibility Agent that writes articles for your website.</p>
+        <div style={{ marginTop: 6 }}><WatchDemo id="ai-agents" /></div>
       </div>
+      <IntroVideo id="ai-agents" title="Build your own AI agent" blurb="A short demo: describe the job in plain English and RUNVAX builds the agent." src="/welcome/runvax-create-ai-agent.mp4" poster="/welcome/agent-poster.jpg" />
       <MyAgents />
     </div>
   );

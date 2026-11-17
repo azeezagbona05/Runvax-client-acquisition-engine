@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import IntroVideo, { WatchDemo } from '@/components/acq/IntroVideo';
 import { useAcq } from '@/components/acq/AcqProvider';
 import AcqActions from '@/components/acq/AcqActions';
 import CampaignList from '@/components/acq/CampaignList';
@@ -26,9 +27,11 @@ export default function CampaignsPage() {
         <div>
           <h1 className="acq-page-title">Campaigns</h1>
           <p className="acq-sub" style={{ marginTop: 2 }}>Every pitch you&apos;ve sent or planned, and how it&apos;s performing.</p>
+          <div style={{ marginTop: 6 }}><WatchDemo id="prospecting" /></div>
         </div>
         <AcqActions onNotice={setNotice} />
       </div>
+      <IntroVideo id="prospecting" title="Find prospects and run campaigns" blurb="A short tour: find businesses, reach the decision-maker, and launch a campaign." src="/welcome/runvax-demo.mp4" poster="/welcome/demo-poster.jpg" />
       {notice && <div className="acq-notice" role="status" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>{notice}</span><button className="acq-link" style={{ color: '#64748b' }} onClick={() => setNotice('')}>Dismiss</button></div>}
 
       <Card>
