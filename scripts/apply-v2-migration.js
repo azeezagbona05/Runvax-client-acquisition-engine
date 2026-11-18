@@ -43,6 +43,7 @@ const MIGRATIONS = [
   { dir: '19_career_management', tables: ['CareerResponse', 'CareerInterview'], columns: [] },
   { dir: '20_career_submissions', tables: ['ApplicationSubmission'], columns: [] },
   { dir: '21_lead_appointments', tables: ['LeadAppointment'], columns: [] },
+  { dir: '22_team_crm', tables: ['CrmMember', 'LeadAssignment', 'CrmTask', 'CrmNote'], columns: [] },
 ];
 
 (async () => {

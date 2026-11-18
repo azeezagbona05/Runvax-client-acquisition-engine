@@ -9,7 +9,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
   BarChart3, Bell, BookOpen, Bot, Briefcase, Check, ChevronDown, ChevronsLeft, ChevronsRight, Crown, FileText, Home, LayoutDashboard, LayoutTemplate, LifeBuoy, PlayCircle, LogOut, Mail, Menu, MessageCircle,
-  CalendarCheck, MessagesSquare, Network, Rocket, Search, Send, Settings, Sparkles, Users, Wand2, Zap, MapPin,
+  CalendarCheck, Contact, MessagesSquare, Network, Rocket, Search, Send, Settings, Sparkles, Users, Wand2, Zap, MapPin,
 } from 'lucide-react';
 import { DEFAULT_HOME, LANDING_HOME, SETTINGS_HOME } from '@/lib/home';
 import { STUDIO_BUILD, STUDIO_HOME, WORKSPACE_LABEL, workspaceOf, type Workspace } from '@/lib/workspace';
@@ -29,6 +29,7 @@ const PROSPECTING_NAV: NavGroup[] = [
   { items: [{ href: '/client-acquisition', label: 'Home', icon: Home, exact: true }] },
   { heading: 'Prospecting & Campaigns', items: [
     { href: DEFAULT_HOME, label: 'Find Prospects', icon: MapPin },
+    { href: '/client-acquisition/crm', label: 'CRM', icon: Contact },
     { href: '/client-acquisition/leads', label: 'Lead Lists', icon: Users },
     { href: '/client-acquisition/campaigns', label: 'Campaigns', icon: Send },
     { href: '/client-acquisition/appointments', label: 'Appointments', icon: CalendarCheck },

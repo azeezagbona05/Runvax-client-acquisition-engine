@@ -1212,6 +1212,9 @@ model OutreachLead {
   replies       CampaignReply[]
   whatsapp      LeadWhatsApp?
   appointment   LeadAppointment?
+  assignment    LeadAssignment?
+  crmTasks      CrmTask[]
+  crmNotes      CrmNote[]
   unsubscribedAt DateTime?
   error         String?          @db.Text
   createdAt     DateTime         @default(now())
@@ -1237,6 +1240,69 @@ model LeadAppointment {
   updatedAt        DateTime     @updatedAt
 
   @@index([userId, outcome])
+}
+
+// ── Team CRM. A workspace is the account that owns the campaigns (`ownerId`). Teammates sign in with their OWN accounts (matched by verified email)
+// and see that workspace's contacts. `role`: admin | member. `status`: invited | active.
+model CrmMember {
+  id        String    @id @default(cuid())
+  ownerId   String
+  userId    String?
+  email     String    @db.VarChar(190)
+  role      String    @default("member") @db.VarChar(8)
+  status    String    @default("invited") @db.VarChar(8)
+  invitedAt DateTime  @default(now())
+  joinedAt  DateTime?
+
+  @@unique([ownerId, email])
+  @@index([userId])
+  @@index([email])
+}
+
+// Who on the team is working a contact. One assignee per contact.
+model LeadAssignment {
+  id         String       @id @default(cuid())
+  ownerId    String
+  leadId     String       @unique
+  lead       OutreachLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assigneeId String
+  assignedAt DateTime     @default(now())
+
+  @@index([ownerId, assigneeId])
+}
+
+// A thing to do: usually tied to a contact, assigned to a teammate, with a due date.
+model CrmTask {
+  id         String        @id @default(cuid())
+  ownerId    String
+  leadId     String?
+  lead       OutreachLead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assigneeId String?
+  title      String        @db.VarChar(300)
+  dueAt      DateTime?
+  doneAt     DateTime?
+  doneBy     String?
+  createdBy  String
+  createdAt  DateTime      @default(now())
+
+  @@index([ownerId, doneAt, dueAt])
+  @@index([leadId])
+  @@index([assigneeId])
+}
+
+// What the team did or learned about a contact. `kind`: note | call | email | whatsapp | meeting | system.
+model CrmNote {
+  id        String       @id @default(cuid())
+  ownerId   String
+  leadId    String
+  lead      OutreachLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String
+  kind      String       @default("note") @db.VarChar(10)
+  body      String       @db.Text
+  createdAt DateTime     @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([ownerId, createdAt])
 }
 
 // The WhatsApp side of a campaign contact: their phone number and whether the approved template has been sent.

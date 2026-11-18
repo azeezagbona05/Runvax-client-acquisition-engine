@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowRight, Bot, Briefcase, Code2, FileText, MessageCircle, Send, Target, UserPlus, Users } from 'lucide-react';
 import { useAcq } from '@/components/acq/AcqProvider';
@@ -39,6 +40,12 @@ const ACTIONS = [
 export default function ClientAcquisitionHome() {
   const { data, days, setDays } = useAcq();
   const { data: session } = useSession();
+  const router = useRouter();
+  // A teammate invited to someone else's workspace lands in the CRM, not on an empty personal Home. Checked once per browser session.
+  useEffect(() => {
+    try { if (sessionStorage.getItem('runvax_crm_checked')) return; sessionStorage.setItem('runvax_crm_checked', '1'); } catch { /* check again next time */ }
+    void fetch('/api/crm/team', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((j: { me?: { role?: string } } | null) => { if (j?.me?.role === 'member' || j?.me?.role === 'admin') router.replace('/client-acquisition/crm'); }).catch(() => {});
+  }, [router]);
   const [agents, setAgents] = useState<AgentSummary | null>(null);
   const first = session?.user?.name?.trim().split(/\s+/)[0];
   const range = RANGES.some((r) => r.d === days) ? days : 7;
