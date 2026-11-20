@@ -587,6 +587,14 @@ Deepened this session (3 of 4 sub-600w posts), all verified against real sources
 `ai-agency-…-playbook` (1468), `best-ai-client-acquisition-tools-2026` (1229),
 `finding-businesses-that-need-ai-automation` (1249).
 
+**Update 2026-11-20:** deepened `web-developer-vs-web-designer-finding-clients` (583 → 1420w),
+`lead-generation-for-ai-agencies` (616 → 1629w) and `how-web-developers-find-clients-2026` (621 → 1328w)
+from first-party scoring code (`src/lib/opportunity/`). Also removed an over-claim: Runvax does NOT detect
+broken booking links, page-builder limits or after-hours cover — it detects no site, social-only, PageSpeed
+< 50 (after a scan), phone-only and review-reported friction (complaint language is ~2% of businesses).
+Remaining thin: `how-ai-automation-agencies-find-clients` (830w). Re-check the posts if the weights in
+detect.ts change.
+
 **Process rule going forward:** deepening the newest commercial pillar beats publishing post #188.
 Per the role spec — one article that answers the question better than ten generic ones. Add the
 word-count distribution check to every content-batch QA pass.

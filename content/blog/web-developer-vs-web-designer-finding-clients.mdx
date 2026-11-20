@@ -2,11 +2,12 @@
 title: "Web Developer vs Web Designer: Finding Clients Is a Different Game"
 description: "Developers and designers find clients the same way but sell different things. Developers can pitch rebuilds, booking systems and migrations."
 date: "2026-09-01"
+updated: "2026-11-20"
 category: "Guide"
 tags: ["web developer vs web designer clients", "web developer client acquisition", "find web development clients", "web developer freelance"]
 ---
 
-Web developers and web designers use the same prospecting method — proactive outbound to local businesses with a visible gap — but they sell different things, and that changes the pitch. A designer's cold message is about how a site looks. A developer's cold message is about what a site does: speed, booking, integrations, migration off a page builder, and an AI enquiry layer on top. The developer's version has a number attached, which makes it easier to sell and worth more.
+Web developers and web designers use the same prospecting method: proactive outbound to local businesses with a visible gap. They sell different things, and that changes the pitch. A designer's cold message is about how a site looks. A developer's cold message is about what a site does: how fast it loads, whether people can book, whether it connects to anything, and whether someone can answer a message at 9pm. The developer's version can carry a measured number, which makes it easier to believe and worth more.
 
 This is the final post of the [AI for client acquisition pillar](/blog/ai-for-client-acquisition-guide) and follows [the AI agency client-acquisition playbook](/blog/ai-agency-client-acquisition-playbook).
 
@@ -15,29 +16,65 @@ This is the final post of the [AI for client acquisition pillar](/blog/ai-for-cl
 | | Web designer | Web developer |
 |---|---|---|
 | Primary gap targeted | No site, dated site | No site, slow site, broken functionality, outgrown builder |
-| Cold-open hook | "Your site looks dated next to competitors" | "Your booking page 404s and the site loads in 7s on mobile" |
+| Cold-open hook | "Your site looks dated next to competitors" | "Your site scores 31 out of 100 on Google PageSpeed on mobile" |
 | Typical deliverable | Brochure site | Rebuild, booking system, integrations, migration, enquiry agent |
 | Upsell path | Redesign, maintenance | Retainer for features, automation, AI enquiry layer |
 | Deal size | Lower, one-off | Higher, often recurring |
 
-The prospecting inputs are identical — a city, an industry, a list of businesses with a gap. What differs is which gap you look for and what you offer against it.
+The prospecting inputs are identical: a city, an industry, a list of businesses with a gap. What differs is which gap you look for and what you offer against it.
 
 ## The Developer's Advantage: Verifiable Problems
 
-Design critique is subjective; a prospect can disagree that their site looks dated. Developer problems are measurable:
+Design critique is subjective. A prospect can disagree that their site looks dated. Developer problems can be measured:
 
-- **Speed.** 53% of mobile visitors abandon a site slower than 3 seconds; each extra second can cut conversions up to 20%. You can run the test and put the number in the email.
-- **Broken functionality.** A dead booking link, a form that errors, a checkout that fails on mobile — verifiable, undeniable, urgent.
-- **Builder limits.** A business on Wix hitting its ceiling on integrations or custom logic has a concrete reason to migrate.
+- **Speed.** Google's PageSpeed Insights gives any site a 0 to 100 score for mobile. You can run it in thirty seconds and put the number in the email. The background stat is well known: 53% of mobile visitors abandon a site that takes longer than 3 seconds, and each extra second can cut conversions by up to 20%.
+- **Broken functionality.** A dead booking link, a form that errors, a checkout that fails on mobile. These are checkable by clicking through the site yourself.
+- **Builder limits.** A business on Wix or Squarespace that has hit the ceiling on integrations or custom logic has a concrete reason to migrate.
 
-A cold message built on a measured problem outperforms a portfolio link, which is why developers can often skip the "build a big portfolio first" step that designers are told is mandatory. More on this in [how web developers find clients in 2026](/blog/how-web-developers-find-clients-2026).
+A cold message built on a measured problem usually beats a portfolio link, which is why developers can often skip the "build a big portfolio first" step designers are told is mandatory. More on this in [how web developers find clients in 2026](/blog/how-web-developers-find-clients-2026).
+
+## What a Tool Can See, and What You Have to Check Yourself
+
+This is where most advice on developer prospecting gets vague, so it is worth being exact. Runvax's detection works from public business-listing data plus a few scans. These are the signals it actually extracts:
+
+| Signal | How it is found | Counts as |
+|---|---|---|
+| No website | Nothing on the public business listing | Website opportunity, the strongest case |
+| Social page only | Listing links to Facebook, Instagram, Linktree or a WhatsApp link, not a site | Website opportunity |
+| Slow website | Google PageSpeed score under 50 out of 100, after a scan has been run on that business | Rebuild opportunity |
+| Phone only | A phone number but no email and no website | Reachability signal |
+| Customer-reported friction | A public review that mentions unanswered calls, slow replies, hard booking, or staff being stretched | AI enquiry or booking opportunity |
+| Missing information | A review that says prices, menu or hours could not be found | Website opportunity |
+
+What it does not detect on its own: a broken booking link, a failing form, a page-builder limitation, or whether anyone answers messages after hours. Those are real developer gaps, and they are worth finding, but you find them by opening the site. Treat the tool as a way to build the list, and your own five-minute check as the way to write the first line.
+
+The practical workflow for a developer is: use detection to get a list of businesses with a visible gap, run the speed check on the ones with a site, click through the booking or contact flow on the best candidates, and only then write. Anything you put in the first line should be something you saw yourself. Never quote a load time you did not measure.
+
+## The Slow-Site Pitch Is a Weaker Starting Point Than No Site
+
+Here is something that surprises developers coming from design. In Runvax's scoring, a business with no website gets a ceiling of 96 out of 100 for a website opportunity, because the absence is directly observable and there is nothing to argue about. A business with a slow existing site gets a ceiling of 70, and the product labels it a "rebuild" case rather than a new build.
+
+That ordering matches how the sales conversation goes. Someone with no site knows they have a problem. Someone with a slow site often believes their site is fine because it looks fine to them, and you have to win an argument before you can win a project. A measured PageSpeed score is how you win it, but expect a lower reply rate than a no-website pitch, and plan more follow-ups for it.
 
 ## The AI Enquiry Layer Is the Best Upsell
 
-Every developer build ends with a live site. The natural next conversation is: "your site now holds all the information, but there's still no way for someone messaging at 9pm to get an answer or book." That is the AI enquiry-and-booking layer, and it turns a one-off project into a retainer. It is worth reading [the client acquisition guide for AI agent builders](/for-ai-agent-builders) even if you have never thought of yourself as one.
+Every developer build ends with a live site. The natural next conversation is: "your site now holds all the information, but there is still no way for someone messaging at 9pm to get an answer or book." That is the AI enquiry-and-booking layer, and it turns a one-off project into a retainer.
+
+The numbers in Runvax's own estimates show why. Its AI-system price band is set at roughly 1.2 times the low end to 1.6 times the high end of the equivalent website price for the same trade, plus a monthly retainer. Those are estimates built into the product, not market data, but the shape is the point: the second sale to the same business is larger and recurring. A business can qualify for both a website and an AI system at the same time, and the product keeps both rather than picking one, because website first and the system on top is the largest sale available.
+
+It is worth reading [the client acquisition guide for AI agent builders](/for-ai-agent-builders) even if you have never thought of yourself as one. The honest caveat: the AI-system case is mostly built on what is true of the trade, not on proof about the individual business. Complaint language in reviews, such as customers saying nobody answers the phone, turns up in only around 2% of businesses. So a dental clinic or a law firm gets pitched on what clinics and law firms generally deal with, phrased as "when someone messages after hours," never as "you are losing patients." More on that in [7 signals a local business needs an AI agent](/blog/signals-a-local-business-needs-an-ai-agent).
+
+## Which Pitch Should You Lead With?
+
+| Your situation | Lead with | Why |
+|---|---|---|
+| New to freelancing, no portfolio | No-website businesses | Strongest, least arguable case; a modest first project builds the portfolio |
+| Strong build skills, some portfolio | Slow sites with a measured score | Higher project value, and the number does the persuading |
+| You already build sites for local clients | AI enquiry layer on past clients | Warm audience, recurring revenue, no cold start |
+| You want recurring income | Booking or enquiry system after a build | The retainer is the point |
 
 ## Where Runvax Fits
 
-[Runvax](https://runvax.com) detects which gap a business actually has — no site, weak site, no booking, no after-hours cover — and picks the offer to match, so a developer's cold message pitches the rebuild or the booking system or the enquiry layer rather than a generic "you need a website". See [the client acquisition page for web developers](/for-web-developers) for the full workflow.
+[Runvax](https://runvax.com) builds the list: it searches a city and industry, drops businesses that are not credible enough to pay, and surfaces the ones with a detectable gap, with the evidence for each shown on the card. It drafts a cold email, WhatsApp message and proposal per business matched to the gap it found, so a developer's message pitches the rebuild or the site or the enquiry layer rather than a generic "you need a website". See [the client acquisition page for web developers](/for-web-developers) for the full workflow.
 
-[Start free](https://runvax.com) — no card needed.
+[Start free](https://runvax.com) with no card needed.
