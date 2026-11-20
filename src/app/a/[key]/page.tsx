@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { livePublicAgent, publishedPosts } from '@/lib/agents/publicFeed';
+import { SITE_URL } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 type P = { params: Promise<{ key: string }> };
@@ -9,7 +10,8 @@ type P = { params: Promise<{ key: string }> };
 export async function generateMetadata({ params }: P): Promise<Metadata> {
   const live = await livePublicAgent((await params).key);
   if (!live || !live.cfg.destinations.hosted) return { title: 'Not found', robots: { index: false } };
-  return { title: live.cfg.business.name ? `${live.cfg.business.name}: articles` : live.agent.name, description: live.cfg.business.about.slice(0, 160) };
+  const { key } = await params;
+  return { title: live.cfg.business.name ? `${live.cfg.business.name}: articles` : live.agent.name, description: live.cfg.business.about.slice(0, 160), alternates: { canonical: `${SITE_URL}/a/${key}` } };
 }
 
 export default async function HostedAgentPage({ params }: P) {

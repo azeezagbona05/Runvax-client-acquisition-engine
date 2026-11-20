@@ -11,11 +11,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
+  // Real freshness signal: the newest post date, not "now" on every build.
+  const newest = posts.reduce((max, p) => {
+    const d = new Date(p.updated ?? p.date);
+    return d > max ? d : max;
+  }, new Date('2026-09-01'));
+
   return [
     // Core pages
-    { url: `${SITE_URL}/`,             lastModified: new Date(),              changeFrequency: 'daily',   priority: 1   },
+    { url: `${SITE_URL}/`,             lastModified: newest,                 changeFrequency: 'weekly',  priority: 1   },
     { url: `${SITE_URL}/faq`,          lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${SITE_URL}/blog`,         lastModified: new Date(),              changeFrequency: 'weekly',  priority: 0.8 },
+    { url: `${SITE_URL}/blog`,         lastModified: newest,                 changeFrequency: 'weekly',  priority: 0.8 },
 
     // Comparison pages — high commercial intent
     { url: `${SITE_URL}/vs-fiverr`,    lastModified: new Date('2026-07-01'), changeFrequency: 'monthly', priority: 0.9 },

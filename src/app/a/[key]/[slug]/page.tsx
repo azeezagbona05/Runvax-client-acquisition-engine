@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { livePublicAgent } from '@/lib/agents/publicFeed';
+import { SITE_URL } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 type P = { params: Promise<{ key: string; slug: string }> };
@@ -15,7 +16,7 @@ async function load(key: string, slug: string) {
 
 export async function generateMetadata({ params }: P): Promise<Metadata> {
   const { key, slug } = await params; const r = await load(key, slug);
-  return r ? { title: r.post.title, description: r.post.summary } : { title: 'Not found', robots: { index: false } };
+  return r ? { title: r.post.title, description: r.post.summary, alternates: { canonical: `${SITE_URL}/a/${key}/${slug}` } } : { title: 'Not found', robots: { index: false } };
 }
 
 export default async function HostedPostPage({ params }: P) {
