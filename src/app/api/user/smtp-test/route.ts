@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { openSecret } from '@/lib/integrations/crypto';
 import { getServerSession } from 'next-auth';
 import nodemailer from 'nodemailer';
 import { authOptions } from '@/lib/auth';
@@ -17,7 +18,7 @@ export async function POST() {
   const host = settings?.smtpHost ?? process.env.SMTP_HOST;
   const port = Number(settings?.smtpPort ?? process.env.SMTP_PORT ?? 587);
   const user = settings?.smtpUser ?? process.env.SMTP_USER;
-  const pass = settings?.smtpPass ?? process.env.SMTP_PASS;
+  const pass = openSecret(settings?.smtpPass) ?? process.env.SMTP_PASS;
   const senderName = settings?.businessName ?? settings?.senderName ?? settings?.smtpFrom ?? 'AI Prospect Finder';
   const toEmail = session.user.email!;
 

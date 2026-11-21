@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { createTransporter, emailShell, ctaButton } from '@/lib/email';
-import { getAppUrl } from '@/lib/url';
+import { getAppUrl, getAppName } from '@/lib/url';
 import { sanitizePermissions } from '@/lib/career/types';
 import { computeReminders, type Reminder } from './reminders';
 
@@ -26,7 +26,7 @@ export async function sendDigestFor(userId: string, now = new Date()): Promise<n
   const items = worthEmailing(all, sent, now); if (!items.length) return 0;
   if (!(process.env.RESEND_API_KEY || process.env.SMTP_HOST)) return 0;
   try {
-    await createTransporter().sendMail({ from: `"${process.env.APP_NAME || 'Runvax'}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`, to: u.email, subject: `Career Agent: ${items.length} thing${items.length > 1 ? 's' : ''} need you`, html: emailShell(process.env.APP_NAME || 'Runvax', digestHtml(u.name ?? '', items), 'Interviews and follow-ups') });
+    await createTransporter().sendMail({ from: `"${getAppName()}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`, to: u.email, subject: `Career Agent: ${items.length} thing${items.length > 1 ? 's' : ''} need you`, html: emailShell(getAppName(), digestHtml(u.name ?? '', items), 'Interviews and follow-ups') });
     const ids = items.filter((i) => i.kind === 'interview').map((i) => i.id);
     if (ids.length) await prisma.careerInterview.updateMany({ where: { id: { in: ids }, userId }, data: { reminderSentAt: now } });
     return items.length;

@@ -213,6 +213,14 @@ export function renderTemplate(template: string, lead: LeadInput, extra: Record<
 
 // ── The message ──────────────────────────────────────────────────────────────
 
+/** Bracketed fill-in-the-blank text such as [Your Name] or [Company]. The AI sometimes writes these; they must never reach a prospect. */
+const PLACEHOLDER_LINE = /^[ \t]*\[(?:your|my|sender|senders?|company|business|agency|insert|name|full name|first name)[^\]\n]{0,40}\][ \t]*$/gim;
+const PLACEHOLDER_ANY = /\[(?:your|my|sender|insert)[^\]\n]{0,40}\]/i;
+/** True when the text still holds a [Your Name]-style placeholder. */
+export function hasPlaceholder(text: string): boolean { return PLACEHOLDER_ANY.test(text); }
+/** Removes signature lines that are only a placeholder. The sender's real signature is added after the body. */
+export function stripPlaceholderLines(text: string): string { return text.replace(PLACEHOLDER_LINE, '').replace(/\n{3,}/g, '\n\n').trim(); }
+
 export interface SenderIdentity {
   name?: string | null;
   business?: string | null;
@@ -281,7 +289,7 @@ export function buildEmail(args: {
 }): BuiltEmail {
   const extra: Record<string, string> = args.originalSubject ? { subject: args.originalSubject } : {};
   const subject = renderTemplate(args.subject, args.lead, extra).replace(/\s+/g, ' ').trim();
-  const body = renderTemplate(args.body, args.lead, extra).trim();
+  const body = stripPlaceholderLines(renderTemplate(args.body, args.lead, extra));
   const signature = signatureOf(args.sender);
 
   const footer = `You're getting this because ${args.sender.business || args.sender.name || 'the sender'} thought it might be relevant to ${args.lead.business || 'your business'}. Don't want these? Unsubscribe: ${args.unsubscribeUrl}`;

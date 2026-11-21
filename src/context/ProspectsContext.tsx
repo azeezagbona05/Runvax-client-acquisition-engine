@@ -7,6 +7,7 @@ import {
   Business, SavedProspect, ProspectStage, AppSettings, DailyLog,
   ConversationEntry, ConversationChannel, FollowUpStep,
 } from '@/types';
+import { useSession } from 'next-auth/react';
 import { recordSaturationSend } from '@/lib/saturationClient';
 
 interface Ctx {
@@ -49,8 +50,11 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
   });
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
 
-  // Load all data from the DB on mount
+  // Load all data from the DB once the visitor is known to be signed in. Signed-out visitors make no calls (they only produced 401 errors).
+  const { status } = useSession();
   useEffect(() => {
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') { setLoading(false); return; }
     async function load() {
       try {
         const [pRes, sRes, dRes] = await Promise.all([
@@ -74,7 +78,7 @@ export function ProspectsProvider({ children }: { children: ReactNode }) {
       finally { setLoading(false); }
     }
     void load();
-  }, []);
+  }, [status]);
 
   // Ref always points to latest prospects — lets write callbacks be stable without stale closures
   const prospectsRef = useRef(prospects);

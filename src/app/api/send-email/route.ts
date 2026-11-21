@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { openSecret } from '@/lib/integrations/crypto';
 import nodemailer from 'nodemailer';
 import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     host = s.smtpHost;
     port = s.smtpPort ?? 587;
     user = s.smtpUser;
-    pass = s.smtpPass;
+    pass = openSecret(s.smtpPass) ?? '';
     displayFrom ??= s.smtpFrom ?? s.businessName ?? s.senderName ?? undefined;
   }
 

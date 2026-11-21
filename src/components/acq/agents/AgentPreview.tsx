@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, MinusCircle, RotateCcw, Send } from 'lucide-react';
-import type { AgentConfig, AgentKind, AssistantConfig, VisibilityConfig } from '@/lib/agents/kinds';
+import { configIssues, type AgentConfig, type AgentKind, type AssistantConfig, type VisibilityConfig } from '@/lib/agents/kinds';
 
 interface Turn { r: 'v' | 'a'; t: string }
 interface Visitor { name?: string; email?: string; phone?: string; company?: string; need?: string }
@@ -17,6 +17,8 @@ export default function AgentPreview({ kind, cfg, step }: { kind: AgentKind; cfg
         <h3 className="acq-title">{step ? `${step}. Test it` : 'Try it'}</h3>
         <p className="acq-sub" style={{ fontSize: 13, marginTop: 2 }}>{kind === 'assistant' ? 'Chat with your assistant the way a visitor would.' : 'See the kind of article your agent writes.'} It uses the settings on this page, even ones you have not saved. <b>Preview only: nothing is saved, published or sent, and no one is emailed.</b></p>
       </div>
+      {(() => { const todo = configIssues(kind, cfg).filter((i) => !/Choose where the assistant works/.test(i)); return todo.length ? (
+        <div className="acq-warn" role="status"><b>Before you can try it:</b> {todo.join(' ')} Add it in the settings, then chat here.</div>) : null; })()}
       {kind === 'assistant' ? <div className="grid grid-cols-1 gap-4 lg:grid-cols-2"><ChatTry cfg={cfg as AssistantConfig} /><Capabilities cfg={cfg as AssistantConfig} /></div> : <ArticleTry cfg={cfg as VisibilityConfig} />}
     </section>
   );

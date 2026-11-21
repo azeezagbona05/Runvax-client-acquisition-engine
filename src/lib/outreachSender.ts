@@ -12,6 +12,7 @@
 
 import { getConnection } from '@/lib/integrations/store';
 import crypto from 'node:crypto';
+import { openSecret } from '@/lib/integrations/crypto';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { prisma } from '@/lib/prisma';
@@ -68,7 +69,7 @@ export async function loadMailbox(userId: string): Promise<UserMailbox | null> {
   const port = s.smtpPort ?? 587;
   const fromName = (s.smtpFrom ?? s.businessName ?? s.senderName ?? '').replace(/["\r\n<>]/g, '').trim() || undefined;
   return {
-    transport: nodemailer.createTransport({ host: s.smtpHost, port, secure: port === 465, auth: { user: s.smtpUser, pass: s.smtpPass } }),
+    transport: nodemailer.createTransport({ host: s.smtpHost, port, secure: port === 465, auth: { user: s.smtpUser, pass: openSecret(s.smtpPass) ?? '' } }),
     fromAddress,
     fromName,
     replyTo: s.replyEmail && s.replyEmail.toLowerCase() !== fromAddress.toLowerCase() && EMAIL_RE.test(s.replyEmail) ? s.replyEmail : undefined,
@@ -110,7 +111,7 @@ export interface BatchResult {
   /** Still waiting after this batch: queued leads, or follow-ups that are due. */
   leftToSend: number;
   capReached: boolean;
-  aborted?: 'no_mailbox' | 'mailbox_error' | 'check_unavailable' | 'not_found' | 'not_started';
+  aborted?: 'no_mailbox' | 'mailbox_error' | 'check_unavailable' | 'not_found' | 'not_started' | 'no_sender';
   message?: string;
 }
 
@@ -211,6 +212,11 @@ export async function sendBatch(
   const mailbox = deps.mailbox === undefined ? await loadMailbox(args.userId) : deps.mailbox;
   if (!mailbox) {
     return empty({ aborted: 'no_mailbox', message: 'Connect your own email in Settings → Email first. Campaigns send from your mailbox so replies reach you.' });
+  }
+
+  // Without a sender name or business the email would end with no signature at all (or a stray placeholder). Ask first.
+  if (!mailbox.sender.name?.trim() && !mailbox.sender.business?.trim()) {
+    return empty({ aborted: 'no_sender', message: 'Add your name (or business name) in Settings → Profile first. Every email is signed with it, and prospects ignore unsigned emails.' });
   }
 
   const dayStart = startOfToday(new Date(now()));

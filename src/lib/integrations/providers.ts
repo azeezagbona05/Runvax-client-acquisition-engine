@@ -4,7 +4,7 @@ import { ImapFlow } from 'imapflow';
 import { prisma } from '@/lib/prisma';
 import { safeFetch } from '@/lib/safeFetch';
 import { getConnection, markStatus, saveConnection, removeConnection, type Provider } from './store';
-import { open, seal } from './crypto';
+import { open, seal, sealSecret, openSecret, isPublicMailHost } from './crypto';
 import { verifyTokenFor, webhookUrlFor } from '@/lib/waWebhook';
 
 export type IntegrationId = 'wa' | 'gmail' | 'smtp' | 'apollo' | 'snov' | 'gcal' | 'airtable' | 'webhooks';
@@ -98,11 +98,12 @@ export async function connectMailbox(userId: string, kind: 'gmail' | 'smtp', f: 
   const pass = (f.password ?? '').replace(/\s+/g, kind === 'gmail' ? '' : '$&');
   const host = kind === 'gmail' ? 'smtp.gmail.com' : (f.host ?? '').trim();
   const port = kind === 'gmail' ? 465 : Number(f.port) || 587;
+  if (!isPublicMailHost(host)) return fail('That mail server address is not allowed. Use your provider\'s public SMTP address, such as smtp.gmail.com.');
   if (!user || !pass || !host) return fail(kind === 'gmail' ? 'Enter your Gmail address and an app password.' : 'Enter the server, login and password.');
   if (kind === 'gmail' && !/@(gmail|googlemail)\.com$|@.+\..+/i.test(user)) return fail('Enter a valid email address.');
   const r = await checkMailbox(host, port, user, pass);
   if (!r.ok) return kind === 'gmail' ? fail(`${r.message} For Gmail, use an app password (Google Account → Security → 2-Step Verification → App passwords), not your normal password.`) : r;
-  await prisma.userSettings.upsert({ where: { userId }, create: { userId, smtpHost: host, smtpPort: port, smtpUser: user, smtpPass: pass }, update: { smtpHost: host, smtpPort: port, smtpUser: user, smtpPass: pass } });
+  await prisma.userSettings.upsert({ where: { userId }, create: { userId, smtpHost: host, smtpPort: port, smtpUser: user, smtpPass: sealSecret(pass) }, update: { smtpHost: host, smtpPort: port, smtpUser: user, smtpPass: sealSecret(pass) } });
   return { ok: true, message: `Connected. ${r.message}` };
 }
 
@@ -124,7 +125,7 @@ export async function testMailbox(userId: string): Promise<Result> {
   }
   const s = await prisma.userSettings.findUnique({ where: { userId }, select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true } });
   if (!s?.smtpHost || !s.smtpUser || !s.smtpPass) return fail('No mailbox is connected yet.');
-  return checkMailbox(s.smtpHost, s.smtpPort ?? 587, s.smtpUser, s.smtpPass);
+  return checkMailbox(s.smtpHost, s.smtpPort ?? 587, s.smtpUser, openSecret(s.smtpPass) ?? '');
 }
 
 export async function disconnectMailbox(userId: string): Promise<Result> {

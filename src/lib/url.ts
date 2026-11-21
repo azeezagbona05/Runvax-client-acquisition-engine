@@ -5,5 +5,6 @@ export function getAppUrl(): string {
 }
 
 export function getAppName(): string {
-  return process.env.APP_NAME ?? 'Runvax';
+  // The brand is fixed. An APP_NAME env var left over from an earlier product name once put "Beam AI Team" on every email.
+  return 'Runvax';
 }

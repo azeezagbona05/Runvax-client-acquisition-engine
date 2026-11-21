@@ -53,6 +53,7 @@ vi.mock('nodemailer', () => {
 });
 
 beforeEach(() => {
+  try { globalThis.sessionStorage?.clear(); } catch { /* node environment has no sessionStorage */ }
   resetFakePrisma();
   // Live-network tripwires: any real HTTP request or DNS lookup fails the test.
   const refuse = (what: string) => () => { throw new Error(`Live network call in a test: ${what}`); };

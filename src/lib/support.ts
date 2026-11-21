@@ -1,9 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { createTransporter, emailShell, ctaButton } from '@/lib/email';
-import { getAppUrl } from '@/lib/url';
+import { getAppUrl, getAppName } from '@/lib/url';
 import { LIMITS, makeRef, statusAfterMessage, type NewTicketInput, type TicketStatus } from '@/lib/supportShared';
 
-const appName = () => process.env.APP_NAME || 'Runvax';
+const appName = () => getAppName();
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
 const html = (s: string) => esc(s).replace(/\n/g, '<br>');
 const adminEmails = () => (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, FileUp, Loader2, Rocket, RotateCcw, ShieldCheck, Sparkles } from 'lucide-react';
 import type { Suggestion } from '@/lib/career/suggest';
 import { LEVELS, PERMISSION_MODES, SOURCES, WORK_MODES, type Discovery, type Permissions, type Preferences } from '@/lib/career/types';
@@ -14,7 +14,9 @@ const num = (v: string) => (v === '' ? null : Number(v));
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 export default function Wizard({ state, onState, onDone }: { state: CareerState; onState: (s: CareerState) => void; onDone?: () => void }) {
-  const [step, setStep] = useState(1);
+  // Reloading mid-setup returns to the step you were on (only once a CV exists, so a fresh start still begins at step 1).
+  const [step, setStep] = useState(() => { try { const v = Number(sessionStorage.getItem('career_wizard_step')); return state.profile && v >= 1 && v <= 5 ? v : 1; } catch { return 1; } });
+  useEffect(() => { try { sessionStorage.setItem('career_wizard_step', String(step)); } catch { /* private mode: it just starts at step 1 */ } }, [step]);
   const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [note, setNote] = useState(''); const [removed, setRemoved] = useState<string[]>([]);
   const [prefs, setPrefs] = useState<Preferences>(state.preferences); const [disc, setDisc] = useState<Discovery>(state.discovery); const [perm, setPerm] = useState<Permissions>(state.permissions);
   const [sug, setSug] = useState<Suggestion | null>(null); const [suggesting, setSuggesting] = useState<string | null>(null);

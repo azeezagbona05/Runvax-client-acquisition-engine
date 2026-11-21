@@ -50,7 +50,7 @@ export default function ConditionalNav({ children }: { children: React.ReactNode
   const pathname = usePathname();
 
   // Admin routes, public demo sites and Client Acquisition have their own standalone layout
-  if (pathname.startsWith('/admin') || pathname.startsWith('/demo') || pathname.startsWith('/client-acquisition')) return <>{children}</>;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/demo') || pathname.startsWith('/chat') || pathname.startsWith('/client-acquisition')) return <>{children}</>;
 
   return (
     <SidebarProvider>

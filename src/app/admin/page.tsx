@@ -1233,6 +1233,9 @@ export default function AdminPage() {
   if (!stats) return null;
 
   const { users, payments, totalRevenue, byPlan } = stats;
+  // A free trial is recorded as a $0 payment on the Pro plan. Count it separately so it never looks like revenue or a paying customer.
+  const trialCount = payments.filter((p) => p.status === 'trial').length;
+  const paidCount = payments.length - trialCount;
 
   const current = ADMIN_NAV.flatMap((g) => g.items).find((i) => i.id === tab)!;
   const currentGroup = ADMIN_NAV.find((g) => g.items.some((i) => i.id === tab))!;
@@ -1264,7 +1267,7 @@ export default function AdminPage() {
               <div className="space-y-0.5">
                 {group.items.map(({ id, label, icon: Icon }) => {
                   const on = tab === id;
-                  const count = id === 'users' ? users.length : id === 'payments' ? payments.length : null;
+                  const count = id === 'users' ? users.length : id === 'payments' ? paidCount : null;
                   return (
                     <button
                       key={id}
@@ -1360,9 +1363,9 @@ export default function AdminPage() {
               <span className="text-xs font-semibold uppercase tracking-widest">Paid</span>
             </div>
             <div className="text-3xl font-black text-purple-400">
-              {(byPlan.pro ?? 0) + (byPlan.agency ?? 0)}
+              {Math.max(0, (byPlan.pro ?? 0) + (byPlan.agency ?? 0) - trialCount)}
             </div>
-            <div className="text-xs text-gray-600 mt-1">{byPlan.pro ?? 0} Pro · {byPlan.agency ?? 0} Agency</div>
+            <div className="text-xs text-gray-600 mt-1">{Math.max(0, (byPlan.pro ?? 0) - trialCount)} Pro · {byPlan.agency ?? 0} Agency · {trialCount} on free trial</div>
           </div>
           <div className="bg-gray-900 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-gray-500 mb-2">
@@ -1372,7 +1375,7 @@ export default function AdminPage() {
             <div className="text-3xl font-black text-green-400">
               {formatPrice(Math.round(totalRevenue / 100))}
             </div>
-            <div className="text-xs text-gray-600 mt-1">{payments.length} payments</div>
+            <div className="text-xs text-gray-600 mt-1">{paidCount} payments · {trialCount} free trials</div>
           </div>
           <div className="bg-gray-900 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-gray-500 mb-2">

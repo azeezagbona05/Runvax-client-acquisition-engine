@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { checkAndIncrementAIForUser } from '@/lib/usage';
 import { knowledgeExcerpts } from '@/lib/knowledge/context';
 import { createTransporter } from '@/lib/email';
+import { getAppName } from '@/lib/url';
 import { escapeHtml, hostOf } from './html';
 import { hasSkill, sanitizeConfig, type AssistantConfig } from './kinds';
 import { postSigned } from './publish';
@@ -131,7 +132,7 @@ async function notifyOwner(agent: CustomAgent, cfg: AssistantConfig, v: Visitor,
   const to = cfg.notifyEmail || owner?.email; if (!to || !(process.env.RESEND_API_KEY || process.env.SMTP_HOST)) return false;
   const rows = [['Name', v.name], ['Email', v.email], ['Phone', v.phone], ['Company', v.company], ['Looking for', v.need], ['Order number', v.order], ['Channel', channel === 'telegram' ? 'Telegram' : 'Website chat']].filter(([, x]) => x);
   const html = `<div style="font-family:system-ui,sans-serif;max-width:560px"><h2 style="margin:0 0 8px">${handoff ? 'Needs a person' : 'New lead'} from ${escapeHtml(agent.name)}</h2>${handoff ? '<p style="margin:0 0 10px;color:#b45309">The assistant handed this conversation to your team. Please reply to them directly.</p>' : ''}<table style="border-collapse:collapse;width:100%">${rows.map(([k, x]) => `<tr><td style="padding:6px 10px;color:#64748b;border-bottom:1px solid #e2e8f0">${k}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0"><b>${escapeHtml(String(x))}</b></td></tr>`).join('')}</table><h3 style="margin:18px 0 6px">The conversation</h3>${transcript.slice(-12).map((m) => `<p style="margin:4px 0"><b>${m.r === 'v' ? 'Visitor' : 'Assistant'}:</b> ${escapeHtml(m.t)}</p>`).join('')}</div>`;
-  try { await createTransporter().sendMail({ from: `"${process.env.APP_NAME ?? 'Runvax'}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER ?? 'no-reply@runvax.com'}>`, to, subject: `${handoff ? 'Needs a person' : 'New lead'}: ${v.name || v.email || v.phone || 'a visitor'} (${agent.name})`, html }); return true; } catch { return false; }
+  try { await createTransporter().sendMail({ from: `"${getAppName()}" <${process.env.SMTP_FROM ?? process.env.SMTP_USER ?? 'no-reply@runvax.com'}>`, to, subject: `${handoff ? 'Needs a person' : 'New lead'}: ${v.name || v.email || v.phone || 'a visitor'} (${agent.name})`, html }); return true; } catch { return false; }
 }
 
 /**

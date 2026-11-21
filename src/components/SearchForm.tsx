@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { Search, MapPin, Loader2, Clock, Sparkles, ChevronDown, X, ArrowLeft, Navigation, Map as MapIcon } from 'lucide-react';
 import { SearchFormData, Business } from '@/types';
 import { getSearchHistory, getBestTimeStatus, SearchHistoryEntry } from '@/lib/searchHistory';
@@ -109,7 +110,9 @@ export default function SearchForm({ onSearch, loading, landing = true, business
   const countryDdRef     = useRef<HTMLDivElement>(null);
   const stateSelectRef   = useRef<HTMLSelectElement>(null);
 
-  useEffect(() => { getSearchHistory().then(setHistory); }, []);
+  const { status: sessionStatus } = useSession();
+  // Search history belongs to a signed-in account; signed-out visitors made a request that could only answer 401.
+  useEffect(() => { if (sessionStatus === 'authenticated') getSearchHistory().then(setHistory); }, [sessionStatus]);
   useEffect(() => { setTimeStatus(getBestTimeStatus(country)); }, [country]);
 
   // Every country in the world, loaded once (the popular ones show straight away).

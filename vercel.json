@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/run-agents",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/check-replies",
+      "schedule": "0 12 * * *"
     }
   ]
 }

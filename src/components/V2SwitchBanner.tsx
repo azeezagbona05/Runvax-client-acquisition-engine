@@ -28,6 +28,9 @@ export default function V2SwitchBanner() {
   const router = useRouter();
   const [banner, setBanner] = useState(false);
   const [popup, setPopup] = useState(false);
+  // The animation styles are added after hydration: rendering them on the server made React report a text mismatch on every page.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Already switched once: the classic home page hands them on (the server does this too; this covers signing in on the page itself).
   useEffect(() => {
@@ -55,7 +58,7 @@ export default function V2SwitchBanner() {
 
   return (
     <>
-      <style>{`
+      {mounted && <style>{`
         @keyframes v2n-slide { from { transform: translateY(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
         @keyframes v2n-pop { from { transform: translateY(18px) scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
         @keyframes v2n-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -78,7 +81,7 @@ export default function V2SwitchBanner() {
         .v2n-scrim { animation: v2n-fade .25s ease-out both; }
         .v2n-card { animation: v2n-pop .4s cubic-bezier(.2, .9, .25, 1.1) both; }
         @media (prefers-reduced-motion: reduce) { .v2n-pill, .v2n-pill::after { animation: none !important; } .v2n-banner, .v2n-new, .v2n-cta, .v2n-cta::after, .v2n-spark, .v2n-arrow, .v2n-scrim, .v2n-card { animation: none !important; } }
-      `}</style>
+      `}</style>}
 
       {banner && (
         <div className="v2n-banner flex flex-wrap items-center gap-x-5 gap-y-3 bg-purple-600 px-5 py-4 text-white sm:py-5 lg:pr-[22rem]">

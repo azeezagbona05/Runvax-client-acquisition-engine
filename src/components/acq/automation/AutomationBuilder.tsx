@@ -186,7 +186,9 @@ export default function AutomationBuilder() {
       <div style={{ maxWidth: '88%', padding: '10px 14px', borderRadius: 14, fontSize: 13.5, lineHeight: 1.55, background: m.role === 'user' ? '#9333ea' : '#faf5ff', color: m.role === 'user' ? '#fff' : '#1e293b', border: m.role === 'user' ? 0 : '1px solid #f3e8ff' }}>
         <p>{m.text}</p>
         {m.bullets && <ul style={{ margin: '6px 0 0', paddingLeft: 18, display: 'grid', gap: 3 }}>{m.bullets.map((b) => <li key={b}>{b}</li>)}</ul>}
-        {m.notice && <p style={{ marginTop: 8, fontSize: 12, color: '#7e22ce' }}>{m.notice}</p>}
+        {m.source === 'rules' && m.notice && /AI|allowance|unavailable/i.test(m.notice)
+          ? <div className="acq-warn" role="alert" style={{ marginTop: 8 }}><strong>This is a basic template, not an AI-tailored campaign.</strong> {m.notice} Read and edit every email before you run it, or try again in a few minutes.</div>
+          : m.notice && <p style={{ marginTop: 8, fontSize: 12, color: '#7e22ce' }}>{m.notice}</p>}
         {m.source && <p style={{ marginTop: 6, fontSize: 11, color: '#94a3b8' }}>{m.source === 'ai' ? 'Planned by AI' : 'Planned by the built-in planner'}</p>}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { getConnection } from '@/lib/integrations/store';
+import { openSecret } from '@/lib/integrations/crypto';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { prisma } from '@/lib/prisma';
@@ -27,7 +28,7 @@ export async function checkInbox(userId: string, deps: IngestDeps = {}): Promise
     if (!('token' in a)) return { ok: false, error: a.message };
     imapOpts = { host: 'imap.gmail.com', auth: { user: a.email, accessToken: a.token } };
   } else if (s?.smtpHost && s.smtpUser && s.smtpPass) {
-    imapOpts = { host: imapHostFor(s.smtpHost), auth: { user: s.smtpUser, pass: s.smtpPass } };
+    imapOpts = { host: imapHostFor(s.smtpHost), auth: { user: s.smtpUser, pass: openSecret(s.smtpPass) ?? '' } };
   } else if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     // An administrator with no mailbox of their own reads the platform mailbox they send from (the same fallback the sender uses).
     const me = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });

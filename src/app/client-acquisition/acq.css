@@ -630,6 +630,8 @@
 .acq-home-rows { display: grid; }
 .acq-home-row { display: flex; gap: 12px; align-items: center; padding: 11px 0; border-top: 1px solid #f1f5f9; }
 .acq-home-row:first-child { border-top: 0; }
+.acq-home-rows, .acq-home-row { min-width: 0; }
+.acq-home-row > div { min-width: 0; flex: 1 1 auto; } /* lets long titles truncate instead of pushing the phone layout wider than the screen */
 .acq-home-row-icon { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: #f5f3ff; flex: none; }
 .acq-home-row-title { font-weight: 600; font-size: 14px; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
 .acq-home-row-sub { font-size: 12.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 1px 0 0; }

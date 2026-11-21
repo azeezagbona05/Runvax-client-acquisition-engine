@@ -141,19 +141,27 @@ export default function Conversations() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  const check = async () => {
-    setChecking(true); setNote('');
+  /** `silent` is the automatic check: it never shows an error, and only says something when new replies arrived. */
+  const check = useCallback(async (silent = false) => {
+    if (!silent) { setChecking(true); setNote(''); }
     try {
       const res = await fetch('/api/client-acquisition/replies/check', { method: 'POST' });
       const j = await res.json().catch(() => ({})) as { error?: string; replies?: number; scanned?: number };
-      setNote(res.ok ? `Looked at ${j.scanned ?? 0} recent message${j.scanned === 1 ? '' : 's'}: ${j.replies ?? 0} new repl${j.replies === 1 ? 'y' : 'ies'} from your contacts.` : j.error ?? 'Could not check your mailbox.');
-      await Promise.all([load(), reload()]);
-    } catch { setNote('Could not check your mailbox.'); } finally { setChecking(false); }
-  };
+      if (!silent) setNote(res.ok ? `Looked at ${j.scanned ?? 0} recent message${j.scanned === 1 ? '' : 's'}: ${j.replies ?? 0} new repl${j.replies === 1 ? 'y' : 'ies'} from your contacts.` : j.error ?? 'Could not check your mailbox.');
+      else if (res.ok && (j.replies ?? 0) > 0) setNote(`${j.replies} new repl${j.replies === 1 ? 'y' : 'ies'} just arrived.`);
+      if (res.ok && (!silent || (j.replies ?? 0) > 0)) await Promise.all([load(), reload()]);
+    } catch { if (!silent) setNote('Could not check your mailbox.'); } finally { if (!silent) setChecking(false); }
+  }, [load, reload]);
+  // Replies are read automatically when this page opens and every 3 minutes while it stays open.
+  useEffect(() => {
+    void check(true);
+    const t = setInterval(() => void check(true), 180_000);
+    return () => clearInterval(t);
+  }, [check]);
   const changed = async () => { await Promise.all([load(), reload()]); };
 
   return (
-    <Card title="Conversations" right={<button className="acq-btn acq-btn-sm" disabled={checking} onClick={() => void check()}>{checking ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Check my inbox</button>}>
+    <Card title="Conversations" right={<button className="acq-btn acq-btn-sm" disabled={checking} onClick={() => void check(false)}>{checking ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Check my inbox</button>}>
       {note && <p role="status" className="acq-sub" style={{ fontSize: 13, marginBottom: 8 }}>{note}</p>}
       {error && <p className="acq-warn">{error}</p>}
       {!replies && !error ? <div style={{ display: 'grid', gap: 14 }}>{[0, 1, 2].map((i) => <Skeleton key={i} h={44} />)}</div>

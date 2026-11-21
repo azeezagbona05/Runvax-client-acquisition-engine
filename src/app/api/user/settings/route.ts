@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sealSecret, isPublicMailHost } from '@/lib/integrations/crypto';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -89,6 +90,11 @@ export async function PATCH(req: NextRequest) {
       return true;
     })
   );
+
+  if (typeof data.smtpPass === 'string') data.smtpPass = sealSecret(data.smtpPass);
+  if (typeof data.smtpHost === 'string' && data.smtpHost && !isPublicMailHost(data.smtpHost)) {
+    return NextResponse.json({ error: 'That mail server address is not allowed. Use your provider\'s public SMTP address.' }, { status: 400 });
+  }
 
   try {
     const settings = await prisma.userSettings.upsert({

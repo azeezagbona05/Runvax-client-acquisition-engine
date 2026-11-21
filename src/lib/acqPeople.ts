@@ -5,6 +5,7 @@
  * information). The page never says which source answered.
  */
 
+import { titleRank } from '@/lib/decisionMaker';
 import type { DomainContact } from '@/lib/snov';
 import type { FindContext, FindResult } from '@/lib/dmFinder';
 
@@ -45,6 +46,8 @@ export interface PeopleDeps {
 
 const SOCIAL = /(^|\.)(facebook|instagram|twitter|x|linkedin|tiktok|youtube|wa|linktr)\.(com|me|ee)$|(^|\.)(business|sites)\.google\.com$/i;
 export const MAX_PEOPLE = 10;
+/** Staff who relay messages rather than decide. */
+const NOT_DECISION_TITLE = /\b(assistant|assistance|receptionist|secretary|intern|trainee|nurse|technician|hygienist|cleaner|driver|support)\b/i;
 
 /** The business's own domain, or null when it has no website or only a social page. */
 export function domainOf(website?: string): string | null {
@@ -75,7 +78,12 @@ export function tidyPeople(list: PersonFound[], max = MAX_PEOPLE): PersonFound[]
     const old = by.get(key);
     if (!old || (!old.email && next.email)) by.set(key, { ...old, ...next });
   }
-  return Array.from(by.values()).slice(0, Math.max(1, Math.min(max, MAX_PEOPLE)));
+  // Owners and directors first. Assistants, receptionists and the like only stay when nobody senior was found.
+  const all = Array.from(by.values()).map((p, i) => ({ p, i, r: titleRank(p.title) }));
+  const senior = all.some((x) => x.r >= 0);
+  const kept = senior ? all.filter((x) => x.r >= 0 || !NOT_DECISION_TITLE.test(x.p.title)) : all;
+  kept.sort((a, b) => (a.r < 0 ? 99 : a.r) - (b.r < 0 ? 99 : b.r) || a.i - b.i);
+  return kept.map((x) => x.p).slice(0, Math.max(1, Math.min(max, MAX_PEOPLE)));
 }
 
 /** Adds the engine's status to people the finder already has, and appends people only the engine saw. */

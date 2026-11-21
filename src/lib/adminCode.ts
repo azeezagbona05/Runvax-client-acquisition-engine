@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { createTransporter, emailShell } from '@/lib/email';
 import { isAdminEmail } from '@/lib/adminSessionShared';
+import { getAppName } from '@/lib/url';
 
 /**
  * Email sign-in codes for the admin area. Stored hashed in the existing VerificationToken table (no new table):
@@ -50,7 +51,7 @@ export async function requestAdminCode(rawEmail: string): Promise<RequestResult>
   const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
   await prisma.verificationToken.deleteMany({ where: { identifier: idCode(email) } });
   await prisma.verificationToken.create({ data: { identifier: idCode(email), token: hash(email, code), expires: new Date(now + CODE_TTL_MS) } });
-  const app = process.env.APP_NAME ?? 'Runvax';
+  const app = getAppName();
   if (!process.env.RESEND_API_KEY && !process.env.SMTP_HOST) {
     // No mail server: in development only, print the code so the flow can be tried. Never in production.
     if (process.env.NODE_ENV !== 'production') { console.log(`[admin-code] ${email} ${code}`); return { sent: true }; }
