@@ -592,7 +592,7 @@ Deepened this session (3 of 4 sub-600w posts), all verified against real sources
 from first-party scoring code (`src/lib/opportunity/`). Also removed an over-claim: Runvax does NOT detect
 broken booking links, page-builder limits or after-hours cover — it detects no site, social-only, PageSpeed
 < 50 (after a scan), phone-only and review-reported friction (complaint language is ~2% of businesses).
-Remaining thin: `how-ai-automation-agencies-find-clients` (830w). Re-check the posts if the weights in
+Also deepened `how-ai-automation-agencies-find-clients` (830 → 1765w) on 2026-11-21 and fixed the same detection over-claim. All six PILLAR M thin posts are now done. Re-check the posts if the weights in
 detect.ts change.
 
 **Process rule going forward:** deepening the newest commercial pillar beats publishing post #188.
