@@ -12,4 +12,4 @@ export const SITE_NAME = 'Runvax';
 
 // ≤160 chars — leads with the category term, names the three offers and audiences
 export const SITE_DESCRIPTION =
-  'AI for client acquisition. Runvax finds local businesses that need a website, booking, or AI automation anywhere worldwide, then writes the outreach. Free plan.';
+  'AI for client acquisition. Runvax finds businesses that need what you sell, worldwide, then an AI workforce writes the outreach and tracks replies. Free plan.';

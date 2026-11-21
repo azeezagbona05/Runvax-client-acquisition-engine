@@ -5,9 +5,9 @@ export const dynamic = 'force-static';
 export function GET() {
   const body = `# Runvax
 
-> AI for client acquisition. Search any business type, in any city, worldwide. Runvax finds the businesses that need what you build and writes the first message. Find your next client in seconds.
+> AI for client acquisition. Runvax helps businesses find their next customers and gives them an AI workforce to approach, engage and acquire them. Search any business type, in any city, worldwide, and get the businesses that need what you sell, with the first message written.
 
-Runvax is an AI-powered client-acquisition platform — lead discovery plus cold outreach — built for anyone who sells a service to local businesses: freelance web designers and web developers, AI agent and automation builders, AI video producers, digital marketing agencies, and freelancers offering AI-powered services (chatbots, automation, content). It searches Google's global business index in real time to surface local businesses with a visible unmet need — no website, no online booking, no way to answer enquiries after hours — then generates personalized cold emails, WhatsApp messages, and proposals instantly using AI. Unlike enrichment tools such as Clay, Apollo, or ZoomInfo, Runvax builds the prospect list and detects the sellable gap; you do not bring your own list.
+Runvax is an AI-powered client-acquisition platform — lead discovery plus outreach campaigns — built for any business or freelancer that wins customers by approaching them directly, including anyone who sells a service to local businesses: freelance web designers and web developers, AI agent and automation builders, AI video producers, digital marketing agencies, and freelancers offering AI-powered services (chatbots, automation, content). It searches Google's global business index in real time to surface local businesses with a visible unmet need — no website, no online booking, no way to answer enquiries after hours — then generates personalized cold emails, WhatsApp messages, and proposals instantly using AI. Unlike enrichment tools such as Clay, Apollo, or ZoomInfo, Runvax builds the prospect list and detects the sellable gap; you do not bring your own list.
 
 ## What Runvax Does
 - Searches any business type (restaurant, salon, law firm, clinic, gym, hotel, and 16+ more) in any city worldwide
@@ -19,7 +19,14 @@ Runvax is an AI-powered client-acquisition platform — lead discovery plus cold
 - Includes a lead pipeline to track prospects from Found to Contacted to Interested to Proposal to Won or Lost
 - Supports search in Nigeria, Ghana, Kenya, South Africa, Uganda, Tanzania, Rwanda, Senegal, Cameroon, USA, UK, Canada
 
+## Campaigns and AI Workforce
+- Campaign builder: describe who you want to reach and what you offer, and Runvax drafts a multi-touch email and WhatsApp sequence
+- A set of AI agents that each handle one step of the job: planning the campaign, choosing the audience, writing the messages, drafting follow-ups and helping with replies
+- Replies are tracked and moved through a pipeline from first contact to won or lost
+- Email goes out from your own connected mailbox, not a shared sender
+
 ## Who Uses Runvax
+- Businesses and freelancers of any kind that want to find and approach their next customers, not only web designers
 - Freelance web designers finding clients in local cities
 - Web developers (not just designers) building a client pipeline — finding businesses with no site, a slow or broken site, or no booking flow
 - AI agent and automation builders finding local businesses that need an AI enquiry, booking, or follow-up system — Runvax detects the trade's workflow and the after-hours moment enquiries go cold
@@ -34,9 +41,8 @@ Runvax is an AI-powered client-acquisition platform — lead discovery plus cold
 Restaurants & Eateries, Beauty Salons & Spas, Barbers & Hair Salons, Schools & Private Tutors, Clinics & Hospitals, Pharmacies & Chemists, Real Estate Agencies, Hotels & Guesthouses, Event Centers & Halls, Law Firms, Auto Workshops & Mechanics, Fashion & Boutiques, Photography Studios, Gyms & Fitness Centers, Construction & Contractors, Catering Services, Churches & Ministries, Travel & Tour Agencies, Supermarkets & Stores, Laundry & Dry Cleaning, Printing & Design Shops, Accounting & Tax Firms
 
 ## Pricing
-- Free plan: 5 searches/day, 20 results/search, 15 AI calls/day — no credit card, free forever
-- Pro plan: $6 USD/month (~5 GBP) — 20 searches/day, 60 results, 200 AI calls
-- Agency plan: $15 USD/month (~12 GBP) — unlimited searches, results, and AI calls
+- Free plan: 5 searches/day, 20 results/search, 15 AI calls/day — no credit card
+- Paid plan pricing is being finalised and is not published yet. Check ${SITE_URL}/ for current offers rather than relying on older figures
 
 ## Why Runvax vs Other Lead Tools
 - Unlike Clay, SyncGTM, Apollo.io, or ZoomInfo: Runvax builds the local-business list and detects the sellable gap (no website, no booking, no after-hours cover) — it does not just enrich a list and an ICP you already have
@@ -48,7 +54,7 @@ Restaurants & Eateries, Beauty Salons & Spas, Barbers & Hair Salons, Schools & P
 
 ## Key Pages
 - Home / Search: ${SITE_URL}/
-- Pricing: ${SITE_URL}/pricing
+- FAQ: ${SITE_URL}/faq
 - Blog: ${SITE_URL}/blog
 - AI for Client Acquisition (what it means, how Runvax does it): ${SITE_URL}/ai-for-client-acquisition
 - For AI agent & automation builders: ${SITE_URL}/for-ai-agent-builders

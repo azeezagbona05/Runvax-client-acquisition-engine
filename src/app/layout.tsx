@@ -69,7 +69,7 @@ export const metadata: Metadata = {
     'how to get web design clients fast', 'find clients for web development agency',
     'tools for finding web design prospects', 'where to find small business leads',
     // AI client acquisition — category & builder/developer audiences
-    'AI for client acquisition', 'find clients for AI automation agency',
+    'AI for client acquisition', 'find your next customers', 'AI workforce for sales outreach', 'find clients for AI automation agency',
     'how web developers find clients', 'businesses that need AI automation',
   ],
   alternates: { canonical: SITE_URL },
@@ -92,7 +92,7 @@ export const metadata: Metadata = {
     title: TITLE,
     description: SITE_DESCRIPTION,
     locale: 'en_US',
-    images: [{ url: '/og', width: 1200, height: 630, alt: 'Runvax — Find Businesses That Need a Website' }],
+    images: [{ url: '/og', width: 1200, height: 630, alt: 'Runvax — AI for client acquisition: find your next customers' }],
   },
   twitter: {
     card: 'summary_large_image',
