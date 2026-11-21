@@ -2,8 +2,8 @@ import crypto from 'node:crypto';
 
 /** Vacancy sources. Only public, documented endpoints that are offered for others to read: no scraping, no logins. */
 /** `rank` (0-10) is an extra, source-specific nudge for ordering equally good matches (Google Maps employers: the right kind of employer, better reviewed). */
-export interface Job { rank?: number; source: 'remotive' | 'arbeitnow' | 'greenhouse' | 'lever' | 'himalayas' | 'places'; externalId: string; title: string; company: string; location: string; remote: boolean; url: string; description: string; postedAt: Date | null }
-export const SOURCE_LABEL: Record<string, string> = { remotive: 'Remotive', arbeitnow: 'Arbeitnow', greenhouse: 'Greenhouse', lever: 'Lever', himalayas: 'Himalayas', places: 'Google Maps' };
+export interface Job { rank?: number; source: 'remotive' | 'arbeitnow' | 'greenhouse' | 'lever' | 'himalayas' | 'jobicy' | 'remoteok' | 'places'; externalId: string; title: string; company: string; location: string; remote: boolean; url: string; description: string; postedAt: Date | null }
+export const SOURCE_LABEL: Record<string, string> = { remotive: 'Remotive', arbeitnow: 'Arbeitnow', greenhouse: 'Greenhouse', lever: 'Lever', himalayas: 'Himalayas', jobicy: 'Jobicy', remoteok: 'Remote OK', places: 'Google Maps' };
 
 export const stripHtml = (h: string) => h.replace(/<(?:br|\/p|\/li|\/h\d)\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n) : s);
@@ -47,6 +47,24 @@ export function fromHimalayas(body: unknown): Job[] {
   });
 }
 
+/** Jobicy: each job links to its Jobicy page (their terms ask for credit and a link back). `jobGeo` says where the role is open. */
+export function fromJobicy(body: unknown): Job[] {
+  const jobs = (body as { jobs?: R[] } | null)?.jobs; if (!Array.isArray(jobs)) return [];
+  return jobs.flatMap((x) => {
+    const url = safeUrl(x.url); if (!url || !x.jobTitle) return [];
+    const geo = Array.isArray(x.jobGeo) ? (x.jobGeo as unknown[]).map(String).join(', ') : String(x.jobGeo ?? '');
+    return [{ source: 'jobicy' as const, externalId: String(x.id ?? url).slice(0, 120), title: cut(stripHtml(String(x.jobTitle)), 200), company: cut(String(x.companyName ?? ''), 160), location: cut(geo || 'Worldwide', 200), remote: true, url, description: cut(stripHtml(String(x.jobDescription ?? x.jobExcerpt ?? '')), 6000), postedAt: date(x.pubDate) }];
+  });
+}
+/** Remote OK: the first array element is a legal notice, not a job. Their terms ask for a followed link back, which the job URL is. */
+export function fromRemoteOk(body: unknown): Job[] {
+  if (!Array.isArray(body)) return [];
+  return (body as R[]).flatMap((x) => {
+    const url = safeUrl(x.url ?? x.apply_url); if (!url || !x.position) return [];
+    return [{ source: 'remoteok' as const, externalId: String(x.id ?? x.slug ?? url).slice(0, 120), title: cut(String(x.position), 200), company: cut(String(x.company ?? ''), 160), location: cut(String(x.location || 'Worldwide'), 200), remote: true, url, description: cut(stripHtml(String(x.description ?? '')), 6000), postedAt: date(x.date ?? x.epoch) }];
+  });
+}
+
 // ── fetching ──
 const TTL = 6 * 60 * 60 * 1000; const cache = new Map<string, { at: number; jobs: Job[] }>();
 async function getJson(url: string): Promise<unknown> {
@@ -70,6 +88,14 @@ export const searchHimalayas = (q: string, pages = 3) => cached(`him:${q.toLower
     const got = fromHimalayas(body); out.push(...got); if (got.length < 20) break;
   }
   return out;
+});
+/** Jobicy searches by keyword; one page of recent matches, cached. */
+export const searchJobicy = (q: string) => cached(`jbc:${q.toLowerCase()}`, async () => fromJobicy(await getJson(`https://jobicy.com/api/v2/remote-jobs?count=50&tag=${encodeURIComponent(q)}`)));
+/** Remote OK has no search endpoint: read the whole recent feed once and keep the jobs whose title or tags mention the words searched. */
+export const searchRemoteOk = (q: string) => cached(`rok:${q.toLowerCase()}`, async () => {
+  const body = await getJson('https://remoteok.com/api'); const words = q.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+  const keep = (Array.isArray(body) ? (body as R[]) : []).filter((x) => { const t = `${x.position ?? ''} ${Array.isArray(x.tags) ? (x.tags as unknown[]).join(' ') : ''}`.toLowerCase(); return words.length > 0 && words.every((w) => t.includes(w)); });
+  return fromRemoteOk(keep);
 });
 export const fetchArbeitnow = () => cached('arb', async () => fromArbeitnow(await getJson('https://www.arbeitnow.com/api/job-board-api')));
 

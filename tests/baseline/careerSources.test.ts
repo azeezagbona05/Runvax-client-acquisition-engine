@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EMPLOYER_PREFIX, clearEmployerCache, employerQueries, findEmployers, fromPlaces, whereFor } from '@/lib/career/jobs/employers';
-import { fromHimalayas } from '@/lib/career/jobs/sources';
+import { fromHimalayas, fromJobicy, fromRemoteOk } from '@/lib/career/jobs/sources';
 import { isEuropeanCountry } from '@/lib/career/jobs/match';
 import { tailorByRules } from '@/lib/career/tailor';
 import { guard } from '@/lib/career/tailor';
@@ -88,4 +88,18 @@ describe('ordering and wording (found in the browser audit, round 2)', () => {
 
 describe('defaults', () => {
   it('the match bar starts at 60%, where open applications and good jobs actually score', () => { expect(defaultDiscovery().minScore).toBe(60); expect(sanitizeDiscovery({}).minScore).toBe(60); expect(sanitizeDiscovery({ minScore: 75 }).minScore).toBe(75); });
+});
+
+describe('Jobicy and Remote OK readers', () => {
+  it('reads a Jobicy job with its link back and where it is open', () => {
+    const [a] = fromJobicy({ jobs: [{ id: 9, url: 'https://jobicy.com/jobs/9-nurse', jobTitle: 'Nurse &amp; Coach', companyName: 'CareCo', jobGeo: 'Anywhere', jobDescription: '<p>Care</p>', pubDate: '2026-11-19 10:00:00' }, { id: 10, jobTitle: 'No link' }] });
+    expect(a).toMatchObject({ source: 'jobicy', title: 'Nurse & Coach', location: 'Anywhere', remote: true, description: 'Care' });
+    expect(fromJobicy({ jobs: [{ id: 10, jobTitle: 'No link' }] })).toEqual([]);
+    expect(fromJobicy(null)).toEqual([]);
+  });
+  it('skips the Remote OK legal notice and keeps real jobs', () => {
+    const out = fromRemoteOk([{ legal: 'terms' }, { id: '5', url: 'https://remoteok.com/remote-jobs/5', position: 'Designer', company: 'Acme', location: '', description: '<p>Draw</p>', date: '2026-11-19T14:30:02+00:00' }]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ source: 'remoteok', title: 'Designer', location: 'Worldwide', remote: true });
+  });
 });

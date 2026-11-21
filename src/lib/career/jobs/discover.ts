@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { loadCareer, logEvent } from '@/lib/career/store';
-import { dedupeKey, fetchArbeitnow, fetchCompanyBoard, searchHimalayas, SOURCE_LABEL, type Job } from './sources';
+import { dedupeKey, fetchArbeitnow, fetchCompanyBoard, searchHimalayas, searchJobicy, searchRemoteOk, searchRemotive, SOURCE_LABEL, type Job } from './sources';
 import { EMPLOYER_TTL_DAYS, findEmployers, whereFor } from './employers';
 import { isEuropeanCountry, scoreJob } from './match';
 import { placeFromLocation } from '@/lib/career/suggest';
@@ -38,7 +38,12 @@ export async function runDiscovery(userId: string): Promise<DiscoveryResult> {
   const tasks: Array<Promise<void>> = [];
   if (d.sources.includes('job_feeds')) {
     const titles = Array.from(new Set((prefs.titles.length ? prefs.titles : [profile.experience[0]?.title ?? '']).map(searchWords).filter(Boolean))).slice(0, 2);
-    for (const t of titles) tasks.push(track(`${SOURCE_LABEL.himalayas} (${t})`, () => searchHimalayas(t)));
+    for (const t of titles) {
+      tasks.push(track(`${SOURCE_LABEL.himalayas} (${t})`, () => searchHimalayas(t)));
+      tasks.push(track(`${SOURCE_LABEL.remotive} (${t})`, () => searchRemotive(t)));
+      tasks.push(track(`${SOURCE_LABEL.jobicy} (${t})`, () => searchJobicy(t)));
+      tasks.push(track(`${SOURCE_LABEL.remoteok} (${t})`, () => searchRemoteOk(t)));
+    }
     if (!country || isEuropeanCountry(country)) tasks.push(track(SOURCE_LABEL.arbeitnow, fetchArbeitnow)); else out.notes.push('Arbeitnow (mostly German jobs) was skipped because it does not fit where you are.');
   }
   if (d.sources.includes('company_careers')) for (const e of d.employers.slice(0, 10)) tasks.push(track(`${e} careers`, () => fetchCompanyBoard(e)));
