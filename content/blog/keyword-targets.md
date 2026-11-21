@@ -735,3 +735,15 @@ grep -h '^title:' content/blog/*.mdx | sort | uniq -d
 grep -h '^description:' content/blog/*.mdx | sort | uniq -d
 ```
 Run after every content batch, before considering it "shipped."
+
+### 2026-11-21 — quarterly comparison re-verification (partial)
+
+Checked against vendor pages (fetched live): **Clay** entry paid ~$167 (plan card) / $185 (page FAQ) — existing
+"$167–185" confirmed; **Hunter** Starter $49 / Growth $149 / Scale $299 monthly confirmed, but free tier is
+**50 credits/mo** (posts said 25 searches) — fixed; **Snov.io** Starter $39, Pro S/M/L $99/$189/$369 confirmed
+(Ultra custom, compare table says $738) — wording fixed; **Instantly** has no free plan, entry ~$47–94 — fixed.
+**Not verifiable:** Apollo (prices render client-side; figures stay "approximate", and the three files disagree:
+$49–59, $59–149, $49–119 per user) and Fiverr/Upwork fees (help centres return 403). **Open:** Runvax's own
+"$6/mo (₦9,999)" appears on vs-clay, vs-apollo, vs-fiverr, FAQ JSON-LD and ~6 blog posts, while pricing is hidden
+and the owner's preferred structure is $9/$19/$49 — decide before launch pricing changes. Not yet checked:
+`/vs-fiverr`, `/vs-upwork` (20% / 10% fee claims), `lead-generation-tools-comparison-2026`.
