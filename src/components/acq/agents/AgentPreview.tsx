@@ -90,25 +90,22 @@ function ChatTry({ cfg }: { cfg: AssistantConfig }) {
 const Bubble = ({ mine, children }: { mine: boolean; children: React.ReactNode }) => <div style={{ maxWidth: '85%', padding: '8px 12px', borderRadius: 14, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14, justifySelf: mine ? 'end' : 'start', ...(mine ? { background: '#7e22ce', color: '#fff' } : { background: '#fff', border: '1px solid #e2e8f0' }) }}>{children}</div>;
 
 function ArticleTry({ cfg }: { cfg: VisibilityConfig }) {
-  const [topic, setTopic] = useState(''); const [art, setArt] = useState<Article | null>(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  const topics = cfg.topics;
+  const [art, setArt] = useState<Article | null>(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   async function go() {
-    setBusy(true); setErr(''); const { ok, j } = await post(cfg, 'visibility', { topic: topic || topics[0] }); setBusy(false);
-    if (!ok) { setErr(j.error || 'Could not write a preview.'); return; }
+    setBusy(true); setErr(''); const { ok, j } = await post(cfg, 'visibility', {}); setBusy(false);
+    if (!ok) { setErr(j.error || 'Could not review the website.'); return; }
     setArt(j as unknown as Article);
   }
   return (
     <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0, 1fr)' }}>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select className="acq-select" aria-label="Topic for the preview" style={{ width: '100%', maxWidth: 520, minWidth: 0, height: 40, textOverflow: 'ellipsis' }} value={topic} onChange={(e) => setTopic(e.target.value)}>
-          <option value="">{topics.length ? 'First topic' : 'Add a topic first'}</option>{topics.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <button className="acq-btn acq-btn-primary" style={{ height: 40 }} disabled={busy || topics.length === 0} onClick={() => void go()}>{busy ? <Loader2 size={15} className="animate-spin" /> : null} Write a preview article</button>
+        <button className="acq-btn acq-btn-primary" style={{ height: 40 }} disabled={busy || !cfg.business.url} onClick={() => void go()}>{busy ? <Loader2 size={15} className="animate-spin" /> : null} Review my website (preview)</button>
+        {!cfg.business.url && <span className="acq-faint" style={{ fontSize: 12.5 }}>Add your website address in Settings first.</span>}
       </div>
       {err && <p role="alert" style={{ color: '#b91c1c', fontSize: 13 }}>{err}</p>}
       {art && (
-        <article style={{ border: '1px dashed #c4b5fd', borderRadius: 14, padding: '14px 18px', maxWidth: 760, background: '#fff' }} aria-label="Preview article">
-          <p className="acq-faint" style={{ fontSize: 12, marginBottom: 6 }}>PREVIEW · {art.source === 'ai' ? 'Written by AI' : 'Built-in template (no AI available), so it is generic'} · not saved or published</p>
+        <article style={{ border: '1px dashed #c4b5fd', borderRadius: 14, padding: '14px 18px', maxWidth: 760, background: '#fff' }} aria-label="Preview review">
+          <p className="acq-faint" style={{ fontSize: 12, marginBottom: 6 }}>PREVIEW · {art.source === 'ai' ? 'Written by AI from real checks' : 'Built-in checklist (no AI available)'} · not saved</p>
           {art.notice && <p className="acq-notice" style={{ fontSize: 12.5, marginBottom: 8 }}>{art.notice}</p>}
           <h4 style={{ fontSize: 20, margin: '0 0 4px', lineHeight: 1.3 }}>{art.title}</h4>
           <p className="acq-sub" style={{ fontSize: 13.5, marginBottom: 10 }}>{art.summary}</p>

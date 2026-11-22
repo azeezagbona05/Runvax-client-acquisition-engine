@@ -4,16 +4,17 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, BookOpen, Briefcase, CalendarCheck, ChartColumn, Check, Clock, Filter, Headset, LifeBuoy, Loader2, Mail, Newspaper, Package, Pencil, Receipt, Repeat, Share2, ShoppingBag, Sparkles, Star, UserPlus, WandSparkles } from 'lucide-react';
-import { configIssues, sanitizeConfig, type AgentConfig, type AgentKind, type AssistantConfig } from '@/lib/agents/kinds';
+import { configIssues, sanitizeConfig, type AgentConfig, type AgentKind, type AssistantConfig, type VisibilityConfig } from '@/lib/agents/kinds';
 import { CATEGORIES, TEMPLATES, type Category, type TemplateId } from '@/lib/agents/templates';
-import AgentForm from './AgentForm';
+import { SKILLS } from '@/lib/agents/skills';
+import AgentForm, { formSections } from './AgentForm';
 import AgentPreview from './AgentPreview';
 import { MultiChips } from './Chips';
 import { AGENT_TASKS, BUSINESS_TYPES, TASKS_FOR, describeJob, templateForTasks } from '@/lib/agents/options';
 
 const STEPS: Record<AgentKind | 'any', string[]> = {
   any: ['Reading your request', 'Working out the right agent', 'Reading your website', 'Writing its role and instructions', 'Choosing its skills', 'Final checks'],
-  visibility: ['Reading your website', 'Understanding your business', 'Choosing what to write about', 'Setting the schedule', 'Final checks'],
+  visibility: ['Reading your website', 'Understanding your business', 'Checking search basics', 'Planning your review schedule', 'Final checks'],
   assistant: ['Reading your website', 'Understanding the job', 'Writing its role and instructions', 'Listing the knowledge it needs', 'Choosing its skills and escalation rules', 'Final checks'],
 };
 export const ICON: Record<TemplateId, typeof Newspaper> = {
@@ -48,7 +49,7 @@ export default function AgentBuilder() {
   const [cfg, setCfg] = useState<AgentConfig | null>(null); const [name, setName] = useState('');
   const [note, setNote] = useState(''); const [err, setErr] = useState(''); const [saving, setSaving] = useState(false);
   const [blocked, setBlocked] = useState<{ reason: string; message: string; link?: string } | null>(null);
-  const [more, setMore] = useState(false);
+  const [more, setMore] = useState(false); const [rs, setRs] = useState(0);
   const [pct, setPct] = useState(0); const done = useRef(false); const detected = useRef<AgentKind | null>(null);
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export default function AgentBuilder() {
     const id = setInterval(() => setPct((p) => (done.current ? Math.min(100, p + 8) : Math.min(92, p + Math.max(0.4, (92 - p) * 0.07)))), 90);
     return () => clearInterval(id);
   }, [phase]);
-  useEffect(() => { if (phase === 'building' && pct >= 100 && detected.current) { const t = setTimeout(() => { setKind(detected.current); setPhase('review'); }, 450); return () => clearTimeout(t); } }, [phase, pct]);
+  useEffect(() => { if (phase === 'building' && pct >= 100 && detected.current) { const t = setTimeout(() => { setKind(detected.current); setRs(0); setPhase('review'); }, 450); return () => clearTimeout(t); } }, [phase, pct]);
 
   const pick = (id: TemplateId) => {
     const t = TEMPLATES[id]; setErr(''); setBlocked(null);
@@ -68,7 +69,7 @@ export default function AgentBuilder() {
   useEffect(() => { try { const t = new URLSearchParams(window.location.search).get('template'); if (t && t in TEMPLATES) pick(t as TemplateId); } catch { /* start at the first step */ } // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const reset = () => { setTpl(null); setKind(null); setBlocked(null); setTasks([]); };
-  const manual = () => { if (!kind) return; setCfg(sanitizeConfig(kind, kind === 'assistant' ? { ...presetFor(tpl) } : {})); setName(''); setPhase('review'); };
+  const manual = () => { if (!kind) return; setCfg(sanitizeConfig(kind, kind === 'assistant' ? { ...presetFor(tpl) } : {})); setName(''); setRs(0); setPhase('review'); };
   async function build() {
     setErr(''); setNote(''); setBlocked(null); done.current = false; detected.current = null; setPct(0); setPhase('building');
     try {
@@ -92,7 +93,7 @@ export default function AgentBuilder() {
   if (phase === 'building') {
     const steps = STEPS[kind ?? 'any']; const p = Math.min(100, Math.round(pct)); const active = Math.min(steps.length - 1, Math.floor((p / 100) * steps.length));
     return (
-      <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 14, maxWidth: 860 }} aria-label="Building your agent">
+      <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 14 }} aria-label="Building your agent">
         <h2 className="acq-title">Building your agent…</h2>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}><span className="acq-sub" style={{ fontSize: 13.5 }}>Step {active + 1} of {steps.length}</span><b className="acq-build-pct" aria-hidden="true">{p}%</b></div>
         <div className="acq-build-bar" role="progressbar" aria-label="Building your agent" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p}><i style={{ width: `${p}%` }} /></div>
@@ -103,18 +104,47 @@ export default function AgentBuilder() {
 
   if (phase === 'review' && kind && cfg) {
     const label = kind === 'assistant' ? TEMPLATES[(cfg as AssistantConfig).template].label : TEMPLATES.visibility.label; const issues = configIssues(kind, cfg);
+    const secs = formSections(kind); const total = secs.length + 1; const at = Math.min(rs, total - 1); const last = at === total - 1; const sec = secs[at];
+    const go = (n: number) => { setRs(n); try { document.getElementById('ab-review')?.scrollIntoView({ block: 'start' }); } catch { /* not scrollable */ } };
     return (
-      <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 16, maxWidth: 860, gridTemplateColumns: 'minmax(0, 1fr)' }} aria-label="Review your agent">
-        <div><button className="acq-link" onClick={() => { setPhase('ask'); }}>← Back</button><h2 className="acq-title" style={{ marginTop: 4 }}>Review your {label}</h2></div>
-        {note && <p className="acq-notice" style={{ fontSize: 13.5 }}>{note}</p>}
-        <div><label className="acq-label" htmlFor="ab-name">Agent name</label><input id="ab-name" className="acq-input" maxLength={120} value={name} placeholder={label} onChange={(e) => setName(e.target.value)} /></div>
-        <AgentForm kind={kind} cfg={cfg} onChange={setCfg} />
-        <AgentPreview kind={kind} cfg={cfg} step={kind === 'assistant' ? 6 : undefined} />
-        {issues.length > 0 && <p className="acq-faint" style={{ fontSize: 13 }}>To switch it on later: {issues[0]}</p>}
+      <section id="ab-review" className="acq-card acq-card-pad" style={{ display: 'grid', gap: 16, gridTemplateColumns: 'minmax(0, 1fr)' }} aria-label="Review your agent">
+        <div><button className="acq-link" onClick={() => { setPhase('ask'); }}>← Start over</button><h2 className="acq-title" style={{ marginTop: 4 }}>Review your {label}</h2></div>
+        <nav aria-label="Setup steps" style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}><span className="acq-sub" style={{ fontSize: 13.5 }}>Step {at + 1} of {total}: <b>{last ? 'Test and save' : sec.title}</b></span></div>
+          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[...secs.map((x) => x.title), 'Test and save'].map((x, i) => <li key={x}><button type="button" className={`acq-chip${i === at ? ' on' : ''}`} aria-current={i === at ? 'step' : undefined} style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }} onClick={() => go(i)}>{i < at ? <Check size={13} aria-hidden="true" /> : <span aria-hidden="true">{i + 1}</span>}{x}</button></li>)}
+          </ol>
+        </nav>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div style={{ display: 'grid', gap: 16, minWidth: 0, alignContent: 'start' }}>
+        {note && at === 0 && <p className="acq-notice" style={{ fontSize: 13.5 }}>{note}</p>}
+        {at === 0 && <div><label className="acq-label" htmlFor="ab-name">Agent name</label><input id="ab-name" className="acq-input" maxLength={120} value={name} placeholder={label} onChange={(e) => setName(e.target.value)} /></div>}
+        {!last && <AgentForm kind={kind} cfg={cfg} onChange={setCfg} only={sec.id} />}
+        {last && <>
+          <AgentPreview kind={kind} cfg={cfg} />
+          {issues.length > 0 && <p className="acq-faint" style={{ fontSize: 13 }}>To switch it on later: {issues[0]}</p>}
+        </>}
         {err && <p role="alert" style={{ color: '#b91c1c', fontSize: 13.5 }}>{err}</p>}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="acq-btn acq-btn-primary" style={{ height: 44 }} disabled={saving} onClick={() => void save()}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save agent</button>
-          <span className="acq-faint" style={{ alignSelf: 'center', fontSize: 12.5 }}>It is saved switched off. You switch it on from its page, after choosing where it works.</span>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          {at > 0 && <button type="button" className="acq-btn" style={{ height: 44 }} onClick={() => go(at - 1)}>Back</button>}
+          {!last
+            ? <button type="button" className="acq-btn acq-btn-primary" style={{ height: 44 }} onClick={() => go(at + 1)}>Next <ArrowRight size={15} /></button>
+            : <><button className="acq-btn acq-btn-primary" style={{ height: 44 }} disabled={saving} onClick={() => void save()}>{saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save agent</button>
+              <span className="acq-faint" style={{ fontSize: 12.5 }}>It is saved switched off. You switch it on from its page, after choosing where it works.</span></>}
+        </div>
+        </div>
+        <aside aria-label="Your agent so far" className="hidden lg:grid" style={{ alignContent: 'start', gap: 8, border: '1px solid #e9d5ff', background: '#faf5ff', borderRadius: 14, padding: 14, position: 'sticky', top: 16, fontSize: 13 }}>
+          <b style={{ fontSize: 14 }}>Your agent so far</b>
+          <span><span className="acq-faint">Name: </span>{name || label}</span>
+          <span><span className="acq-faint">Type: </span>{label}</span>
+          {cfg.business.name && <span><span className="acq-faint">Business: </span>{cfg.business.name}</span>}
+          {kind === 'assistant' && <>
+            <span><span className="acq-faint">Skills: </span>{(cfg as AssistantConfig).skills.map((x) => SKILLS[x]?.label ?? x).join(', ') || 'none'}</span>
+            <span><span className="acq-faint">Objectives: </span>{(cfg as AssistantConfig).objectives.length}</span>
+            <span><span className="acq-faint">Knowledge: </span>{(cfg as AssistantConfig).knowledge.trim() || (cfg as AssistantConfig).knowledgeIds.length ? 'added' : 'not yet'}</span>
+          </>}
+          {kind === 'visibility' && <span><span className="acq-faint">Searches: </span>{(cfg as VisibilityConfig).keywords.length}</span>}
+        </aside>
         </div>
       </section>
     );
@@ -134,7 +164,7 @@ export default function AgentBuilder() {
   const custom = biz && !BUSINESS_TYPES.includes(biz) ? biz : '';
   const others = (Object.keys(CATEGORIES) as Category[]).map((c) => [c, ALL.filter((id) => !TEMPLATES[id].featured && TEMPLATES[id].category === c)] as const).filter(([, l]) => l.length);
   return (
-    <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 14, maxWidth: 900, gridTemplateColumns: 'minmax(0, 1fr)' }} aria-label="Agent setup">
+    <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }} aria-label="Agent setup">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           {tpl && <button className="acq-link" onClick={reset}>← All agents</button>}
@@ -185,7 +215,7 @@ export default function AgentBuilder() {
           <textarea id="ab-prompt" className="acq-textarea" rows={2} maxLength={1200} value={extra} onChange={(e) => { setExtra(e.target.value); setBlocked(null); }} placeholder={t ? t.example : 'e.g. We are open Monday to Saturday and most patients ask about whitening and braces.'} />
           {prompt && <p className="acq-faint" style={{ fontSize: 12.5, marginTop: 6 }}><b>RUNVAX will build:</b> {prompt}</p>}
           <p className="acq-faint" style={{ fontSize: 12.5, marginTop: 6 }}>RUNVAX writes its name, role and instructions, objectives, behaviour, the knowledge it needs, its skills and its escalation rules. You review all of it.</p></div>
-        <div><label className="acq-label" htmlFor="ab-url">Your website (optional, RUNVAX reads its front page to understand you better)</label><input id="ab-url" className="acq-input" placeholder="yourcompany.com" value={url} onChange={(e) => setUrl(e.target.value)} /></div>
+        <div><label className="acq-label" htmlFor="ab-url">{isVis ? 'Your website address (needed: the agent reviews this site)' : 'Your website (optional, RUNVAX reads its front page to understand you better)'}</label><input id="ab-url" className="acq-input" placeholder="yourcompany.com" value={url} onChange={(e) => setUrl(e.target.value)} /></div>
         {err && <p role="alert" style={{ color: '#b91c1c', fontSize: 13.5 }}>{err}</p>}
         <div><button className="acq-btn acq-btn-primary" style={{ height: 44 }} disabled={!ready} onClick={() => void build()}><Sparkles size={16} /> Build my agent</button></div>
       </> : <div><p className="acq-sub" style={{ marginBottom: 12 }}>Start from the {t?.label} preset and set everything yourself.</p><button className="acq-btn acq-btn-primary" onClick={manual}>Continue <ArrowRight size={15} /></button></div>}

@@ -134,8 +134,8 @@ export const TEMPLATES: Record<TemplateId, Template> = {
   },
   visibility: {
     label: 'AI Visibility Agent', category: 'marketing', status: 'available', engine: 'visibility', featured: true,
-    tagline: 'Keeps your website fresh so buyers and AI search find you',
-    example: 'We are a logistics company in Lagos. Publish two articles a week for importers about customs, delivery times and cost.',
+    tagline: 'Reviews your website and tells you exactly how to get found on Google and AI search',
+    example: 'My website is https://brightsmile.example. I run a dental clinic in Lekki, Lagos. Review it and tell me how to get more patients finding me on Google and ChatGPT.',
   },
   followup: {
     label: 'AI Follow-Up Agent', category: 'acquisition', status: 'campaign', engine: null, featured: true,

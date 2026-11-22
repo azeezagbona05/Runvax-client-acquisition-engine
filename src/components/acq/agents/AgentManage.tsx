@@ -67,8 +67,9 @@ export default function AgentManage({ id }: { id: string }) {
   }
   async function runNow() {
     setBusy('run'); setMsg(null); const { ok, j } = await api(`/${id}/run`, 'POST', { count }); setBusy('');
-    if (!ok) { flash(false, j.error || 'Could not write articles.'); return; }
-    flash(true, `${j.created.length} article${j.created.length === 1 ? '' : 's'} written${j.notice ? `. ${j.notice}` : '.'}`); await load();
+    if (!ok) { flash(false, j.error || 'Could not review your website.'); return; }
+    if (j.created.length === 0) { flash(false, j.notice || 'Nothing was written.'); return; }
+    setOpen(j.created[0].id); flash(true, `Review ready.${j.notice ? ` ${j.notice}` : ''}`); await load();
   }
   async function postAction(p: Post, action: string, extra: Record<string, unknown> = {}) {
     setBusy(p.id); const { ok, j } = await api(`/${id}/posts/${p.id}`, 'PATCH', { action, ...extra }); setBusy('');
@@ -84,12 +85,12 @@ export default function AgentManage({ id }: { id: string }) {
     if (!(await save(tg ? { secrets: { telegramToken: tg } } : {}))) return;
     setBusy('tg'); const { j } = await api(`/${id}/telegram`, 'POST', { action }); setBusy(''); flash(!!j.ok, j.detail || j.error || 'No answer.'); await load();
   }
-  async function remove() { if (!confirm(`Delete "${agent!.name}"? Its articles and conversations are deleted too.`)) return; await api(`/${id}`, 'DELETE'); router.push('/client-acquisition/agents'); }
+  async function remove() { if (!confirm(`Delete "${agent!.name}"? Its reviews and conversations are deleted too.`)) return; await api(`/${id}`, 'DELETE'); router.push('/client-acquisition/agents'); }
 
   const v = cfg as VisibilityConfig, a = cfg as AssistantConfig;
   const setDest = (p: Partial<VisibilityConfig['destinations']>) => { setCfg({ ...v, destinations: { ...v.destinations, ...p } }); setDirty(true); };
   const issues = configIssues(agent.kind, cfg);
-  const tabs: Array<['work' | 'try' | 'settings' | 'deploy', string]> = [['work', vis ? `Articles (${agent.counts.posts ?? 0} live, ${agent.counts.drafts ?? 0} waiting)` : `Conversations (${agent.counts.chats ?? 0}, ${agent.counts.leads ?? 0} leads${agent.counts.handoffs ? `, ${agent.counts.handoffs} need a person` : ''})`], ['try', 'Try it'], ['settings', 'Settings'], ['deploy', 'Deploy']];
+  const tabs: Array<['work' | 'try' | 'settings' | 'deploy', string]> = [['work', vis ? `Reviews (${posts.length})` : `Conversations (${agent.counts.chats ?? 0}, ${agent.counts.leads ?? 0} leads${agent.counts.handoffs ? `, ${agent.counts.handoffs} need a person` : ''})`], ['try', 'Try it'], ['settings', 'Settings'], ...(vis ? [] : [['deploy', 'Deploy'] as ['deploy', string]])];
 
   return (
     <div className="acq-stack">
@@ -116,38 +117,23 @@ export default function AgentManage({ id }: { id: string }) {
       {tab === 'work' && vis && (
         <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 14 }}>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select className="acq-select" aria-label="How many articles" style={{ width: 'auto', height: 40 }} value={count} onChange={(e) => setCount(Number(e.target.value))}>{[1, 2, 3].map((n) => <option key={n} value={n}>{n} article{n > 1 ? 's' : ''}</option>)}</select>
-            <button className="acq-btn acq-btn-primary" style={{ height: 40 }} disabled={!!busy} onClick={() => void runNow()}>{busy === 'run' ? <Loader2 size={15} className="animate-spin" /> : null} Write articles now</button>
-            <span className="acq-faint" style={{ fontSize: 12.5 }}>{agent.status === 'active' && agent.nextRunAt ? `Next automatic run: ${new Date(agent.nextRunAt).toLocaleDateString('en-GB', { dateStyle: 'medium' })}` : 'Switch the agent on to write on a schedule.'}</span>
+            <button className="acq-btn acq-btn-primary" style={{ height: 40 }} disabled={!!busy} onClick={() => void runNow()}>{busy === 'run' ? <Loader2 size={15} className="animate-spin" /> : null} Review my website now</button>
+            <span className="acq-faint" style={{ fontSize: 12.5 }}>{agent.status === 'active' && agent.nextRunAt ? `Next automatic review: ${new Date(agent.nextRunAt).toLocaleDateString('en-GB', { dateStyle: 'medium' })}` : 'Switch the agent on to review your site again on a schedule and see your score move.'}</span>
           </div>
-          {posts.length === 0 && <p className="acq-sub">No articles yet. Write the first ones now.</p>}
+          {posts.length === 0 && <p className="acq-sub">No reviews yet. Run the first one: it reads your website and tells you what to fix to be found on Google and AI search. Nothing is published or changed on your site.</p>}
           <div style={{ display: 'grid', gap: 10 }}>
             {posts.map((p) => (
               <article key={p.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 14px', display: 'grid', gap: 8 }}>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
                   <b style={{ fontSize: 15 }}>{p.title}</b>
-                  <span style={{ display: 'flex', gap: 6 }}><Pill label={p.status === 'published' ? 'Active' : 'Needs follow-up'} tone={p.status === 'published' ? undefined : 'acq-pill-amber'} /><span className="acq-faint" style={{ fontSize: 12, alignSelf: 'center' }}>{p.status === 'published' ? 'Published' : 'Waiting for you'}</span></span>
+                  <span className="acq-faint" style={{ fontSize: 12 }}>{p.source === 'ai' ? 'Written by AI from real checks' : 'Built-in checklist (AI was not available)'}</span>
                 </div>
                 <p className="acq-sub" style={{ fontSize: 13.5 }}>{p.summary}</p>
-                <p className="acq-faint" style={{ fontSize: 12 }}>{p.source === 'ai' ? 'Written by AI' : p.source === 'manual' ? 'Edited by you' : 'Written from the built-in template: read and edit it before publishing'}</p>
-                {p.pushed?.map((x, i) => <p key={i} style={{ fontSize: 12.5, color: x.ok ? '#166534' : '#b91c1c' }}>{x.dest === 'wordpress' ? 'WordPress' : 'Webhook'}: {x.detail}</p>)}
-                {open === p.id && !edit && <div className="rvx-preview" style={{ borderTop: '1px solid #e2e8f0', paddingTop: 10, fontSize: 14.5, lineHeight: 1.65 }} dangerouslySetInnerHTML={{ __html: p.body }} />}
-                {edit?.id === p.id && (
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    <input className="acq-input" aria-label="Article title" value={edit.title} maxLength={190} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
-                    <textarea className="acq-textarea" aria-label="Article summary" rows={2} value={edit.summary} onChange={(e) => setEdit({ ...edit, summary: e.target.value })} />
-                    <textarea className="acq-textarea" aria-label="Article text (HTML)" rows={12} style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12.5 }} value={edit.body} onChange={(e) => setEdit({ ...edit, body: e.target.value })} />
-                    <div style={{ display: 'flex', gap: 8 }}><button className="acq-btn acq-btn-primary" disabled={busy === p.id} onClick={() => void postAction(p, 'edit', { title: edit.title, summary: edit.summary, body: edit.body })}>Save changes</button><button className="acq-btn" onClick={() => setEdit(null)}>Cancel</button></div>
-                  </div>
-                )}
-                {edit?.id !== p.id && (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button className="acq-btn acq-btn-sm" onClick={() => setOpen(open === p.id ? null : p.id)}>{open === p.id ? 'Hide' : 'Read'}</button>
-                    <button className="acq-btn acq-btn-sm" onClick={() => { setOpen(p.id); setEdit({ id: p.id, title: p.title, summary: p.summary, body: p.body }); }}>Edit</button>
-                    {p.status !== 'published' ? <button className="acq-btn acq-btn-sm acq-btn-primary" disabled={busy === p.id} onClick={() => void postAction(p, 'publish')}>Publish</button> : <button className="acq-btn acq-btn-sm" disabled={busy === p.id} onClick={() => void postAction(p, 'unpublish')}>Take down</button>}
-                    {p.status !== 'published' && <button className="acq-btn acq-btn-sm" disabled={busy === p.id} onClick={() => void postAction(p, 'reject')}>Discard</button>}
-                  </div>
-                )}
+                {open === p.id && <div className="rvx-preview" style={{ borderTop: '1px solid #e2e8f0', paddingTop: 10, fontSize: 14.5, lineHeight: 1.65 }} dangerouslySetInnerHTML={{ __html: p.body }} />}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="acq-btn acq-btn-sm" onClick={() => setOpen(open === p.id ? null : p.id)}>{open === p.id ? 'Hide' : 'Read the review'}</button>
+                  <button className="acq-btn acq-btn-sm" disabled={busy === p.id} onClick={() => void postAction(p, 'reject')}>Delete</button>
+                </div>
               </article>
             ))}
           </div>

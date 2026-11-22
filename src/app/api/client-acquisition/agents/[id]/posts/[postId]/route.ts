@@ -22,6 +22,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const saved = await prisma.customAgentPost.update({ where: { id: post.id }, data: { title, summary, body, source: post.source === 'ai' ? 'ai' : 'manual' } });
     return NextResponse.json({ post: { id: saved.id, title: saved.title, status: saved.status } });
   }
+  if (post.status === 'report' && b.action !== 'reject') return NextResponse.json({ error: 'Visibility reviews are private to you. They are not published anywhere.' }, { status: 400 });
   if (b.action === 'publish') { const pushed = await publishPost(agent, post); return NextResponse.json({ ok: true, pushed }); }
   if (b.action === 'unpublish') { await prisma.customAgentPost.update({ where: { id: post.id }, data: { status: 'draft' } }); return NextResponse.json({ ok: true }); }
   if (b.action === 'reject') { await prisma.customAgentPost.update({ where: { id: post.id }, data: { status: 'rejected' } }); return NextResponse.json({ ok: true }); }

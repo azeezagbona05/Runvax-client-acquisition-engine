@@ -4,7 +4,7 @@ import { rateLimit } from '@/lib/rateLimiter';
 import { checkAndIncrementAI } from '@/lib/usage';
 import { assistantReply, cleanHistory, MAX_MSG } from '@/lib/agents/chat';
 import { configIssues, isKind, sanitizeConfig, type AssistantConfig, type VisibilityConfig } from '@/lib/agents/kinds';
-import { writePost } from '@/lib/agents/write';
+import { runReview } from '@/lib/agents/seoReview';
 import { knowledgeExcerpts } from '@/lib/knowledge/context';
 import { chatCapabilities } from '@/lib/agents/checks';
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ reply: out.reply, visitor: out.visitor, handoff: out.handoff, source: out.source, usedKnowledge: excerpts.length, notice: useAi ? undefined : 'Your daily AI allowance is used up, so the built-in replies answered.' });
   }
   const v = cfg as VisibilityConfig;
-  const topic = (typeof b.topic === 'string' ? b.topic.trim().slice(0, 140) : '') || v.topics[0];
-  const d = await writePost(v, topic, { useAi });
-  return NextResponse.json({ ...d, topic, notice: useAi ? undefined : 'Your daily AI allowance is used up, so the built-in template wrote this.' });
+  const r = await runReview(v, { useAi });
+  if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
+  return NextResponse.json({ title: r.title, summary: r.summary, body: r.body, source: r.source, notice: r.notice ?? (useAi ? undefined : 'Your daily AI allowance is used up, so the built-in checklist wrote this.') });
 }

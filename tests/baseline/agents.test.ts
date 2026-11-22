@@ -52,8 +52,8 @@ describe('sanitizeConfig', () => {
     expect(c.allowedDomains).toEqual(['acme.com']);
   });
   it('reports what is missing before an agent can run', () => {
-    expect(configIssues('visibility', sanitizeConfig('visibility', {}))).toEqual(['Add your business name.', 'Say what your business does, in a sentence or two.', 'Add at least one topic to write about.']);
-    const ok = sanitizeConfig('visibility', { business: { name: 'A', about: 'We sell things.' }, topics: ['t'] });
+    expect(configIssues('visibility', sanitizeConfig('visibility', {}))).toEqual(['Add your business name.', 'Say what your business does, in a sentence or two.', 'Add your website address: the agent reviews it and tells you how to get found.']);
+    const ok = sanitizeConfig('visibility', { business: { name: 'A', about: 'We sell things.', url: 'https://a.example' } });
     expect(configIssues('visibility', ok)).toEqual([]);
     const a = sanitizeConfig('assistant', { business: { name: 'A', about: 'We sell things.' }, channels: { web: false, telegram: false } });
     expect(configIssues('assistant', a)).toEqual(['Choose where the assistant works: website or Telegram.']);

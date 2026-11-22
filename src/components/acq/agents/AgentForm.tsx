@@ -15,7 +15,14 @@ const splitList = (t: string) => t.split(/\s*,\s*/).filter(Boolean);
 const host = (u: string) => u.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0];
 const STATUS_BADGE: Record<string, [string, string, string]> = { ready: ['Ready', '#dcfce7', '#166534'], link: ['Uses your booking page', '#e0f2fe', '#075985'], campaign: ['In campaigns', '#f3e8ff', '#6b21a8'], soon: ['Coming soon', '#f1f5f9', '#475569'] };
 
-function Step({ n, title, sub, children }: { n: number; title: string; sub?: string; children: React.ReactNode }) {
+/** The screens of the step-by-step builder, in order. AgentForm shows one of them when given `only`; with no `only` it shows them all (the manage page). */
+export function formSections(kind: AgentKind): Array<{ id: string; title: string }> {
+  if (kind === 'visibility') return [{ id: 'business', title: 'Your business' }, { id: 'checks', title: 'What to check' }];
+  return [{ id: 'job', title: 'The job' }, { id: 'business', title: 'Your business' }, { id: 'knowledge', title: 'Knowledge' }, { id: 'skills', title: 'Skills and tools' }, { id: 'where', title: 'Where it works' }];
+}
+
+function Step({ n, title, sub, children, single }: { n: number; title: string; sub?: string; children: React.ReactNode; single?: boolean }) {
+  if (single) return <section style={{ display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }} aria-label={title}><div><h3 className="acq-title" style={{ fontSize: 17 }}>{title}</h3>{sub && <p className="acq-faint" style={{ fontSize: 12.5, marginTop: 2 }}>{sub}</p>}</div>{children}</section>;
   return (
     <section style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0, 1fr)', borderTop: '1px solid #e2e8f0', paddingTop: 14 }} aria-label={title}>
       <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
@@ -28,7 +35,9 @@ function Step({ n, title, sub, children }: { n: number; title: string; sub?: str
 }
 
 /** The settings every agent has, plus the ones for its kind. Controlled: the parent holds the config. */
-export default function AgentForm({ kind, cfg, onChange }: { kind: AgentKind; cfg: AgentConfig; onChange: (c: AgentConfig) => void }) {
+export default function AgentForm({ kind, cfg, onChange, only }: { kind: AgentKind; cfg: AgentConfig; onChange: (c: AgentConfig) => void; only?: string }) {
+  const show = (id: string) => !only || only === id;
+  const single = !!only;
   const set = <T extends AgentConfig>(patch: Partial<T>) => onChange({ ...cfg, ...patch } as AgentConfig);
   const biz = (p: Partial<AgentConfig['business']>) => onChange({ ...cfg, business: { ...cfg.business, ...p } });
   const v = cfg as VisibilityConfig;
@@ -47,17 +56,12 @@ export default function AgentForm({ kind, cfg, onChange }: { kind: AgentKind; cf
 
   if (kind === 'visibility') return (
     <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'minmax(0, 1fr)' }}>
-      {business}
-      <MultiChips id="ag-topics" label="Topics to write about" hint="The agent works through these in turn, and never repeats a title it has already written." options={TOPIC_IDEAS} value={v.topics} onChange={(l) => set<VisibilityConfig>({ topics: l })} max={20} addLabel="Add a topic" />
-      <MultiChips id="ag-kw" label="Keywords buyers search for" options={[]} value={v.keywords} onChange={(l) => set<VisibilityConfig>({ keywords: l })} max={15} addLabel="Add a keyword" placeholder="e.g. teeth whitening lagos" />
-      <ChoiceChips id="ag-cad" label="How often" options={(Object.keys(CADENCES) as VisibilityConfig['cadence'][]).map((c) => [c, { daily: 'Every day', weekly: 'Every week', biweekly: 'Every 2 weeks', monthly: 'Every month' }[c]] as const)} value={v.cadence} onChange={(c) => set<VisibilityConfig>({ cadence: c })} />
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <ChoiceChips id="ag-n" label="Articles each time" options={[[1, '1'], [2, '2'], [3, '3']] as const} value={v.postsPerRun} onChange={(n) => set<VisibilityConfig>({ postsPerRun: n })} />
-        <ChoiceChips id="ag-len" label="Length" options={(Object.keys(LENGTHS) as VisibilityConfig['length'][]).map((l) => [l, { short: 'Short (~350 words)', medium: 'Medium (~650)', long: 'Long (~1000)' }[l]] as const)} value={v.length} onChange={(l) => set<VisibilityConfig>({ length: l })} />
-      </div>
-      <ChoiceChips id="ag-ap" label="Publishing" options={[['review', 'I approve each article'], ['auto', 'Publish automatically']] as const} value={v.approval} onChange={(x) => set<VisibilityConfig>({ approval: x })} />
-      {v.approval === 'auto' && <p className="acq-notice" style={{ fontSize: 13 }}>Automatic publishing only applies to articles the AI wrote. Anything written from the built-in template waits for your approval.</p>}
-      {domains}
+      {show('business') && business}
+      {show('checks') && <>
+      <MultiChips id="ag-kw" label="Searches you want to be found for" hint="The agent checks your site against these and builds the review around them." options={[]} value={v.keywords} onChange={(l) => set<VisibilityConfig>({ keywords: l })} max={15} addLabel="Add a search" placeholder="e.g. teeth whitening lekki" />
+      <ChoiceChips id="ag-cad" label="Review my website again" options={(Object.keys(CADENCES) as VisibilityConfig['cadence'][]).map((c) => [c, { daily: 'Every day', weekly: 'Every week', biweekly: 'Every 2 weeks', monthly: 'Every month' }[c]] as const)} value={v.cadence} onChange={(c) => set<VisibilityConfig>({ cadence: c })} />
+      <p className="acq-faint" style={{ fontSize: 12.5 }}>The agent reads your public pages and writes a plan for you. It never posts anything and needs no access to your website.</p>
+      </>}
     </div>
   );
 
@@ -74,15 +78,17 @@ export default function AgentForm({ kind, cfg, onChange }: { kind: AgentKind; cf
 
   return (
     <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'minmax(0, 1fr)' }}>
-      <Step n={2} title="The job" sub={`Started from: ${TEMPLATES[a.template].label}. Everything here is editable.`}>
+      {show('job') && <Step single={single} n={2} title="The job" sub={`Started from: ${TEMPLATES[a.template].label}. Everything here is editable.`}>
         <div><label style={lbl} htmlFor="ag-ins">Role and instructions</label><textarea id="ag-ins" className="acq-textarea" rows={4} maxLength={2000} value={a.instructions} onChange={(e) => set<AssistantConfig>({ instructions: e.target.value })} /></div>
         <MultiChips id="ag-obj" label="Objectives" options={optionsFor('objectives', a.template)} value={a.objectives} onChange={(l) => set<AssistantConfig>({ objectives: l })} max={6} addLabel="Add an objective" />
         <MultiChips id="ag-beh" label="How it talks" options={optionsFor('behaviour', a.template)} value={a.behaviour} onChange={(l) => set<AssistantConfig>({ behaviour: l })} max={6} addLabel="Add a rule" />
         <div><label style={lbl} htmlFor="ag-greet">First message people see</label><input id="ag-greet" className="acq-input" maxLength={300} value={a.greeting} onChange={(e) => set<AssistantConfig>({ greeting: e.target.value })} /></div>
-      </Step>
+      </Step>}
 
-      <Step n={3} title="Knowledge" sub="It answers only from this, and says so when it does not know.">
-        {business}
+      {only === 'business' && <Step single n={3} title="Your business" sub="The agent uses this to introduce you and to stay on topic.">{business}</Step>}
+
+      {show('knowledge') && <Step single={single} n={3} title="Knowledge" sub="It answers only from this, and says so when it does not know.">
+        {!only && business}
         <div><label style={lbl} htmlFor="ag-know">What the agent knows (services, how it works, policies, FAQs)</label><textarea id="ag-know" className="acq-textarea" rows={6} maxLength={8000} value={a.knowledge} onChange={(e) => set<AssistantConfig>({ knowledge: e.target.value })} /></div>
         {a.knowledgeNeeded.length > 0 && (
           <div className="acq-notice" style={{ fontSize: 13 }}>
@@ -94,9 +100,9 @@ export default function AgentForm({ kind, cfg, onChange }: { kind: AgentKind; cf
           </div>
         )}
         <KnowledgePanel ids={a.knowledgeIds} onChange={(ids) => set<AssistantConfig>({ knowledgeIds: ids })} />
-      </Step>
+      </Step>}
 
-      <Step n={4} title="Skills and tools" sub="An agent only gets the tools it needs. Switch on what this job calls for.">
+      {show('skills') && <Step single={single} n={4} title="Skills and tools" sub="An agent only gets the tools it needs. Switch on what this job calls for.">
         <div role="group" aria-label="Agent skills" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {CHAT_SKILLS.map((s) => {
             const info = SKILLS[s]; const usable = info.status === 'ready' || info.status === 'link'; const on = a.skills.includes(s); const locked = s === 'knowledge';
@@ -123,15 +129,15 @@ export default function AgentForm({ kind, cfg, onChange }: { kind: AgentKind; cf
             );
           })}
         </div>
-      </Step>
+      </Step>}
 
-      <Step n={5} title="Where it works" sub="Other channels are added as their connections are ready.">
+      {show('where') && <Step single={single} n={5} title="Where it works" sub="Other channels are added as their connections are ready.">
         {internal && <div><label style={lbl} htmlFor="ag-code">Staff access code</label><input id="ag-code" className="acq-input" maxLength={40} autoComplete="off" value={a.accessCode} onChange={(e) => set<AssistantConfig>({ accessCode: e.target.value })} /><p style={hint}>Staff type this before they can chat. Share it only inside your team. (Telegram is not available for staff agents.)</p></div>}
         <MultiChips id="ag-ch" label="Channels" options={internal ? ['Website widget'] : ['Website widget', 'Telegram bot']} custom={false} value={[...(a.channels.web ? ['Website widget'] : []), ...(a.channels.telegram && !internal ? ['Telegram bot'] : [])]} onChange={(l) => set<AssistantConfig>({ channels: { ...a.channels, web: l.includes('Website widget'), telegram: !internal && l.includes('Telegram bot') } })} hint="The website widget works on any site: WordPress, Shopify, Wix, Squarespace or your own code." />
         <p className="acq-faint" style={{ fontSize: 12.5 }}>WhatsApp: coming soon.</p>
         <div><label style={lbl} htmlFor="ag-priv">Your privacy policy link (optional)</label><input id="ag-priv" className="acq-input" placeholder="https://yourcompany.com/privacy" value={a.privacyUrl} onChange={(e) => set<AssistantConfig>({ privacyUrl: e.target.value })} /><p style={hint}>Shown under the chat box. People are always told they are talking to an AI and that their messages are saved and shared with you. Without a link, RUNVAX&apos;s own privacy page is used.</p></div>
         {domains}
-      </Step>
+      </Step>}
     </div>
   );
 }

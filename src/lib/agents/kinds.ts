@@ -99,7 +99,7 @@ export function configIssues(kind: AgentKind, cfg: AgentConfig): string[] {
   const out: string[] = []; const b = cfg.business;
   if (!b.name) out.push('Add your business name.');
   if (!b.about) out.push('Say what your business does, in a sentence or two.');
-  if (kind === 'visibility') { const v = cfg as VisibilityConfig; if (v.topics.length === 0) out.push('Add at least one topic to write about.'); }
+  if (kind === 'visibility') { if (!b.url) out.push('Add your website address: the agent reviews it and tells you how to get found.'); }
   else {
     const a = cfg as AssistantConfig;
     if (!a.knowledge && !b.about) out.push('Tell the assistant what it should know.');

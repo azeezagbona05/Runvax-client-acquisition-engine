@@ -75,7 +75,7 @@ export const AGENT_TASKS: Array<{ id: string; label: string; phrase: string }> =
   { id: 'crm', label: 'Send leads to my CRM', phrase: 'sends captured leads to our CRM' },
   { id: 'handoff', label: 'Hand over to a person', phrase: 'hands the chat over to a person on our team when needed' },
   { id: 'staff', label: 'Answer staff questions', phrase: "answers our employees' questions from the staff handbook" },
-  { id: 'articles', label: 'Write articles for Google', phrase: 'writes blog articles about our business so we get found on Google and AI search' },
+  { id: 'articles', label: 'Review my website for Google', phrase: 'reviews our website and tells us how to get found on Google and AI search' },
 ];
 
 /** Which agent the ticked jobs point to, when no template was chosen. The most specific job wins. */
