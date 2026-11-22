@@ -1,8 +1,8 @@
 'use client';
 
 import KnowledgePanel from './KnowledgePanel';
-import { ChoiceChips, MultiChips } from './Chips';
 import { Check, Plus } from 'lucide-react';
+import { ChoiceChips, MultiChips } from './Chips';
 import { TONES, CADENCES, LENGTHS, type AgentConfig, type AgentKind, type AssistantConfig, type VisibilityConfig } from '@/lib/agents/kinds';
 import { CHAT_SKILLS, SKILLS, type SkillId } from '@/lib/agents/skills';
 import { TEMPLATES } from '@/lib/agents/templates';
@@ -19,6 +19,11 @@ const STATUS_BADGE: Record<string, [string, string, string]> = { ready: ['Ready'
 export function formSections(kind: AgentKind): Array<{ id: string; title: string }> {
   if (kind === 'visibility') return [{ id: 'business', title: 'Your business' }, { id: 'checks', title: 'What to check' }];
   return [{ id: 'job', title: 'The job' }, { id: 'business', title: 'Your business' }, { id: 'knowledge', title: 'Knowledge' }, { id: 'skills', title: 'Skills and tools' }, { id: 'where', title: 'Where it works' }];
+}
+
+/** Optional settings, folded away so each step stays short. */
+function More({ children, label = 'More options' }: { children: React.ReactNode; label?: string }) {
+  return <details style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '8px 12px' }}><summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#475569' }}>{label}</summary><div style={{ display: 'grid', gap: 14, marginTop: 12 }}>{children}</div></details>;
 }
 
 function Step({ n, title, sub, children, single }: { n: number; title: string; sub?: string; children: React.ReactNode; single?: boolean }) {
@@ -66,7 +71,6 @@ export default function AgentForm({ kind, cfg, onChange, only }: { kind: AgentKi
   );
 
   const a = cfg as AssistantConfig; const internal = a.template === 'internal';
-  const toggle = (s: SkillId, on: boolean) => set<AssistantConfig>({ skills: on ? Array.from(new Set([...a.skills, s])) : a.skills.filter((x) => x !== s || x === 'knowledge') });
   const skillSettings: Partial<Record<SkillId, React.ReactNode>> = {
     leadCapture: <div><label style={lbl} htmlFor="ag-mail">Email new leads to</label><input id="ag-mail" className="acq-input" type="email" placeholder="Leave empty to use your account email" value={a.notifyEmail} onChange={(e) => set<AssistantConfig>({ notifyEmail: e.target.value })} /></div>,
     qualify: <MultiChips id="ag-q" label="Qualifying questions it asks" options={optionsFor('questions', a.template)} value={a.questions} onChange={(l) => set<AssistantConfig>({ questions: l })} max={5} addLabel="Add a question" />,
@@ -78,16 +82,18 @@ export default function AgentForm({ kind, cfg, onChange, only }: { kind: AgentKi
 
   return (
     <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'minmax(0, 1fr)' }}>
-      {show('job') && <Step single={single} n={2} title="The job" sub={`Started from: ${TEMPLATES[a.template].label}. Everything here is editable.`}>
+      {show('job') && <Step single={single} n={2} title="The job" sub={`Started from ${TEMPLATES[a.template].label}. Read the role below, then pick what it should aim for. Open More options only if you want to change how it talks.`}>
         <div><label style={lbl} htmlFor="ag-ins">Role and instructions</label><textarea id="ag-ins" className="acq-textarea" rows={4} maxLength={2000} value={a.instructions} onChange={(e) => set<AssistantConfig>({ instructions: e.target.value })} /></div>
         <MultiChips id="ag-obj" label="Objectives" options={optionsFor('objectives', a.template)} value={a.objectives} onChange={(l) => set<AssistantConfig>({ objectives: l })} max={6} addLabel="Add an objective" />
+        <More>
         <MultiChips id="ag-beh" label="How it talks" options={optionsFor('behaviour', a.template)} value={a.behaviour} onChange={(l) => set<AssistantConfig>({ behaviour: l })} max={6} addLabel="Add a rule" />
         <div><label style={lbl} htmlFor="ag-greet">First message people see</label><input id="ag-greet" className="acq-input" maxLength={300} value={a.greeting} onChange={(e) => set<AssistantConfig>({ greeting: e.target.value })} /></div>
+        </More>
       </Step>}
 
-      {only === 'business' && <Step single n={3} title="Your business" sub="The agent uses this to introduce you and to stay on topic.">{business}</Step>}
+      {only === 'business' && <Step single n={3} title="Your business" sub="Fill in the name and a line or two about what you do. Pick your customers from the list, or type your own.">{business}</Step>}
 
-      {show('knowledge') && <Step single={single} n={3} title="Knowledge" sub="It answers only from this, and says so when it does not know.">
+      {show('knowledge') && <Step single={single} n={3} title="Knowledge" sub="Paste what customers ask about: services, prices you want shared, policies. It answers only from this.">
         {!only && business}
         <div><label style={lbl} htmlFor="ag-know">What the agent knows (services, how it works, policies, FAQs)</label><textarea id="ag-know" className="acq-textarea" rows={6} maxLength={8000} value={a.knowledge} onChange={(e) => set<AssistantConfig>({ knowledge: e.target.value })} /></div>
         {a.knowledgeNeeded.length > 0 && (
@@ -102,18 +108,11 @@ export default function AgentForm({ kind, cfg, onChange, only }: { kind: AgentKi
         <KnowledgePanel ids={a.knowledgeIds} onChange={(ids) => set<AssistantConfig>({ knowledgeIds: ids })} />
       </Step>}
 
-      {show('skills') && <Step single={single} n={4} title="Skills and tools" sub="An agent only gets the tools it needs. Switch on what this job calls for.">
-        <div role="group" aria-label="Agent skills" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {CHAT_SKILLS.map((s) => {
-            const info = SKILLS[s]; const usable = info.status === 'ready' || info.status === 'link'; const on = a.skills.includes(s); const locked = s === 'knowledge';
-            const tag = locked ? 'always on' : !usable ? STATUS_BADGE[info.status][0].toLowerCase() : '';
-            return (
-              <button key={s} type="button" aria-pressed={on} disabled={!usable || locked} title={info.does} className={`acq-chip${on ? ' on' : ''}`} style={{ display: 'inline-flex', gap: 5, alignItems: 'center', opacity: usable ? 1 : 0.5, cursor: !usable || locked ? 'default' : 'pointer' }} onClick={() => toggle(s, !on)}>
-                {on ? <Check size={13} aria-hidden="true" /> : <Plus size={13} aria-hidden="true" />}{info.label}{tag && <span style={{ fontWeight: 500, fontSize: 11.5 }}>({tag})</span>}
-              </button>
-            );
-          })}
-        </div>
+      {show('skills') && <Step single={single} n={4} title="Skills and tools" sub="Open the list and tick what the agent should be able to do. Each one you tick shows its settings below.">
+        <MultiChips id="ag-skills" label="Skills" custom={false} options={CHAT_SKILLS.filter((x) => SKILLS[x].status !== 'soon').map((x) => SKILLS[x].label)} locked={[SKILLS.knowledge.label]}
+          optionHint={(o) => CHAT_SKILLS.map((x) => SKILLS[x]).find((x) => x.label === o)?.does}
+          value={a.skills.map((x) => SKILLS[x]?.label).filter(Boolean)}
+          onChange={(labels) => { const ids = CHAT_SKILLS.filter((x) => labels.includes(SKILLS[x].label) || x === 'knowledge'); const keep = a.skills.filter((x) => SKILLS[x]?.status === 'soon'); set<AssistantConfig>({ skills: Array.from(new Set([...ids, ...keep])) }); }} />
         <div style={{ display: 'grid', gap: 10 }}>
           {CHAT_SKILLS.filter((s) => a.skills.includes(s)).map((s) => {
             const info = SKILLS[s]; const [bl, bg, fg] = STATUS_BADGE[info.status];
@@ -131,12 +130,14 @@ export default function AgentForm({ kind, cfg, onChange, only }: { kind: AgentKi
         </div>
       </Step>}
 
-      {show('where') && <Step single={single} n={5} title="Where it works" sub="Other channels are added as their connections are ready.">
+      {show('where') && <Step single={single} n={5} title="Where it works" sub="Pick where people will talk to it. You can add more channels later.">
         {internal && <div><label style={lbl} htmlFor="ag-code">Staff access code</label><input id="ag-code" className="acq-input" maxLength={40} autoComplete="off" value={a.accessCode} onChange={(e) => set<AssistantConfig>({ accessCode: e.target.value })} /><p style={hint}>Staff type this before they can chat. Share it only inside your team. (Telegram is not available for staff agents.)</p></div>}
         <MultiChips id="ag-ch" label="Channels" options={internal ? ['Website widget'] : ['Website widget', 'Telegram bot']} custom={false} value={[...(a.channels.web ? ['Website widget'] : []), ...(a.channels.telegram && !internal ? ['Telegram bot'] : [])]} onChange={(l) => set<AssistantConfig>({ channels: { ...a.channels, web: l.includes('Website widget'), telegram: !internal && l.includes('Telegram bot') } })} hint="The website widget works on any site: WordPress, Shopify, Wix, Squarespace or your own code." />
         <p className="acq-faint" style={{ fontSize: 12.5 }}>WhatsApp: coming soon.</p>
+        <More label="More options: privacy link and allowed websites">
         <div><label style={lbl} htmlFor="ag-priv">Your privacy policy link (optional)</label><input id="ag-priv" className="acq-input" placeholder="https://yourcompany.com/privacy" value={a.privacyUrl} onChange={(e) => set<AssistantConfig>({ privacyUrl: e.target.value })} /><p style={hint}>Shown under the chat box. People are always told they are talking to an AI and that their messages are saved and shared with you. Without a link, RUNVAX&apos;s own privacy page is used.</p></div>
         {domains}
+        </More>
       </Step>}
     </div>
   );

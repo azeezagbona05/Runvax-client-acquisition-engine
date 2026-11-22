@@ -9,7 +9,7 @@ import { CATEGORIES, TEMPLATES, type Category, type TemplateId } from '@/lib/age
 import { SKILLS } from '@/lib/agents/skills';
 import AgentForm, { formSections } from './AgentForm';
 import AgentPreview from './AgentPreview';
-import { MultiChips } from './Chips';
+import { MultiChips, SingleSelect } from './Chips';
 import { AGENT_TASKS, BUSINESS_TYPES, TASKS_FOR, describeJob, templateForTasks } from '@/lib/agents/options';
 
 const STEPS: Record<AgentKind | 'any', string[]> = {
@@ -161,7 +161,6 @@ export default function AgentBuilder() {
     setTasks(ids); setBlocked(null);
   };
   const ready = prompt.length >= 10 && (!!tpl || tasks.length > 0 || extra.trim().length >= 10);
-  const custom = biz && !BUSINESS_TYPES.includes(biz) ? biz : '';
   const others = (Object.keys(CATEGORIES) as Category[]).map((c) => [c, ALL.filter((id) => !TEMPLATES[id].featured && TEMPLATES[id].category === c)] as const).filter(([, l]) => l.length);
   return (
     <section className="acq-card acq-card-pad" style={{ display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0, 1fr)' }} aria-label="Agent setup">
@@ -203,13 +202,7 @@ export default function AgentBuilder() {
       )}
       {(!tpl || mode === 'auto') ? <>
         {!tpl && <div style={{ borderTop: '1px solid #e2e8f0' }} />}
-        <div style={{ display: 'grid', gap: 6 }} role="group" aria-labelledby="ab-biz-l">
-          <span id="ab-biz-l" className="acq-label">{tpl ? '2. Your business' : 'Or tell RUNVAX about your business, and it picks the right agent'}</span>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {BUSINESS_TYPES.map((b) => <button key={b} type="button" aria-pressed={biz === b} className={`acq-chip${biz === b ? ' on' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={() => setBiz(biz === b ? '' : b)}>{biz === b && <Check size={13} aria-hidden="true" />}{b}</button>)}
-          </div>
-          <input id="ab-biz" className="acq-input" aria-label="Or type your type of business" placeholder="Not listed? Type it, e.g. wedding photographer" maxLength={80} value={custom} onChange={(e) => setBiz(e.target.value)} />
-        </div>
+        <SingleSelect id="ab-biz" label={tpl ? '2. Your business' : 'Or tell RUNVAX about your business, and it picks the right agent'} options={BUSINESS_TYPES} value={biz} onChange={(v) => setBiz(v)} placeholder="Search, or type yours e.g. wedding photographer" />
         {!isVis && <MultiChips id="ab-tasks" label={tpl ? '3. What should it do? (tick all that apply)' : 'What should it do? (tick all that apply)'} options={taskOptions.map((x) => x.label)} value={AGENT_TASKS.filter((x) => tasks.includes(x.id)).map((x) => x.label)} onChange={setTaskLabels} custom={false} />}
         <div><label className="acq-label" htmlFor="ab-prompt">Anything else it should know? (optional)</label>
           <textarea id="ab-prompt" className="acq-textarea" rows={2} maxLength={1200} value={extra} onChange={(e) => { setExtra(e.target.value); setBlocked(null); }} placeholder={t ? t.example : 'e.g. We are open Monday to Saturday and most patients ask about whitening and braces.'} />
