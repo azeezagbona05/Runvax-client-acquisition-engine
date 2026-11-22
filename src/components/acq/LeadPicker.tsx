@@ -57,7 +57,7 @@ export default function LeadPicker({ leads, onChange }: Props) {
       <div style={{ border: '1px solid #e6ebf3', borderRadius: 10, padding: 12, display: 'grid', gap: 10 }}>
         <span style={{ fontSize: 13, fontWeight: 700 }}><Users size={14} style={{ display: 'inline', marginRight: 6 }} />Build a list from your saved prospects</span>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <select className="acq-select" aria-label="Website" style={{ width: 190, height: 34 }} value={seg.website} onChange={(e) => setSeg({ ...seg, website: e.target.value as SegmentFilters['website'] })}>
+          <select className="acq-select" aria-label="Website" style={{ width: 250, height: 34 }} value={seg.website} onChange={(e) => setSeg({ ...seg, website: e.target.value as SegmentFilters['website'] })}>
             <option value="any">Any website status</option><option value="none">No website of their own</option><option value="has">Has a website</option>
           </select>
           <input className="acq-input" aria-label="Area" placeholder="Area or city (e.g. Lekki)" style={{ width: 190, height: 34 }} value={seg.area} onChange={(e) => setSeg({ ...seg, area: e.target.value })} />

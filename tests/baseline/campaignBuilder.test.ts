@@ -103,3 +103,21 @@ describe('describeOffer', () => {
     expect(describeOffer('Acme', '')).toBe('');
   });
 });
+
+describe('tone and punctuation (found by running a real campaign)', () => {
+  it('an explicit "friendly tone" wins over the word "short" elsewhere in the request', () => {
+    expect(parseKnobs('3 emails. Friendly tone. Book a short call.').tone).toBe('friendly');
+    expect(parseKnobs('tone: formal, keep it short').tone).toBe('formal');
+  });
+  it('"short call" alone does not make the emails direct, but "short emails" does', () => {
+    expect(parseKnobs('Book a short call with clinics').tone).toBeNull();
+    expect(parseKnobs('Keep the emails short and direct').tone).toBe('direct');
+    expect(parseKnobs('write short emails').tone).toBe('direct');
+  });
+  it('a summary that already ends with a full stop does not double up in the follow-up', () => {
+    const brief = { ...emptyBrief(), offer: 'Growth Pack', audience: 'Dental clinics', offerSummary: 'A website, a CRM and an AI receptionist for one price, until 27 November.' };
+    const a = buildFromBrief(brief, parseKnobs('3 emails'));
+    expect(a.emails[1].body).not.toMatch(/\.,/);
+    expect(a.emails[1].body).toContain('until 27 November, so');
+  });
+});

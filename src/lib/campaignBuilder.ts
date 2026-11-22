@@ -40,8 +40,19 @@ export function parseKnobs(prompt: string): Knobs {
     dailyCap: clamp(cap ? Number(cap[1]) : 20, 1, HARD_DAILY_MAX, 20),
     sendIf: onlyOpened ? 'opened' : notOpened ? 'not_opened' : 'no_reply',
     stopOnReply: !/(?:don'?t|do not|keep going|continue) (?:stop )?(?:when|if|after) (?:they )?repl/i.test(p),
-    tone: /formal|professional|polite/i.test(p) ? 'formal' : /direct|short|concise|brief/i.test(p) ? 'direct' : /friendly|casual|warm/i.test(p) ? 'friendly' : null,
+    tone: toneOf(p),
   };
+}
+
+const TONE_WORD: Record<string, 'friendly' | 'formal' | 'direct'> = { formal: 'formal', professional: 'formal', polite: 'formal', direct: 'direct', concise: 'direct', brief: 'direct', friendly: 'friendly', casual: 'friendly', warm: 'friendly' };
+/** "Friendly tone" or "tone: formal" wins outright; otherwise a style word anywhere in the request decides ("short emails" means direct, but "a short call" does not). */
+function toneOf(p: string): Knobs['tone'] {
+  const named = p.match(/\b(formal|professional|polite|direct|concise|brief|friendly|casual|warm)\s+tone\b/i) ?? p.match(/\btone\s*(?:of|is|:|-)?\s*(formal|professional|polite|direct|concise|brief|friendly|casual|warm)\b/i);
+  if (named) return TONE_WORD[named[1].toLowerCase()];
+  if (/formal|professional|polite/i.test(p)) return 'formal';
+  if (/\bdirect\b|\bconcise\b|\bbrief\b|\bshort(?:er)?\s+(?:emails?|messages?|notes?)|\bkeep it short\b/i.test(p)) return 'direct';
+  if (/friendly|casual|warm/i.test(p)) return 'friendly';
+  return null;
 }
 
 const ASK: Record<Objective, string> = {
@@ -138,7 +149,7 @@ export function buildFromBrief(brief: CampaignBrief, knobs: Knobs): Automation {
 /** The first sentence of a longer summary, kept short for a follow-up. */
 function shortSummary(s: string): string {
   const first = s.split(/(?<=[.!?])\s/)[0].trim();
-  const t = first.length > 160 ? `${first.slice(0, 157).replace(/\s+\S*$/, '')}…` : first;
+  const t = (first.length > 160 ? `${first.slice(0, 157).replace(/\s+\S*$/, '')}…` : first).replace(/[.!?]+$/, '');
   return /^we\b/i.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1);
 }
 

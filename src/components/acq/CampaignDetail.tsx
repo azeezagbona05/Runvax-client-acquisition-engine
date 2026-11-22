@@ -318,7 +318,7 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
         <Tile label="Opened" value={fmtNum(stats.opened)} sub={`${stats.openRate}% (estimate)`} color="#9333ea" icon={<Eye size={13} />} hint="Some mail apps load images automatically, so this can be higher than real reads. Readers who block images are never counted." />
         <Tile label="Clicked" value={fmtNum(stats.clicked)} color="#9333ea" icon={<Link2 size={13} />} sub="links in your email" />
         <Tile label="Replied" value={fmtNum(stats.replied)} sub={`${stats.replyRate}% of sent · ${stats.interested} interested`} color="#16a34a" />
-        <Tile label="Needs follow-up" value={fmtNum(stats.needsFollowUp)} color="#b45309" sub={`after ${campaign.followUpAfterDays} days, no reply`} />
+        <Tile label="Needs follow-up" value={fmtNum(stats.needsFollowUp)} color="#b45309" sub={`after ${campaign.followUpAfterDays} day${campaign.followUpAfterDays === 1 ? '' : 's'}, no reply`} />
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>

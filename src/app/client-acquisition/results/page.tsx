@@ -56,7 +56,7 @@ export default function ResultsPage() {
           <Card title="Funnel">
             <div style={{ display: 'grid', gap: 8 }}>
               {data.funnel.map((f) => (
-                <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '130px 1fr 110px', gap: 12, alignItems: 'center', fontSize: 13.5 }}>
+                <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '130px 1fr 190px', gap: 12, alignItems: 'center', fontSize: 13.5 }}>
                   <span>{f.label}</span>
                   <div style={{ background: '#f3e8ff', borderRadius: 6, height: 18 }}><div style={{ width: `${Math.max(2, (f.count / max) * 100)}%`, background: '#9333ea', height: '100%', borderRadius: 6 }} /></div>
                   <span><b>{f.count}</b>{f.id !== 'sent' && <span className="acq-faint"> · {f.ofPrevious}% of previous</span>}</span>
