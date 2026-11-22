@@ -87,7 +87,7 @@ export function MatchesPanel({ onChanged, refreshKey, onOpenApplications, canPre
   /** Swipe right = prepare an application (a draft; nothing is sent). Swipe left = not interested. */
   const swipePrepare = async (id: string) => {
     const r = await api<{ results: Array<{ ok: boolean; error?: string }> }>('/api/career/applications', json('POST', { matchIds: [id] }));
-    if (r.error) return { ok: false, error: r.error }; const bad = r.results.find((x) => !x.ok); if (bad) return { ok: false, error: bad.error };
+    if (r.error) return { ok: false, error: r.error }; const bad = (r.results ?? []).find((x) => !x.ok); if (bad) return { ok: false, error: bad.error };
     void load(); onChanged(); return { ok: true };
   };
   const swipeMark = async (id: string, status: string) => { const r = await api(`/api/career/jobs/${id}`, json('PATCH', { status })); if (r.error) return { ok: false, error: r.error }; void load(); onChanged(); return { ok: true }; };
