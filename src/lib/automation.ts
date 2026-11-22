@@ -65,6 +65,8 @@ export interface Automation {
   windowStart: number; // hour 0-23
   windowEnd: number;
   weekdaysOnly: boolean;
+  /** IANA zone the window is read in (e.g. "Africa/Lagos"). Missing means DEFAULT_TIMEZONE. */
+  timezone?: string;
   /** The campaign setup this was built from (objective, offer, audience, goal), so it can be shown, edited and tracked. */
   brief?: CampaignBrief;
   /** What to say back for each kind of reply. */
@@ -74,6 +76,44 @@ export interface Automation {
 }
 
 export const DEFAULT_REPLY_RULES: ReplyRules = { notifyInterested: true, outOfOfficePauseDays: 3 };
+
+export const DEFAULT_TIMEZONE = 'Africa/Lagos';
+export const TIMEZONES: Array<{ id: string; label: string }> = [
+  { id: 'Africa/Lagos', label: 'Lagos (WAT)' }, { id: 'Africa/Accra', label: 'Accra (GMT)' }, { id: 'Africa/Nairobi', label: 'Nairobi (EAT)' },
+  { id: 'Africa/Johannesburg', label: 'Johannesburg (SAST)' }, { id: 'Europe/London', label: 'London' }, { id: 'America/New_York', label: 'New York' }, { id: 'UTC', label: 'UTC' },
+];
+
+/** A real IANA zone, or undefined. */
+export function validTimezone(v: unknown): string | undefined {
+  if (typeof v !== 'string' || !v || v.length > 60) return undefined;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: v }); return v; } catch { return undefined; }
+}
+
+/** The local hour (0-23) and weekday (0 = Sunday) in a zone. */
+function localClock(now: number, timeZone: string): { hour: number; weekday: number } {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hourCycle: 'h23', weekday: 'short' }).formatToParts(new Date(now));
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24;
+  const wd = parts.find((p) => p.type === 'weekday')?.value ?? 'Mon';
+  return { hour, weekday: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(wd) };
+}
+
+/** Is `now` inside the campaign's sending window? Start is inclusive, end is exclusive; weekdays only skips Saturday and Sunday. */
+export function inSendWindow(w: { windowStart: number; windowEnd: number; weekdaysOnly: boolean; timezone?: string }, now: number): boolean {
+  const { hour, weekday } = localClock(now, validTimezone(w.timezone) ?? DEFAULT_TIMEZONE);
+  if (w.weekdaysOnly && (weekday === 0 || weekday === 6)) return false;
+  return hour >= w.windowStart && hour < w.windowEnd;
+}
+
+/** The window used when a campaign has no saved plan: office hours on weekdays. */
+export const DEFAULT_WINDOW = { windowStart: 9, windowEnd: 17, weekdaysOnly: true, timezone: DEFAULT_TIMEZONE };
+
+/**
+ * Did the owner switch on automatic follow-ups for this campaign? Read from the saved JSON itself. sanitizeAutomation
+ * never carries this flag (so an AI plan or a pasted plan can never turn it on); it is set only by the campaign page.
+ */
+export function autoFollowUpsOn(raw: unknown): boolean {
+  return !!raw && typeof raw === 'object' && (raw as Record<string, unknown>).autoFollowUps === true;
+}
 
 // ── Sanitising ───────────────────────────────────────────────────────────────
 
@@ -140,6 +180,7 @@ export function sanitizeAutomation(raw: unknown): Automation | null {
     windowStart: Math.min(startH, endH - 1),
     windowEnd: Math.max(endH, startH + 1),
     weekdaysOnly: r.weekdaysOnly === false ? false : true,
+    ...(validTimezone(r.timezone) ? { timezone: validTimezone(r.timezone) } : {}),
     ...(r.brief ? { brief: sanitizeBrief(r.brief) } : {}),
     ...(r.playbook ? { playbook: sanitizePlaybook(r.playbook) } : {}),
     ...(Array.isArray(r.whatsappActions) ? { whatsappActions: sanitizeWhatsappActions(r.whatsappActions) } : {}),
@@ -330,8 +371,9 @@ export function engineSupport(a: Automation): EngineNote[] {
   if (a.playbook?.some((p) => p.response.trim())) notes.push({ level: 'ok', text: 'Each reply is sorted (interested, question, meeting, objection, no, out-of-office, unsubscribe) and the playbook answer for that kind is drafted in your Inbox for you to send.' });
   if (a.emails.length - 1 > ENGINE_MAX_FOLLOW_UPS) notes.push({ level: 'limit', text: `The engine sends the introduction and up to ${ENGINE_MAX_FOLLOW_UPS} follow-ups.` });
   notes.push({ level: 'ok', text: 'Replies are read from your mailbox when you check your inbox (it uses the same login as your outgoing mail). Only messages from your campaign contacts are looked at.' });
-  notes.push({ level: 'planned', text: 'Follow-ups wait for your click on the campaign page. Fully automatic sending is switched off until reply detection runs on its own and the legal review is done.' });
-  if (a.windowStart !== 9 || a.windowEnd !== 17 || !a.weekdaysOnly) notes.push({ level: 'planned', text: 'Sending windows and weekday rules are saved but not enforced yet.' });
+  notes.push({ level: 'ok', text: 'Follow-ups wait for your click by default. On the campaign page you can switch on automatic follow-ups: they are then sent by the daily run, never outside your sending window, and stop for anyone who replies, bounces or opts out.' });
+  notes.push({ level: 'ok', text: `The sending window (${a.windowStart}:00 to ${a.windowEnd}:00${a.weekdaysOnly ? ', weekdays' : ''}, ${a.timezone ?? DEFAULT_TIMEZONE}) is enforced for the automatic daily run. Pressing Run or the follow-up button yourself sends right away.` });
+  notes.push({ level: 'ok', text: 'When you check your inbox (it also runs daily), delivery-failure messages are read and addresses that do not exist stop receiving emails.' });
   notes.push({ level: 'planned', text: 'Email is the only channel that sends today. WhatsApp needs a connected WhatsApp Business account and each contact\'s permission, and is not switched on.' });
   return notes;
 }
@@ -478,7 +520,7 @@ export function summarize(a: Automation): string[] {
   lines.push(`${a.emails.length} email${a.emails.length === 1 ? '' : 's'}: an introduction${a.emails.length > 1 ? ` and ${a.emails.length - 1} follow-up${a.emails.length > 2 ? 's' : ''}` : ''}.`);
   if (a.emails.length > 1) lines.push(`Follow-ups ${a.emails.slice(1).map((e) => `after ${e.waitDays} day${e.waitDays === 1 ? '' : 's'}`).join(', then ')}, to people who ${SEND_IF_LABEL[a.emails[1].sendIf].toLowerCase().replace('they have', 'have').replace('they opened', 'opened').replace('they clicked', 'clicked')}.`);
   lines.push(a.stopOnReply ? 'The sequence stops as soon as someone replies; unsubscribes and bounces always stop it.' : 'Replies do not stop the sequence (unsubscribes and bounces still do).');
-  lines.push(`Up to ${a.dailyCap} a day, ${a.windowStart}:00 to ${a.windowEnd}:00${a.weekdaysOnly ? ', weekdays only' : ''}. Follow-ups wait for your click.`);
+  lines.push(`Up to ${a.dailyCap} a day, ${a.windowStart}:00 to ${a.windowEnd}:00${a.weekdaysOnly ? ', weekdays only' : ''}. Follow-ups wait for your click unless you switch on automatic follow-ups on the campaign page.`);
   return lines;
 }
 

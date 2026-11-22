@@ -8,12 +8,13 @@ import {
 } from '@/lib/outreachCampaign';
 import LeadPicker from './LeadPicker';
 
-export interface AddedSummary { added: number; duplicates: number; optedOut: number; invalid: number; overLimit: number }
+export interface AddedSummary { added: number; duplicates: number; optedOut: number; bounced?: number; invalid: number; overLimit: number }
 
 export function describeAdded(a: AddedSummary): string {
   const parts = [`${a.added} added`];
   if (a.duplicates) parts.push(`${a.duplicates} already in this campaign`);
   if (a.optedOut) parts.push(`${a.optedOut} skipped because they unsubscribed before`);
+  if (a.bounced) parts.push(`${a.bounced} skipped because that address bounced before`);
   if (a.invalid) parts.push(`${a.invalid} invalid`);
   if (a.overLimit) parts.push(`${a.overLimit} over the list limit`);
   return parts.join(' · ');

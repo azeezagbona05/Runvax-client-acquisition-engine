@@ -5,6 +5,7 @@ import { simpleParser } from 'mailparser';
 import { prisma } from '@/lib/prisma';
 import { isAdminEmail } from '@/lib/adminSessionShared';
 import { ingestReply, logAgent, type IngestDeps } from '@/lib/acqReplies';
+import { looksLikeBounce, parseBounce } from '@/lib/bounces';
 
 const LOOKBACK_DAYS = 14;
 const MAX_MESSAGES = 100;
@@ -12,7 +13,7 @@ const MAX_MESSAGES = 100;
 /** Mail servers usually name the reader smtp.x → imap.x. Settings has no separate IMAP host yet. */
 export const imapHostFor = (smtpHost: string): string => (/^smtp\./i.test(smtpHost) ? smtpHost.replace(/^smtp\./i, 'imap.') : smtpHost);
 
-export interface InboxCheck { ok: true; scanned: number; replies: number; duplicates: number } 
+export interface InboxCheck { ok: true; scanned: number; replies: number; duplicates: number; bounces?: number }
 
 /**
  * Reads the user's mailbox (same login as their outgoing mail) and files replies from their campaign
@@ -43,19 +44,38 @@ export async function checkInbox(userId: string, deps: IngestDeps = {}): Promise
   });
   const byEmail = new Map<string, string>();
   for (const l of leads) if (!byEmail.has(l.email.toLowerCase())) byEmail.set(l.email.toLowerCase(), l.id);
-  if (!byEmail.size) return { ok: true, scanned: 0, replies: 0, duplicates: 0 };
+  if (!byEmail.size) return { ok: true, scanned: 0, replies: 0, duplicates: 0, bounces: 0 };
 
   const client = new ImapFlow({ host: imapOpts.host, port: 993, secure: true, auth: imapOpts.auth, logger: false });
-  let scanned = 0, replies = 0, duplicates = 0;
+  let scanned = 0, replies = 0, duplicates = 0, bounces = 0;
   try {
     await client.connect();
     const lock = await client.getMailboxLock('INBOX');
     try {
       const matches: number[] = [];
+      const bounceUids: number[] = [];
       for await (const m of client.fetch({ since }, { envelope: true, uid: true })) {
         scanned++;
         const from = m.envelope?.from?.[0]?.address?.toLowerCase();
         if (from && byEmail.has(from) && matches.length < MAX_MESSAGES) matches.push(m.uid);
+        else if (looksLikeBounce(from, m.envelope?.subject) && bounceUids.length < MAX_MESSAGES) bounceUids.push(m.uid);
+      }
+      // Delivery-failure messages: an address that does not exist is dead everywhere, so every unsent or follow-up email to it stops.
+      const known = new Set(byEmail.keys());
+      for (const uid of bounceUids) {
+        const msg = await client.fetchOne(String(uid), { source: true }, { uid: true });
+        if (!msg || !msg.source) continue;
+        const p = await simpleParser(msg.source);
+        const dsnPart = p.attachments?.find((a) => /delivery-status/i.test(a.contentType));
+        const failed = p.headers?.get('x-failed-recipients');
+        const b = parseBounce({
+          from: p.from?.value?.[0]?.address ?? '', subject: p.subject ?? '', text: p.text ?? '',
+          dsn: dsnPart ? dsnPart.content.toString('utf8') : undefined, failedHeader: typeof failed === 'string' ? failed : undefined,
+        }, known);
+        if (!b?.hard) continue;
+        const stopped = await prisma.outreachLead.updateMany({ where: { userId, email: { in: b.recipients }, status: 'sent' }, data: { status: 'failed', error: `Bounced: ${b.reason}` } });
+        await prisma.outreachLead.updateMany({ where: { userId, email: { in: b.recipients }, status: 'queued' }, data: { status: 'skipped', error: `Bounced earlier: ${b.reason}` } });
+        bounces += stopped.count;
       }
       for (const uid of matches) {
         const msg = await client.fetchOne(String(uid), { source: true }, { uid: true });
@@ -73,6 +93,6 @@ export async function checkInbox(userId: string, deps: IngestDeps = {}): Promise
     try { await client.logout(); } catch { /* already closed */ }
     return { ok: false, error: `Could not read your mailbox: ${e instanceof Error ? e.message.slice(0, 160) : 'connection failed'}` };
   }
-  await logAgent(userId, 'reply', 'Checked your inbox', `${scanned} message${scanned === 1 ? '' : 's'} looked at, ${replies} new repl${replies === 1 ? 'y' : 'ies'}.`);
-  return { ok: true, scanned, replies, duplicates };
+  await logAgent(userId, 'reply', 'Checked your inbox', `${scanned} message${scanned === 1 ? '' : 's'} looked at, ${replies} new repl${replies === 1 ? 'y' : 'ies'}${bounces ? `, ${bounces} bounced address${bounces === 1 ? '' : 'es'} found and stopped` : ''}.`);
+  return { ok: true, scanned, replies, duplicates, bounces };
 }

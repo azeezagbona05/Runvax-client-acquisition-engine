@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Upload, Users, X } from 'lucide-react';
 import { useProspects } from '@/context/ProspectsContext';
-import { recipientEmail } from '@/lib/decisionMaker';
+import { DEFAULT_SEGMENT, segmentProspects, type SegmentFilters } from '@/lib/leadBuilder';
 import { MAX_LEADS_PER_CAMPAIGN, parseLeadCsv, type LeadInput } from '@/lib/outreachCampaign';
 
 interface Props {
@@ -25,15 +25,9 @@ export default function LeadPicker({ leads, onChange }: Props) {
   const [rejected, setRejected] = useState<Array<{ line: number; raw: string; reason: string }>>([]);
 
   // Industry Acquisition clinics are contacted only through their own review queue, never from here.
-  const fromProspects = useMemo<LeadInput[]>(() => prospects
-    .filter((p) => p.source !== 'industry-acquisition')
-    .map((p) => ({
-      email: recipientEmail(p.business).trim().toLowerCase(),
-      name: p.business.decisionMaker?.name,
-      business: p.business.name,
-      website: p.business.website,
-    }))
-    .filter((l) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(l.email)), [prospects]);
+  const [seg, setSeg] = useState<SegmentFilters>(DEFAULT_SEGMENT);
+  const segment = useMemo(() => segmentProspects(prospects.filter((p) => p.source !== 'industry-acquisition').map((p) => p.business), seg), [prospects, seg]);
+  const fromProspects = segment.leads;
 
   const addText = (raw: string) => {
     const r = parseLeadCsv(raw);
@@ -57,12 +51,31 @@ export default function LeadPicker({ leads, onChange }: Props) {
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
         <button type="button" className="acq-btn acq-btn-sm" onClick={() => fileRef.current?.click()}><Upload size={14} /> Upload CSV</button>
         <input ref={fileRef} type="file" accept=".csv,.txt,text/csv,text/plain" style={{ display: 'none' }} onChange={(e) => void onFile(e.target.files?.[0])} />
-        <button
-          type="button" className="acq-btn acq-btn-sm" disabled={fromProspects.length === 0}
-          title={fromProspects.length === 0 ? 'None of your saved prospects have an email yet' : undefined}
-          onClick={() => { const next = merge(leads, fromProspects).slice(0, MAX_LEADS_PER_CAMPAIGN); setNote(`${next.length - leads.length} added from your prospects`); onChange(next); }}
-        ><Users size={14} /> My prospects with an email ({fromProspects.length})</button>
-        <span className="acq-faint" style={{ fontSize: 12 }}>Columns: email, name, business, website, phone. Only email is required. Add a phone (with country code) to message them on WhatsApp too.</span>
+<span className="acq-faint" style={{ fontSize: 12 }}>Columns: email, name, business, website, phone. Only email is required. Add a phone (with country code) to message them on WhatsApp too.</span>
+      </div>
+
+      <div style={{ border: '1px solid #e6ebf3', borderRadius: 10, padding: 12, display: 'grid', gap: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 700 }}><Users size={14} style={{ display: 'inline', marginRight: 6 }} />Build a list from your saved prospects</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <select className="acq-select" aria-label="Website" style={{ width: 190, height: 34 }} value={seg.website} onChange={(e) => setSeg({ ...seg, website: e.target.value as SegmentFilters['website'] })}>
+            <option value="any">Any website status</option><option value="none">No website of their own</option><option value="has">Has a website</option>
+          </select>
+          <input className="acq-input" aria-label="Area" placeholder="Area or city (e.g. Lekki)" style={{ width: 190, height: 34 }} value={seg.area} onChange={(e) => setSeg({ ...seg, area: e.target.value })} />
+          <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={seg.needPhone} onChange={(e) => setSeg({ ...seg, needPhone: e.target.checked })} style={{ accentColor: '#9333ea' }} />Has a phone</label>
+        </div>
+        {segment.categories.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }} aria-label="Industry">
+            <button type="button" className={`acq-btn acq-btn-sm${seg.category === '' ? ' acq-btn-primary' : ''}`} onClick={() => setSeg({ ...seg, category: '' })}>All industries</button>
+            {segment.categories.slice(0, 12).map((c) => (
+              <button key={c.category || 'none'} type="button" className={`acq-btn acq-btn-sm${seg.category === c.category && c.category ? ' acq-btn-primary' : ''}`} disabled={!c.category} onClick={() => setSeg({ ...seg, category: c.category })}>{c.label} ({c.emailable})</button>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <button type="button" className="acq-btn acq-btn-primary acq-btn-sm" disabled={fromProspects.length === 0}
+            onClick={() => { const next = merge(leads, fromProspects).slice(0, MAX_LEADS_PER_CAMPAIGN); setNote(`${next.length - leads.length} added from your prospects`); onChange(next); }}>Add {fromProspects.length} with an email</button>
+          <span className="acq-faint" style={{ fontSize: 12.5 }}>{segment.matching} saved prospect{segment.matching === 1 ? '' : 's'} match{segment.withoutEmail ? ` · ${segment.withoutEmail} have no email, so an email campaign cannot reach them` : ''}. Make one campaign per industry so each gets its own wording.</span>
+        </div>
       </div>
 
       <div>

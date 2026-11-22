@@ -153,7 +153,7 @@ export function parseLeadCsv(text: string): { leads: LeadInput[]; rejected: Reje
 
 // ── Templates ────────────────────────────────────────────────────────────────
 
-export const TEMPLATE_TOKENS = ['name', 'fullName', 'business', 'website'] as const;
+export const TEMPLATE_TOKENS = ['name', 'fullName', 'business', 'website', 'link'] as const;
 type Token = (typeof TEMPLATE_TOKENS)[number];
 
 export const DEFAULT_SUBJECT = 'A digital front door for {{business}}';
@@ -181,6 +181,7 @@ const TOKEN_ALIASES: Record<string, Token> = {
   business: 'business', 'business name': 'business', 'clinic name': 'business', clinic: 'business', 'practice name': 'business', practice: 'business',
   company: 'business', 'company name': 'business', organisation: 'business', organization: 'business', 'restaurant name': 'business', restaurant: 'business',
   website: 'website', 'web site': 'website', url: 'website',
+  link: 'link', 'offer link': 'link', 'offer url': 'link', 'offer page': 'link',
 };
 const normKey = (k: string) => k.trim().toLowerCase().replace(/[_\s]+/g, ' ');
 
@@ -206,6 +207,7 @@ export function renderTemplate(template: string, lead: LeadInput, extra: Record<
     fullName: lead.name?.trim() || 'there',
     business: lead.business?.trim() || 'your business',
     website: lead.website?.trim() || 'your website',
+    link: '',
     ...extra,
   };
   return template.replace(/\{\{\s*([^}]*?)\s*\}\}/g, (whole, key: string) => values[key] ?? whole);
@@ -256,6 +258,11 @@ export function linkify(text: string, track?: (url: string) => string): string {
   return out.replace(/\n/g, '<br>');
 }
 
+/** Removes every line that holds the {{link}} placeholder (used when a campaign has no offer page, so nobody receives "See details: " with nothing after it). */
+export function dropLinkLines(text: string): string {
+  return canonTokens(text).split('\n').filter((l) => !/\{\{\s*link\s*\}\}/.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export interface WhatsappButton { label: string; message: string }
 
 /** The wa.me link for one button, or null when the sender has no usable WhatsApp number. The chat opens with the message already typed. */
@@ -286,10 +293,13 @@ export function buildEmail(args: {
   trackLink?: (url: string) => string;
   /** WhatsApp buttons shown under the message. Only used when the sender has a WhatsApp number. */
   whatsappActions?: WhatsappButton[];
+  /** The campaign's offer page. Fills {{link}}; when there is none, any line holding {{link}} is dropped rather than sent empty. */
+  link?: string;
 }): BuiltEmail {
-  const extra: Record<string, string> = args.originalSubject ? { subject: args.originalSubject } : {};
-  const subject = renderTemplate(args.subject, args.lead, extra).replace(/\s+/g, ' ').trim();
-  const body = stripPlaceholderLines(renderTemplate(args.body, args.lead, extra));
+  const extra: Record<string, string> = { ...(args.originalSubject ? { subject: args.originalSubject } : {}), link: args.link ?? '' };
+  const prep = (t: string) => (args.link ? t : dropLinkLines(t));
+  const subject = renderTemplate(prep(args.subject), args.lead, extra).replace(/\s+/g, ' ').trim();
+  const body = stripPlaceholderLines(renderTemplate(prep(args.body), args.lead, extra));
   const signature = signatureOf(args.sender);
 
   const footer = `You're getting this because ${args.sender.business || args.sender.name || 'the sender'} thought it might be relevant to ${args.lead.business || 'your business'}. Don't want these? Unsubscribe: ${args.unsubscribeUrl}`;

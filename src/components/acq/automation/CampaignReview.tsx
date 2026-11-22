@@ -31,7 +31,7 @@ export default function CampaignReview({ tpl, auto, contactsCount, approved, set
       </Row>
       <Row k="Follow-up sequence">{auto.emails.length - 1} follow-up{auto.emails.length === 2 ? '' : 's'} on {days.slice(1).map((d) => `Day ${d}`).join(', ') || 'no days'}. {auto.stopOnReply ? 'They stop the moment someone replies, opts out or books.' : ''}</Row>
       <Row k="Sending channel">Email, from your own mailbox. Other channels are not switched on.</Row>
-      <Row k="Schedule">Saved as a draft. Nothing is sent until you press Run. Intended window {hour12(auto.windowStart)} to {hour12(auto.windowEnd)}{auto.weekdaysOnly ? ', weekdays' : ''} (saved, not enforced yet). Follow-ups wait for your click.</Row>
+      <Row k="Schedule">Saved as a draft. Nothing is sent until you press Run. Sending window {hour12(auto.windowStart)} to {hour12(auto.windowEnd)}{auto.weekdaysOnly ? ', weekdays' : ''} ({auto.timezone ?? 'Africa/Lagos'}), enforced for the daily automatic run. Follow-ups wait for your click unless you switch on automatic follow-ups on the campaign page.</Row>
       <Row k="Sending limits">At most {auto.dailyCap} a day for this campaign. A hard limit of 200 a day applies to your account.</Row>
       <Row k="Costs">RUNVAX adds no per-email charge. Your own mail provider&apos;s limits apply. Personalising first emails uses one AI call per contact from your daily AI allowance.</Row>
       <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 14, padding: 12, background: '#faf5ff', border: '1px solid #f3e8ff', borderRadius: 12, cursor: 'pointer', fontSize: 13.5 }}>

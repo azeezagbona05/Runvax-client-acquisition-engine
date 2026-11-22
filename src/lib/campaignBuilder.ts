@@ -83,6 +83,7 @@ export function buildFromBrief(brief: CampaignBrief, knobs: Knobs): Automation {
     : `${short} is designed to help ${kind} reach, engage and win more customers.`);
   if (brief.features.length) parts.push(`${brief.features.length > 1 ? 'Our system includes' : 'It includes'}:\n\n${brief.features.map((f) => `- ${f.replace(/^[-•*\d.)\s]+/, '')}`).join('\n')}`);
   if (brief.features.length) parts.push('The idea is to help {{business}} attract, engage and convert more customers without depending entirely on manual processes.');
+  if (brief.offerUrl) parts.push('See the details here: {{link}}');
   parts.push(ASK[brief.objective]);
   parts.push(sign);
 
@@ -105,7 +106,7 @@ export function buildFromBrief(brief: CampaignBrief, knobs: Knobs): Automation {
     },
     final: {
       subject: 'Last note about {{business}}', waitDays: 5, sendIf: 'no_reply',
-      body: [hi, `I will keep this short, since this is my last note about ${short}.`, `If it is something {{business}} would like to explore, just reply with "interested" and I will take it from there. If not, reply with "no thanks" and I will not contact you again. Either answer is completely fine.`, sign].join('\n\n'),
+      body: [hi, `I will keep this short, since this is my last note about ${short}.`, ...(brief.offerUrl ? ['See the details here: {{link}}'] : []), `If it is something {{business}} would like to explore, just reply with "interested" and I will take it from there. If not, reply with "no thanks" and I will not contact you again. Either answer is completely fine.`, sign].join('\n\n'),
     },
   };
   const order = ({ 1: [], 2: ['final'], 3: ['review', 'final'], 4: ['review', 'demo', 'final'], 5: ['review', 'educate', 'demo', 'final'] } as Record<number, Array<keyof typeof touches>>)[knobs.count] ?? ['review', 'educate', 'demo', 'final'];
@@ -149,6 +150,7 @@ export function planFromGoal(text: string, given?: CampaignBrief | null): { auto
     name: given.name || fromText.name, objective: given.offer || given.audience || given.goal ? given.objective : fromText.objective,
     offer: given.offer || fromText.offer, offerSummary: given.offerSummary, features: given.features,
     audience: given.audience || fromText.audience, goal: given.goal || fromText.goal, signOff: given.signOff,
+    ...(given.offerUrl ? { offerUrl: given.offerUrl } : {}), ...(given.market ? { market: given.market } : {}),
   } : fromText;
   const automation = buildFromBrief(brief, parseKnobs(text));
   return { automation, brief: automation.brief ?? brief };

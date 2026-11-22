@@ -46,6 +46,7 @@ export function buildSystemPrompt(): string {
     '- Follow-up subjects may use "Re: {{subject}}". Use ONLY these placeholders: {{name}} (first name), {{business}}, {{website}}, and {{subject}} in follow-ups.',
     '- Write short, specific, honest emails in plain text, in the sender\'s voice, about THEIR offer and what it does for the prospect. Match the tone they ask for.',
     '- NEVER write bracketed placeholders such as [Your Name], [Company] or [Insert ...]. The sender\'s name, business and contact details are added automatically under every email, so end the body with a sign-off line only (for example "Best regards,") and nothing after it.',
+    '- If the campaign setup has an "offerUrl", write the literal placeholder {{link}} on its own line (for example "See the details here: {{link}}") in the first and the last email, and nowhere else. Never write the address itself; it is filled in for you.',
     '- Never include links, phone numbers, invented statistics, guarantees, fake urgency or claims of a prior relationship. Never mention that you are an AI.',
     '- "brief": work out the offer, the audience (plural, e.g. "Dental clinics"), what it includes (one line per feature, "Name: what it does for the prospect") and the goal from the user text. A provided campaign setup wins over your guess.',
     '- For follow-ups 2 to 4, add "openedVariant": a shorter, more direct version for people who opened an earlier email but did not reply (they have seen the pitch, so go straight to the next step). Not for the final email.',
@@ -113,7 +114,7 @@ export async function planAutomation(
     if (brief && aiBrief && !current) brief = fillBrief(brief, aiBrief, !!given);
     // Every campaign gets a full playbook: the AI's answers where it gave them, the built-in ones elsewhere.
     const playbook = sanitizePlaybook(automation.playbook ?? (parsed as Record<string, unknown>)?.playbook, current?.playbook ?? defaultPlaybook(brief));
-    return { automation: { ...automation, ...(brief ? { brief } : {}), playbook }, source: 'ai', brief };
+    return { automation: { ...automation, ...(current?.timezone ? { timezone: current.timezone } : {}), ...(brief ? { brief } : {}), playbook }, source: 'ai', brief };
   } catch (e) {
     console.error('[automation/plan]', e instanceof Error ? e.message : e);
     return fallback('The AI is unavailable right now, so the built-in planner answered.');

@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, Wand2 } from 'lucide-react';
-import { CONVERSIONS, OBJECTIVES, type CampaignBrief, type Conversion, type Objective } from '@/lib/campaignBrief';
+import { CONVERSIONS, OBJECTIVES, cleanOfferUrl, type CampaignBrief, type Conversion, type Objective } from '@/lib/campaignBrief';
 import { WORKFORCE } from '@/lib/workforce';
 import type { Strategy } from '@/lib/templateEngine';
 import type { TemplateConfig } from '@/lib/templateLibrary';
@@ -40,6 +40,7 @@ export function GuidedSetup({ tpl, brief, setBrief, featuresText, setFeaturesTex
               <input className="acq-input" style={{ flex: '1 1 160px' }} maxLength={200} aria-label="Campaign goal" value={brief.goal} placeholder={q.objective.placeholder} onChange={(e) => setBrief({ ...brief, goal: e.target.value })} />
             </div></div>
           <div><label style={label} htmlFor="gs-conv">{q.conversion.label}</label><select id="gs-conv" className="acq-select" aria-label="Desired conversion action" value={brief.conversion ?? tpl.conversion} onChange={(e) => setBrief({ ...brief, conversion: e.target.value as Conversion })}>{CONVERSIONS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select></div>
+          <div><label style={label} htmlFor="gs-link">Offer page link (optional)</label><input id="gs-link" className="acq-input" maxLength={200} inputMode="url" value={brief.offerUrl ?? ''} placeholder="https://yourbusiness.com/black-friday" onChange={(e) => setBrief({ ...brief, offerUrl: e.target.value })} /><span className="acq-faint" style={{ fontSize: 12 }}>Where people go to see the offer or pay. It is added to the first and last email and clicks are counted. https only.</span>{brief.offerUrl?.trim() && !cleanOfferUrl(brief.offerUrl) && <span role="alert" style={{ fontSize: 12, color: '#b42318', display: 'block' }}>That is not a valid https link, so it will not be used.</span>}</div>
           <div><label style={label} htmlFor="gs-sign">How your emails end</label><input id="gs-sign" className="acq-input" maxLength={200} value={brief.signOff} placeholder="e.g. Azeez, Harzotech" onChange={(e) => setBrief({ ...brief, signOff: e.target.value })} /></div>
           <div><span style={label}>{q.channels.label}</span>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>{CHANNELS.map((c) => (

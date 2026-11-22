@@ -4,7 +4,7 @@ import { requireCampaignUser, requireCampaignSender } from '@/lib/campaignAuth';
 import { loadMailbox } from '@/lib/outreachSender';
 import { followRule } from '@/lib/automation';
 import { cleanEmail, needsFollowUp, stageOf, statsOf, validateCampaignFields } from '@/lib/outreachCampaign';
-import { sanitizeAutomation, toCampaignFields, validateAutomation } from '@/lib/automation';
+import { autoFollowUpsOn, sanitizeAutomation, toCampaignFields, validateAutomation } from '@/lib/automation';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,7 +79,20 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   }
 
   const data: Record<string, unknown> = { ...v.data };
-  if (automation) data.automation = automation as unknown as object;
+  // Automatic follow-ups are an explicit choice made here, not part of a plan: a re-saved plan keeps whatever the owner chose.
+  const keepAuto = autoFollowUpsOn(campaign.automation);
+  if (automation) data.automation = { ...automation, ...(keepAuto ? { autoFollowUps: true } : {}) } as unknown as object;
+  if (body.autoFollowUps !== undefined) {
+    if (typeof body.autoFollowUps !== 'boolean') return NextResponse.json({ error: 'autoFollowUps must be true or false.' }, { status: 400 });
+    const plan = automation ?? sanitizeAutomation(campaign.automation);
+    if (!plan) return NextResponse.json({ error: 'Automatic follow-ups need a campaign built in the Automation builder, so there is a follow-up sequence to run.' }, { status: 400 });
+    if (body.autoFollowUps) {
+      const sender = await requireCampaignSender(req);
+      if (!sender.ok) return sender.response;
+      if (plan.emails.length < 2) return NextResponse.json({ error: 'This campaign has no follow-up emails to send.' }, { status: 400 });
+    }
+    data.automation = { ...plan, ...(body.autoFollowUps ? { autoFollowUps: true } : {}) } as unknown as object;
+  }
   if (body.action === 'run') {
     const sender = await requireCampaignSender(req);
     if (!sender.ok) return sender.response;

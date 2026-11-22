@@ -36,6 +36,7 @@ const PROSPECTING_NAV: NavGroup[] = [
     { href: '/client-acquisition/automation', label: 'Automation Builder', icon: Wand2 },
     { href: '/client-acquisition/campaign-agents', label: 'Campaign AI Agents', icon: Network },
     { href: '/client-acquisition/activity', label: 'Email Activity', icon: Mail },
+    { href: '/client-acquisition/results', label: 'Results & Revenue', icon: BarChart3 },
     { href: '/client-acquisition/inbox', label: 'Inbox & Opportunities', icon: MessageCircle, badge: true },
     { href: '/client-acquisition/templates', label: 'Templates', icon: FileText },
   ] },

@@ -2,7 +2,8 @@
 
 import { celebrate, isFirstWin } from '@/lib/celebrate';
 import CampaignPipeline from './CampaignPipeline';
-import { sanitizeAutomation } from '@/lib/automation';
+import CampaignPreflight from './CampaignPreflight';
+import { autoFollowUpsOn, sanitizeAutomation } from '@/lib/automation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -179,6 +180,11 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
     await refresh();
     return json;
   };
+  const toggleAuto = async (on: boolean) => {
+    if (on && !window.confirm('Switch on automatic follow-ups?\n\nThe daily run will then send each follow-up on its own, from your mailbox, only inside the sending window you set (hours, weekdays, time zone). People who reply, bounce, unsubscribe or book are never followed up. You can switch this off at any time.')) return;
+    const r = await patch({ autoFollowUps: on });
+    if (r) setNotice(on ? 'Automatic follow-ups are on. They go out with the daily run, inside your sending window.' : 'Automatic follow-ups are off. Follow-ups wait for your click again.');
+  };
   const pause = async () => { stop.current = true; await patch({ action: 'pause' }); setNotice('Paused. Nothing more will be sent until you press Resume.'); };
 
   /** Writes each waiting lead's first email with the RUNVAX pitch engine, a few at a time, until none are left. */
@@ -304,6 +310,8 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
       )}
       {notice && <div className="acq-notice" role="status" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>{notice}</span><button className="acq-link" style={{ color: '#64748b' }} onClick={() => setNotice('')}>Dismiss</button></div>}
 
+      {campaign.status !== 'completed' && <CampaignPreflight id={id} refreshKey={`${stats.queued}:${campaign.status}:${mailboxReady}`} />}
+
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <Tile label="Leads" value={fmtNum(stats.total)} sub={stats.queued ? `${stats.queued} waiting` : undefined} />
         <Tile label="Sent" value={fmtNum(stats.sent)} color="#9333ea" />
@@ -318,6 +326,11 @@ export default function CampaignDetail({ id, openEdit }: { id: string; openEdit?
           <button className="acq-btn" style={{ background: '#fff8eb', borderColor: '#fcd9a6', color: '#92520a' }} onClick={() => void run('followup')} disabled={!!busy || stats.needsFollowUp === 0 || !mailboxReady}>
             <Send size={15} /> Send follow-up to {stats.needsFollowUp}
           </button>
+        )}
+        {campaign.maxFollowUps > 0 && !!campaign.automation && (
+          <label className="acq-btn" style={{ cursor: 'pointer', gap: 8 }} title="The daily run sends follow-ups for you, inside your sending window. Off by default.">
+            <input type="checkbox" checked={autoFollowUpsOn(campaign.automation)} onChange={(e) => void toggleAuto(e.target.checked)} style={{ accentColor: '#9333ea' }} /> Automatic follow-ups
+          </label>
         )}
         <button className="acq-btn" onClick={() => void sendTest()} disabled={!!busy || !mailboxReady}>{busy === 'test' ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />} Send me a test</button>
         <button className="acq-btn" onClick={() => setImporting(true)}><Plus size={15} /> Add leads</button>

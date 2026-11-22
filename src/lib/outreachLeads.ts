@@ -9,6 +9,8 @@ export interface AddLeadsResult {
   /** Unsubscribed from an earlier campaign of this account, so never added again. */
   optedOut: number;
   invalid: number;
+  /** Addresses that bounced (do not exist) in an earlier campaign of this account, so they are never added again. Optional so older callers keep working. */
+  bounced?: number;
   /** Past the per-campaign limit. */
   overLimit: number;
 }
@@ -19,25 +21,28 @@ export interface AddLeadsResult {
  */
 export async function addLeads(campaignId: string, userId: string, raw: unknown): Promise<AddLeadsResult> {
   const { leads, invalid } = sanitizeLeads(raw);
-  const result: AddLeadsResult = { added: 0, duplicates: 0, optedOut: 0, invalid, overLimit: 0 };
+  const result: AddLeadsResult = { added: 0, duplicates: 0, optedOut: 0, invalid, bounced: 0, overLimit: 0 };
   if (!leads.length) return result;
 
   const emails = leads.map((l) => l.email);
-  const [existing, unsubscribed, count] = await Promise.all([
+  const [existing, unsubscribed, bouncedRows, count] = await Promise.all([
     prisma.outreachLead.findMany({ where: { campaignId, email: { in: emails } }, select: { email: true } }),
     prisma.outreachLead.findMany({
       where: { userId, email: { in: emails }, OR: [{ status: 'unsubscribed' }, { unsubscribedAt: { not: null } }] },
       select: { email: true },
     }),
+    prisma.outreachLead.findMany({ where: { userId, email: { in: emails }, status: { in: ['failed', 'skipped'] }, error: { startsWith: 'Bounced' } }, select: { email: true } }),
     prisma.outreachLead.count({ where: { campaignId } }),
   ]);
   const have = new Set(existing.map((e) => e.email));
   const optedOut = new Set(unsubscribed.map((e) => e.email));
+  const bounced = new Set(bouncedRows.map((e) => e.email));
 
   const fresh = [];
   for (const l of leads) {
     if (have.has(l.email)) { result.duplicates++; continue; }
     if (optedOut.has(l.email)) { result.optedOut++; continue; }
+    if (bounced.has(l.email)) { result.bounced = (result.bounced ?? 0) + 1; continue; }
     fresh.push(l);
   }
   const room = Math.max(0, MAX_LEADS_PER_CAMPAIGN - count);

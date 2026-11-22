@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useHandleAIResponse } from '@/context/UpgradeContext';
 import {
-  MAX_EMAILS, SCENARIOS, dayNumbers, SEND_IF_LABEL, emptyEmail, engineSupport, ruleBasedRevise, sanitizeAutomation, simulate, summarize, validateAutomation,
+  MAX_EMAILS, SCENARIOS, TIMEZONES, dayNumbers, SEND_IF_LABEL, emptyEmail, engineSupport, ruleBasedRevise, sanitizeAutomation, simulate, summarize, validateAutomation,
   type Automation, type Scenario, type SendIf,
 } from '@/lib/automation';
 import { OBJECTIVES, briefIsBlank, emptyBrief, sanitizeBrief, type CampaignBrief, type Objective } from '@/lib/campaignBrief';
@@ -262,6 +262,7 @@ export default function AutomationBuilder() {
             <div><label className="acq-flabel" htmlFor="cs-obj">Main objective</label><select id="cs-obj" className="acq-select" value={brief.objective} onChange={(e) => setBrief({ ...brief, objective: e.target.value as Objective })}>{OBJECTIVES.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></div>
             <div><label className="acq-flabel" htmlFor="cs-goal">Goal</label><input id="cs-goal" className="acq-input" maxLength={200} value={brief.goal} onChange={(e) => setBrief({ ...brief, goal: e.target.value })} placeholder="e.g. Book 20 demos" /></div>
             <div><label className="acq-flabel" htmlFor="cs-feat">What it includes (one per line)</label><textarea id="cs-feat" className="acq-textarea" rows={4} value={featuresText} onChange={(e) => { setFeaturesText(e.target.value); setBrief({ ...brief, features: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 8) }); }} placeholder={'Instant replies to enquiries\nAutomated follow-ups'} /></div>
+            <div><label className="acq-flabel" htmlFor="cs-link">Offer page link (optional)</label><input id="cs-link" className="acq-input" maxLength={200} inputMode="url" value={brief.offerUrl ?? ''} onChange={(e) => setBrief({ ...brief, offerUrl: e.target.value })} placeholder="https://yourbusiness.com/black-friday" /></div>
             <div><label className="acq-flabel" htmlFor="cs-sign">How your emails end</label><input id="cs-sign" className="acq-input" maxLength={200} value={brief.signOff} onChange={(e) => setBrief({ ...brief, signOff: e.target.value })} placeholder="e.g. Azeez, Harzotech" /></div>
           </div>
         </details>
@@ -355,7 +356,7 @@ export default function AutomationBuilder() {
                     <div><span style={label}>Before follow-ups go out</span>
                       <div style={{ display: 'grid', gap: 8 }}>
                         <label className="acq-opt selected" style={{ padding: '10px 12px', cursor: 'default' }}><span style={{ fontSize: 13.5 }}><b>Review first</b> (on)<span className="acq-sub" style={{ display: 'block', fontSize: 12 }}>Follow-ups wait for your click.</span></span></label>
-                        <label className="acq-opt" style={{ padding: '10px 12px', opacity: .55, cursor: 'not-allowed' }}><span style={{ fontSize: 13.5 }}><b>Send automatically</b> (not available yet)<span className="acq-sub" style={{ display: 'block', fontSize: 12 }}>Switched off while reply detection and a legal review are pending.</span></span></label>
+                        <label className="acq-opt" style={{ padding: '10px 12px', opacity: .55, cursor: 'not-allowed' }}><span style={{ fontSize: 13.5 }}><b>Send automatically</b> (from the campaign page)<span className="acq-sub" style={{ display: 'block', fontSize: 12 }}>After you create the campaign, switch on Automatic follow-ups on its page. The daily run then sends them inside your window.</span></span></label>
                       </div>
                     </div>
                     <div><label style={label} htmlFor="auto-cap">Send at most per day</label><input id="auto-cap" type="number" min={1} max={200} className="acq-input" style={{ width: 110 }} value={auto.dailyCap} onChange={(e) => edit({ dailyCap: Math.max(1, Math.min(200, Number(e.target.value) || 1)) })} /></div>
@@ -363,7 +364,8 @@ export default function AutomationBuilder() {
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                         <select className="acq-select" aria-label="Window start" style={{ width: 118, height: 36, padding: '2px 26px 2px 10px' }} value={auto.windowStart} onChange={(e) => edit({ windowStart: Math.min(Number(e.target.value), auto.windowEnd - 1) })}>{HOURS.slice(0, 23).map((h) => <option key={h} value={h}>{hour12(h)}</option>)}</select>to
                         <select className="acq-select" aria-label="Window end" style={{ width: 118, height: 36, padding: '2px 26px 2px 10px' }} value={auto.windowEnd} onChange={(e) => edit({ windowEnd: Math.max(Number(e.target.value), auto.windowStart + 1) })}>{HOURS.slice(1).concat(24).map((h) => <option key={h} value={h}>{hour12(h)}</option>)}</select></div>
-                      <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, fontSize: 13, cursor: 'pointer' }}><input type="checkbox" checked={auto.weekdaysOnly} onChange={(e) => edit({ weekdaysOnly: e.target.checked })} style={{ accentColor: '#9333ea' }} />Weekdays only</label></div>
+                      <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, fontSize: 13, cursor: 'pointer' }}><input type="checkbox" checked={auto.weekdaysOnly} onChange={(e) => edit({ weekdaysOnly: e.target.checked })} style={{ accentColor: '#9333ea' }} />Weekdays only</label>
+                      <select className="acq-select" aria-label="Time zone" style={{ width: 190, height: 36, padding: '2px 26px 2px 10px', marginTop: 8 }} value={auto.timezone ?? 'Africa/Lagos'} onChange={(e) => edit({ timezone: e.target.value })}>{TIMEZONES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select></div>
                   </div>
                 </Card>
               </div>

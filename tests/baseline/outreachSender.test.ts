@@ -324,3 +324,30 @@ describe('sendTestEmail', () => {
     expect(await sendTestEmail('u1', { campaign: { subject: 's', body: 'b' }, to: 'me@webco.com' }, { ...deps, mailbox: null })).toMatchObject({ ok: false });
   });
 });
+
+describe('sendBatch: sending window (daily run only)', () => {
+  // NOW is Wednesday 28 Oct 2026, 12:00 UTC = 13:00 in Lagos.
+  const night = { ...deps, now: () => Date.UTC(2026, 9, 28, 22) }; // 23:00 in Lagos
+  it('sends inside the window when the daily run asks for it', async () => {
+    db.leads = [lead(1)];
+    const r = await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial', respectWindow: true }, deps);
+    expect(r.sent).toBe(1);
+  });
+  it('sends nothing outside the window when the daily run asks for it', async () => {
+    db.leads = [lead(1)];
+    const r = await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial', respectWindow: true }, night);
+    expect(r).toMatchObject({ sent: 0, aborted: 'outside_window' });
+    expect(byId('l1').status).toBe('queued');
+  });
+  it('never holds back a person who presses the button', async () => {
+    db.leads = [lead(1)];
+    const r = await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial' }, night);
+    expect(r.sent).toBe(1);
+  });
+  it('uses the saved window of the campaign (here 20:00-23:00 Lagos)', async () => {
+    db.campaigns = [campaign({ automation: { name: 'n', emails: [{ subject: 's', body: 'b' }], windowStart: 20, windowEnd: 23, weekdaysOnly: false } })];
+    db.leads = [lead(1)];
+    expect((await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial', respectWindow: true }, deps)).aborted).toBe('outside_window');
+    expect((await sendBatch({ campaignId: 'c1', userId: 'u1', kind: 'initial', respectWindow: true }, { ...deps, now: () => Date.UTC(2026, 9, 28, 20) })).sent).toBe(1);
+  });
+});

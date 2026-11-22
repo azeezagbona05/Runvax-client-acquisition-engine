@@ -147,7 +147,10 @@ describe('engine mapping and honesty', () => {
     expect(notes.some((n) => n.level === 'ok' && /stop the moment someone replies, opts out/.test(n.text))).toBe(true);
     expect(notes.some((n) => n.level === 'ok' && /Replies are read from your mailbox/.test(n.text))).toBe(true);
     expect(notes.some((n) => n.level === 'planned' && /WhatsApp/.test(n.text))).toBe(true);
-    expect(notes.some((n) => n.level === 'planned' && /Fully automatic sending is switched off/.test(n.text))).toBe(true);
+    // Automatic follow-ups are opt-in per campaign and the window is enforced for the daily run.
+    expect(notes.some((n) => n.level === 'ok' && /switch on automatic follow-ups/.test(n.text))).toBe(true);
+    expect(notes.some((n) => n.level === 'ok' && /sending window .* is enforced/.test(n.text))).toBe(true);
+    expect(notes.some((n) => /Fully automatic sending is switched off|not enforced yet/.test(n.text))).toBe(false);
   });
 });
 

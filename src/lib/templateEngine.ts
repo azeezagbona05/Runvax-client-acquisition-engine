@@ -77,7 +77,8 @@ export function buildFromTemplate(t: TemplateConfig, briefIn: CampaignBrief, kno
 
   const touch = (id: TouchId, sendIf: AutoEmail['sendIf']): AutoEmail => {
     const paras = t.copy[id].filter((p) => !(p.includes('%features%') && !v.features)).map((p) => fill(p, v)).filter((p) => p.trim());
-    return { subject: fill(t.subjects[id], v), body: [hi, ...paras, sign].join('\n\n'), waitDays: knobs.gapDays !== null && id !== 'intro' ? knobs.gapDays : WAIT[id], sendIf: id === 'intro' ? 'no_reply' : id === 'final' ? 'no_reply' : sendIf };
+    const linkLine = brief.offerUrl && (id === 'intro' || id === 'final') ? [`See the details here: {{link}}`] : [];
+    return { subject: fill(t.subjects[id], v), body: [hi, ...paras, ...linkLine, sign].join('\n\n'), waitDays: knobs.gapDays !== null && id !== 'intro' ? knobs.gapDays : WAIT[id], sendIf: id === 'intro' ? 'no_reply' : id === 'final' ? 'no_reply' : sendIf };
   };
   const emails = [touch('intro', 'no_reply'), ...(ORDER[knobs.count] ?? ORDER[5]).map((id) => touch(id, knobs.sendIf))];
 

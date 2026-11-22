@@ -20,7 +20,7 @@ import { checkRecipient } from '@/lib/acquisition/recipientGuard';
 import { getAppUrl } from '@/lib/url';
 import { snovEnabled, verifyEmail, type SnovEmail } from '@/lib/snov';
 import { trackedLink } from '@/lib/trackedLink';
-import { conditionMet, followUpWaits, sanitizeAutomation, stepCopy } from '@/lib/automation';
+import { DEFAULT_WINDOW, conditionMet, followUpWaits, inSendWindow, sanitizeAutomation, stepCopy } from '@/lib/automation';
 import { STOPS_FOLLOW_UPS } from '@/lib/replyIntel';
 import { logAgent } from '@/lib/acqReplies';
 import {
@@ -111,7 +111,7 @@ export interface BatchResult {
   /** Still waiting after this batch: queued leads, or follow-ups that are due. */
   leftToSend: number;
   capReached: boolean;
-  aborted?: 'no_mailbox' | 'mailbox_error' | 'check_unavailable' | 'not_found' | 'not_started' | 'no_sender';
+  aborted?: 'no_mailbox' | 'mailbox_error' | 'check_unavailable' | 'not_found' | 'not_started' | 'no_sender' | 'outside_window';
   message?: string;
 }
 
@@ -192,7 +192,7 @@ async function dueFollowUps(c: CampaignRow, now: number) {
  * Callers loop on `leftToSend` / `capReached`.
  */
 export async function sendBatch(
-  args: { campaignId: string; userId: string; kind: BatchKind; max?: number },
+  args: { campaignId: string; userId: string; kind: BatchKind; max?: number; /** Set by the daily run: send only inside the campaign's sending window. A person pressing the button is never held back. */ respectWindow?: boolean },
   deps: Deps = {},
 ): Promise<BatchResult> {
   const now = deps.now ?? Date.now;
@@ -207,6 +207,11 @@ export async function sendBatch(
   }
   if (args.kind === 'followup' && !campaign.startedAt) {
     return empty({ aborted: 'not_started', message: 'Run the campaign before sending follow-ups.' });
+  }
+
+  if (args.respectWindow) {
+    const w = sequenceOf(campaign) ?? DEFAULT_WINDOW;
+    if (!inSendWindow(w, now())) return empty({ aborted: 'outside_window', message: 'Outside the sending window; nothing was sent.' });
   }
 
   const mailbox = deps.mailbox === undefined ? await loadMailbox(args.userId) : deps.mailbox;
@@ -297,6 +302,7 @@ export async function sendBatch(
       pixelUrl: `${appUrl}/api/oc/open/${lead.token}`,
       trackLink: (url) => trackedLink(appUrl, lead.token, url),
       whatsappActions: seq?.whatsappActions,
+      link: seq?.brief?.offerUrl,
       originalSubject: renderTemplate(campaign.subject, input),
     });
     try {
@@ -355,7 +361,7 @@ export async function sendBatch(
 /** One real-looking email to the user themselves, so they can check the wording and that their mailbox works. */
 export async function sendTestEmail(
   userId: string,
-  args: { campaign: { subject: string; body: string }; to: string; originalSubject?: string; whatsappActions?: Array<{ label: string; message: string }> },
+  args: { campaign: { subject: string; body: string }; to: string; originalSubject?: string; link?: string; whatsappActions?: Array<{ label: string; message: string }> },
   deps: Deps = {},
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const mailbox = deps.mailbox === undefined ? await loadMailbox(userId) : deps.mailbox;
@@ -365,7 +371,7 @@ export async function sendTestEmail(
     subject: args.campaign.subject, body: args.campaign.body, sender: mailbox.sender,
     lead: { email: args.to, name: 'Alex Sample', business: 'Sample Business' },
     unsubscribeUrl: `${appUrl}/api/oc/unsubscribe?t=preview`,
-    whatsappActions: args.whatsappActions,
+    whatsappActions: args.whatsappActions, link: args.link,
     ...(args.originalSubject ? { originalSubject: renderTemplate(args.originalSubject, { email: args.to, name: 'Alex Sample', business: 'Sample Business' }) } : {}),
   });
   try {

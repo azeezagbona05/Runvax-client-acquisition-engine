@@ -37,6 +37,8 @@ export interface CampaignBrief {
   market?: string;
   /** Channels the user wants. Only email sends today. */
   channels?: string[];
+  /** The one page the emails send people to (offer page, booking or payment page). https only. Written into emails ONLY through the {{link}} placeholder, so no AI text can add or change a URL. */
+  offerUrl?: string;
 }
 
 export type Conversion = 'demo_booking' | 'sales_enquiry' | 'product_purchase' | 'viewing' | 'general_enquiry';
@@ -49,6 +51,14 @@ export const CONVERSIONS: Array<{ id: Conversion; label: string }> = [
 ];
 const CONV_IDS = CONVERSIONS.map((c) => c.id);
 const CHANNEL_IDS = ['email', 'whatsapp', 'sms', 'linkedin'];
+
+/** An https address of at most 200 characters, or undefined. Anything else (http, javascript:, spaces, credentials) is refused. */
+export function cleanOfferUrl(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim();
+  if (!t || t.length > 200 || /\s/.test(t)) return undefined;
+  try { const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`); return u.protocol === 'https:' && !u.username && !u.password && u.hostname.includes('.') ? u.toString() : undefined; } catch { return undefined; }
+}
 
 export const emptyBrief = (): CampaignBrief => ({ name: '', objective: 'book_meetings', offer: '', offerSummary: '', features: [], audience: '', goal: '', signOff: '' });
 
@@ -73,6 +83,7 @@ export function sanitizeBrief(raw: unknown): CampaignBrief {
     ...(typeof r.templateId === 'string' && /^[a-z0-9_-]{1,60}$/i.test(r.templateId) ? { templateId: r.templateId } : {}),
     ...(CONV_IDS.includes(r.conversion as Conversion) ? { conversion: r.conversion as Conversion } : {}),
     ...(line(r.market, 120) ? { market: line(r.market, 120) } : {}),
+    ...(cleanOfferUrl(r.offerUrl) ? { offerUrl: cleanOfferUrl(r.offerUrl) } : {}),
     ...(Array.isArray(r.channels) ? { channels: r.channels.filter((c): c is string => typeof c === 'string' && CHANNEL_IDS.includes(c)).slice(0, 4) } : {}),
   };
 }
